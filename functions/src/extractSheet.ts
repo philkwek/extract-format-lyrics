@@ -4,7 +4,9 @@ import { isChord } from './chords.js'
 
 export interface RawExtractedLine {
   kind: 'lyric' | 'chords-only'
-  content: string
+  chordLine?: string | null
+  lyricLine?: string | null
+  content?: string | null
 }
 
 export interface RawExtractedSection {
@@ -73,9 +75,23 @@ export const songSelectResponseSchema = {
                     type: Type.OBJECT,
                     properties: {
                       kind: { type: Type.STRING, enum: ['lyric', 'chords-only'] },
-                      content: { type: Type.STRING },
+                      chordLine: {
+                        type: Type.STRING,
+                        description:
+                          'The line of chords, strictly preserving exact horizontal spaces/padding matching the sheet (e.g. "F#m7           E                                 D2").',
+                      },
+                      lyricLine: {
+                        type: Type.STRING,
+                        description:
+                          'The line of lyrics, strictly preserving all leading spaces where chords play before lyrics begin (e.g. "       Heaven is trembling in awe of Your wonders") and intra-word spaces ("a - way").',
+                      },
+                      content: {
+                        type: Type.STRING,
+                        description:
+                          'For chords-only / instrumental bars (e.g. "| A | A | Bm7 | Bm7 |") or fallback text.',
+                      },
                     },
-                    required: ['kind', 'content'],
+                    required: ['kind'],
                   },
                 },
               },
@@ -92,44 +108,87 @@ export const songSelectResponseSchema = {
 
 export const SONGSELECT_SYSTEM_PROMPT = `
 You are an expert music chart transcriber specializing in SongSelect (CCLI) chord charts.
-Your job is to transcribe the provided sheet document or images with 100% layout and musical fidelity.
+Your job is to transcribe the provided sheet document or images with 100% layout, whitespace, and musical timing fidelity.
 
 CRITICAL RULES FOR SONGSELECT FORMAT:
-1. TWO-COLUMN LAYOUT: SongSelect chord charts are strictly formatted in two vertical columns per page.
+
+1. TWO-COLUMN LAYOUT:
+   - SongSelect chord charts are strictly formatted in two vertical columns per page.
    - You MUST read Column 1 completely from top-to-bottom first.
    - Then read Column 2 completely from top-to-bottom.
    - NEVER read horizontally across columns or interleave lines between Column 1 and Column 2!
-2. MULTI-PAGE SONGS:
-   - If a song spans multiple pages (e.g. Page 2 has '[Song Title] - 2' or 'Page 2 of 2' and does not have a new author/key header), combine its sections in reading order into that single song.
-3. MULTI-SONG PACKETS:
-   - If a new song begins (new Title, new 'Words and Music by...', new Key, or new CCLI Song #), output it as a new distinct entry in the 'songs' array.
-4. BRACKETED CHORD NOTATION:
-   - For lyric lines with chords printed above, embed each chord in square brackets immediately preceding the syllable it belongs to.
-     Example: "[G]Amazing [C/E]grace how [G]sweet the sound"
-   - Do NOT place chords on their own line if they sit above lyrics.
-5. CHORDS-ONLY / INSTRUMENTALS:
-   - For lines that contain only chord progressions, bar lines, or timing slashes (like Intros, Interludes, Instrumentals, Outros), mark kind: 'chords-only' and put the chord tokens in content (e.g. '| G / / / | C / / / |' or 'G C Em D').
-6. METADATA EXTRACTION:
-   - Extract 'title' accurately.
-   - Extract 'artist' from 'Words and Music by...'.
-   - Extract 'originalKey' (e.g. 'G', 'D', 'Bb', 'Am', etc.).
-   - Extract 'tempo' (e.g. '72 bpm') and 'ccliNumber' if present.
-7. STRIP NOISE:
-   - Omit copyright notices, license disclaimers, page numbering, and CCLI website footers.
+
+2. PRESERVE WHITESPACE & MUSICAL TIMING (CRITICAL):
+   - In SongSelect charts, horizontal whitespace represents musical timing:
+     * LEADING SPACES IN LYRICS: When a chord is played on beat 1 before vocals enter (e.g. 'F#m7' plays on beat 1, and after a pause the vocals enter: 'Heaven is trembling...'), you MUST include the leading whitespace in 'lyricLine':
+       Example:
+       chordLine: "F#m7           E                                 D2"
+       lyricLine: "       Heaven is trembling in awe of Your wonders"
+     * INDENTED CHORDS: When chords occur later in a lyric line, pad 'chordLine' with spaces so each chord sits directly above the exact syllable it aligns with:
+       Example:
+       chordLine: "               A2                  E/G#"
+       lyricLine: "Here in Your Presence we are un -      done"
+     * MULTIPLE CHORDS: When multiple chords appear across a phrase (e.g. "Asus           A         Asus          A"), maintain their spaces so they never bunch up together.
+     * SYLLABLES & HYPHENS: Preserve lyric spacing and hyphenation (e.g. "fade a - way", "dis - play", "ev'rything").
+
+3. LINE PAIRING:
+   - For every sung line, output a single item with:
+     * 'kind': 'lyric'
+     * 'chordLine': The chords and spaces above the lyric.
+     * 'lyricLine': The lyrics and spaces below the chords.
+   - If a lyric line has no chords above it, provide 'lyricLine' and leave 'chordLine' blank or null.
+
+4. INSTRUMENTALS & CHORDS-ONLY:
+   - For lines containing only chords, bar lines, or slash timing marks (e.g. Intro, Instrumental, Outro like '| A | A | Bm7 | Bm7 |'):
+     * Set 'kind': 'chords-only'
+     * Put the bar progression in 'content' or 'chordLine'.
+
+5. MULTI-PAGE & MULTI-SONG:
+   - Merge continuation pages (e.g. 'Page 2 of 2' or '[Title] - 2') into the current song in order.
+   - Separate distinct songs if a new header (new Title, Key, CCLI #) appears.
+
+6. METADATA:
+   - Extract 'title', 'artist' (from 'Words and Music by...'), 'originalKey', 'tempo', 'timeSignature', 'ccliNumber'.
+
+7. STRIP FOOTERS:
+   - Omit CCLI license numbers, copyright notices, and page numbers at the bottom of the page.
 `.trim()
 
 /**
- * Parses bracketed notation like "[G]Amazing [C]grace" into the app's Line data model.
+ * Extracts chords and their exact character positions from a spaced chord line.
+ * Preserves the exact visual alignment above lyrics.
+ */
+export function extractChordsFromSpacedLine(chordLine: string): ChordPlacement[] {
+  const chords: ChordPlacement[] = []
+  const regex = /\S+/g
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(chordLine)) !== null) {
+    const rawToken = match[0]
+    // Strip trailing or leading punctuation/bars/parentheses (e.g. '|', '(', ')')
+    const cleanToken = rawToken.replace(/^[|:()[\]]+|[|:()[\]]+$/g, '')
+    if (cleanToken && isChord(cleanToken)) {
+      const innerOffset = rawToken.indexOf(cleanToken)
+      chords.push({
+        pos: match.index + (innerOffset >= 0 ? innerOffset : 0),
+        chord: cleanToken,
+      })
+    }
+  }
+
+  return chords
+}
+
+/**
+ * Parses bracketed notation like "[G]Amazing [C]grace" into the app's Line data model (fallback).
  */
 export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content: string): Line {
   if (kind === 'chords-only') {
-    // Extract chord tokens
     const tokens = content.match(/[A-G][b#]?(?:maj|min|m|M|sus|aug|dim|add|[0-9])*(?:\/[A-G][b#]?)?/g) || []
     const validChords = tokens.filter((t) => isChord(t))
     if (validChords.length > 0) {
       return { kind: 'chords-only', chords: validChords }
     }
-    // Fallback if no valid chord recognized
     return { kind: 'chords-only', chords: content.trim() ? [content.trim()] : [] }
   }
 
@@ -164,6 +223,50 @@ export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content:
 }
 
 /**
+ * Converts a raw extracted line into the app's Line data model.
+ * Prioritizes spaced chordLine + lyricLine to preserve timing and whitespace.
+ */
+export function rawLineToModelLine(line: RawExtractedLine): Line {
+  if (line.kind === 'chords-only') {
+    const rawText = line.content || line.chordLine || ''
+    const tokens = rawText.match(/[A-G][b#]?(?:maj|min|m|M|sus|aug|dim|add|[0-9])*(?:\/[A-G][b#]?)?/g) || []
+    const validChords = tokens.filter((t) => isChord(t))
+    if (validChords.length > 0) {
+      return { kind: 'chords-only', chords: validChords }
+    }
+    return { kind: 'chords-only', chords: rawText.trim() ? [rawText.trim()] : [] }
+  }
+
+  // Spaced chordLine and lyricLine mode (preserves exact timing whitespace)
+  if (line.chordLine !== undefined || line.lyricLine !== undefined) {
+    const chordLine = line.chordLine || ''
+    const lyricLine = line.lyricLine || ''
+
+    if (!chordLine.trim()) {
+      return { kind: 'lyric', text: lyricLine, chords: [] }
+    }
+
+    const chords = extractChordsFromSpacedLine(chordLine)
+
+    // Ensure lyric text is padded if chords extend beyond the lyrics
+    let text = lyricLine
+    const maxChordPos = chords.reduce((max, c) => Math.max(max, c.pos + c.chord.length), 0)
+    if (maxChordPos > text.length) {
+      text = text.padEnd(maxChordPos, ' ')
+    }
+
+    return {
+      kind: 'lyric',
+      text,
+      chords,
+    }
+  }
+
+  // Fallback to bracketed format if content provided
+  return bracketedLineToModelLine('lyric', line.content || '')
+}
+
+/**
  * Transforms the raw Gemini extraction result into full Song objects compatible with the application.
  */
 export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], sourceLabel = 'SongSelect Upload'): Song[] {
@@ -173,7 +276,7 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
     const sections: Section[] = (raw.sections || []).map((s) => ({
       type: s.type || 'Other',
       label: s.label || s.type || 'Section',
-      lines: (s.lines || []).map((l) => bracketedLineToModelLine(l.kind, l.content)),
+      lines: (s.lines || []).map((l) => rawLineToModelLine(l)),
     }))
 
     return {
@@ -189,7 +292,7 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
 }
 
 /**
- * Extracts SongSelect songs from uploaded PDF or image files using Gemini 2.0 Flash.
+ * Extracts SongSelect songs from uploaded PDF or image files using Gemini Flash-Lite.
  */
 export async function extractSongsWithGemini(
   files: SheetFilePart[],
@@ -213,7 +316,7 @@ export async function extractSongsWithGemini(
   )
 
   contentsParts.push({
-    text: 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions.',
+    text: 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving horizontal spacing and timing.',
   })
 
   const response = await ai.models.generateContent({
