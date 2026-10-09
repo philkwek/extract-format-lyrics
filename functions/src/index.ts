@@ -12,5 +12,9 @@ setGlobalOptions({
 })
 
 export const api = onRequest((req, res) => {
+  if (req.method === 'GET' && req.path === '/api/health') {
+    res.status(200).json({ ok: true })
+    return
+  }
   res.status(404).json({ error: 'Not found' })
 })
