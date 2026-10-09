@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { splitUrls, validateUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
-import { sessionStore, type SessionSongItem } from '../lib/sessionStore'
+import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 
 interface ImportStatus {
   url: string
@@ -17,6 +17,29 @@ export default function HomePage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [statuses, setStatuses] = useState<ImportStatus[]>([])
   const [generalError, setGeneralError] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<Session[]>([])
+
+  useEffect(() => {
+    sessionStore.getAllSessions().then(setSessions)
+  }, [])
+
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    await sessionStore.deleteSession(id)
+    const updated = await sessionStore.getAllSessions()
+    setSessions(updated)
+  }
+
+  const handleClearLibrary = async () => {
+    if (window.confirm('Clear all cached songs and sessions?')) {
+      await songCache.clearAll()
+      const all = await sessionStore.getAllSessions()
+      for (const s of all) {
+        await sessionStore.deleteSession(s.id)
+      }
+      setSessions([])
+    }
+  }
 
   const handleExtract = async () => {
     setGeneralError(null)
@@ -126,7 +149,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Paste & Import Form */}
       <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
         <h2 className="text-xl font-bold mb-1">New Song Session</h2>
         <p className="text-sm text-neutral-400 mb-4">
@@ -184,6 +208,56 @@ export default function HomePage() {
                   {s.status === 'pending' && 'Waiting...'}
                   {s.status === 'error' && (s.message || 'Failed')}
                 </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Recent Sessions */}
+      <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Recent Sessions</h2>
+            <p className="text-xs text-neutral-400">Stored locally in your browser.</p>
+          </div>
+          {sessions.length > 0 && (
+            <button
+              onClick={handleClearLibrary}
+              className="text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+            >
+              Clear Library
+            </button>
+          )}
+        </div>
+
+        {sessions.length === 0 ? (
+          <p className="text-sm text-neutral-500 py-3 italic">
+            No saved sessions yet. Paste links above to start one!
+          </p>
+        ) : (
+          <div className="divide-y divide-neutral-800">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                onClick={() => navigate(`/session/${session.id}`)}
+                className="py-3 flex items-center justify-between hover:bg-neutral-800/40 px-2 rounded -mx-2 transition-colors cursor-pointer group"
+              >
+                <div>
+                  <h3 className="text-sm font-medium group-hover:text-amber-400 transition-colors">
+                    {session.name}
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => handleDeleteSession(session.id, e)}
+                  title="Delete session"
+                  className="text-xs text-neutral-500 hover:text-red-400 p-2 transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
