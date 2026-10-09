@@ -11,6 +11,7 @@ import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import TransposeSelector from '../components/TransposeSelector'
+import { getInitialTheme, saveTheme } from '../lib/theme'
 import type { Song } from '../types/song'
 
 export default function SessionPage() {
@@ -25,6 +26,20 @@ export default function SessionPage() {
   const [songPrefsOverrides, setSongPrefsOverrides] = useState<Map<string, SongDisplayPrefs>>(new Map())
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
+  const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
+
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isDark: boolean }>
+      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
+        setThemeDark(customEvent.detail.isDark)
+      }
+    }
+    window.addEventListener('app_theme_changed', handleThemeChange)
+    return () => {
+      window.removeEventListener('app_theme_changed', handleThemeChange)
+    }
+  }, [])
 
   // Song index from ?song= query param, default 0
   const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
@@ -54,13 +69,17 @@ export default function SessionPage() {
 
   const prefs = useMemo(() => {
     if (!currentSong) {
-      return { columns: 1 as const, fontSizePx: 14, darkMode: true }
+      return { columns: 1 as const, fontSizePx: 14, darkMode: themeDark }
     }
     const override = songPrefsOverrides.get(currentSong.id)
-    return override ?? getSongPrefs(currentSong.id)
-  }, [currentSong, songPrefsOverrides])
+    const stored = override ?? getSongPrefs(currentSong.id)
+    return { ...stored, darkMode: themeDark }
+  }, [currentSong, songPrefsOverrides, themeDark])
 
   const handleUpdatePrefs = (newPrefs: SongDisplayPrefs) => {
+    if (newPrefs.darkMode !== themeDark) {
+      saveTheme(newPrefs.darkMode)
+    }
     if (currentSong) {
       setSongPrefsOverrides((prev) => new Map(prev).set(currentSong.id, newPrefs))
       saveSongPrefs(currentSong.id, newPrefs)
@@ -236,7 +255,7 @@ export default function SessionPage() {
   return (
     <div className="space-y-4">
       {/* Session Title Bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+      <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
         <div>
           {isEditingName ? (
             <div className="flex items-center gap-2">
@@ -247,7 +266,7 @@ export default function SessionPage() {
                 onBlur={handleSaveRename}
                 onKeyDown={handleKeyDownRename}
                 autoFocus
-                className="bg-neutral-950 border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-100 focus:outline-none"
+                className="bg-white dark:bg-neutral-950 border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-900 dark:text-neutral-100 focus:outline-none"
               />
               <button
                 onClick={handleSaveRename}
@@ -258,30 +277,30 @@ export default function SessionPage() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold">{session.name}</h1>
+              <h1 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">{session.name}</h1>
               <button
                 onClick={handleStartRename}
                 title="Rename set"
-                className="text-xs text-neutral-500 hover:text-amber-400 p-1 cursor-pointer transition-colors"
+                className="text-xs text-neutral-500 hover:text-amber-500 p-1 cursor-pointer transition-colors"
               >
                 ✎
               </button>
             </div>
           )}
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
             {session.songs.length} song(s) in setlist
           </p>
         </div>
         <button
           onClick={() => navigate('/search')}
-          className="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1.5 rounded transition-colors cursor-pointer"
+          className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 px-3 py-1.5 rounded transition-colors cursor-pointer"
         >
           + Add song
         </button>
       </div>
 
       {/* Scrollable Song Tabs */}
-      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 no-scrollbar border-b border-neutral-800">
+      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 no-scrollbar border-b border-neutral-200 dark:border-neutral-800">
         {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
           const song = songsData.get(item.url)
@@ -293,8 +312,8 @@ export default function SessionPage() {
               onClick={() => selectSong(idx)}
               className={`flex items-center space-x-2 px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${
                 isActive
-                  ? 'bg-neutral-800 text-amber-400 border-amber-400'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border-transparent'
+                  ? 'bg-neutral-200 dark:bg-neutral-800 text-amber-600 dark:text-amber-400 border-amber-500'
+                  : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border-transparent'
               }`}
             >
               <span
@@ -313,7 +332,7 @@ export default function SessionPage() {
                     e.stopPropagation()
                     handleRemoveSong(item.url)
                   }}
-                  className="text-neutral-500 hover:text-neutral-300 ml-1"
+                  className="text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300 ml-1"
                 >
                   ×
                 </span>
@@ -327,14 +346,14 @@ export default function SessionPage() {
       {currentItem && (
         <div className="space-y-4">
           {currentItem.status === 'error' ? (
-            <div className="p-6 bg-red-950/20 border border-red-800/40 rounded-xl space-y-3">
-              <h3 className="text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
-              <p className="text-xs font-mono text-neutral-400 break-all">{currentItem.url}</p>
-              <p className="text-xs text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
+            <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
+              <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
+              <p className="text-xs font-mono text-neutral-600 dark:text-neutral-400 break-all">{currentItem.url}</p>
+              <p className="text-xs text-red-600 dark:text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
               <button
                 onClick={() => handleRetry(currentItem)}
                 disabled={retryingUrls.has(currentItem.url)}
-                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-xs font-medium rounded text-neutral-200 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
               >
                 {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
               </button>
@@ -351,7 +370,7 @@ export default function SessionPage() {
 
               {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
               <div className="space-y-2">
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4">
+                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-xs">
                   <TransposeSelector
                     originalKey={displayedSong.originalKey}
                     currentKey={currentKey}
