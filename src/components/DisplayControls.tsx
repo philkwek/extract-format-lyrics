@@ -5,6 +5,8 @@ interface DisplayControlsProps {
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
   fitsNotice?: string | null
   canSimplify?: boolean
+  isModified?: boolean
+  onRestoreOriginal?: () => void
 }
 
 export default function DisplayControls({
@@ -12,6 +14,8 @@ export default function DisplayControls({
   onChangePrefs,
   fitsNotice,
   canSimplify,
+  isModified,
+  onRestoreOriginal,
 }: DisplayControlsProps) {
   return (
     <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 text-xs shadow-xs">
@@ -73,6 +77,19 @@ export default function DisplayControls({
             }`}
           >
             {prefs.simplified ? 'Simplified Chords ✓' : 'Simplify Chords'}
+          </button>
+        </div>
+      )}
+
+      {/* Restore to original button */}
+      {isModified && onRestoreOriginal && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRestoreOriginal}
+            className="px-3 py-1 rounded font-medium transition-colors cursor-pointer border border-amber-500/50 bg-neutral-100 dark:bg-[#101010] text-amber-600 dark:text-amber-400 hover:bg-neutral-200 dark:hover:bg-[#252525]"
+            title="Restore deleted sections to original"
+          >
+            ↺ Restore Original Sheet
           </button>
         </div>
       )}

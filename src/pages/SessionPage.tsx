@@ -21,6 +21,7 @@ export default function SessionPage() {
 
   const [session, setSession] = useState<Session | null>(null)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
+  const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
   const [targetKeys, setTargetKeys] = useState<Map<string, string>>(new Map())
   const [songPrefsOverrides, setSongPrefsOverrides] = useState<Map<string, SongDisplayPrefs>>(new Map())
@@ -52,15 +53,25 @@ export default function SessionPage() {
 
       // Load cached song data for successful items
       const map = new Map<string, Song>()
+      const origMap = new Map<string, Song>()
       for (const item of s.songs) {
         if (item.status === 'ok') {
           const loaded = await songCache.getSong(item.url)
           if (loaded) {
-            map.set(item.url, loaded)
+            origMap.set(item.url, loaded)
+            let songToUse = loaded
+            if (item.customSections) {
+              songToUse = { ...songToUse, sections: item.customSections }
+            }
+            if (item.customSimplifiedSections && songToUse.simplifiedSections) {
+              songToUse = { ...songToUse, simplifiedSections: item.customSimplifiedSections }
+            }
+            map.set(item.url, songToUse)
           }
         }
       }
       setSongsData(map)
+      setOriginalSongs(origMap)
     })
   }, [sessionId])
 
@@ -176,6 +187,7 @@ export default function SessionPage() {
         await sessionStore.updateSession(updatedSession)
         setSession(updatedSession)
         setSongsData((prev) => new Map(prev).set(item.url, res.song!))
+        setOriginalSongs((prev) => new Map(prev).set(item.url, res.song!))
       } else {
         const errorMsg = res?.message || 'Retry failed'
         const updatedSongs = session.songs.map((s) =>
@@ -210,6 +222,72 @@ export default function SessionPage() {
       if (activeIndex >= updated.songs.length) {
         setSearchParams({ song: Math.max(0, updated.songs.length - 1).toString() })
       }
+    }
+  }
+
+  const originalSong = currentSong ? originalSongs.get(currentSong.sourceUrl) : null
+  const isSheetModified = Boolean(
+    currentSong &&
+    originalSong &&
+    (isSimplified && currentSong.simplifiedSections && originalSong.simplifiedSections
+      ? currentSong.simplifiedSections.length < originalSong.simplifiedSections.length
+      : currentSong.sections.length < originalSong.sections.length)
+  )
+
+  const handleDeleteSection = async (sectionIndex: number) => {
+    if (!currentSong || !session) return
+    const targetSection = activeSections[sectionIndex]
+    const label = targetSection?.label || `Section ${sectionIndex + 1}`
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${label}"?\n\nYou can restore it to the original chord sheet at any time.`
+    )
+    if (!confirmed) return
+
+    const baseSections = isSimplified && currentSong.simplifiedSections
+      ? currentSong.simplifiedSections
+      : currentSong.sections
+    const updatedSections = baseSections.filter((_, idx) => idx !== sectionIndex)
+
+    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
+      ? { ...currentSong, simplifiedSections: updatedSections }
+      : { ...currentSong, sections: updatedSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
+    // Persist custom sections to session so it survives page reloads
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : updatedSections,
+            customSimplifiedSections: isSimplified ? updatedSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleRestoreOriginal = async () => {
+    if (!currentSong || !session) return
+    const confirmed = window.confirm(
+      `Restore "${currentSong.title}" to its original chord sheet? Any deleted sections will be restored.`
+    )
+    if (!confirmed) return
+
+    const orig = originalSongs.get(currentSong.sourceUrl) || (await songCache.getSong(currentSong.sourceUrl))
+    if (orig) {
+      setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, { ...orig }))
+      const updatedSongs = session.songs.map((s) =>
+        s.url === currentSong.sourceUrl
+          ? { ...s, customSections: undefined, customSimplifiedSections: undefined }
+          : s
+      )
+      const updatedSession = { ...session, songs: updatedSongs }
+      await sessionStore.updateSession(updatedSession)
+      setSession(updatedSession)
     }
   }
 
@@ -292,7 +370,7 @@ export default function SessionPage() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/search')}
+          onClick={() => navigate(`/search?session=${session.id}`)}
           className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
         >
           + Add song
@@ -366,6 +444,8 @@ export default function SessionPage() {
                 currentKey={currentKey}
                 offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
                 onResetKey={handleResetKey}
+                isModified={isSheetModified}
+                onRestoreOriginal={handleRestoreOriginal}
               />
 
               {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
@@ -384,6 +464,8 @@ export default function SessionPage() {
                   onChangePrefs={handleUpdatePrefs}
                   fitsNotice={fitResult.notice}
                   canSimplify={canSimplify}
+                  isModified={isSheetModified}
+                  onRestoreOriginal={handleRestoreOriginal}
                 />
               </div>
 
@@ -393,6 +475,7 @@ export default function SessionPage() {
                   sections={displayedSong.sections}
                   fontSizePx={fitResult.fontSizePx}
                   columns={fitResult.columns}
+                  onDeleteSection={handleDeleteSection}
                 />
               </div>
             </div>

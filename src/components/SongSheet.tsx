@@ -4,6 +4,7 @@ interface SongSheetProps {
   sections: Section[]
   fontSizePx?: number
   columns?: 1 | 2 | 3
+  onDeleteSection?: (sectionIndex: number) => void
 }
 
 function renderChordLine(chords: ChordPlacement[], textLength: number) {
@@ -64,7 +65,12 @@ function renderLine(line: Line, key: number) {
   )
 }
 
-export default function SongSheet({ sections, fontSizePx = 14, columns = 1 }: SongSheetProps) {
+export default function SongSheet({
+  sections,
+  fontSizePx = 14,
+  columns = 1,
+  onDeleteSection,
+}: SongSheetProps) {
   const colClass = columns === 3 ? 'columns-3' : columns === 2 ? 'columns-2' : 'columns-1'
 
   return (
@@ -74,11 +80,21 @@ export default function SongSheet({ sections, fontSizePx = 14, columns = 1 }: So
     >
       {sections.map((section, sIdx) => (
         <div key={sIdx} className="section-block mb-6 break-inside-avoid">
-          {section.label && (
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999] border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2">
-              {section.label}
+          <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2">
+            <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999]">
+              {section.label || 'Section'}
             </h3>
-          )}
+            {onDeleteSection && (
+              <button
+                type="button"
+                onClick={() => onDeleteSection(sIdx)}
+                title={`Delete ${section.label || 'this section'}`}
+                className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <div className="space-y-0.5">
             {section.lines.map((line, lIdx) => renderLine(line, lIdx))}
           </div>

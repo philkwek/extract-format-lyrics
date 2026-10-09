@@ -1,4 +1,5 @@
 import { get, set, del } from 'idb-keyval'
+import type { Section } from '../types/song'
 
 export interface SessionSongItem {
   url: string
@@ -6,6 +7,8 @@ export interface SessionSongItem {
   artist?: string
   status: 'ok' | 'error' | 'loading'
   errorMessage?: string
+  customSections?: Section[]
+  customSimplifiedSections?: Section[]
 }
 
 export interface Session {
