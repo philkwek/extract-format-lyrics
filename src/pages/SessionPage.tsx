@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
+import { getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
+import { transposeSong } from '../lib/transpose'
+import { keyOffset, formatOffset } from '../lib/keys'
+import { calculateFitLayout } from '../lib/useFitToScreen'
+import SongHeader from '../components/SongHeader'
+import SongSheet from '../components/SongSheet'
+import DisplayControls from '../components/DisplayControls'
+import TransposeSelector from '../components/TransposeSelector'
 import type { Song } from '../types/song'
 
 export default function SessionPage() {
@@ -13,6 +21,8 @@ export default function SessionPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
+  const [targetKeys, setTargetKeys] = useState<Map<string, string>>(new Map())
+  const [songPrefsOverrides, setSongPrefsOverrides] = useState<Map<string, SongDisplayPrefs>>(new Map())
 
   // Song index from ?song= query param, default 0
   const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
@@ -37,9 +47,82 @@ export default function SessionPage() {
     })
   }, [sessionId])
 
+  const currentItem = session?.songs[activeIndex]
+  const currentSong = currentItem ? songsData.get(currentItem.url) : null
+
+  const prefs = useMemo(() => {
+    if (!currentSong) {
+      return { columns: 1 as const, fontSizePx: 14, darkMode: true }
+    }
+    const override = songPrefsOverrides.get(currentSong.id)
+    return override ?? getSongPrefs(currentSong.id)
+  }, [currentSong, songPrefsOverrides])
+
+  const handleUpdatePrefs = (newPrefs: SongDisplayPrefs) => {
+    if (currentSong) {
+      setSongPrefsOverrides((prev) => new Map(prev).set(currentSong.id, newPrefs))
+      saveSongPrefs(currentSong.id, newPrefs)
+    }
+  }
+
   const selectSong = (index: number) => {
     setSearchParams({ song: index.toString() })
   }
+
+  const handleSelectKey = (newKey: string) => {
+    if (!currentSong) return
+    setTargetKeys((prev) => new Map(prev).set(currentSong.id, newKey))
+  }
+
+  const handleResetKey = () => {
+    if (!currentSong) return
+    setTargetKeys((prev) => {
+      const next = new Map(prev)
+      next.delete(currentSong.id)
+      return next
+    })
+  }
+
+  // Compute transposed song
+  const displayedSong = useMemo(() => {
+    if (!currentSong) return null
+    const targetKey = targetKeys.get(currentSong.id)
+    if (!targetKey || !currentSong.originalKey || targetKey === currentSong.originalKey) {
+      return currentSong
+    }
+    const offset = keyOffset(currentSong.originalKey, targetKey)
+    return transposeSong(currentSong, offset, targetKey)
+  }, [currentSong, targetKeys])
+
+  // Compute effective layout (handling 'fit' mode)
+  const fitResult = useMemo(() => {
+    if (prefs.columns !== 'fit') {
+      return {
+        columns: prefs.columns as 1 | 2 | 3,
+        fontSizePx: prefs.fontSizePx,
+        notice: null,
+      }
+    }
+
+    const availableHeight = window.innerHeight - 240
+    const availableWidth = window.innerWidth
+    const approxLines = currentSong?.sections.reduce((acc, s) => acc + s.lines.length * 2, 0) || 50
+    const approxHeight = approxLines * prefs.fontSizePx * 1.5
+
+    const fit = calculateFitLayout(
+      availableHeight,
+      availableWidth,
+      approxHeight,
+      1,
+      prefs.fontSizePx
+    )
+
+    return {
+      columns: fit.columns,
+      fontSizePx: fit.fontSizePx,
+      notice: fit.fitsOnScreen ? null : 'Song exceeds screen height; minimum readable size applied.',
+    }
+  }, [prefs.columns, prefs.fontSizePx, currentSong])
 
   const handleRetry = async (item: SessionSongItem) => {
     if (!session || retryingUrls.has(item.url)) return
@@ -104,8 +187,10 @@ export default function SessionPage() {
     )
   }
 
-  const currentItem = session.songs[activeIndex]
-  const currentSong = currentItem ? songsData.get(currentItem.url) : null
+  const currentKey = currentSong ? targetKeys.get(currentSong.id) || currentSong.originalKey : null
+  const offset = currentSong && currentSong.originalKey && currentKey
+    ? keyOffset(currentSong.originalKey, currentKey)
+    : 0
 
   return (
     <div className="space-y-4">
@@ -119,7 +204,7 @@ export default function SessionPage() {
         </div>
         <button
           onClick={() => navigate('/search')}
-          className="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1.5 rounded transition-colors"
+          className="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1.5 rounded transition-colors cursor-pointer"
         >
           + Add song
         </button>
@@ -142,7 +227,6 @@ export default function SessionPage() {
                   : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border-transparent'
               }`}
             >
-              {/* Status dot */}
               <span
                 className={`w-2 h-2 rounded-full ${
                   item.status === 'ok'
@@ -169,9 +253,9 @@ export default function SessionPage() {
         })}
       </div>
 
-      {/* Main Tab Content */}
+      {/* Main Song Content */}
       {currentItem && (
-        <div>
+        <div className="space-y-4">
           {currentItem.status === 'error' ? (
             <div className="p-6 bg-red-950/20 border border-red-800/40 rounded-xl space-y-3">
               <h3 className="text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
@@ -180,18 +264,51 @@ export default function SessionPage() {
               <button
                 onClick={() => handleRetry(currentItem)}
                 disabled={retryingUrls.has(currentItem.url)}
-                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-xs font-medium rounded text-neutral-200 transition-colors"
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-xs font-medium rounded text-neutral-200 transition-colors cursor-pointer"
               >
                 {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
               </button>
             </div>
-          ) : currentSong ? (
-            <div className="text-xs text-neutral-500">
-              Song loaded: <span className="text-neutral-200 font-medium">{currentSong.title}</span> by {currentSong.artist}
+          ) : displayedSong ? (
+            <div className="space-y-4">
+              {/* Header with Title, Artist, Original Key Badge */}
+              <SongHeader
+                song={displayedSong}
+                currentKey={currentKey}
+                offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
+                onResetKey={handleResetKey}
+              />
+
+              {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
+              <div className="space-y-2">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4">
+                  <TransposeSelector
+                    originalKey={displayedSong.originalKey}
+                    currentKey={currentKey}
+                    onSelectKey={handleSelectKey}
+                    onReset={handleResetKey}
+                  />
+                </div>
+
+                <DisplayControls
+                  prefs={prefs}
+                  onChangePrefs={handleUpdatePrefs}
+                  fitsNotice={fitResult.notice}
+                />
+              </div>
+
+              {/* Song Sheet Rendered with Columns and Monospace Offsets */}
+              <div className="pt-2">
+                <SongSheet
+                  sections={displayedSong.sections}
+                  fontSizePx={fitResult.fontSizePx}
+                  columns={fitResult.columns}
+                />
+              </div>
             </div>
           ) : (
             <div className="py-8 text-center text-xs text-neutral-500 animate-pulse">
-              Loading song data...
+              Loading song sheet...
             </div>
           )}
         </div>
