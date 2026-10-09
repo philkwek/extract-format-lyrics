@@ -17,6 +17,13 @@ interface SongSheetProps {
   onChordSelect?: (sectionIndex: number, lineIndex: number, chordIndex: number) => void
   /** Chord currently selected for repositioning; rendered highlighted. */
   selectedChord?: { sectionIndex: number; lineIndex: number; chordIndex: number } | null
+  /** Called when the user clicks 'Edit Position' from within the chord keyboard modal */
+  onStartEditPosition?: (target: {
+    sectionIndex: number
+    lineIndex: number
+    chordIndex: number
+    chord: string
+  }) => void
 }
 
 interface EditingChordTarget {
@@ -185,6 +192,7 @@ export default function SongSheet({
   onDeleteChord,
   onChordSelect,
   selectedChord,
+  onStartEditPosition,
 }: SongSheetProps) {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -435,7 +443,7 @@ export default function SongSheet({
                           ? line.kind === 'lyric'
                             ? (s, l, c) => onChordSelect(s, l, c)
                             : undefined
-                          : isEditingChords && (onEditChord || onDeleteChord)
+                          : !selectedChord && isEditingChords && (onEditChord || onDeleteChord)
                           ? handleOpenEditChord
                           : undefined,
                         selectedChord &&
@@ -461,6 +469,19 @@ export default function SongSheet({
           onSave={handleSaveChord}
           onDelete={handleDeleteChord}
           onCancel={() => setEditingChord(null)}
+          onEditPosition={
+            onStartEditPosition && editingChord.lyricContext !== undefined
+              ? () => {
+                  onStartEditPosition({
+                    sectionIndex: editingChord.sectionIndex,
+                    lineIndex: editingChord.lineIndex,
+                    chordIndex: editingChord.chordIndex,
+                    chord: editingChord.currentChord,
+                  })
+                  setEditingChord(null)
+                }
+              : undefined
+          }
         />
       )}
     </div>

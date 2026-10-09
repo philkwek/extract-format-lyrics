@@ -14,6 +14,7 @@ interface ChordKeyboardProps {
   onSave: (newChord: string) => void
   onDelete: () => void
   onCancel: () => void
+  onEditPosition?: () => void
 }
 
 const ROOT_NOTES = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
@@ -58,6 +59,7 @@ export default function ChordKeyboard({
   onSave,
   onDelete,
   onCancel,
+  onEditPosition,
 }: ChordKeyboardProps) {
   const [chord, setChord] = useState(initialChord)
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
@@ -350,17 +352,30 @@ export default function ChordKeyboard({
           </div>
         </div>
 
-        {/* Modal Action Buttons: Delete Chord, Cancel, Save */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-[#282828]">
-          <button
-            type="button"
-            onClick={onDelete}
-            className="text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Cancel out / remove this chord"
-          >
-            <span>🗑️</span>
-            <span>Delete chord</span>
-          </button>
+        {/* Modal Action Buttons: Delete Chord, Edit Position, Cancel, Save */}
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-[#282828] gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onDelete}
+              className="text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Cancel out / remove this chord"
+            >
+              <span>🗑️</span>
+              <span>Delete chord</span>
+            </button>
+            {onEditPosition && (
+              <button
+                type="button"
+                onClick={onEditPosition}
+                className="text-xs text-neutral-700 dark:text-[#d4d4d4] hover:bg-neutral-100 dark:hover:bg-[#252525] px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer border border-neutral-200 dark:border-[#2e2e2e] flex items-center gap-1.5"
+                title="Adjust chord position over lyrics"
+              >
+                <span>↔</span>
+                <span>Edit Position</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <button

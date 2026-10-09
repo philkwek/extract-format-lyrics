@@ -15,9 +15,20 @@ import ArrangeDrawer from '../components/ArrangeDrawer'
 import UploadSheetModal from '../components/UploadSheetModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
 import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
+import { getChordPos, setChordPos } from '../lib/chordNudge'
+import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import type { Song, Section, SharePayload } from '../types/song'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
+
+interface PositioningChordState {
+  sectionIndex: number
+  lineIndex: number
+  chordIndex: number
+  chord: string
+  startPos: number
+  currentPos: number
+}
 
 export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -37,6 +48,7 @@ export default function SessionPage() {
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
+  const [positioningChord, setPositioningChord] = useState<PositioningChordState | null>(null)
   const [isArrangingSongs, setIsArrangingSongs] = useState(false)
   const [showSectionEditTip, setShowSectionEditTip] = useState<boolean>(() => {
     try {
@@ -154,6 +166,7 @@ export default function SessionPage() {
   }
 
   const selectSong = (index: number) => {
+    setPositioningChord(null)
     setSearchParams({ song: index.toString() })
   }
 
@@ -194,6 +207,19 @@ export default function SessionPage() {
     const offset = keyOffset(currentSong.originalKey, targetKey)
     return transposeSong(baseSong, offset, targetKey)
   }, [currentSong, activeSections, targetKeys])
+
+  // Sections rendered on the sheet, incorporating live position draft if positioning a chord
+  const displayedSections = useMemo(() => {
+    if (!displayedSong) return []
+    if (!positioningChord) return displayedSong.sections
+    return setChordPos(
+      displayedSong.sections,
+      positioningChord.sectionIndex,
+      positioningChord.lineIndex,
+      positioningChord.chordIndex,
+      positioningChord.currentPos
+    )
+  }, [displayedSong, positioningChord])
 
   // Compute effective layout (handling 'fit' mode)
   const fitResult = useMemo(() => {
@@ -553,7 +579,92 @@ export default function SessionPage() {
     setSession(updatedSession)
   }
 
+  const handleMoveChord = async (
+    sectionIndex: number,
+    lineIndex: number,
+    chordIndex: number,
+    newPos: number
+  ) => {
+    if (!currentSong || !session) return
+
+    const source =
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+
+    const baseSections = setChordPos(source, sectionIndex, lineIndex, chordIndex, newPos)
+
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: baseSections }
+        : { ...currentSong, sections: baseSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : baseSections,
+            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleStartEditPosition = (target: {
+    sectionIndex: number
+    lineIndex: number
+    chordIndex: number
+    chord: string
+  }) => {
+    if (!currentSong) return
+    const sections =
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+    const pos = getChordPos(sections, target.sectionIndex, target.lineIndex, target.chordIndex)
+    if (pos === null) return
+
+    setPositioningChord({
+      sectionIndex: target.sectionIndex,
+      lineIndex: target.lineIndex,
+      chordIndex: target.chordIndex,
+      chord: target.chord,
+      startPos: pos,
+      currentPos: pos,
+    })
+  }
+
+  const handleNudgePosition = (delta: number) => {
+    if (!positioningChord || !displayedSong) return
+    const line = displayedSong.sections[positioningChord.sectionIndex]?.lines[positioningChord.lineIndex]
+    if (!line || line.kind !== 'lyric') return
+    const maxPos = line.text.length
+    const nextPos = Math.max(0, Math.min(maxPos, positioningChord.currentPos + delta))
+    setPositioningChord((prev) => (prev ? { ...prev, currentPos: nextPos } : null))
+  }
+
+  const handleCancelPosition = () => {
+    setPositioningChord(null)
+  }
+
+  const handleSavePosition = async () => {
+    if (!positioningChord) return
+    await handleMoveChord(
+      positioningChord.sectionIndex,
+      positioningChord.lineIndex,
+      positioningChord.chordIndex,
+      positioningChord.currentPos
+    )
+    setPositioningChord(null)
+  }
+
   const handleRestoreOriginal = async () => {
+    setPositioningChord(null)
     if (!currentSong || !session) return
     const confirmed = window.confirm(
       `Restore "${currentSong.title}" to its original chord sheet? Any custom chord edits or deleted sections will be restored.`
@@ -864,22 +975,45 @@ export default function SessionPage() {
                   canSimplify={canSimplify}
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
-                  onToggleEditChords={() => setIsEditingChords((prev) => !prev)}
+                  onToggleEditChords={() => {
+                    setIsEditingChords((prev) => {
+                      if (prev) {
+                        setPositioningChord(null)
+                      }
+                      return !prev
+                    })
+                  }}
                 />
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
               <div className="pt-1">
                 <SongSheet
-                  sections={displayedSong.sections}
+                  sections={displayedSections}
                   fontSizePx={fitResult.fontSizePx}
                   columns={fitResult.columns}
                   isEditingChords={isEditingChords}
-                  onDeleteSection={handleDeleteSection}
-                  onReorderSections={handleReorderSections}
+                  selectedChord={
+                    positioningChord
+                      ? {
+                          sectionIndex: positioningChord.sectionIndex,
+                          lineIndex: positioningChord.lineIndex,
+                          chordIndex: positioningChord.chordIndex,
+                        }
+                      : null
+                  }
+                  onDeleteSection={(idx) => {
+                    setPositioningChord(null)
+                    handleDeleteSection(idx)
+                  }}
+                  onReorderSections={(from, to) => {
+                    setPositioningChord(null)
+                    handleReorderSections(from, to)
+                  }}
                   onRenameSection={handleRenameSection}
                   onEditChord={handleEditChord}
                   onDeleteChord={handleDeleteChord}
+                  onStartEditPosition={handleStartEditPosition}
                 />
               </div>
             </div>
@@ -962,6 +1096,17 @@ export default function SessionPage() {
         onClose={() => setIsUploadModalOpen(false)}
         onImport={handleImportUploadedSongs}
       />
+
+      {/* Floating Chord Position Adjustment Toolbar */}
+      {positioningChord && (
+        <ChordPositionToolbar
+          chord={positioningChord.chord}
+          onNudgeLeft={() => handleNudgePosition(-1)}
+          onNudgeRight={() => handleNudgePosition(1)}
+          onSave={handleSavePosition}
+          onCancel={handleCancelPosition}
+        />
+      )}
     </div>
   )
 }
