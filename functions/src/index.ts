@@ -3,6 +3,7 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
 import { validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { scrapeSingleUrl } from './scraper.js'
+import { rateLimiter } from './rateLimit.js'
 import type { Song } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -43,6 +44,20 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
+    // IP Rate limit check
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(
+        res,
+        429,
+        'RATE_LIMITED',
+        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
+      )
+      return
+    }
+
     const { urls } = req.body || {}
     if (!urls || !Array.isArray(urls)) {
       sendJsonError(res, 400, 'BAD_REQUEST', 'Body must contain a "urls" array')
@@ -67,10 +82,24 @@ export const api = onRequest(async (req, res) => {
     for (let i = 0; i < valid.length; i += concurrency) {
       const chunk = valid.slice(i, i + concurrency)
       const chunkPromises = chunk.map(async ({ url }): Promise<ScrapeResult> => {
+        const host = new URL(url).hostname
+        const pausedCheck = rateLimiter.isHostPaused(host)
+        if (pausedCheck.paused) {
+          return {
+            url,
+            status: 'error',
+            code: 'HOST_PAUSED',
+            message: `Requests to ${host} temporarily paused due to repeated upstream errors. Try again later.`,
+          }
+        }
+
         try {
           const song = await scrapeSingleUrl(url)
+          rateLimiter.recordHostSuccess(host)
           return { url, status: 'ok', song }
         } catch (err) {
+          const status = (err as { status?: number })?.status
+          rateLimiter.recordHostFailure(host, status)
           const errorCode = (err as { code?: string })?.code || 'SCRAPE_FAILED'
           return {
             url,
