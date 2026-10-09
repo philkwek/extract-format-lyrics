@@ -1,75 +1,73 @@
-# React + TypeScript + Vite
+# Chord & Lyrics Sheet Extractor SPA
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal-use, mobile-first React Single Page Application with Firebase Cloud Functions for scraping, formatting, transposing, and viewing chords and lyrics sheets without scrolling.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Multi-URL Import:** Paste multiple chord-sheet links into a session at once.
+- **Supported Sites:**
+  - Ultimate Guitar (`tabs.ultimate-guitar.com`)
+  - PNW Chords (`pnwchords.com`)
+  - Worship Chords (`worshipchords.com`)
+  - Worship Together (`worshiptogether.com`)
+  - Generic `<pre>` fallback for other chord sheet pages
+- **Offline & Browser Caching:** Scraped songs and setlists persist locally in your browser via IndexedDB (`idb-keyval`). Previously viewed songs load instantly offline.
+- **Accurate Alignment & Sectioning:** Monospace character-aligned chords positioned directly above lyrics; tabs and chord-only sections preserved with `break-inside: avoid-column` styling.
+- **Key Detection & Transposition:** Detects or infers song keys, supports transposition across all 12 keys (major/minor aware with enharmonic spelling), and displays the offset relative to the original key (e.g. `Key: A (original G, +2)`).
+- **Column Modes & "Fit to Screen":** Switch between 1, 2, or 3 columns, or use **Fit Screen** mode to dynamically adapt layout and font size to fit the entire sheet on screen without scrolling.
+- **In-App Search:** Search songs across supported chord sites directly within the application and add candidates to your active session.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Architecture & Security Safeguards
 
-## Expanding the ESLint configuration
+- **Frontend:** React 19, TypeScript, Vite, React Router v7, Tailwind CSS v4.
+- **Backend:** Firebase Cloud Functions (2nd Gen, Node 22, TypeScript, Express routing).
+- **Backend Safeguards:**
+  - `maxInstances: 3` and `minInstances: 0` to prevent runaway cloud costs.
+  - Domain allow-list restricting outbound scraper requests strictly to permitted domains.
+  - SSRF guard resolving DNS and rejecting private/loopback/link-local/cloud metadata IPs.
+  - 10-second request timeout, 2 MB payload size cap, and strict HTML content-type validation.
+  - In-memory IP rate limiter (30 req/min, 300 req/day).
+  - Per-host circuit breaker pausing outbound requests for 10 minutes upon 3 consecutive 403/429 upstream blocks.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Local Development & Emulators
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Prerequisites
+- Node.js 22+
+- npm 10+
+- Firebase CLI (`npm install -g firebase-tools`)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Running the App
+1. Install dependencies:
+   ```bash
+   npm install
+   cd functions && npm install && cd ..
+   ```
 
-```
+2. Start the Cloud Functions emulator:
+   ```bash
+   npm run build --prefix functions
+   firebase emulators:start --only functions --project demo-chords
+   ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+3. In a separate terminal, start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+   The frontend dev server proxies `/api/**` to `http://127.0.0.1:5001/demo-chords/us-central1/api`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+4. Run tests and linting:
+   ```bash
+   npm test
+   npm run lint
+   npm run build
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
 
-```
+## Legal & Terms of Service Notice
+
+This tool is designed strictly for **personal study and performance reference**. Chord sheets and lyrics are copyrighted by their respective songwriters and publishers. Scraped results are stored only within the individual user's browser (IndexedDB) and are not redistributed or republished. Always support songwriters and publishers by purchasing licensed sheet music.
