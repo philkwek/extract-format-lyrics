@@ -230,9 +230,44 @@ export default function SessionPage() {
     currentSong &&
     originalSong &&
     (isSimplified && currentSong.simplifiedSections && originalSong.simplifiedSections
-      ? currentSong.simplifiedSections.length < originalSong.simplifiedSections.length
-      : currentSong.sections.length < originalSong.sections.length)
+      ? JSON.stringify(currentSong.simplifiedSections) !== JSON.stringify(originalSong.simplifiedSections)
+      : JSON.stringify(currentSong.sections) !== JSON.stringify(originalSong.sections))
   )
+
+  const handleReorderSections = async (fromIndex: number, toIndex: number) => {
+    if (!currentSong || !session || fromIndex === toIndex) return
+
+    const baseSections = isSimplified && currentSong.simplifiedSections
+      ? [...currentSong.simplifiedSections]
+      : [...currentSong.sections]
+
+    if (fromIndex < 0 || fromIndex >= baseSections.length || toIndex < 0 || toIndex >= baseSections.length) {
+      return
+    }
+
+    const [movedSection] = baseSections.splice(fromIndex, 1)
+    baseSections.splice(toIndex, 0, movedSection)
+
+    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
+      ? { ...currentSong, simplifiedSections: baseSections }
+      : { ...currentSong, sections: baseSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
+    // Persist reordered sections to session so it survives page reloads
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : baseSections,
+            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
 
   const handleDeleteSection = async (sectionIndex: number) => {
     if (!currentSong || !session) return
@@ -476,6 +511,7 @@ export default function SessionPage() {
                   fontSizePx={fitResult.fontSizePx}
                   columns={fitResult.columns}
                   onDeleteSection={handleDeleteSection}
+                  onReorderSections={handleReorderSections}
                 />
               </div>
             </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 
 interface SongSheetProps {
@@ -5,6 +6,7 @@ interface SongSheetProps {
   fontSizePx?: number
   columns?: 1 | 2 | 3
   onDeleteSection?: (sectionIndex: number) => void
+  onReorderSections?: (fromIndex: number, toIndex: number) => void
 }
 
 function renderChordLine(chords: ChordPlacement[], textLength: number) {
@@ -70,36 +72,100 @@ export default function SongSheet({
   fontSizePx = 14,
   columns = 1,
   onDeleteSection,
+  onReorderSections,
 }: SongSheetProps) {
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const colClass = columns === 3 ? 'columns-3' : columns === 2 ? 'columns-2' : 'columns-1'
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', idx.toString())
+    setDraggedIdx(idx)
+  }
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIdx !== idx) {
+      setDragOverIdx(idx)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault()
+    if (draggedIdx !== null && draggedIdx !== targetIdx && onReorderSections) {
+      onReorderSections(draggedIdx, targetIdx)
+    }
+    setDraggedIdx(null)
+    setDragOverIdx(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null)
+    setDragOverIdx(null)
+  }
 
   return (
     <div
       className={`song-sheet select-text ${colClass}`}
       style={{ fontSize: `${fontSizePx}px` }}
     >
-      {sections.map((section, sIdx) => (
-        <div key={sIdx} className="section-block mb-6 break-inside-avoid">
-          <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2">
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999]">
-              {section.label || 'Section'}
-            </h3>
-            {onDeleteSection && (
-              <button
-                type="button"
-                onClick={() => onDeleteSection(sIdx)}
-                title={`Delete ${section.label || 'this section'}`}
-                className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer"
+      {sections.map((section, sIdx) => {
+        const isDragging = draggedIdx === sIdx
+        const isOver = dragOverIdx === sIdx && draggedIdx !== sIdx
+
+        return (
+          <div
+            key={sIdx}
+            draggable={Boolean(onReorderSections)}
+            onDragStart={(e) => handleDragStart(e, sIdx)}
+            onDragOver={(e) => handleDragOver(e, sIdx)}
+            onDrop={(e) => handleDrop(e, sIdx)}
+            onDragEnd={handleDragEnd}
+            className={`section-block mb-6 break-inside-avoid rounded-lg transition-all ${
+              isDragging ? 'opacity-30 scale-[0.99]' : ''
+            } ${
+              isOver ? 'ring-2 ring-amber-500 bg-amber-500/10 p-2' : ''
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2 select-none group">
+              <div
+                className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing"
+                title={onReorderSections ? 'Drag to reorder section' : undefined}
               >
-                ✕
-              </button>
-            )}
+                {onReorderSections && (
+                  <span
+                    className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none px-0.5"
+                    title="Drag to reorder"
+                  >
+                    ⋮⋮
+                  </span>
+                )}
+                <h3
+                  className="font-mono text-neutral-800 dark:text-[#d4d4d4] font-bold uppercase tracking-wider"
+                  style={{ fontSize: `${fontSizePx}px` }}
+                >
+                  {section.label || 'Section'}
+                </h3>
+              </div>
+              {onDeleteSection && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteSection(sIdx)}
+                  title={`Delete ${section.label || 'this section'}`}
+                  className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="space-y-0.5">
+              {section.lines.map((line, lIdx) => renderLine(line, lIdx))}
+            </div>
           </div>
-          <div className="space-y-0.5">
-            {section.lines.map((line, lIdx) => renderLine(line, lIdx))}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

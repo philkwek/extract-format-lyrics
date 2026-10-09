@@ -49,7 +49,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main className="mx-auto w-[90%] py-4">
+        <main className="mx-auto w-[85%] py-4">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />
