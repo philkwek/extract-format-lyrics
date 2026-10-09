@@ -42,3 +42,34 @@ export async function scrapeApi(urls: string[]): Promise<ApiScrapeResponse> {
 
   return (await res.json()) as ApiScrapeResponse
 }
+
+export interface SearchCandidate {
+  site: string
+  title: string
+  artist: string
+  url: string
+  versionLabel?: string
+  rating?: number
+  type?: string
+}
+
+export interface ApiSearchResponse {
+  query: string
+  results: SearchCandidate[]
+}
+
+export async function searchApi(query: string): Promise<SearchCandidate[]> {
+  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+  if (!res.ok) {
+    let errMsg = `Search failed (${res.status})`
+    try {
+      const data = await res.json()
+      if (data?.error?.message) errMsg = data.error.message
+    } catch {
+      // ignore
+    }
+    throw new Error(errMsg)
+  }
+  const data = (await res.json()) as ApiSearchResponse
+  return data.results
+}
