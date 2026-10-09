@@ -7,6 +7,8 @@ interface DisplayControlsProps {
   canSimplify?: boolean
   isModified?: boolean
   onRestoreOriginal?: () => void
+  isEditingChords?: boolean
+  onToggleEditChords?: () => void
 }
 
 export default function DisplayControls({
@@ -16,6 +18,8 @@ export default function DisplayControls({
   canSimplify,
   isModified,
   onRestoreOriginal,
+  isEditingChords,
+  onToggleEditChords,
 }: DisplayControlsProps) {
   return (
     <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 text-xs shadow-xs">
@@ -81,13 +85,31 @@ export default function DisplayControls({
         </div>
       )}
 
+      {/* Edit Chords Toggle Button */}
+      {onToggleEditChords && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleEditChords}
+            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer border flex items-center gap-1.5 ${
+              isEditingChords
+                ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-xs'
+                : 'bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]'
+            }`}
+            title={isEditingChords ? 'Exit chord editing mode' : 'Click to enable editing or deleting chords'}
+          >
+            <span>✎</span>
+            <span>{isEditingChords ? 'Done Editing Chords' : 'Edit Chords'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Restore to original button */}
       {isModified && onRestoreOriginal && (
         <div className="flex items-center gap-2">
           <button
             onClick={onRestoreOriginal}
             className="px-3 py-1 rounded font-medium transition-colors cursor-pointer border border-amber-500/50 bg-neutral-100 dark:bg-[#101010] text-amber-600 dark:text-amber-400 hover:bg-neutral-200 dark:hover:bg-[#252525]"
-            title="Restore deleted sections to original"
+            title="Restore original chords and sections"
           >
             ↺ Restore Original Sheet
           </button>

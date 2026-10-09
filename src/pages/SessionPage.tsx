@@ -4,7 +4,7 @@ import { sessionStore, type Session, type SessionSongItem } from '../lib/session
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
 import { getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
-import { transposeSong } from '../lib/transpose'
+import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { keyOffset, formatOffset } from '../lib/keys'
 import { calculateFitLayout } from '../lib/useFitToScreen'
 import SongHeader from '../components/SongHeader'
@@ -13,7 +13,7 @@ import DisplayControls from '../components/DisplayControls'
 import TransposeSelector from '../components/TransposeSelector'
 import ShareModal from '../components/ShareModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
-import type { Song, SharePayload } from '../types/song'
+import type { Song, Section, SharePayload } from '../types/song'
 
 export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -32,6 +32,7 @@ export default function SessionPage() {
   const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
+  const [isEditingChords, setIsEditingChords] = useState(false)
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -355,10 +356,132 @@ export default function SessionPage() {
     setSession(updatedSession)
   }
 
+  const handleEditChord = async (
+    sectionIndex: number,
+    lineIndex: number,
+    chordIndex: number,
+    newChord: string
+  ) => {
+    if (!currentSong || !session) return
+
+    // If currently transposed, map edited chord back to original key for base storage
+    let baseChord = newChord
+    const currentKey = targetKeys.get(currentSong.id) || currentSong.originalKey
+    if (currentKey && currentSong.originalKey && currentKey !== currentSong.originalKey) {
+      const offset = keyOffset(currentSong.originalKey, currentKey)
+      if (offset !== 0) {
+        const useFlats = keyUsesFlats(currentSong.originalKey)
+        baseChord = transposeChord(newChord, -offset, useFlats)
+      }
+    }
+
+    const baseSections: Section[] = (
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+    ).map((sec, sIdx) => {
+      if (sIdx !== sectionIndex) return sec
+      return {
+        ...sec,
+        lines: sec.lines.map((ln, lIdx) => {
+          if (lIdx !== lineIndex) return ln
+          if (ln.kind === 'lyric') {
+            return {
+              ...ln,
+              chords: ln.chords.map((c, cIdx) => (cIdx === chordIndex ? { ...c, chord: baseChord } : c)),
+            }
+          }
+          if (ln.kind === 'chords-only') {
+            return {
+              ...ln,
+              chords: ln.chords.map((c, cIdx) => (cIdx === chordIndex ? baseChord : c)),
+            }
+          }
+          return ln
+        }),
+      }
+    })
+
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: baseSections }
+        : { ...currentSong, sections: baseSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : baseSections,
+            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleDeleteChord = async (
+    sectionIndex: number,
+    lineIndex: number,
+    chordIndex: number
+  ) => {
+    if (!currentSong || !session) return
+
+    const baseSections: Section[] = (
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+    ).map((sec, sIdx) => {
+      if (sIdx !== sectionIndex) return sec
+      return {
+        ...sec,
+        lines: sec.lines.map((ln, lIdx) => {
+          if (lIdx !== lineIndex) return ln
+          if (ln.kind === 'lyric') {
+            return {
+              ...ln,
+              chords: ln.chords.filter((_, cIdx) => cIdx !== chordIndex),
+            }
+          }
+          if (ln.kind === 'chords-only') {
+            return {
+              ...ln,
+              chords: ln.chords.filter((_, cIdx) => cIdx !== chordIndex),
+            }
+          }
+          return ln
+        }),
+      }
+    })
+
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: baseSections }
+        : { ...currentSong, sections: baseSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : baseSections,
+            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
   const handleRestoreOriginal = async () => {
     if (!currentSong || !session) return
     const confirmed = window.confirm(
-      `Restore "${currentSong.title}" to its original chord sheet? Any deleted sections will be restored.`
+      `Restore "${currentSong.title}" to its original chord sheet? Any custom chord edits or deleted sections will be restored.`
     )
     if (!confirmed) return
 
@@ -634,6 +757,8 @@ export default function SessionPage() {
                   canSimplify={canSimplify}
                   isModified={isSheetModified}
                   onRestoreOriginal={handleRestoreOriginal}
+                  isEditingChords={isEditingChords}
+                  onToggleEditChords={() => setIsEditingChords((prev) => !prev)}
                 />
               </div>
 
@@ -643,8 +768,11 @@ export default function SessionPage() {
                   sections={displayedSong.sections}
                   fontSizePx={fitResult.fontSizePx}
                   columns={fitResult.columns}
+                  isEditingChords={isEditingChords}
                   onDeleteSection={handleDeleteSection}
                   onReorderSections={handleReorderSections}
+                  onEditChord={handleEditChord}
+                  onDeleteChord={handleDeleteChord}
                 />
               </div>
             </div>
