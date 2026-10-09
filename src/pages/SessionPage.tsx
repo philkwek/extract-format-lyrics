@@ -233,14 +233,6 @@ export default function SessionPage() {
     }
   }
 
-  const originalSong = currentSong ? originalSongs.get(currentSong.sourceUrl) : null
-  const isSheetModified = Boolean(
-    currentSong &&
-    originalSong &&
-    (isSimplified && currentSong.simplifiedSections && originalSong.simplifiedSections
-      ? JSON.stringify(currentSong.simplifiedSections) !== JSON.stringify(originalSong.simplifiedSections)
-      : JSON.stringify(currentSong.sections) !== JSON.stringify(originalSong.sections))
-  )
 
   const handleReorderSections = async (fromIndex: number, toIndex: number) => {
     if (!currentSong || !session || fromIndex === toIndex) return
@@ -488,9 +480,11 @@ export default function SessionPage() {
     )
     if (!confirmed) return
 
-    const orig = originalSongs.get(currentSong.sourceUrl) || (await songCache.getSong(currentSong.sourceUrl))
+    const cached = await songCache.getSong(currentSong.sourceUrl)
+    const orig = cached || originalSongs.get(currentSong.sourceUrl)
     if (orig) {
-      setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, { ...orig }))
+      const freshCopy: Song = JSON.parse(JSON.stringify(orig))
+      setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, freshCopy))
       const updatedSongs = session.songs.map((s) =>
         s.url === currentSong.sourceUrl
           ? { ...s, customSections: undefined, customSimplifiedSections: undefined }
@@ -748,8 +742,6 @@ export default function SessionPage() {
                 currentKey={currentKey}
                 offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
                 onResetKey={handleResetKey}
-                isModified={isSheetModified}
-                onRestoreOriginal={handleRestoreOriginal}
               />
 
               {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
@@ -768,7 +760,6 @@ export default function SessionPage() {
                   onChangePrefs={handleUpdatePrefs}
                   fitsNotice={fitResult.notice}
                   canSimplify={canSimplify}
-                  isModified={isSheetModified}
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
                   onToggleEditChords={() => setIsEditingChords((prev) => !prev)}

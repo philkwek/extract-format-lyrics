@@ -5,8 +5,6 @@ interface SongHeaderProps {
   currentKey: string | null
   offsetDisplay?: string
   onResetKey?: () => void
-  isModified?: boolean
-  onRestoreOriginal?: () => void
 }
 
 export default function SongHeader({
@@ -14,8 +12,6 @@ export default function SongHeader({
   currentKey,
   offsetDisplay,
   onResetKey,
-  isModified,
-  onRestoreOriginal,
 }: SongHeaderProps) {
   const isTransposed = song.originalKey && currentKey && currentKey !== song.originalKey
 
@@ -64,18 +60,6 @@ export default function SongHeader({
               </button>
             )}
           </div>
-        )}
-
-        {/* Restore to Original Sheet Button (when sections were deleted) */}
-        {isModified && onRestoreOriginal && (
-          <button
-            onClick={onRestoreOriginal}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-200 dark:bg-[#1a1a1a] hover:bg-neutral-300 dark:hover:bg-[#252525] border border-amber-500/50 text-xs font-medium text-amber-600 dark:text-amber-400 cursor-pointer transition-colors"
-            title="Restore all deleted sections to original"
-          >
-            <span>↺</span>
-            <span>Restore to original</span>
-          </button>
         )}
       </div>
     </div>

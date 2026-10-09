@@ -5,7 +5,6 @@ interface DisplayControlsProps {
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
   fitsNotice?: string | null
   canSimplify?: boolean
-  isModified?: boolean
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
   onToggleEditChords?: () => void
@@ -17,7 +16,6 @@ export default function DisplayControls({
   onChangePrefs,
   fitsNotice,
   canSimplify,
-  isModified,
   onRestoreOriginal,
   isEditingChords,
   onToggleEditChords,
@@ -119,8 +117,8 @@ export default function DisplayControls({
         </div>
       )}
 
-      {/* Restore to original button */}
-      {isModified && onRestoreOriginal && (
+      {/* Restore to original button (persists always) */}
+      {onRestoreOriginal && (
         <div className="flex items-center gap-2">
           <button
             onClick={onRestoreOriginal}
