@@ -688,7 +688,7 @@ export default function SessionPage() {
 
               {canDrag && (
                 <span
-                  className="text-neutral-400 hover:text-neutral-600 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none -ml-0.5 mr-0.5"
+                  className="text-neutral-400 hover:text-neutral-600 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none mr-1.5"
                   title="Drag tab to reorder"
                 >
                   ⋮⋮
