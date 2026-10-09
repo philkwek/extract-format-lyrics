@@ -5,7 +5,8 @@ import { songCache } from '../lib/songCache'
 import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import ShareModal from '../components/ShareModal'
-import type { SharePayload } from '../types/song'
+import UploadSheetModal from '../components/UploadSheetModal'
+import type { SharePayload, Song } from '../types/song'
 
 interface ImportStatus {
   url: string
@@ -33,6 +34,21 @@ export default function HomePage() {
 
   const [sessions, setSessions] = useState<Session[]>([])
   const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+
+  const handleImportUploadedSongs = async (songs: Song[]) => {
+    for (const song of songs) {
+      await songCache.saveSong(song)
+    }
+    const sessionSongs: SessionSongItem[] = songs.map((s) => ({
+      url: s.sourceUrl,
+      title: s.title,
+      artist: s.artist,
+      status: 'ok',
+    }))
+    const newSession = await sessionStore.createSession(sessionSongs)
+    navigate(`/session/${newSession.id}`)
+  }
 
   useEffect(() => {
     sessionStore.getAllSessions().then(setSessions)
@@ -251,6 +267,15 @@ export default function HomePage() {
             >
               <span>🔍</span>
               <span>Search Songs</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsUploadModalOpen(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 bg-[#3368A0]/10 text-[#255283] hover:bg-[#3368A0]/20 border border-[#3368A0]/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:border-amber-500/30"
+              title="Upload SongSelect chord chart PDF or PNG/JPG images"
+            >
+              <span>📄</span>
+              <span>Upload PDF / Images</span>
             </button>
           </div>
         </div>
@@ -510,6 +535,13 @@ export default function HomePage() {
           onClose={() => setSharingPayload(null)}
         />
       )}
+
+      {/* Upload SongSelect Sheet Modal */}
+      <UploadSheetModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onImport={handleImportUploadedSongs}
+      />
     </div>
   )
 }

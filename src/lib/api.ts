@@ -96,3 +96,34 @@ export async function getShortLinkApi(id: string): Promise<import('../types/song
   return data.payload
 }
 
+export interface ExtractSongsResponse {
+  songs: Song[]
+}
+
+export async function extractSongsApi(
+  files: Array<{ mimeType: string; base64Data: string }>,
+  apiKey?: string
+): Promise<Song[]> {
+  const res = await fetch('/api/extract-sheet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files, apiKey }),
+  })
+
+  if (!res.ok) {
+    let errMsg = `Extraction failed (${res.status})`
+    try {
+      const data = await res.json()
+      if (data?.error?.message) {
+        errMsg = data.error.message
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errMsg)
+  }
+
+  const data = (await res.json()) as ExtractSongsResponse
+  return data.songs
+}
+
