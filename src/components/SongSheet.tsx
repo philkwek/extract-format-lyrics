@@ -3,6 +3,7 @@ import type { Section, Line, ChordPlacement } from '../types/song'
 interface SongSheetProps {
   sections: Section[]
   fontSizePx?: number
+  columns?: 1 | 2 | 3
 }
 
 function renderChordLine(chords: ChordPlacement[], textLength: number) {
@@ -63,9 +64,14 @@ function renderLine(line: Line, key: number) {
   )
 }
 
-export default function SongSheet({ sections, fontSizePx = 14 }: SongSheetProps) {
+export default function SongSheet({ sections, fontSizePx = 14, columns = 1 }: SongSheetProps) {
+  const colClass = columns === 3 ? 'columns-3' : columns === 2 ? 'columns-2' : 'columns-1'
+
   return (
-    <div className="song-sheet select-text" style={{ fontSize: `${fontSizePx}px` }}>
+    <div
+      className={`song-sheet select-text ${colClass}`}
+      style={{ fontSize: `${fontSizePx}px` }}
+    >
       {sections.map((section, sIdx) => (
         <div key={sIdx} className="section-block mb-6 break-inside-avoid">
           {section.label && (

@@ -20,3 +20,25 @@ body {
 .font-sheet {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* CSS Multi-Column layouts */
+.columns-1 {
+  column-count: 1;
+}
+
+.columns-2 {
+  column-count: 2;
+  column-gap: 2rem;
+  column-fill: balance;
+}
+
+.columns-3 {
+  column-count: 3;
+  column-gap: 2rem;
+  column-fill: balance;
+}
+
+.break-inside-avoid {
+  break-inside: avoid-column;
+  page-break-inside: avoid;
+}
