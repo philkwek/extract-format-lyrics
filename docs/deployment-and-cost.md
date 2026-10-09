@@ -40,3 +40,24 @@ If you only want to deploy the frontend:
 ```bash
 firebase deploy --only hosting
 ```
+
+## 5. Automated CI/CD with GitHub Actions
+The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically builds, tests, typechecks, and deploys to Firebase Hosting whenever changes are committed/merged into the `main` branch.
+
+### Required GitHub Secrets & Variables
+To enable automated deployments, navigate to your GitHub repository:
+**Settings** -> **Secrets and variables** -> **Actions**
+
+1. **`FIREBASE_SERVICE_ACCOUNT`** (Secret - Required):
+   - A Google Cloud Service Account key in JSON format.
+   - **How to create:**
+     - Open [Google Cloud Console > IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) for your Firebase project.
+     - Select or create a service account (e.g. `github-action-deployer`).
+     - Grant the **Firebase Hosting Admin** role (and **Cloud Functions Developer** if deploying functions).
+     - Under the **Keys** tab, click **Add Key** > **Create new key** > **JSON**.
+     - Download the JSON file and paste its entire content into the `FIREBASE_SERVICE_ACCOUNT` GitHub secret.
+     *(Alternatively, running `firebase init hosting:github` locally will configure this service account and secret automatically).*
+
+2. **`FIREBASE_PROJECT_ID`** (Secret or Variable - Required):
+   - Your Firebase Project ID (e.g., `my-chords-app`).
+
