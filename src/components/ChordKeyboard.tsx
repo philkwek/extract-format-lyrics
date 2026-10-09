@@ -141,7 +141,7 @@ export default function ChordKeyboard({
                 onClick={() => setMode('simple')}
                 className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
                   mode === 'simple'
-                    ? 'bg-amber-500 text-black font-semibold'
+                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
                     : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
                 }`}
               >
@@ -152,7 +152,7 @@ export default function ChordKeyboard({
                 onClick={() => setMode('advanced')}
                 className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
                   mode === 'advanced'
-                    ? 'bg-amber-500 text-black font-semibold'
+                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
                     : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
                 }`}
               >
@@ -192,7 +192,7 @@ export default function ChordKeyboard({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full font-mono text-xl font-bold text-amber-600 dark:text-amber-400 bg-neutral-50 dark:bg-[#101010] border-2 border-neutral-300 dark:border-[#282828] focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
+            className="w-full font-mono text-xl font-bold text-[#255283] dark:text-amber-400 bg-neutral-50 dark:bg-[#101010] border-2 border-neutral-300 dark:border-[#282828] focus:border-[#3368A0] dark:focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
           />
           {chord && (
             <button
@@ -223,7 +223,7 @@ export default function ChordKeyboard({
                     onClick={() => handleRootClick(note)}
                     className={`py-2 text-sm font-bold rounded-lg transition-all active:scale-95 cursor-pointer border ${
                       isActive
-                        ? 'bg-amber-500 text-black border-amber-500 shadow-xs'
+                        ? 'bg-[#3368A0] text-white border-[#3368A0] shadow-xs dark:bg-amber-500 dark:text-black dark:border-amber-500'
                         : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                     }`}
                   >
@@ -245,7 +245,7 @@ export default function ChordKeyboard({
                 onClick={() => handleAccidentalClick('#')}
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   activeAccidental === '#'
-                    ? 'bg-amber-500 text-black border-amber-500'
+                    ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
                     : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                 }`}
               >
@@ -258,7 +258,7 @@ export default function ChordKeyboard({
                 onClick={() => handleAccidentalClick('b')}
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   activeAccidental === 'b'
-                    ? 'bg-amber-500 text-black border-amber-500'
+                    ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
                     : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                 }`}
               >
@@ -271,7 +271,7 @@ export default function ChordKeyboard({
                 onClick={handleSlashClick}
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   chord.includes('/')
-                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50'
+                    ? 'bg-[#C8DFDB]/60 text-[#1c436b] border-[#66A3BF]/50 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/50'
                     : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                 }`}
                 title="Add slash chord bass note"
@@ -315,7 +315,7 @@ export default function ChordKeyboard({
                       onClick={() => handleQualityClick(q.value)}
                       className={`py-2 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border ${
                         isCurrent
-                          ? 'bg-amber-500 text-black border-amber-500'
+                          ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
                           : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                       }`}
                       title={q.desc}
@@ -337,7 +337,7 @@ export default function ChordKeyboard({
                       onClick={() => handleQualityClick(q.value)}
                       className={`py-1.5 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border truncate ${
                         isCurrent
-                          ? 'bg-amber-500 text-black border-amber-500'
+                          ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
                           : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                       }`}
                     >
@@ -373,7 +373,7 @@ export default function ChordKeyboard({
             <button
               type="button"
               onClick={() => onSave(chord.trim())}
-              className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              className="text-xs bg-[#3368A0] hover:bg-[#255283] text-white font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black"
             >
               Save
             </button>

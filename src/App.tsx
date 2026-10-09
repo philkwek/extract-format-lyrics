@@ -59,18 +59,18 @@ function App() {
   return (
     <BrowserRouter>
       <HashRedirect />
-      <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#101010] dark:text-[#e5e5e5] transition-colors">
-        <header className="flex items-center justify-between border-b border-neutral-200 dark:border-[#282828] px-4 sm:px-[5%] py-3 bg-white/80 dark:bg-[#101010]/90 backdrop-blur sticky top-0 z-30">
-          <Link to="/" className="text-lg font-semibold tracking-tight dark:text-[#e5e5e5] hover:text-amber-500 transition-colors">
+      <div className="min-h-screen bg-[#F2EFE7] text-neutral-900 dark:bg-[#101010] dark:text-[#e5e5e5] transition-colors">
+        <header className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] px-4 sm:px-[5%] py-3 bg-[#F2EFE7]/85 dark:bg-[#101010]/90 backdrop-blur sticky top-0 z-30">
+          <Link to="/" className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-[#e5e5e5] hover:text-[#3368A0] dark:hover:text-amber-500 transition-colors">
             Chord Sheets
           </Link>
           <div className="flex items-center gap-4">
-            <Link to="/search" className="text-sm text-neutral-600 dark:text-[#999999] hover:text-amber-500 transition-colors underline">
+            <Link to="/search" className="text-sm text-neutral-600 dark:text-[#999999] hover:text-[#3368A0] dark:hover:text-amber-500 transition-colors underline">
               Search
             </Link>
             <button
               onClick={toggleTheme}
-              className="p-1.5 px-2.5 rounded-lg border border-neutral-300 dark:border-[#282828] bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-[#e5e5e5] hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors text-xs font-medium cursor-pointer flex items-center gap-1.5"
+              className="p-1.5 px-2.5 rounded-lg border border-[#C8DFDB] dark:border-[#282828] bg-white/80 dark:bg-[#1a1a1a] text-neutral-700 dark:text-[#e5e5e5] hover:bg-[#C8DFDB]/40 dark:hover:bg-[#252525] transition-colors text-xs font-medium cursor-pointer flex items-center gap-1.5 shadow-2xs"
               title="Toggle light / dark mode"
             >
               <span>{isDark ? '🌙' : '☀️'}</span>
@@ -78,7 +78,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main className="mx-auto w-[85%] py-4">
+        <main className="mx-auto w-[90%] pt-2.5 pb-8 sm:pt-3 sm:pb-10">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />

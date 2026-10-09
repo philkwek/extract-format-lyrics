@@ -8,7 +8,6 @@ interface DisplayControlsProps {
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
   onToggleEditChords?: () => void
-  onOpenArrangeSections?: () => void
 }
 
 export default function DisplayControls({
@@ -19,10 +18,9 @@ export default function DisplayControls({
   onRestoreOriginal,
   isEditingChords,
   onToggleEditChords,
-  onOpenArrangeSections,
 }: DisplayControlsProps) {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 text-xs shadow-xs">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 text-xs pt-0 pb-4">
       {/* View Display Controls: Columns & Font size */}
       <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4">
         {/* Column controls */}
@@ -35,7 +33,7 @@ export default function DisplayControls({
                 onClick={() => onChangePrefs({ ...prefs, columns: col })}
                 className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer capitalize ${
                   prefs.columns === col
-                    ? 'bg-amber-500 text-black font-semibold'
+                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
                     : 'text-neutral-600 dark:text-[#999999] hover:text-black dark:hover:text-[#e5e5e5]'
                 }`}
               >
@@ -81,7 +79,7 @@ export default function DisplayControls({
             onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
             className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border flex items-center justify-center gap-1.5 ${
               prefs.simplified
-                ? 'bg-amber-500 text-black border-amber-500 font-bold'
+                ? 'bg-[#3368A0] text-white border-[#3368A0] font-bold dark:bg-amber-500 dark:text-black dark:border-amber-500'
                 : 'bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]'
             }`}
           >
@@ -96,7 +94,7 @@ export default function DisplayControls({
             onClick={onToggleEditChords}
             className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border flex items-center justify-center gap-1.5 ${
               isEditingChords
-                ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-xs'
+                ? 'bg-[#3368A0] text-white border-[#3368A0] font-bold shadow-xs dark:bg-amber-500 dark:text-black dark:border-amber-500'
                 : 'bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]'
             }`}
             title={isEditingChords ? 'Exit chord editing mode' : 'Click to enable editing or deleting chords'}
@@ -106,25 +104,12 @@ export default function DisplayControls({
           </button>
         )}
 
-        {/* Arrange Sections Button */}
-        {onOpenArrangeSections && (
-          <button
-            type="button"
-            onClick={onOpenArrangeSections}
-            className="w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border flex items-center justify-center gap-1.5 bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]"
-            title="Open drawer to reorder or delete sections"
-          >
-            <span>⇅</span>
-            <span>Arrange Sections</span>
-          </button>
-        )}
-
         {/* Restore to original button (persists always) */}
         {onRestoreOriginal && (
           <button
             type="button"
             onClick={onRestoreOriginal}
-            className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border border-amber-500/50 bg-neutral-100 dark:bg-[#101010] text-amber-600 dark:text-amber-400 hover:bg-neutral-200 dark:hover:bg-[#252525] flex items-center justify-center gap-1.5 ${
+            className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border border-[#3368A0]/40 bg-neutral-100 dark:bg-[#101010] text-[#255283] dark:text-amber-400 hover:bg-[#C8DFDB]/30 dark:hover:bg-[#252525] flex items-center justify-center gap-1.5 ${
               canSimplify ? '' : 'col-span-2 sm:col-auto'
             }`}
             title="Restore original chords and sections"
@@ -137,7 +122,7 @@ export default function DisplayControls({
 
       {/* Notice if fit mode couldn't completely avoid scrolling */}
       {fitsNotice && (
-        <div className="w-full text-xs text-amber-800 dark:text-amber-400/90 italic bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded border border-amber-200 dark:border-amber-900/40">
+        <div className="w-full text-xs text-[#1c436b] dark:text-amber-400/90 italic bg-[#C8DFDB]/40 dark:bg-amber-950/20 px-2 py-1 rounded border border-[#66A3BF]/40 dark:border-amber-900/40">
           {fitsNotice}
         </div>
       )}

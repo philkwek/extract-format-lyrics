@@ -91,7 +91,7 @@ export default function ArrangeDrawer({
                   className="flex items-center justify-between gap-3 p-3 bg-neutral-50 dark:bg-[#202020] border border-neutral-200 dark:border-[#282828] rounded-xl transition-all"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-400/10 px-2 py-1 rounded-md shrink-0">
+                    <span className="text-xs font-mono font-bold text-[#255283] dark:text-amber-400 bg-[#C8DFDB]/50 dark:bg-amber-400/10 px-2 py-1 rounded-md shrink-0">
                       {item.badge || `#${idx + 1}`}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -148,7 +148,7 @@ export default function ArrangeDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-xs"
+            className="w-full py-2.5 px-4 bg-[#3368A0] hover:bg-[#255283] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-xs dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black"
           >
             Done
           </button>

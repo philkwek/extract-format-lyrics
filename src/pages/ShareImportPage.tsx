@@ -166,7 +166,7 @@ export default function ShareImportPage() {
           <p className="text-xs text-neutral-600 dark:text-[#999999]">{error}</p>
           <button
             onClick={() => navigate('/')}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
           >
             Return to Home
           </button>

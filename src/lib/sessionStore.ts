@@ -28,6 +28,17 @@ export interface SessionStorageStore {
 
 const defaultStore: SessionStorageStore = { get, set, del }
 
+export function formatDefaultSessionName(date: Date = new Date()): string {
+  const day = date.getDate()
+  const month = date.toLocaleDateString('en-US', { month: 'long' })
+  let hours = date.getHours()
+  const ampm = hours >= 12 ? 'pm' : 'am'
+  hours = hours % 12 || 12
+  const minutes = date.getMinutes()
+  const timeStr = minutes === 0 ? `${hours}${ampm}` : `${hours}${minutes.toString().padStart(2, '0')}${ampm}`
+  return `${day} ${month} ${timeStr} Set`
+}
+
 export class SessionStore {
   private readonly store: SessionStorageStore
 
@@ -48,12 +59,10 @@ export class SessionStore {
   async createSession(songs: SessionSongItem[], name?: string): Promise<Session> {
     const list = await this.getAllSessions()
     const now = Date.now()
-    const dateStr = new Date(now).toLocaleDateString([], { month: 'short', day: 'numeric' })
-    const timeStr = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     const newSession: Session = {
       id: `session_${now}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: now,
-      name: name || `Setlist (${dateStr}, ${timeStr})`,
+      name: name || formatDefaultSessionName(new Date(now)),
       songs,
     }
 
