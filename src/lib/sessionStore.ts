@@ -100,6 +100,25 @@ export class SessionStore {
     await this.updateSession(session)
     return session
   }
+
+  async reorderSongsInSession(sessionId: string, fromIndex: number, toIndex: number): Promise<Session | null> {
+    const session = await this.getSession(sessionId)
+    if (!session) return null
+    if (
+      fromIndex < 0 ||
+      fromIndex >= session.songs.length ||
+      toIndex < 0 ||
+      toIndex >= session.songs.length ||
+      fromIndex === toIndex
+    ) {
+      return session
+    }
+
+    const [moved] = session.songs.splice(fromIndex, 1)
+    session.songs.splice(toIndex, 0, moved)
+    await this.updateSession(session)
+    return session
+  }
 }
 
 export const sessionStore = new SessionStore()

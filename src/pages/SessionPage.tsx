@@ -30,6 +30,8 @@ export default function SessionPage() {
   const [editedName, setEditedName] = useState('')
   const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
   const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
+  const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
+  const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -271,6 +273,52 @@ export default function SessionPage() {
     setSession(updatedSession)
   }
 
+  const handleReorderSongs = async (fromIndex: number, toIndex: number) => {
+    if (!session || fromIndex === toIndex) return
+    if (fromIndex < 0 || fromIndex >= session.songs.length || toIndex < 0 || toIndex >= session.songs.length) return
+
+    const currentActiveUrl = session.songs[activeIndex]?.url
+
+    const updatedSession = await sessionStore.reorderSongsInSession(session.id, fromIndex, toIndex)
+    if (updatedSession) {
+      setSession(updatedSession)
+      if (currentActiveUrl) {
+        const newActiveIndex = updatedSession.songs.findIndex((s) => s.url === currentActiveUrl)
+        if (newActiveIndex >= 0 && newActiveIndex !== activeIndex) {
+          setSearchParams({ song: newActiveIndex.toString() })
+        }
+      }
+    }
+  }
+
+  const handleTabDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', idx.toString())
+    setDraggedSongIdx(idx)
+  }
+
+  const handleTabDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverSongIdx !== idx) {
+      setDragOverSongIdx(idx)
+    }
+  }
+
+  const handleTabDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault()
+    if (draggedSongIdx !== null && draggedSongIdx !== targetIdx) {
+      handleReorderSongs(draggedSongIdx, targetIdx)
+    }
+    setDraggedSongIdx(null)
+    setDragOverSongIdx(null)
+  }
+
+  const handleTabDragEnd = () => {
+    setDraggedSongIdx(null)
+    setDragOverSongIdx(null)
+  }
+
   const handleDeleteSection = async (sectionIndex: number) => {
     if (!currentSong || !session) return
     const targetSection = activeSections[sectionIndex]
@@ -447,24 +495,72 @@ export default function SessionPage() {
       </div>
 
       {/* Scrollable Song Tabs */}
-      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 no-scrollbar border-b border-neutral-200 dark:border-[#282828]">
+      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 pt-1 px-1 no-scrollbar border-b border-neutral-200 dark:border-[#282828] relative">
         {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
           const song = songsData.get(item.url)
           const label = song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
+          const isDragging = draggedSongIdx === idx
+          const isOver = dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
+          const canDrag = session.songs.length > 1
 
           return (
-            <button
-              key={idx}
+            <div
+              key={`${item.url}-${idx}`}
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={0}
+              draggable={canDrag}
+              onDragStart={(e) => handleTabDragStart(e, idx)}
+              onDragOver={(e) => handleTabDragOver(e, idx)}
+              onDrop={(e) => handleTabDrop(e, idx)}
+              onDragEnd={handleTabDragEnd}
               onClick={() => selectSong(idx)}
-              className={`flex items-center space-x-2 px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  selectSong(idx)
+                }
+              }}
+              title={canDrag ? 'Drag to reorder songs in setlist' : undefined}
+              className={`relative flex items-center space-x-1.5 px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-all select-none border-b-2 ${
+                canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+              } ${
+                isDragging ? 'opacity-40 scale-95' : ''
+              } ${
                 isActive
                   ? 'bg-neutral-200 dark:bg-[#1a1a1a] text-amber-600 dark:text-amber-400 border-amber-500'
                   : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] border-transparent'
               }`}
             >
+              {/* Drop insertion indicator line */}
+              {isOver && (
+                draggedSongIdx! < idx ? (
+                  <div className="absolute -right-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <div className="w-0.5 flex-1 bg-amber-500 shadow-xs" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  </div>
+                ) : (
+                  <div className="absolute -left-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <div className="w-0.5 flex-1 bg-amber-500 shadow-xs" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  </div>
+                )
+              )}
+
+              {canDrag && (
+                <span
+                  className="text-neutral-400 hover:text-neutral-600 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none -ml-0.5 mr-0.5"
+                  title="Drag tab to reorder"
+                >
+                  ⋮⋮
+                </span>
+              )}
+
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2 h-2 rounded-full shrink-0 ${
                   item.status === 'ok'
                     ? 'bg-emerald-500'
                     : item.status === 'error'
@@ -474,17 +570,20 @@ export default function SessionPage() {
               />
               <span className="truncate max-w-[140px]">{label}</span>
               {session.songs.length > 1 && (
-                <span
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleRemoveSong(item.url)
                   }}
-                  className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] ml-1"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="Remove song from setlist"
+                  className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] ml-1 p-0.5 leading-none cursor-pointer"
                 >
                   ×
-                </span>
+                </button>
               )}
-            </button>
+            </div>
           )
         })}
       </div>
