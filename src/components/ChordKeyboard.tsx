@@ -6,6 +6,7 @@ import {
   applyQuality,
   applySlash,
 } from '../lib/chordEdit'
+import { isMobileOrTablet } from '../lib/device'
 
 interface ChordKeyboardProps {
   initialChord: string
@@ -63,7 +64,10 @@ export default function ChordKeyboard({
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (inputRef.current) {
+    // Only auto-focus on desktop devices with physical keyboards.
+    // On mobile and iPad devices, auto-focusing summons the virtual on-screen keyboard,
+    // which is unnecessary and obscures the custom chord selector.
+    if (!isMobileOrTablet() && inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
     }
@@ -100,7 +104,9 @@ export default function ChordKeyboard({
 
   const handleClear = () => {
     setChord('')
-    inputRef.current?.focus()
+    if (!isMobileOrTablet()) {
+      inputRef.current?.focus()
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -183,6 +189,9 @@ export default function ChordKeyboard({
             onChange={(e) => setChord(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Chord (e.g. G, C#m7/G#)"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             className="w-full font-mono text-xl font-bold text-amber-600 dark:text-amber-400 bg-neutral-50 dark:bg-[#101010] border-2 border-neutral-300 dark:border-[#282828] focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
           />
           {chord && (
