@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { decodeSharePayload } from '../lib/shareLink'
+import { decodeSharePayload, parseHashPayload } from '../lib/shareLink'
 import { getShortLinkApi, scrapeApi } from '../lib/api'
 import { sessionStore, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
@@ -25,15 +25,21 @@ export default function ShareImportPage() {
         // 1. If shortId provided in route (/s/:shortId), fetch from backend shortlink store
         if (shortId) {
           setProgressMsg('Retrieving setlist link...')
-          payload = await getShortLinkApi(shortId)
+          try {
+            payload = await getShortLinkApi(shortId)
+          } catch (fetchErr) {
+            // Check if fallback payload is present in the hash fragment
+            const fallbackStr = parseHashPayload(window.location.hash)
+            if (fallbackStr) {
+              payload = decodeSharePayload(fallbackStr)
+            }
+            if (!payload) {
+              throw fetchErr
+            }
+          }
         } else {
           // 2. Otherwise read from hash fragment (#... or #share=...)
-          const hash = window.location.hash
-          const shareStr = hash.startsWith('#share=')
-            ? hash.slice(7)
-            : hash.startsWith('#')
-              ? hash.slice(1)
-              : ''
+          const shareStr = parseHashPayload(window.location.hash)
 
           if (!shareStr) {
             throw new Error('No setlist data found in share link.')

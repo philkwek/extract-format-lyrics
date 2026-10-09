@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write src",
     "test": "vitest run --passWithNoTests",
+    "test:functions": "npm run test --prefix functions",
     "preview": "vite preview"
   },
   "dependencies": {

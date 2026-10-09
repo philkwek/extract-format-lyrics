@@ -41,3 +41,26 @@ export function decodeSharePayload(encoded: string): SharePayload | null {
     return null
   }
 }
+
+/**
+ * Safely extracts the base64 share payload from a raw hash string,
+ * accommodating various formats (#..., #/share#..., #share=...).
+ */
+export function parseHashPayload(rawHash: string): string {
+  let s = rawHash
+  if (s.startsWith('#/share#')) {
+    s = s.slice(8)
+  } else if (s.startsWith('#share=')) {
+    s = s.slice(7)
+  } else if (s.startsWith('#')) {
+    s = s.slice(1)
+  }
+  if (s.startsWith('/share#')) {
+    s = s.slice(7)
+  }
+  if (s.startsWith('#')) {
+    s = s.slice(1)
+  }
+  return s
+}
+
