@@ -193,7 +193,8 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
  */
 export async function extractSongsWithGemini(
   files: SheetFilePart[],
-  apiKey?: string
+  apiKey?: string,
+  modelName: string = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'
 ): Promise<Song[]> {
   const resolvedApiKey = apiKey || process.env.GEMINI_API_KEY
   if (!resolvedApiKey) {
@@ -216,7 +217,7 @@ export async function extractSongsWithGemini(
   })
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: modelName,
     contents: contentsParts,
     config: {
       systemInstruction: SONGSELECT_SYSTEM_PROMPT,

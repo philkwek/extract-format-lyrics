@@ -30,7 +30,7 @@ export interface ScrapeResponse {
   invalid: Array<{ input: string; reason: string }>
 }
 
-export const api = onRequest(async (req, res) => {
+export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) => {
   // Handle CORS and preflight
   if (handleCors(req, res)) {
     return
@@ -233,7 +233,7 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
-    const { files, apiKey } = req.body || {}
+    const { files, apiKey, model } = req.body || {}
     if (!files || !Array.isArray(files) || files.length === 0) {
       sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
       return
@@ -257,7 +257,7 @@ export const api = onRequest(async (req, res) => {
     }
 
     try {
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey)
+      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model)
       res.status(200).json({ songs })
       return
     } catch (err) {

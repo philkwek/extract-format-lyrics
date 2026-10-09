@@ -76,7 +76,7 @@ export default function UploadSheetModal({
     try {
       const prepared = await prepareFilesForExtraction(selectedFiles)
 
-      setStatusMessage('Transcribing SongSelect sheet(s) with Gemini 2.0 Flash...')
+      setStatusMessage('Transcribing SongSelect sheet(s) with Gemini...')
       const payloadFiles = prepared.map((p) => ({
         mimeType: p.mimeType,
         base64Data: p.base64Data,
@@ -150,7 +150,7 @@ export default function UploadSheetModal({
             <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
               {extractedSongs
                 ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review and confirm before adding to setlist.`
-                : 'Upload multi-page SongSelect PDFs or PNG/JPG sheet images. Gemini 2.0 Flash extracts lyrics and chords.'}
+                : 'Upload multi-page SongSelect PDFs or PNG/JPG sheet images. Gemini Flash extracts lyrics and chords.'}
             </p>
           </div>
           <button
