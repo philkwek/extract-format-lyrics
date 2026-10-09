@@ -29,12 +29,10 @@ export function formatSetlistLyrics(
       : false
 
     // Determine 1:1 active sections as seen by the musician
-    let activeSections: Section[] = []
-    if (isSimplified && loadedSong?.simplifiedSections && loadedSong.simplifiedSections.length > 0) {
-      activeSections = item.customSimplifiedSections ?? loadedSong.simplifiedSections
-    } else {
-      activeSections = item.customSections ?? loadedSong?.sections ?? []
-    }
+    const activeSections: Section[] =
+      isSimplified && loadedSong?.simplifiedSections && loadedSong.simplifiedSections.length > 0
+        ? (item.customSimplifiedSections ?? loadedSong.simplifiedSections)
+        : (item.customSections ?? loadedSong?.sections ?? [])
 
     if (activeSections.length === 0) continue
 
