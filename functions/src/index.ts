@@ -4,6 +4,9 @@ import { handleCors, sendJsonError } from './limits.js'
 import { validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { scrapeSingleUrl } from './scraper.js'
 import { rateLimiter } from './rateLimit.js'
+import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
+import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
+import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import type { Song } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -121,6 +124,52 @@ export const api = onRequest(async (req, res) => {
       invalid,
     } satisfies ScrapeResponse)
     return
+  }
+
+  // Search endpoint: GET /api/search?q=
+  if (req.path === '/api/search' || req.path === '/search') {
+    if (req.method !== 'GET') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only GET is allowed for /api/search')
+      return
+    }
+
+    const query = String(req.query.q || '').trim()
+    if (!query) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "q" search query parameter')
+      return
+    }
+
+    // IP Rate limit check
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(
+        res,
+        429,
+        'RATE_LIMITED',
+        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
+      )
+      return
+    }
+
+    try {
+      const ugResults = await ultimateGuitarSearchAdapter.search(query)
+      const pnwResults = await pnwChordsSearchAdapter.search(query)
+      const wtResults = await worshipTogetherSearchAdapter.search(query)
+
+      const combined = [...ugResults, ...pnwResults, ...wtResults]
+      // Rank by rating (if present) and limit to top 8 candidates
+      combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      const candidates = combined.slice(0, 8)
+
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
+      res.status(200).json({ query, results: candidates })
+      return
+    } catch (err) {
+      sendJsonError(res, 500, 'SEARCH_FAILED', (err as Error).message || 'Failed to search songs')
+      return
+    }
   }
 
   // 404 for unrouted paths
