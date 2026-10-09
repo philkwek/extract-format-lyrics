@@ -73,3 +73,26 @@ export async function searchApi(query: string): Promise<SearchCandidate[]> {
   const data = (await res.json()) as ApiSearchResponse
   return data.results
 }
+
+export async function createShortLinkApi(payload: import('../types/song').SharePayload): Promise<string> {
+  const res = await fetch('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload }),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to create short link')
+  }
+  const data = await res.json()
+  return data.id
+}
+
+export async function getShortLinkApi(id: string): Promise<import('../types/song').SharePayload> {
+  const res = await fetch(`/api/share/${encodeURIComponent(id)}`)
+  if (!res.ok) {
+    throw new Error('Share link not found or expired')
+  }
+  const data = await res.json()
+  return data.payload
+}
+

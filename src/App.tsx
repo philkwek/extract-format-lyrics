@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
 import SessionPage from './pages/SessionPage'
+import ShareImportPage from './pages/ShareImportPage'
 import { getInitialTheme, saveTheme, applyTheme } from './lib/theme'
 
 function App() {
@@ -54,6 +55,8 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/share" element={<ShareImportPage />} />
+            <Route path="/s/:shortId" element={<ShareImportPage />} />
           </Routes>
         </main>
       </div>

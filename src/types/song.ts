@@ -4,4 +4,6 @@ export type {
   Section,
   SectionType,
   Song,
+  ShareSongItem,
+  SharePayload,
 } from '../../functions/src/types'

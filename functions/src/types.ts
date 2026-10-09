@@ -42,3 +42,19 @@ export interface Song {
   /** Optional simplified version if supported by source (e.g. Ultimate Guitar). */
   simplifiedSections?: Section[]
 }
+
+export interface ShareSongItem {
+  url: string
+  title?: string
+  artist?: string
+  targetKey?: string
+  simplified?: boolean
+  customSections?: Section[]
+  customSimplifiedSections?: Section[]
+}
+
+export interface SharePayload {
+  v: 1
+  name: string
+  songs: ShareSongItem[]
+}

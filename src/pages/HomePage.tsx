@@ -4,6 +4,8 @@ import { splitUrls, validateUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import ShareModal from '../components/ShareModal'
+import type { SharePayload } from '../types/song'
 
 interface ImportStatus {
   url: string
@@ -18,6 +20,7 @@ export default function HomePage() {
   const [statuses, setStatuses] = useState<ImportStatus[]>([])
   const [generalError, setGeneralError] = useState<string | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
+  const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
 
   useEffect(() => {
     sessionStore.getAllSessions().then(setSessions)
@@ -253,6 +256,29 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const validSongs = session.songs
+                        .filter((s) => s.status === 'ok')
+                        .map((s) => ({
+                          url: s.url,
+                          title: s.title,
+                          artist: s.artist,
+                          customSections: s.customSections,
+                          customSimplifiedSections: s.customSimplifiedSections,
+                        }))
+                      setSharingPayload({
+                        v: 1,
+                        name: session.name,
+                        songs: validSongs,
+                      })
+                    }}
+                    title="Share setlist"
+                    className="text-xs text-neutral-400 hover:text-amber-500 dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
+                  >
+                    🔗
+                  </button>
+                  <button
                     onClick={async (e) => {
                       e.stopPropagation()
                       const newName = window.prompt('Rename set:', session.name)
@@ -280,6 +306,15 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Share Modal */}
+      {sharingPayload && (
+        <ShareModal
+          payload={sharingPayload}
+          isOpen={Boolean(sharingPayload)}
+          onClose={() => setSharingPayload(null)}
+        />
+      )}
     </div>
   )
 }

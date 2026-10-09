@@ -11,8 +11,9 @@ import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import TransposeSelector from '../components/TransposeSelector'
+import ShareModal from '../components/ShareModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
-import type { Song } from '../types/song'
+import type { Song, SharePayload } from '../types/song'
 
 export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -28,6 +29,7 @@ export default function SessionPage() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
+  const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -404,12 +406,44 @@ export default function SessionPage() {
             {session.songs.length} song(s) in setlist
           </p>
         </div>
-        <button
-          onClick={() => navigate(`/search?session=${session.id}`)}
-          className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
-        >
-          + Add song
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const validSongs = session.songs
+                .filter((s) => s.status === 'ok')
+                .map((s) => {
+                  const song = songsData.get(s.url)
+                  const targetKey = song ? targetKeys.get(song.id) : undefined
+                  const prefsOverride = song ? songPrefsOverrides.get(song.id) : undefined
+                  return {
+                    url: s.url,
+                    title: s.title,
+                    artist: s.artist,
+                    targetKey: targetKey && song?.originalKey && targetKey !== song.originalKey ? targetKey : undefined,
+                    simplified: prefsOverride?.simplified ?? false,
+                    customSections: s.customSections,
+                    customSimplifiedSections: s.customSimplifiedSections,
+                  }
+                })
+              setSharingPayload({
+                v: 1,
+                name: session.name,
+                songs: validSongs,
+              })
+            }}
+            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+            title="Share setlist via link"
+          >
+            <span>🔗</span>
+            <span>Share</span>
+          </button>
+          <button
+            onClick={() => navigate(`/search?session=${session.id}`)}
+            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
+          >
+            + Add song
+          </button>
+        </div>
       </div>
 
       {/* Scrollable Song Tabs */}
@@ -521,6 +555,15 @@ export default function SessionPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Share Modal */}
+      {sharingPayload && (
+        <ShareModal
+          payload={sharingPayload}
+          isOpen={Boolean(sharingPayload)}
+          onClose={() => setSharingPayload(null)}
+        />
       )}
     </div>
   )

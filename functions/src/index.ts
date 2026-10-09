@@ -7,7 +7,8 @@ import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
-import type { Song } from './types.js'
+import { shortLinkStore } from './shortLinkStore.js'
+import type { Song, SharePayload } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
 setGlobalOptions({
@@ -170,6 +171,44 @@ export const api = onRequest(async (req, res) => {
       sendJsonError(res, 500, 'SEARCH_FAILED', (err as Error).message || 'Failed to search songs')
       return
     }
+  }
+
+  // Short link creation: POST /api/share
+  if (req.path === '/api/share' || req.path === '/share') {
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/share')
+      return
+    }
+
+    const { payload } = req.body || {}
+    if (!payload || !payload.name || !Array.isArray(payload.songs)) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing valid "payload" object with name and songs')
+      return
+    }
+
+    const id = shortLinkStore.save(payload as SharePayload)
+    res.status(200).json({ id })
+    return
+  }
+
+  // Short link lookup: GET /api/share/:id
+  const shareMatch = req.path.match(/^\/(?:api\/)?share\/([a-zA-Z0-9_-]+)$/)
+  if (shareMatch) {
+    if (req.method !== 'GET') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only GET is allowed for /api/share/:id')
+      return
+    }
+
+    const id = shareMatch[1]
+    const payload = shortLinkStore.get(id)
+    if (!payload) {
+      sendJsonError(res, 404, 'NOT_FOUND', 'Share link not found or expired')
+      return
+    }
+
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
+    res.status(200).json({ id, payload })
+    return
   }
 
   // 404 for unrouted paths
