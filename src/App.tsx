@@ -31,7 +31,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-[#101010] dark:text-[#e5e5e5] transition-colors">
-        <header className="flex items-center justify-between border-b border-neutral-200 dark:border-[#282828] px-4 py-3 bg-white/80 dark:bg-[#101010]/90 backdrop-blur sticky top-0 z-30">
+        <header className="flex items-center justify-between border-b border-neutral-200 dark:border-[#282828] px-4 sm:px-[5%] py-3 bg-white/80 dark:bg-[#101010]/90 backdrop-blur sticky top-0 z-30">
           <Link to="/" className="text-lg font-semibold tracking-tight dark:text-[#e5e5e5] hover:text-amber-500 transition-colors">
             Chord Sheets
           </Link>
@@ -49,7 +49,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl p-4">
+        <main className="mx-auto w-[90%] py-4">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />
