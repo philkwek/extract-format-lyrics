@@ -2,8 +2,24 @@ import { GoogleGenAI, Type } from '@google/genai'
 import type { Song, Section, SectionType, Line, ChordPlacement } from './types.js'
 import { isChord } from './chords.js'
 
+export interface RawPositionedWord {
+  text: string
+  /** Left edge, 0-1000 (fraction of page width) */
+  x0: number
+  /** Right edge, 0-1000 */
+  x1: number
+}
+
+export interface RawPositionedChord {
+  chord: string
+  x0: number
+  x1?: number
+}
+
 export interface RawExtractedLine {
   kind: 'lyric' | 'chords-only'
+  words?: RawPositionedWord[] | null
+  positionedChords?: RawPositionedChord[] | null
   chordLine?: string | null
   lyricLine?: string | null
   content?: string | null
@@ -75,18 +91,37 @@ export const songSelectResponseSchema = {
                     type: Type.OBJECT,
                     properties: {
                       kind: { type: Type.STRING, enum: ['lyric', 'chords-only'] },
+                      words: {
+                        type: Type.ARRAY,
+                        description:
+                          'For lyric lines: every printed lyric token left-to-right with its horizontal bounds (0-1000 = fraction of page width). Split words keep separate tokens, e.g. "a", "-", "way".',
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            text: { type: Type.STRING },
+                            x0: { type: Type.NUMBER, description: 'Left edge, 0-1000' },
+                            x1: { type: Type.NUMBER, description: 'Right edge, 0-1000' },
+                          },
+                          required: ['text', 'x0', 'x1'],
+                        },
+                      },
+                      positionedChords: {
+                        type: Type.ARRAY,
+                        description:
+                          'For lyric lines: every chord printed above the lyric with its horizontal bounds (0-1000). Include chords left of the first word (timing rests).',
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            chord: { type: Type.STRING, description: 'e.g. "Asus", "D2", "Bm7", "A/C#"' },
+                            x0: { type: Type.NUMBER, description: 'Left edge, 0-1000' },
+                            x1: { type: Type.NUMBER, description: 'Right edge, 0-1000' },
+                          },
+                          required: ['chord', 'x0', 'x1'],
+                        },
+                      },
                       content: {
                         type: Type.STRING,
-                        description:
-                          'For lyric lines: lyric text with chords in square brackets embedded directly before the syllable they sit above, e.g. "[Asus]Found in Your [A]hands [Asus]fullness of [A]joy". When a chord plays on a beat before lyrics begin, strictly preserve leading whitespace: "[F#m7]       Heaven is [E]trembling". For chords-only: bar line, e.g. "| A | A | Bm7 | Bm7 |".',
-                      },
-                      chordLine: {
-                        type: Type.STRING,
-                        description: 'Optional raw chord line.',
-                      },
-                      lyricLine: {
-                        type: Type.STRING,
-                        description: 'Optional raw lyric line preserving leading spaces.',
+                        description: 'For chords-only lines: bar line, e.g. "| A | A | Bm7 | Bm7 |". Not used for lyric lines.',
                       },
                     },
                     required: ['kind'],
@@ -116,22 +151,17 @@ CRITICAL RULES FOR SONGSELECT FORMAT:
    - Then read Column 2 completely from top-to-bottom.
    - NEVER read horizontally across columns or interleave lines between Column 1 and Column 2!
 
-2. CHORD-TO-SYLLABLE ALIGNMENT (CRITICAL):
-   - In SongSelect, chords are printed directly above specific words and syllables.
-   - Embed each chord in square brackets immediately preceding the exact word or syllable it aligns with:
-     * "[Asus]Found in Your [A]hands [Asus]fullness of [A]joy" (Asus is above Found, A is above hands, Asus is above fullness, A is above joy)
-     * "[Bm7]Every fear suddenly wiped [A/C#]a - [D]way" (Bm7 is above Every, A/C# is above a -, D is above way)
-     * "Here in Your [A]Presence" ('Here in Your' has no chord; A is above Presence)
-     * "Here in Your Presence we are [A2]un -      [E/G#]done" (A2 is above un -, E/G# is above done)
-     * "Here in Your Presence [F#m7]heaven and [E]earth become   [D]one"
-     * "[Asus]All   of my gains now [A]fade [Asus]a - [A]way"
+2. CHORD-TO-WORD ALIGNMENT BY GEOMETRY (CRITICAL):
+   - For every LYRIC line, return 'words' and 'positionedChords' with HORIZONTAL POSITIONS.
+   - Coordinates are integers 0-1000 = left-to-right fraction of the FULL PAGE/IMAGE width (0 = left edge, 1000 = right edge). Use the same scale for every line on the page.
+   - 'words': every printed lyric token in left-to-right order, each with x0 (left edge) and x1 (right edge) of that token as printed. Keep hyphens/dashes of split words ("a", "-", "way") as separate tokens, exactly as printed. Do not merge or drop words.
+   - 'positionedChords': every chord printed on the line directly ABOVE the lyric, each with x0 and x1 (left/right edge of the chord symbol). Superscripts are part of the chord: "A" with superscript "sus" = "Asus", "D" with superscript "2" = "D2", "Bm" with superscript "7" = "Bm7".
+   - Measure x from the actual pixels. Do NOT guess alignment from musical logic. A chord belongs to whichever word is physically beneath it; a chord can be beneath the START of a word, the middle of a word, or a gap.
+   - Never put chords inside the lyric text. Never use bracket syntax. Never use spaces to position anything.
 
-3. INSTRUMENTAL TIMING & LEADING WHITESPACE (CRITICAL):
-   - When a chord plays on beat 1 BEFORE lyrics enter (e.g. In Pre-Chorus: F#m7 plays on beat 1, then an instrumental rest, then 'Heaven is trembling...'):
-     You MUST put the chord at the beginning followed by the leading whitespace to mark the timing rest:
-     Example:
-     content: "[F#m7]       Heaven is [E]trembling in awe of Your [D2]wonders"
-     content: "[F#m7]       The kings and their [E]kingdoms are standing [D2]a - mazed"
+3. INSTRUMENTAL TIMING (CRITICAL):
+   - A chord can be printed to the LEFT of where the lyrics begin (e.g. "F#m7" at far left while "Heaven is trembling" starts further right). Report its true x0/x1 and the true x0 of the first word. Do not move it onto the first word; the app preserves the rest.
+   - A chord can also be printed after the last word or in a gap far from any word. Report its true x position.
 
 4. INSTRUMENTALS & CHORDS-ONLY:
    - For instrumental sections or lines consisting only of chord bars (e.g. Intro, Instrumental like '| A | A | Bm7 | Bm7 |'):
@@ -226,6 +256,87 @@ export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content:
 }
 
 /**
+ * Builds a lyric Line from geometry reported by the vision model.
+ * Each word and chord carries horizontal bounds (0-1000, fraction of page width).
+ * A chord is attached to the last word that starts at/left of the chord's centre.
+ * Chords left of the first word are timing rests: they sit at pos 0 and the
+ * lyric is indented proportionally so the rest is preserved.
+ */
+export function positionedLineToModelLine(
+  words: RawPositionedWord[],
+  chordItems: RawPositionedChord[]
+): Line {
+  const ws = words
+    .filter((w) => w.text && w.text.trim())
+    .map((w) => ({ text: w.text.trim(), x0: w.x0, x1: Math.max(w.x1, w.x0) }))
+    .sort((a, b) => a.x0 - b.x0)
+  const cs = chordItems
+    .filter((c) => c.chord && isChord(c.chord.trim()))
+    .map((c) => ({ chord: c.chord.trim(), x0: c.x0, x1: Math.max(c.x1 ?? c.x0, c.x0) }))
+    .sort((a, b) => a.x0 - b.x0)
+
+  if (ws.length === 0) {
+    return { kind: 'lyric', text: '', chords: cs.map((c, i) => ({ pos: i === 0 ? 0 : 0, chord: c.chord })) }
+  }
+
+  const totalChars = ws.reduce((n, w) => n + w.text.length, 0)
+  const totalWidth = ws.reduce((n, w) => n + (w.x1 - w.x0), 0)
+  const charWidth = totalChars > 0 && totalWidth > 0 ? totalWidth / totalChars : 8
+
+  // Character offset of each word in the joined text (single space separated)
+  const starts: number[] = []
+  let cursor = 0
+  for (const w of ws) {
+    starts.push(cursor)
+    cursor += w.text.length + 1
+  }
+
+  const firstX = ws[0].x0
+  const rests: string[] = []
+  const placed: ChordPlacement[] = []
+  for (const c of cs) {
+    const centre = (c.x0 + c.x1) / 2
+    if (centre < firstX - charWidth * 0.5 && c.x1 <= firstX + charWidth * 0.5) {
+      rests.push(c.chord)
+      continue
+    }
+    let idx = 0
+    for (let i = 0; i < ws.length; i++) if (ws[i].x0 <= centre) idx = i
+    if (centre > ws[idx].x1 && idx + 1 < ws.length) idx += 1
+    placed.push({ pos: starts[idx], chord: c.chord })
+  }
+
+  let text = ws.map((w) => w.text).join(' ')
+  const chords: ChordPlacement[] = []
+
+  if (rests.length > 0) {
+    const restLeft = cs.find((c) => rests.includes(c.chord))?.x0 ?? firstX
+    const restChars = rests.reduce((n, r) => n + r.length + 1, 0)
+    const indent = Math.max(restChars, Math.round((firstX - restLeft) / charWidth))
+    let pos = 0
+    for (const r of rests) {
+      chords.push({ pos, chord: r })
+      pos += r.length + 1
+    }
+    text = ' '.repeat(indent) + text
+    for (const p of placed) chords.push({ ...p, pos: p.pos + indent })
+  } else {
+    chords.push(...placed)
+  }
+
+  // Never let two chords share a position (keeps edit/delete addressable and visible)
+  const seen = new Set<number>()
+  for (const c of chords) {
+    while (seen.has(c.pos)) c.pos += 1
+    seen.add(c.pos)
+  }
+  const maxEnd = chords.reduce((m, c) => Math.max(m, c.pos + c.chord.length), 0)
+  if (maxEnd > text.length) text = text.padEnd(maxEnd, ' ')
+
+  return { kind: 'lyric', text, chords }
+}
+
+/**
  * Converts a raw extracted line into the app's Line data model.
  * Handles bracketed content (prioritized for syllable precision) or spaced chordLine + lyricLine.
  */
@@ -238,6 +349,11 @@ export function rawLineToModelLine(line: RawExtractedLine): Line {
       return { kind: 'chords-only', chords: validChords }
     }
     return { kind: 'chords-only', chords: rawText.trim() ? [rawText.trim()] : [] }
+  }
+
+  // Preferred: geometry-based alignment (words + chords with x positions)
+  if (line.words && line.words.length > 0) {
+    return positionedLineToModelLine(line.words, line.positionedChords || [])
   }
 
   // If bracketed notation is in content, use syllable-bound parsing

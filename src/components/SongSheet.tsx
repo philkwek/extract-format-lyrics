@@ -13,6 +13,10 @@ interface SongSheetProps {
   onRenameSection?: (sectionIndex: number, newLabel: string) => void
   onEditChord?: (sectionIndex: number, lineIndex: number, chordIndex: number, newChord: string) => void
   onDeleteChord?: (sectionIndex: number, lineIndex: number, chordIndex: number) => void
+  /** When set, tapping a lyric-line chord selects it (instead of opening the chord keyboard). */
+  onChordSelect?: (sectionIndex: number, lineIndex: number, chordIndex: number) => void
+  /** Chord currently selected for repositioning; rendered highlighted. */
+  selectedChord?: { sectionIndex: number; lineIndex: number; chordIndex: number } | null
 }
 
 interface EditingChordTarget {
@@ -23,57 +27,75 @@ interface EditingChordTarget {
   lyricContext?: string
 }
 
-function renderChordLine(
+/**
+ * Renders a lyric line as segments. Each chord is stacked directly above the
+ * slice of lyric text it sits over (text.slice(pos, nextPos)), so chord and
+ * lyric share one column and can never drift apart. An empty/whitespace slice
+ * is a rest: the column is at least as wide as the chord plus a gap.
+ */
+function renderLyricSegments(
+  text: string,
   chords: ChordPlacement[],
-  _textLength?: number,
-  onChordClick?: (chordIndex: number, chord: string) => void
+  onChordClick?: (chordIndex: number, chord: string) => void,
+  selectedIndex?: number
 ) {
-  if (chords.length === 0) return null
-
-  // Create an aligned chord line with interactive elements
-  const indexedChords = chords
+  const sorted = chords
     .map((c, originalIndex) => ({ ...c, originalIndex }))
-    .sort((a, b) => a.pos - b.pos)
+    .sort((a, b) => a.pos - b.pos || a.originalIndex - b.originalIndex)
 
-  const elements: React.ReactNode[] = []
-  let cursor = 0
-
-  for (const c of indexedChords) {
-    if (c.pos > cursor) {
-      elements.push(' '.repeat(c.pos - cursor))
-      cursor = c.pos
-    } else if (c.pos < cursor) {
-      elements.push(' ')
-      cursor += 1
-    }
-
-    elements.push(
-      <span
-        key={c.originalIndex}
-        onClick={
-          onChordClick
-            ? (e) => {
-                e.stopPropagation()
-                onChordClick(c.originalIndex, c.chord)
-              }
-            : undefined
-        }
-        title={onChordClick ? 'Click to edit or delete chord' : undefined}
-        className={
-          onChordClick
-            ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
-            : undefined
-        }
-      >
-        {c.chord}
-      </span>
-    )
-    cursor += c.chord.length
+  const segments: { chord?: (typeof sorted)[number]; text: string }[] = []
+  const firstPos = sorted.length > 0 ? Math.min(Math.max(sorted[0].pos, 0), text.length) : text.length
+  if (firstPos > 0 || sorted.length === 0) {
+    segments.push({ text: text.slice(0, firstPos) })
   }
+  sorted.forEach((c, i) => {
+    const start = Math.min(Math.max(c.pos, 0), text.length)
+    const next = sorted[i + 1]
+    const end = next ? Math.min(Math.max(next.pos, start), text.length) : text.length
+    segments.push({ chord: c, text: text.slice(start, end) })
+  })
 
   return (
-    <div className="font-mono text-[#255283] dark:text-amber-400 font-bold leading-none select-none whitespace-pre">
-      {elements}
+    <div className="font-mono whitespace-pre leading-none flex items-end w-max max-w-full">
+      {segments.map((seg, i) => {
+        const c = seg.chord
+        return (
+          <span key={i} className="inline-flex flex-col shrink-0">
+            <span
+              className="text-[#255283] dark:text-amber-400 font-bold select-none min-h-[1em] leading-none pb-0.5"
+              style={c ? { paddingRight: '1ch' } : undefined}
+            >
+              {c ? (
+                <span
+                  onClick={
+                    onChordClick
+                      ? (e) => {
+                          e.stopPropagation()
+                          onChordClick(c.originalIndex, c.chord)
+                        }
+                      : undefined
+                  }
+                  title={onChordClick ? 'Click to edit or delete chord' : undefined}
+                  className={
+                    c.originalIndex === selectedIndex
+                      ? 'cursor-pointer inline-block px-1 -mx-1 rounded bg-[#3368A0] text-white dark:bg-amber-400 dark:text-black ring-2 ring-[#3368A0]/40 dark:ring-amber-400/40'
+                      : onChordClick
+                      ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
+                      : undefined
+                  }
+                >
+                  {c.chord}
+                </span>
+              ) : (
+                ' '
+              )}
+            </span>
+            <span className="text-neutral-800 dark:text-[#d4d4d4] leading-relaxed select-none">
+              {seg.text || ' '}
+            </span>
+          </span>
+        )
+      })}
     </div>
   )
 }
@@ -89,7 +111,8 @@ function renderLine(
     chordIndex: number,
     chord: string,
     lyricContext?: string
-  ) => void
+  ) => void,
+  selectedChordIndex?: number
 ) {
   if (line.kind === 'tab') {
     return (
@@ -137,17 +160,15 @@ function renderLine(
 
   return (
     <div key={key} className="py-1">
-      {renderChordLine(
+      {renderLyricSegments(
+        line.text,
         line.chords,
-        line.text.length,
         onChordClick
           ? (chordIndex, chord) =>
               onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
-          : undefined
+          : undefined,
+        selectedChordIndex
       )}
-      <div className="font-mono text-neutral-800 dark:text-[#d4d4d4] whitespace-pre leading-relaxed select-none">
-        {line.text || ' '}
-      </div>
     </div>
   )
 }
@@ -162,6 +183,8 @@ export default function SongSheet({
   onRenameSection,
   onEditChord,
   onDeleteChord,
+  onChordSelect,
+  selectedChord,
 }: SongSheetProps) {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -408,7 +431,18 @@ export default function SongSheet({
                         lIdx,
                         originalIndex,
                         lIdx,
-                        isEditingChords && (onEditChord || onDeleteChord) ? handleOpenEditChord : undefined
+                        onChordSelect
+                          ? line.kind === 'lyric'
+                            ? (s, l, c) => onChordSelect(s, l, c)
+                            : undefined
+                          : isEditingChords && (onEditChord || onDeleteChord)
+                          ? handleOpenEditChord
+                          : undefined,
+                        selectedChord &&
+                          selectedChord.sectionIndex === originalIndex &&
+                          selectedChord.lineIndex === lIdx
+                          ? selectedChord.chordIndex
+                          : undefined
                       )
                     )}
                   </div>

@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import type { Song } from '../types/song'
+import type { Song, Section } from '../types/song'
 import { prepareFilesForExtraction } from '../lib/fileOptimizer'
 import { extractSongsApi } from '../lib/api'
+import { getChordPos, nudgeChord, setChordPos } from '../lib/chordNudge'
 import SongSheet from './SongSheet'
 
 interface UploadSheetModalProps {
@@ -31,6 +32,14 @@ export default function UploadSheetModal({
   // Review step state
   const [extractedSongs, setExtractedSongs] = useState<Song[] | null>(null)
   const [activePreviewIndex, setActivePreviewIndex] = useState(0)
+  const [selectedChord, setSelectedChord] = useState<{
+    songIndex: number
+    sectionIndex: number
+    lineIndex: number
+    chordIndex: number
+    /** Position when selected, restored on cancel */
+    startPos: number
+  } | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -85,6 +94,7 @@ export default function UploadSheetModal({
       const songs = await extractSongsApi(payloadFiles, apiKey.trim() || undefined)
 
       setExtractedSongs(songs)
+      setSelectedChord(null)
       setActivePreviewIndex(0)
       setStatusMessage('')
     } catch (err) {
@@ -127,14 +137,79 @@ export default function UploadSheetModal({
     }
   }
 
+  const activeSelection =
+    extractedSongs && selectedChord && selectedChord.songIndex === activePreviewIndex
+      ? selectedChord
+      : null
+
+  const selectedChordName = (() => {
+    if (!activeSelection || !extractedSongs) return null
+    const line =
+      extractedSongs[activePreviewIndex]?.sections[activeSelection.sectionIndex]?.lines[
+        activeSelection.lineIndex
+      ]
+    return line && line.kind === 'lyric' ? line.chords[activeSelection.chordIndex]?.chord ?? null : null
+  })()
+
+  const updateActiveSections = (fn: (sections: Section[]) => Section[]) => {
+    setExtractedSongs((prev) => {
+      if (!prev) return prev
+      return prev.map((song, i) =>
+        i === activePreviewIndex ? { ...song, sections: fn(song.sections) } : song
+      )
+    })
+  }
+
+  const handleSelectChord = (sectionIndex: number, lineIndex: number, chordIndex: number) => {
+    // Tapping the selected chord again, or another chord, keeps the current position
+    // (implicit confirm) and moves selection.
+    if (
+      activeSelection &&
+      activeSelection.sectionIndex === sectionIndex &&
+      activeSelection.lineIndex === lineIndex &&
+      activeSelection.chordIndex === chordIndex
+    ) {
+      return
+    }
+    const startPos = extractedSongs
+      ? getChordPos(extractedSongs[activePreviewIndex].sections, sectionIndex, lineIndex, chordIndex)
+      : null
+    if (startPos === null) return
+    setSelectedChord({ songIndex: activePreviewIndex, sectionIndex, lineIndex, chordIndex, startPos })
+  }
+
+  const handleNudge = (delta: number) => {
+    if (!activeSelection) return
+    updateActiveSections((sections) =>
+      nudgeChord(sections, activeSelection.sectionIndex, activeSelection.lineIndex, activeSelection.chordIndex, delta)
+    )
+  }
+
+  const handleConfirmNudge = () => setSelectedChord(null)
+
+  const handleCancelNudge = () => {
+    if (activeSelection) {
+      updateActiveSections((sections) =>
+        setChordPos(
+          sections,
+          activeSelection.sectionIndex,
+          activeSelection.lineIndex,
+          activeSelection.chordIndex,
+          activeSelection.startPos
+        )
+      )
+    }
+    setSelectedChord(null)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-hidden">
       <div
-        className="w-full max-w-4xl bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        className={`w-full max-w-4xl bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl shadow-2xl flex flex-col max-h-full ${extractedSongs ? 'h-full' : ''} overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] px-6 py-4 bg-white dark:bg-[#1a1a1a]">
+        <div className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#1a1a1a] shrink-0">
           <div>
             <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5] flex items-center gap-2">
               <svg className="w-5 h-5 text-[#3368A0] dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,7 +222,7 @@ export default function UploadSheetModal({
               </svg>
               {extractedSongs ? 'Review Extracted Songs' : 'Upload SongSelect Sheets (PDF/Images)'}
             </h2>
-            <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
+            <p className="hidden sm:block text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
               {extractedSongs
                 ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review and confirm before adding to setlist.`
                 : 'Upload multi-page SongSelect PDFs or PNG/JPG sheet images. Gemini Flash extracts lyrics and chords.'}
@@ -163,7 +238,7 @@ export default function UploadSheetModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-neutral-50/60 dark:bg-[#151515]">
+        <div className={`flex-1 min-h-0 bg-neutral-50/60 dark:bg-[#151515] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'overflow-y-auto space-y-4'}`}>
           {errorMessage && (
             <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 dark:bg-red-950/60 dark:border-red-800 dark:text-red-200 text-sm flex items-start gap-3 shadow-2xs">
               <span className="text-lg">⚠️</span>
@@ -190,13 +265,13 @@ export default function UploadSheetModal({
 
           {!extractedSongs ? (
             /* Upload & Selection View */
-            <div className="space-y-5">
+            <div className="space-y-3 sm:space-y-5">
               {/* Dropzone */}
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#C8DFDB] hover:border-[#3368A0] dark:border-[#282828] dark:hover:border-amber-500/70 bg-white hover:bg-neutral-50 dark:bg-[#1a1a1a]/60 dark:hover:bg-[#1a1a1a] transition rounded-xl p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs"
+                className="border-2 border-dashed border-[#C8DFDB] hover:border-[#3368A0] dark:border-[#282828] dark:hover:border-amber-500/70 bg-white hover:bg-neutral-50 dark:bg-[#1a1a1a]/60 dark:hover:bg-[#1a1a1a] transition rounded-xl p-4 sm:p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs"
               >
                 <div className="w-12 h-12 rounded-full bg-[#3368A0]/10 dark:bg-amber-500/10 flex items-center justify-center text-[#3368A0] dark:text-amber-400 text-2xl">
                   📄
@@ -225,7 +300,7 @@ export default function UploadSheetModal({
                   <div className="text-xs font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider">
                     Selected Files ({selectedFiles.length})
                   </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-28 sm:max-h-48 overflow-y-auto">
                     {selectedFiles.map((file, idx) => (
                       <div
                         key={idx}
@@ -301,9 +376,9 @@ export default function UploadSheetModal({
             </div>
           ) : (
             /* Review & Preview View */
-            <div className="space-y-6">
+            <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
               {/* Songs Tabs */}
-              <div className="flex items-center gap-2 border-b border-[#C8DFDB] dark:border-[#282828] pb-2 overflow-x-auto">
+              <div className="flex items-center gap-2 border-b border-[#C8DFDB] dark:border-[#282828] pb-2 overflow-x-auto shrink-0">
                 {extractedSongs.map((song, idx) => (
                   <button
                     key={song.id || idx}
@@ -331,9 +406,9 @@ export default function UploadSheetModal({
 
               {/* Editable Fields for Active Song */}
               {extractedSongs[activePreviewIndex] && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white dark:bg-[#1a1a1a]/60 p-4 border border-[#C8DFDB] dark:border-[#282828] rounded-lg shadow-xs">
+                <div className="grid grid-cols-[1fr_1fr_4.5rem] sm:grid-cols-3 gap-2 sm:gap-3 shrink-0 bg-white dark:bg-[#1a1a1a]/60 p-2 sm:p-3 border border-[#C8DFDB] dark:border-[#282828] rounded-lg shadow-xs">
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-1">
+                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Song Title
                     </label>
                     <input
@@ -346,7 +421,7 @@ export default function UploadSheetModal({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-1">
+                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Artist / Composer
                     </label>
                     <input
@@ -359,7 +434,7 @@ export default function UploadSheetModal({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-1">
+                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Key
                     </label>
                     <input
@@ -377,63 +452,123 @@ export default function UploadSheetModal({
 
               {/* Song Preview Render */}
               {extractedSongs[activePreviewIndex] && (
-                <div className="border border-[#C8DFDB] dark:border-[#282828] rounded-xl bg-white dark:bg-[#101010] p-4 max-h-96 overflow-y-auto shadow-xs">
-                  <div className="text-xs text-neutral-500 dark:text-[#999999] mb-2 flex items-center justify-between">
-                    <span className="font-semibold uppercase tracking-wider text-[11px]">Layout Preview</span>
-                    <span>
-                      {extractedSongs[activePreviewIndex].sections.length} sections detected
-                    </span>
+                <div className="flex flex-col gap-2 flex-1 min-h-0">
+                  <div className="flex-1 min-h-[6rem] border border-[#C8DFDB] dark:border-[#282828] rounded-xl bg-white dark:bg-[#101010] p-3 sm:p-4 overflow-y-auto shadow-xs">
+                    <div className="text-xs text-neutral-500 dark:text-[#999999] mb-2 flex items-center justify-between">
+                      <span className="font-semibold uppercase tracking-wider text-[11px]">Layout Preview</span>
+                      <span>
+                        {extractedSongs[activePreviewIndex].sections.length} sections detected
+                      </span>
+                    </div>
+                    <SongSheet
+                      sections={extractedSongs[activePreviewIndex].sections}
+                      columns={1}
+                      fontSizePx={13}
+                      onChordSelect={handleSelectChord}
+                      selectedChord={activeSelection}
+                    />
                   </div>
-                  <SongSheet
-                    sections={extractedSongs[activePreviewIndex].sections}
-                    columns={2}
-                    fontSizePx={13}
-                  />
+
+                  {/* Chord position adjuster */}
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#C8DFDB] dark:border-[#282828] bg-white dark:bg-[#1a1a1a] px-3 py-2 shadow-xs shrink-0 flex-wrap min-h-[52px]">
+                    {activeSelection && selectedChordName ? (
+                      <>
+                        <div className="text-xs text-neutral-600 dark:text-[#999999] min-w-0">
+                          Moving{' '}
+                          <span className="font-mono font-bold text-[#255283] dark:text-amber-400">
+                            {selectedChordName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleNudge(-1)}
+                            aria-label="Move chord left"
+                            className="w-11 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-base font-bold text-neutral-800 dark:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] active:scale-95 transition cursor-pointer select-none"
+                          >
+                            &lt;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNudge(1)}
+                            aria-label="Move chord right"
+                            className="w-11 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-base font-bold text-neutral-800 dark:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] active:scale-95 transition cursor-pointer select-none"
+                          >
+                            &gt;
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleConfirmNudge}
+                            className="px-3 h-9 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition cursor-pointer"
+                          >
+                            ✓ Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelNudge}
+                            aria-label="Cancel and restore position"
+                            title="Cancel and restore position"
+                            className="w-9 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-sm text-neutral-600 dark:text-[#999999] hover:text-red-600 hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-neutral-500 dark:text-[#999999]">
+                        Chord out of place? Tap it in the preview, then use &lt; &gt; to nudge it.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* Review actions (moved out of the sticky footer, below the chord toolbar) */}
+              <div className="flex items-center justify-between gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtractedSongs(null)
+                    setSelectedChord(null)
+                  }}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
+                >
+                  ← Back to Upload
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  Import {extractedSongs.length} Song{extractedSongs.length > 1 ? 's' : ''} to Setlist
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="border-t border-[#C8DFDB] dark:border-[#282828] px-6 py-4 flex items-center justify-between bg-white dark:bg-[#1a1a1a]">
-          {!extractedSongs ? (
-            <>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={selectedFiles.length === 0 || isProcessing}
-                onClick={handleExtract}
-                className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2 cursor-pointer shadow-xs"
-              >
-                {isProcessing ? 'Extracting...' : `Extract with Gemini (${selectedFiles.length})`}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setExtractedSongs(null)}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
-              >
-                ← Back to Upload
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmImport}
-                className="px-5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition flex items-center gap-2 cursor-pointer shadow-xs"
-              >
-                Import {extractedSongs.length} Song{extractedSongs.length > 1 ? 's' : ''} to Setlist
-              </button>
-            </>
-          )}
-        </div>
+        {/* Footer Actions (upload step only; review actions live below the chord toolbar) */}
+        {!extractedSongs && (
+          <div className="border-t border-[#C8DFDB] dark:border-[#282828] px-4 sm:px-6 py-3 flex items-center justify-between bg-white dark:bg-[#1a1a1a] shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={selectedFiles.length === 0 || isProcessing}
+              onClick={handleExtract}
+              className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              {isProcessing ? 'Extracting...' : `Extract with Gemini (${selectedFiles.length})`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
