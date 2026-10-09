@@ -9,6 +9,7 @@ interface DisplayControlsProps {
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
   onToggleEditChords?: () => void
+  onOpenArrangeSections?: () => void
 }
 
 export default function DisplayControls({
@@ -20,6 +21,7 @@ export default function DisplayControls({
   onRestoreOriginal,
   isEditingChords,
   onToggleEditChords,
+  onOpenArrangeSections,
 }: DisplayControlsProps) {
   return (
     <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 text-xs shadow-xs">
@@ -99,6 +101,20 @@ export default function DisplayControls({
           >
             <span>✎</span>
             <span>{isEditingChords ? 'Done Editing Chords' : 'Edit Chords'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Arrange Sections Button */}
+      {onOpenArrangeSections && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenArrangeSections}
+            className="px-3 py-1 rounded font-medium transition-colors cursor-pointer border flex items-center gap-1.5 bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]"
+            title="Open drawer to reorder or delete sections"
+          >
+            <span>⇅</span>
+            <span>Arrange Sections</span>
           </button>
         </div>
       )}

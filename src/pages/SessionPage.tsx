@@ -12,6 +12,7 @@ import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import TransposeSelector from '../components/TransposeSelector'
 import ShareModal from '../components/ShareModal'
+import ArrangeDrawer from '../components/ArrangeDrawer'
 import { getInitialTheme, saveTheme } from '../lib/theme'
 import type { Song, Section, SharePayload } from '../types/song'
 
@@ -33,6 +34,8 @@ export default function SessionPage() {
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
+  const [isArrangingSongs, setIsArrangingSongs] = useState(false)
+  const [isArrangingSections, setIsArrangingSections] = useState(false)
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -608,6 +611,16 @@ export default function SessionPage() {
             <span>🔗</span>
             <span>Share</span>
           </button>
+          {session.songs.length > 1 && (
+            <button
+              onClick={() => setIsArrangingSongs(true)}
+              className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Arrange songs order in setlist"
+            >
+              <span>⇅</span>
+              <span>Arrange</span>
+            </button>
+          )}
           <button
             onClick={() => navigate(`/search?session=${session.id}`)}
             className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
@@ -759,6 +772,7 @@ export default function SessionPage() {
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
                   onToggleEditChords={() => setIsEditingChords((prev) => !prev)}
+                  onOpenArrangeSections={() => setIsArrangingSections(true)}
                 />
               </div>
 
@@ -790,6 +804,43 @@ export default function SessionPage() {
           payload={sharingPayload}
           isOpen={Boolean(sharingPayload)}
           onClose={() => setSharingPayload(null)}
+        />
+      )}
+
+      {/* Arrange Songs Drawer */}
+      <ArrangeDrawer
+        isOpen={isArrangingSongs}
+        title="Arrange Setlist"
+        subtitle={`Reorder songs in "${session.name}"`}
+        items={session.songs.map((item, idx) => {
+          const s = songsData.get(item.url)
+          return {
+            id: `${item.url}-${idx}`,
+            title: s?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 24),
+            subtitle: s?.artist || item.artist,
+            badge: `#${idx + 1}`,
+          }
+        })}
+        onMove={handleReorderSongs}
+        onDelete={session.songs.length > 1 ? (idx) => handleRemoveSong(session.songs[idx].url) : undefined}
+        onClose={() => setIsArrangingSongs(false)}
+      />
+
+      {/* Arrange Sections Drawer */}
+      {currentSong && (
+        <ArrangeDrawer
+          isOpen={isArrangingSections}
+          title="Arrange Sections"
+          subtitle={`Reorder sections in "${currentSong.title}"`}
+          items={activeSections.map((sec, idx) => ({
+            id: `${sec.label}-${idx}`,
+            title: sec.label || `Section ${idx + 1}`,
+            subtitle: `${sec.lines.length} lines`,
+            badge: `#${idx + 1}`,
+          }))}
+          onMove={handleReorderSections}
+          onDelete={activeSections.length > 1 ? handleDeleteSection : undefined}
+          onClose={() => setIsArrangingSections(false)}
         />
       )}
     </div>
