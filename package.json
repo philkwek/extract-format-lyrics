@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "npm run build --prefix functions && firebase emulators:start --only functions --project demo-chords",
+    "dev:all": "concurrently -n \"functions,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev\"",
     "build": "tsc -b && vite build",
+    "build:functions": "npm run build --prefix functions",
     "lint": "eslint .",
     "format": "prettier --write src",
     "test": "vitest run --passWithNoTests",
@@ -26,6 +29,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.6",
     "eslint": "^10.10.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.6",
