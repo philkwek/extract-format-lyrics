@@ -1,4 +1,4 @@
-import type { Section, SectionType, ChordPlacement } from './types.js'
+import type { Section, SectionType, Line, ChordPlacement } from './types.js'
 import { isChord, isChordLine } from './chords.js'
 
 const SECTION_HEADER_PATTERNS: Array<{ regex: RegExp; type: SectionType }> = [
@@ -166,8 +166,9 @@ export function normalizeSongText(rawText: string): Section[] {
     sections.push(currentSection)
   }
 
-  // Remove empty trailing lines in each section
+  // Deduplicate contiguous identical lines and strip trailing empty lines
   for (const sec of sections) {
+    sec.lines = deduplicateSectionLines(sec.lines)
     while (
       sec.lines.length > 0 &&
       sec.lines[sec.lines.length - 1].kind === 'lyric' &&
@@ -178,6 +179,50 @@ export function normalizeSongText(rawText: string): Section[] {
   }
 
   return sections.filter((s) => s.lines.length > 0)
+}
+
+export function areLinesIdentical(a: Line, b: Line): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'tab') {
+    return a.raw.trim() === (b as { raw: string }).raw.trim()
+  }
+  if (a.kind === 'chords-only') {
+    const bChords = (b as { chords: string[] }).chords
+    if (a.chords.length !== bChords.length) return false
+    return a.chords.every((c, idx) => c === bChords[idx])
+  }
+  if (a.kind === 'lyric') {
+    const bLyric = b as { text: string; chords: ChordPlacement[] }
+    // Text must match exactly
+    if (a.text.trim() !== bLyric.text.trim()) return false
+
+    // Allow blank lines without chords to not duplicate
+    if (!a.text.trim() && a.chords.length === 0 && bLyric.chords.length === 0) {
+      return true
+    }
+
+    // Chords and their positions must match identically
+    if (a.chords.length !== bLyric.chords.length) return false
+    return a.chords.every(
+      (c, idx) => c.pos === bLyric.chords[idx].pos && c.chord === bLyric.chords[idx].chord
+    )
+  }
+  return false
+}
+
+export function deduplicateSectionLines(lines: Line[]): Line[] {
+  const result: Line[] = []
+  for (const line of lines) {
+    if (result.length === 0) {
+      result.push(line)
+      continue
+    }
+    const prev = result[result.length - 1]
+    if (!areLinesIdentical(prev, line)) {
+      result.push(line)
+    }
+  }
+  return result
 }
 
 /**

@@ -120,3 +120,53 @@ That saved a wretch
     expect(key).toBe('G')
   })
 })
+
+describe('deduplication of lines', () => {
+  it('removes duplicate contiguous lines with identical chords', () => {
+    const raw = `
+[Chorus]
+C        G
+Hallelujah
+C        G
+Hallelujah
+`
+    const sections = normalizeSongText(raw)
+    expect(sections[0].lines.length).toBe(1)
+    expect(sections[0].lines[0]).toEqual({
+      kind: 'lyric',
+      text: 'Hallelujah',
+      chords: [
+        { pos: 0, chord: 'C' },
+        { pos: 9, chord: 'G' },
+      ],
+    })
+  })
+
+  it('preserves duplicate lyrics that have DIFFERENT chords', () => {
+    const raw = `
+[Chorus]
+C        G
+Hallelujah
+Am       F
+Hallelujah
+`
+    const sections = normalizeSongText(raw)
+    expect(sections[0].lines.length).toBe(2)
+    expect(sections[0].lines[0]).toEqual({
+      kind: 'lyric',
+      text: 'Hallelujah',
+      chords: [
+        { pos: 0, chord: 'C' },
+        { pos: 9, chord: 'G' },
+      ],
+    })
+    expect(sections[0].lines[1]).toEqual({
+      kind: 'lyric',
+      text: 'Hallelujah',
+      chords: [
+        { pos: 0, chord: 'Am' },
+        { pos: 9, chord: 'F' },
+      ],
+    })
+  })
+})
