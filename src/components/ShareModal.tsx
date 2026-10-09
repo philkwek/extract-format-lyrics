@@ -12,10 +12,11 @@ interface ShareModalProps {
 export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps) {
   const [copied, setCopied] = useState(false)
   const [shortUrl, setShortUrl] = useState<string | null>(null)
-  const [isGeneratingShort, setIsGeneratingShort] = useState(false)
+  const [isGeneratingShort, setIsGeneratingShort] = useState(true)
+  const [usePermanentLink, setUsePermanentLink] = useState(false)
 
-  const clientHashUrl = `${window.location.origin}/#/share#${encodeSharePayload(payload)}`
-  const displayUrl = shortUrl || clientHashUrl
+  const clientHashUrl = `${window.location.origin}/share#${encodeSharePayload(payload)}`
+  const displayUrl = (!usePermanentLink && shortUrl) ? shortUrl : clientHashUrl
 
   useEffect(() => {
     let active = true
@@ -23,7 +24,7 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
       createShortLinkApi(payload)
         .then((id) => {
           if (active) {
-            setShortUrl(`${window.location.origin}/#/s/${id}`)
+            setShortUrl(`${window.location.origin}/s/${id}`)
             setIsGeneratingShort(false)
           }
         })
@@ -89,9 +90,26 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
             </button>
           </div>
           <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-[#999999]">
-            <span>
-              {isGeneratingShort ? 'Generating short link...' : shortUrl ? 'Short link ready ✓' : 'Client URL ready'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span>
+                {isGeneratingShort
+                  ? 'Generating short link...'
+                  : usePermanentLink
+                    ? 'Permanent direct link'
+                    : shortUrl
+                      ? 'Short link ready ✓'
+                      : 'Permanent direct link ready'}
+              </span>
+              {shortUrl && (
+                <button
+                  type="button"
+                  onClick={() => setUsePermanentLink(!usePermanentLink)}
+                  className="text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  {usePermanentLink ? 'Switch to short link' : 'Switch to permanent link'}
+                </button>
+              )}
+            </div>
             {copied && <span className="text-emerald-500 font-medium">Copied to clipboard!</span>}
           </div>
         </div>

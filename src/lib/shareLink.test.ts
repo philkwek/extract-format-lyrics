@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encodeSharePayload, decodeSharePayload } from './shareLink'
+import { encodeSharePayload, decodeSharePayload, parseHashPayload } from './shareLink'
 import type { SharePayload } from '../types/song'
 
 describe('shareLink encode and decode', () => {
@@ -51,3 +51,27 @@ describe('shareLink encode and decode', () => {
     expect(decodeSharePayload('')).toBeNull()
   })
 })
+
+describe('parseHashPayload', () => {
+  it('strips standard # prefix', () => {
+    expect(parseHashPayload('#abc123payload')).toBe('abc123payload')
+  })
+
+  it('strips legacy double hash #/share# prefix', () => {
+    expect(parseHashPayload('#/share#abc123payload')).toBe('abc123payload')
+  })
+
+  it('strips #share= prefix', () => {
+    expect(parseHashPayload('#share=abc123payload')).toBe('abc123payload')
+  })
+
+  it('strips /share# prefix without leading hash', () => {
+    expect(parseHashPayload('/share#abc123payload')).toBe('abc123payload')
+  })
+
+  it('handles empty hash', () => {
+    expect(parseHashPayload('')).toBe('')
+    expect(parseHashPayload('#')).toBe('')
+  })
+})
+
