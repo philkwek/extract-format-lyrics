@@ -123,12 +123,18 @@ export default function SongSheet({
             onDragOver={(e) => handleDragOver(e, sIdx)}
             onDrop={(e) => handleDrop(e, sIdx)}
             onDragEnd={handleDragEnd}
-            className={`section-block mb-6 break-inside-avoid rounded-lg transition-all ${
+            className={`section-block mb-6 break-inside-avoid relative transition-all ${
               isDragging ? 'opacity-30 scale-[0.99]' : ''
-            } ${
-              isOver ? 'ring-2 ring-amber-500 bg-amber-500/10 p-2' : ''
             }`}
           >
+            {/* Top insertion indicator line when dragging over this section */}
+            {isOver && (
+              <div className="absolute -top-3 left-0 right-0 flex items-center z-10 pointer-events-none">
+                <div className="w-2 h-2 rounded-full bg-amber-500 -mr-1" />
+                <div className="h-0.5 flex-1 bg-amber-500 shadow-xs" />
+                <div className="w-2 h-2 rounded-full bg-amber-500 -ml-1" />
+              </div>
+            )}
             <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2 select-none group">
               <div
                 className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing"
