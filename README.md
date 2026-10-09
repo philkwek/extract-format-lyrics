@@ -13,9 +13,20 @@ A personal-use, mobile-first React Single Page Application with Firebase Cloud F
   - Generic `<pre>` fallback for other chord sheet pages
 - **Offline & Browser Caching:** Scraped songs and setlists persist locally in your browser via IndexedDB (`idb-keyval`). Previously viewed songs load instantly offline.
 - **Accurate Alignment & Sectioning:** Monospace character-aligned chords positioned directly above lyrics; tabs and chord-only sections preserved with `break-inside: avoid-column` styling.
+- **Smart Deduplication:** Automatically removes contiguous duplicated lines and chords from messy sheets while strictly preserving repeated lyrics that have different chords attached.
+- **Custom & Timestamped Set Titles:** Newly created sets default to readable timestamped titles (e.g. `Setlist (Oct 9, 03:54 PM)`), with full inline editing to rename any set.
 - **Key Detection & Transposition:** Detects or infers song keys, supports transposition across all 12 keys (major/minor aware with enharmonic spelling), and displays the offset relative to the original key (e.g. `Key: A (original G, +2)`).
+- **Simplify Chords:** Toggle between standard and simplified chords on sheets where a simplified version is provided by the source (e.g. Ultimate Guitar).
 - **Column Modes & "Fit to Screen":** Switch between 1, 2, or 3 columns, or use **Fit Screen** mode to dynamically adapt layout and font size to fit the entire sheet on screen without scrolling.
 - **In-App Search:** Search songs across supported chord sites directly within the application and add candidates to your active session.
+
+---
+
+## Future Improvements
+
+- **Algorithmic Chord Simplification:** Provide client/backend algorithmic simplification (e.g., mapping complex extensions `Gadd9`, `Cmaj7`, `Em7`, slash chords down to core triads `G`, `C`, `Em`) for chord sheets scraped from sites without an official simplified chart.
+- **Offline PWA Support:** Add service worker support for complete offline app shell caching.
+- **Drag-and-Drop Song Reordering:** Reorder songs inside a setlist.
 
 ---
 
