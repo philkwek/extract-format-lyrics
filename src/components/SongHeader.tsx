@@ -16,10 +16,10 @@ export default function SongHeader({
   const isTransposed = song.originalKey && currentKey && currentKey !== song.originalKey
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-[#282828]">
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100">{song.title}</h2>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+        <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-[#e5e5e5]">{song.title}</h2>
+        <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-600 dark:text-[#999999]">
           <span>{song.artist}</span>
           <span>•</span>
           <a
@@ -33,7 +33,7 @@ export default function SongHeader({
           {song.capo && (
             <>
               <span>•</span>
-              <span className="text-neutral-700 dark:text-neutral-300">Capo {song.capo}</span>
+              <span className="text-neutral-700 dark:text-[#d4d4d4]">Capo {song.capo}</span>
             </>
           )}
         </div>
@@ -41,20 +41,20 @@ export default function SongHeader({
 
       <div className="flex items-center gap-2 flex-wrap">
         {/* Original Key Badge */}
-        <div className="inline-flex items-center px-2.5 py-1 rounded bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700/60 text-xs">
-          <span className="text-neutral-600 dark:text-neutral-400 mr-1.5">Original Key:</span>
+        <div className="inline-flex items-center px-2.5 py-1 rounded bg-neutral-200 dark:bg-[#1a1a1a] border border-neutral-300 dark:border-[#282828] text-xs">
+          <span className="text-neutral-600 dark:text-[#999999] mr-1.5">Original Key:</span>
           <span className="font-bold text-amber-600 dark:text-amber-400">{song.originalKey || 'Unknown'}</span>
         </div>
 
         {/* Current Transposed Key Indicator */}
         {isTransposed && (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-300">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-300">
             <span>Key: {currentKey}</span>
-            {offsetDisplay && <span className="text-neutral-500 dark:text-neutral-400">({offsetDisplay})</span>}
+            {offsetDisplay && <span className="text-neutral-500 dark:text-[#999999]">({offsetDisplay})</span>}
             {onResetKey && (
               <button
                 onClick={onResetKey}
-                className="ml-1 text-xs text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white underline cursor-pointer"
+                className="ml-1 text-xs text-neutral-600 hover:text-black dark:text-[#999999] dark:hover:text-[#e5e5e5] underline cursor-pointer"
               >
                 Reset
               </button>

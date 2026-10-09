@@ -34,7 +34,7 @@ function renderChordLine(chords: ChordPlacement[], textLength: number) {
 function renderLine(line: Line, key: number) {
   if (line.kind === 'tab') {
     return (
-      <div key={key} className="font-mono text-neutral-600 dark:text-neutral-400 text-xs py-0.5 whitespace-pre overflow-x-auto">
+      <div key={key} className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-0.5 whitespace-pre overflow-x-auto">
         {line.raw}
       </div>
     )
@@ -57,7 +57,7 @@ function renderLine(line: Line, key: number) {
   return (
     <div key={key} className="py-1">
       {renderChordLine(line.chords, line.text.length)}
-      <div className="font-mono text-neutral-800 dark:text-neutral-200 whitespace-pre leading-relaxed">
+      <div className="font-mono text-neutral-800 dark:text-[#d4d4d4] whitespace-pre leading-relaxed">
         {line.text || ' '}
       </div>
     </div>
@@ -75,7 +75,7 @@ export default function SongSheet({ sections, fontSizePx = 14, columns = 1 }: So
       {sections.map((section, sIdx) => (
         <div key={sIdx} className="section-block mb-6 break-inside-avoid">
           {section.label && (
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-neutral-400 border-b border-neutral-300 dark:border-neutral-800/80 pb-1 mb-2">
+            <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999] border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2">
               {section.label}
             </h3>
           )}

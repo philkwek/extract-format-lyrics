@@ -33,11 +33,11 @@ export default function TransposeSelector({
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-neutral-600 dark:text-neutral-400 font-medium">Transpose:</span>
+      <span className="text-neutral-600 dark:text-[#999999] font-medium">Transpose:</span>
       <select
         value={activeKey}
         onChange={(e) => onSelectKey(e.target.value)}
-        className="bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-amber-500 font-mono shadow-xs"
+        className="bg-white dark:bg-[#1a1a1a] border border-neutral-300 dark:border-[#282828] text-neutral-900 dark:text-[#e5e5e5] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-amber-500 font-mono shadow-xs"
       >
         {options.map((opt) => {
           const optOffset = keyOffset(matchedOriginal, opt)
@@ -57,7 +57,7 @@ export default function TransposeSelector({
           </span>
           <button
             onClick={onReset}
-            className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white underline cursor-pointer"
+            className="text-xs text-neutral-600 dark:text-[#999999] hover:text-black dark:hover:text-[#e5e5e5] underline cursor-pointer"
           >
             Reset
           </button>

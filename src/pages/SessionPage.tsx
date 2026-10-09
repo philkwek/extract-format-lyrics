@@ -255,7 +255,7 @@ export default function SessionPage() {
   return (
     <div className="space-y-4">
       {/* Session Title Bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-[#282828]">
         <div>
           {isEditingName ? (
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export default function SessionPage() {
                 onBlur={handleSaveRename}
                 onKeyDown={handleKeyDownRename}
                 autoFocus
-                className="bg-white dark:bg-neutral-950 border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-900 dark:text-neutral-100 focus:outline-none"
+                className="bg-white dark:bg-[#101010] border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-900 dark:text-[#e5e5e5] focus:outline-none"
               />
               <button
                 onClick={handleSaveRename}
@@ -277,7 +277,7 @@ export default function SessionPage() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">{session.name}</h1>
+              <h1 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]">{session.name}</h1>
               <button
                 onClick={handleStartRename}
                 title="Rename set"
@@ -287,20 +287,20 @@ export default function SessionPage() {
               </button>
             </div>
           )}
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-neutral-500 dark:text-[#999999]">
             {session.songs.length} song(s) in setlist
           </p>
         </div>
         <button
           onClick={() => navigate('/search')}
-          className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 px-3 py-1.5 rounded transition-colors cursor-pointer"
+          className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
         >
           + Add song
         </button>
       </div>
 
       {/* Scrollable Song Tabs */}
-      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 no-scrollbar border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 no-scrollbar border-b border-neutral-200 dark:border-[#282828]">
         {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
           const song = songsData.get(item.url)
@@ -312,8 +312,8 @@ export default function SessionPage() {
               onClick={() => selectSong(idx)}
               className={`flex items-center space-x-2 px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${
                 isActive
-                  ? 'bg-neutral-200 dark:bg-neutral-800 text-amber-600 dark:text-amber-400 border-amber-500'
-                  : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border-transparent'
+                  ? 'bg-neutral-200 dark:bg-[#1a1a1a] text-amber-600 dark:text-amber-400 border-amber-500'
+                  : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] border-transparent'
               }`}
             >
               <span
@@ -332,7 +332,7 @@ export default function SessionPage() {
                     e.stopPropagation()
                     handleRemoveSong(item.url)
                   }}
-                  className="text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300 ml-1"
+                  className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] ml-1"
                 >
                   ×
                 </span>
@@ -348,12 +348,12 @@ export default function SessionPage() {
           {currentItem.status === 'error' ? (
             <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
               <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
-              <p className="text-xs font-mono text-neutral-600 dark:text-neutral-400 break-all">{currentItem.url}</p>
+              <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">{currentItem.url}</p>
               <p className="text-xs text-red-600 dark:text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
               <button
                 onClick={() => handleRetry(currentItem)}
                 disabled={retryingUrls.has(currentItem.url)}
-                className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
               >
                 {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
               </button>
@@ -370,7 +370,7 @@ export default function SessionPage() {
 
               {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
               <div className="space-y-2">
-                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+                <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-xs">
                   <TransposeSelector
                     originalKey={displayedSong.originalKey}
                     currentKey={currentKey}
