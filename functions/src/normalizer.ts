@@ -2,27 +2,25 @@ import type { Section, SectionType, ChordPlacement } from './types.js'
 import { isChord, isChordLine } from './chords.js'
 
 const SECTION_HEADER_PATTERNS: Array<{ regex: RegExp; type: SectionType }> = [
-  { regex: /^\s*\[?(?:intro)[\s:\]]/i, type: 'Intro' },
-  { regex: /^\s*\[?(?:verse\s*\d*|v\d+)[\s:\]]/i, type: 'Verse' },
-  { regex: /^\s*\[?(?:pre[- ]?chorus\s*\d*)[\s:\]]/i, type: 'Pre-Chorus' },
-  { regex: /^\s*\[?(?:chorus\s*\d*)[\s:\]]/i, type: 'Chorus' },
-  { regex: /^\s*\[?(?:bridge\s*\d*)[\s:\]]/i, type: 'Bridge' },
-  { regex: /^\s*\[?(?:outro)[\s:\]]/i, type: 'Outro' },
-  { regex: /^\s*\[?(?:instrumental|interlude)[\s:\]]/i, type: 'Instrumental' },
+  { regex: /^\s*\[?(?:intro)(?:[\s:\]]|$)/i, type: 'Intro' },
+  { regex: /^\s*\[?(?:verse\s*\d*|v\d+)(?:[\s:\]]|$)/i, type: 'Verse' },
+  { regex: /^\s*\[?(?:pre[- ]?chorus\s*\d*)(?:[\s:\]]|$)/i, type: 'Pre-Chorus' },
+  { regex: /^\s*\[?(?:chorus\s*\d*)(?:[\s:\]]|$)/i, type: 'Chorus' },
+  { regex: /^\s*\[?(?:bridge\s*\d*)(?:[\s:\]]|$)/i, type: 'Bridge' },
+  { regex: /^\s*\[?(?:outro)(?:[\s:\]]|$)/i, type: 'Outro' },
+  { regex: /^\s*\[?(?:instrumental|interlude)(?:[\s:\]]|$)/i, type: 'Instrumental' },
 ]
 
 export function detectSectionHeader(line: string): { type: SectionType; label: string } | null {
   const trimmed = line.trim()
   if (!trimmed) return null
 
-  // Check if it's formatted like a header: e.g. [Verse 1], Verse 1:, VERSE 1, (Bridge)
+  // Check if it's formatted like a header: e.g. [Verse 1], Verse 1:, VERSE 1, (Bridge), Verse1, Chorus
   const isBracketed = /^\[.+\]$/.test(trimmed) || /^\(.+\)$/.test(trimmed)
   const hasColon = /:$/.test(trimmed)
-  const isAllCaps = /^[A-Z0-9\s-]+$/.test(trimmed) && trimmed.length > 3
 
   for (const { regex, type } of SECTION_HEADER_PATTERNS) {
-    if (regex.test(trimmed) || (regex.test(trimmed.replace(/[[:\]()]/g, '')) && (isBracketed || hasColon || isAllCaps))) {
-      // Clean up bracket/colon for label display
+    if (regex.test(trimmed)) {
       const label = trimmed.replace(/^[[(]\s*|\s*[\]):]$/g, '').trim()
       return { type, label: label || type }
     }
