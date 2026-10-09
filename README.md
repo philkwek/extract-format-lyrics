@@ -79,6 +79,21 @@ A personal-use, mobile-first React Single Page Application with Firebase Cloud F
 
 ---
 
+## Future Improvements
+
+1. **Shareable Setlists via Link (Client-Side URL or Cloud Store):**
+   - Share entire setlists with band members or collaborators without user accounts.
+   - *Client-Only URL Option:* Encode minimal setlist state (name, source URLs, transpositions, custom section orders) into a compressed URL fragment (`/#share=...` with `lz-string`), allowing recreation on any device with zero server storage costs.
+   - *Cloud Store Option:* Ephemeral Cloud Firestore documents (`/shares/{id}`) for clean, readable short links (`/s/abc123`).
+2. **Algorithmic Chord Simplification:**
+   - Fallback chord simplification engine that automatically strips complex jazz/seventh extensions down to root triads for websites that lack an official simplified chart.
+3. **Offline PWA Support:**
+   - Service worker caching (`vite-plugin-pwa`) to allow offline usage during live performances.
+4. **PDF & Print Export:**
+   - 1-page printable chord sheets formatted specifically for paper stands or stage binders.
+
+---
+
 ## Legal & Terms of Service Notice
 
 This tool is designed strictly for **personal study and performance reference**. Chord sheets and lyrics are copyrighted by their respective songwriters and publishers. Scraped results are stored only within the individual user's browser (IndexedDB) and are not redistributed or republished. Always support songwriters and publishers by purchasing licensed sheet music.
