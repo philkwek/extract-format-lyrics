@@ -12,6 +12,7 @@ import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import ShareModal from '../components/ShareModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
+import UploadSheetModal from '../components/UploadSheetModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
 import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
 import type { Song, Section, SharePayload } from '../types/song'
@@ -45,6 +46,35 @@ export default function SessionPage() {
     }
   })
   const [copiedLyrics, setCopiedLyrics] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+
+  const handleImportUploadedSongs = async (songs: Song[]) => {
+    if (!session) return
+    for (const song of songs) {
+      await songCache.saveSong(song)
+    }
+    const newItems: SessionSongItem[] = songs.map((s) => ({
+      url: s.sourceUrl,
+      title: s.title,
+      artist: s.artist,
+      status: 'ok',
+    }))
+    const updatedSongs = [...session.songs, ...newItems]
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+    setSongsData((prev) => {
+      const next = new Map(prev)
+      songs.forEach((s) => next.set(s.sourceUrl, s))
+      return next
+    })
+    setOriginalSongs((prev) => {
+      const next = new Map(prev)
+      songs.forEach((s) => next.set(s.sourceUrl, s))
+      return next
+    })
+    selectSong(session.songs.length)
+  }
 
   const handleDismissSectionEditTip = () => {
     setShowSectionEditTip(false)
@@ -694,6 +724,14 @@ export default function SessionPage() {
           >
             + Add song
           </button>
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer whitespace-nowrap shadow-2xs flex items-center gap-1.5"
+            title="Upload SongSelect chord chart PDF or PNG/JPG images"
+          >
+            <span>📄</span>
+            <span>Upload sheet</span>
+          </button>
         </div>
       </div>
 
@@ -917,6 +955,13 @@ export default function SessionPage() {
           </div>
         </aside>
       )}
+
+      {/* Upload SongSelect Sheet Modal */}
+      <UploadSheetModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onImport={handleImportUploadedSongs}
+      />
     </div>
   )
 }

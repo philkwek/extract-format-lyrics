@@ -8,6 +8,7 @@ import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { shortLinkStore } from './shortLinkStore.js'
+import { extractSongsWithGemini, type SheetFilePart } from './extractSheet.js'
 import type { Song, SharePayload } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -15,8 +16,8 @@ setGlobalOptions({
   region: 'us-central1',
   maxInstances: 3,
   minInstances: 0,
-  memory: '256MiB',
-  timeoutSeconds: 30,
+  memory: '512MiB',
+  timeoutSeconds: 60,
   concurrency: 5,
 })
 
@@ -209,6 +210,62 @@ export const api = onRequest(async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
     res.status(200).json({ id, payload })
     return
+  }
+
+  // Extract sheet endpoint: POST /api/extract-sheet
+  if (req.path === '/api/extract-sheet' || req.path === '/extract-sheet') {
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/extract-sheet')
+      return
+    }
+
+    // IP Rate limit check
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(
+        res,
+        429,
+        'RATE_LIMITED',
+        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
+      )
+      return
+    }
+
+    const { files, apiKey } = req.body || {}
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
+      return
+    }
+
+    if (files.length > 10) {
+      sendJsonError(res, 400, 'MAX_FILES_EXCEEDED', 'A maximum of 10 pages/images can be extracted at once')
+      return
+    }
+
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+    for (const f of files) {
+      if (!f.mimeType || !f.base64Data) {
+        sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
+        return
+      }
+      if (!allowed.includes(f.mimeType)) {
+        sendJsonError(res, 400, 'UNSUPPORTED_MIME_TYPE', `Unsupported mime type: ${f.mimeType}. Allowed: ${allowed.join(', ')}`)
+        return
+      }
+    }
+
+    try {
+      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey)
+      res.status(200).json({ songs })
+      return
+    } catch (err) {
+      const msg = (err as Error).message || 'Extraction failed'
+      const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
+      sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
+      return
+    }
   }
 
   // 404 for unrouted paths
