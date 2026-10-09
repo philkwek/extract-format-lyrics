@@ -39,6 +39,26 @@ export async function scrapeSingleUrl(
   const sections = normalizeSongText(rawSong.content)
   const key = rawSong.originalKey || inferKeyFromChords(sections)
 
+  let simplifiedSections: typeof sections | undefined
+  if (rawSong.simplifiedContent) {
+    simplifiedSections = normalizeSongText(rawSong.simplifiedContent)
+  } else if (site === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
+    // Check if ?simplified=1 returns simplified version
+    try {
+      const simplifiedUrl = new URL(finalUrl)
+      if (!simplifiedUrl.searchParams.has('simplified')) {
+        simplifiedUrl.searchParams.set('simplified', '1')
+        const { text: simpText } = await fetcher(simplifiedUrl.toString())
+        const simpRaw = adapter.extract(simpText, simplifiedUrl.toString())
+        if (simpRaw.content && simpRaw.content !== rawSong.content) {
+          simplifiedSections = normalizeSongText(simpRaw.content)
+        }
+      }
+    } catch {
+      // ignore if simplified fetch fails or isn't available
+    }
+  }
+
   return {
     id: generateSongId(finalUrl),
     title: rawSong.title,
@@ -48,5 +68,6 @@ export async function scrapeSingleUrl(
     originalKey: key,
     capo: rawSong.capo,
     sections,
+    simplifiedSections,
   }
 }

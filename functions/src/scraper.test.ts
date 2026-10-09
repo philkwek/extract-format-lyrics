@@ -43,5 +43,59 @@ Second line
     expect(song.originalKey).toBe('D')
     expect(song.sections.length).toBe(1)
     expect(song.sections[0].type).toBe('Verse')
+    expect(song.simplifiedSections).toBeUndefined()
+  })
+
+  it('fetches and attaches simplifiedSections when available on ultimate-guitar', async () => {
+    const ugHtmlNormal = `
+      <div class="js-store" data-content="${JSON.stringify({
+        store: {
+          page: {
+            data: {
+              tab: { song_name: 'UG Song', artist_name: 'UG Artist' },
+              tab_view: {
+                meta: { tonality: 'G' },
+                is_simplify_available: true,
+                wiki_tab: { content: '[Verse 1]\nGadd9   Cmaj7\nSome complex chords' },
+              },
+            },
+          },
+        },
+      }).replace(/"/g, '&quot;')}"></div>
+    `
+
+    const ugHtmlSimplified = `
+      <div class="js-store" data-content="${JSON.stringify({
+        store: {
+          page: {
+            data: {
+              tab: { song_name: 'UG Song', artist_name: 'UG Artist' },
+              tab_view: {
+                meta: { tonality: 'G' },
+                is_simplify_available: true,
+                wiki_tab: { content: '[Verse 1]\nG       C\nSome simplified chords' },
+              },
+            },
+          },
+        },
+      }).replace(/"/g, '&quot;')}"></div>
+    `
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('simplified=1')) {
+        return Promise.resolve({ text: ugHtmlSimplified, finalUrl: url })
+      }
+      return Promise.resolve({ text: ugHtmlNormal, finalUrl: url })
+    })
+
+    const song = await scrapeSingleUrl('https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123', mockFetch as unknown as typeof safeFetchHtml)
+
+    expect(song.title).toBe('UG Song')
+    expect(song.artist).toBe('UG Artist')
+    expect(song.originalKey).toBe('G')
+    expect(song.sections).toBeDefined()
+    expect(song.simplifiedSections).toBeDefined()
+    expect(song.simplifiedSections?.length).toBe(1)
+    expect(song.simplifiedSections?.[0].lines[0].chords?.[0].chord).toBe('G')
   })
 })

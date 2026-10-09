@@ -39,4 +39,6 @@ export interface Song {
   originalKey: string | null
   capo?: number
   sections: Section[]
+  /** Optional simplified version if supported by source (e.g. Ultimate Guitar). */
+  simplifiedSections?: Section[]
 }

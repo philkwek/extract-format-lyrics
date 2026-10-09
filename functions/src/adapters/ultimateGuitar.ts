@@ -14,6 +14,7 @@ interface UgStoreData {
             tonality?: string
             capo?: number
           }
+          is_simplify_available?: boolean
           wiki_tab?: {
             content?: string
           }
@@ -68,6 +69,8 @@ export const ultimateGuitarAdapter: SiteAdapter = {
       throw new Error('Ultimate Guitar: Tab content is missing or empty')
     }
 
+    const isSimplifyAvailable = Boolean(pageData.tab_view?.is_simplify_available)
+
     // Strip [ch]...[/ch] and [tab]...[/tab] BBCode markers, preserving the text inside
     const cleanedContent = wikiContent
       .replace(/\[\/?ch\]/g, '')
@@ -79,6 +82,7 @@ export const ultimateGuitarAdapter: SiteAdapter = {
       originalKey,
       capo: typeof capo === 'number' && capo > 0 ? capo : undefined,
       content: cleanedContent,
+      isSimplifyAvailable,
     }
   },
 }

@@ -85,16 +85,29 @@ export default function SessionPage() {
     })
   }
 
+  const canSimplify = Boolean(currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0)
+  const isSimplified = Boolean(prefs.simplified && canSimplify)
+  const activeSections = useMemo(() => {
+    if (isSimplified && currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0) {
+      return currentSong.simplifiedSections
+    }
+    return currentSong?.sections ?? []
+  }, [isSimplified, currentSong])
+
   // Compute transposed song
   const displayedSong = useMemo(() => {
     if (!currentSong) return null
+    const baseSong = {
+      ...currentSong,
+      sections: activeSections,
+    }
     const targetKey = targetKeys.get(currentSong.id)
     if (!targetKey || !currentSong.originalKey || targetKey === currentSong.originalKey) {
-      return currentSong
+      return baseSong
     }
     const offset = keyOffset(currentSong.originalKey, targetKey)
-    return transposeSong(currentSong, offset, targetKey)
-  }, [currentSong, targetKeys])
+    return transposeSong(baseSong, offset, targetKey)
+  }, [currentSong, activeSections, targetKeys])
 
   // Compute effective layout (handling 'fit' mode)
   const fitResult = useMemo(() => {
@@ -108,7 +121,7 @@ export default function SessionPage() {
 
     const availableHeight = window.innerHeight - 240
     const availableWidth = window.innerWidth
-    const approxLines = currentSong?.sections.reduce((acc, s) => acc + s.lines.length * 2, 0) || 50
+    const approxLines = activeSections.reduce((acc, s) => acc + s.lines.length * 2, 0) || 50
     const approxHeight = approxLines * prefs.fontSizePx * 1.5
 
     const fit = calculateFitLayout(
@@ -124,7 +137,7 @@ export default function SessionPage() {
       fontSizePx: fit.fontSizePx,
       notice: fit.fitsOnScreen ? null : 'Song exceeds screen height; minimum readable size applied.',
     }
-  }, [prefs.columns, prefs.fontSizePx, currentSong])
+  }, [prefs.columns, prefs.fontSizePx, activeSections])
 
   const handleRetry = async (item: SessionSongItem) => {
     if (!session || retryingUrls.has(item.url)) return
@@ -351,6 +364,7 @@ export default function SessionPage() {
                   prefs={prefs}
                   onChangePrefs={handleUpdatePrefs}
                   fitsNotice={fitResult.notice}
+                  canSimplify={canSimplify}
                 />
               </div>
 

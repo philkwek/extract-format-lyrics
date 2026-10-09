@@ -4,12 +4,14 @@ interface DisplayControlsProps {
   prefs: SongDisplayPrefs
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
   fitsNotice?: string | null
+  canSimplify?: boolean
 }
 
 export default function DisplayControls({
   prefs,
   onChangePrefs,
   fitsNotice,
+  canSimplify,
 }: DisplayControlsProps) {
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 text-xs">
@@ -58,6 +60,22 @@ export default function DisplayControls({
           </button>
         </div>
       </div>
+
+      {/* Simplify toggle (when available from source) */}
+      {canSimplify && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
+            className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer border ${
+              prefs.simplified
+                ? 'bg-amber-500 text-black border-amber-500 font-bold'
+                : 'bg-neutral-950 text-neutral-300 border-neutral-700 hover:text-white'
+            }`}
+          >
+            {prefs.simplified ? 'Simplified Chords ✓' : 'Simplify Chords'}
+          </button>
+        </div>
+      )}
 
       {/* Notice if fit mode couldn't completely avoid scrolling */}
       {fitsNotice && (

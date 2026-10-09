@@ -4,6 +4,8 @@ export interface RawSong {
   originalKey: string | null
   capo?: number
   content: string
+  simplifiedContent?: string
+  isSimplifyAvailable?: boolean
 }
 
 export interface SiteAdapter {
