@@ -75,20 +75,18 @@ export const songSelectResponseSchema = {
                     type: Type.OBJECT,
                     properties: {
                       kind: { type: Type.STRING, enum: ['lyric', 'chords-only'] },
-                      chordLine: {
-                        type: Type.STRING,
-                        description:
-                          'The line of chords, strictly preserving exact horizontal spaces/padding matching the sheet (e.g. "F#m7           E                                 D2").',
-                      },
-                      lyricLine: {
-                        type: Type.STRING,
-                        description:
-                          'The line of lyrics, strictly preserving all leading spaces where chords play before lyrics begin (e.g. "       Heaven is trembling in awe of Your wonders") and intra-word spaces ("a - way").',
-                      },
                       content: {
                         type: Type.STRING,
                         description:
-                          'For chords-only / instrumental bars (e.g. "| A | A | Bm7 | Bm7 |") or fallback text.',
+                          'For lyric lines: lyric text with chords in square brackets embedded directly before the syllable they sit above, e.g. "[Asus]Found in Your [A]hands [Asus]fullness of [A]joy". When a chord plays on a beat before lyrics begin, strictly preserve leading whitespace: "[F#m7]       Heaven is [E]trembling". For chords-only: bar line, e.g. "| A | A | Bm7 | Bm7 |".',
+                      },
+                      chordLine: {
+                        type: Type.STRING,
+                        description: 'Optional raw chord line.',
+                      },
+                      lyricLine: {
+                        type: Type.STRING,
+                        description: 'Optional raw lyric line preserving leading spaces.',
                       },
                     },
                     required: ['kind'],
@@ -108,7 +106,7 @@ export const songSelectResponseSchema = {
 
 export const SONGSELECT_SYSTEM_PROMPT = `
 You are an expert music chart transcriber specializing in SongSelect (CCLI) chord charts.
-Your job is to transcribe the provided sheet document or images with 100% layout, whitespace, and musical timing fidelity.
+Your job is to transcribe the provided sheet document or images with 100% layout, whitespace, and musical alignment fidelity.
 
 CRITICAL RULES FOR SONGSELECT FORMAT:
 
@@ -118,30 +116,27 @@ CRITICAL RULES FOR SONGSELECT FORMAT:
    - Then read Column 2 completely from top-to-bottom.
    - NEVER read horizontally across columns or interleave lines between Column 1 and Column 2!
 
-2. PRESERVE WHITESPACE & MUSICAL TIMING (CRITICAL):
-   - In SongSelect charts, horizontal whitespace represents musical timing:
-     * LEADING SPACES IN LYRICS: When a chord is played on beat 1 before vocals enter (e.g. 'F#m7' plays on beat 1, and after a pause the vocals enter: 'Heaven is trembling...'), you MUST include the leading whitespace in 'lyricLine':
-       Example:
-       chordLine: "F#m7           E                                 D2"
-       lyricLine: "       Heaven is trembling in awe of Your wonders"
-     * INDENTED CHORDS: When chords occur later in a lyric line, pad 'chordLine' with spaces so each chord sits directly above the exact syllable it aligns with:
-       Example:
-       chordLine: "               A2                  E/G#"
-       lyricLine: "Here in Your Presence we are un -      done"
-     * MULTIPLE CHORDS: When multiple chords appear across a phrase (e.g. "Asus           A         Asus          A"), maintain their spaces so they never bunch up together.
-     * SYLLABLES & HYPHENS: Preserve lyric spacing and hyphenation (e.g. "fade a - way", "dis - play", "ev'rything").
+2. CHORD-TO-SYLLABLE ALIGNMENT (CRITICAL):
+   - In SongSelect, chords are printed directly above specific words and syllables.
+   - Embed each chord in square brackets immediately preceding the exact word or syllable it aligns with:
+     * "[Asus]Found in Your [A]hands [Asus]fullness of [A]joy" (Asus is above Found, A is above hands, Asus is above fullness, A is above joy)
+     * "[Bm7]Every fear suddenly wiped [A/C#]a - [D]way" (Bm7 is above Every, A/C# is above a -, D is above way)
+     * "Here in Your [A]Presence" ('Here in Your' has no chord; A is above Presence)
+     * "Here in Your Presence we are [A2]un -      [E/G#]done" (A2 is above un -, E/G# is above done)
+     * "Here in Your Presence [F#m7]heaven and [E]earth become   [D]one"
+     * "[Asus]All   of my gains now [A]fade [Asus]a - [A]way"
 
-3. LINE PAIRING:
-   - For every sung line, output a single item with:
-     * 'kind': 'lyric'
-     * 'chordLine': The chords and spaces above the lyric.
-     * 'lyricLine': The lyrics and spaces below the chords.
-   - If a lyric line has no chords above it, provide 'lyricLine' and leave 'chordLine' blank or null.
+3. INSTRUMENTAL TIMING & LEADING WHITESPACE (CRITICAL):
+   - When a chord plays on beat 1 BEFORE lyrics enter (e.g. In Pre-Chorus: F#m7 plays on beat 1, then an instrumental rest, then 'Heaven is trembling...'):
+     You MUST put the chord at the beginning followed by the leading whitespace to mark the timing rest:
+     Example:
+     content: "[F#m7]       Heaven is [E]trembling in awe of Your [D2]wonders"
+     content: "[F#m7]       The kings and their [E]kingdoms are standing [D2]a - mazed"
 
 4. INSTRUMENTALS & CHORDS-ONLY:
-   - For lines containing only chords, bar lines, or slash timing marks (e.g. Intro, Instrumental, Outro like '| A | A | Bm7 | Bm7 |'):
-     * Set 'kind': 'chords-only'
-     * Put the bar progression in 'content' or 'chordLine'.
+   - For instrumental sections or lines consisting only of chord bars (e.g. Intro, Instrumental like '| A | A | Bm7 | Bm7 |'):
+     * kind: 'chords-only'
+     * content: '| A | A | Bm7 | Bm7 |'
 
 5. MULTI-PAGE & MULTI-SONG:
    - Merge continuation pages (e.g. 'Page 2 of 2' or '[Title] - 2') into the current song in order.
@@ -156,7 +151,6 @@ CRITICAL RULES FOR SONGSELECT FORMAT:
 
 /**
  * Extracts chords and their exact character positions from a spaced chord line.
- * Preserves the exact visual alignment above lyrics.
  */
 export function extractChordsFromSpacedLine(chordLine: string): ChordPlacement[] {
   const chords: ChordPlacement[] = []
@@ -165,7 +159,6 @@ export function extractChordsFromSpacedLine(chordLine: string): ChordPlacement[]
 
   while ((match = regex.exec(chordLine)) !== null) {
     const rawToken = match[0]
-    // Strip trailing or leading punctuation/bars/parentheses (e.g. '|', '(', ')')
     const cleanToken = rawToken.replace(/^[|:()[\]]+|[|:()[\]]+$/g, '')
     if (cleanToken && isChord(cleanToken)) {
       const innerOffset = rawToken.indexOf(cleanToken)
@@ -180,7 +173,8 @@ export function extractChordsFromSpacedLine(chordLine: string): ChordPlacement[]
 }
 
 /**
- * Parses bracketed notation like "[G]Amazing [C]grace" into the app's Line data model (fallback).
+ * Parses bracketed notation like "[Asus]Found in Your [A]hands" into the app's Line data model.
+ * Preserves leading whitespace and guarantees chords never collide.
  */
 export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content: string): Line {
   if (kind === 'chords-only') {
@@ -195,24 +189,33 @@ export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content:
   const chords: ChordPlacement[] = []
   let cleanText = ''
   let i = 0
+  let minChordPos = 0
 
   while (i < content.length) {
     if (content[i] === '[') {
       const closeIdx = content.indexOf(']', i)
       if (closeIdx !== -1) {
         const chordCandidate = content.slice(i + 1, closeIdx).trim()
-        if (chordCandidate) {
+        if (chordCandidate && isChord(chordCandidate)) {
+          const pos = Math.max(cleanText.length, minChordPos)
           chords.push({
-            pos: cleanText.length,
+            pos,
             chord: chordCandidate,
           })
+          minChordPos = pos + chordCandidate.length + 1
+          i = closeIdx + 1
+          continue
         }
-        i = closeIdx + 1
-        continue
       }
     }
     cleanText += content[i]
     i++
+  }
+
+  // Ensure cleanText is padded with spaces if chords extend past the end of the line
+  const maxChordEnd = chords.reduce((max, c) => Math.max(max, c.pos + c.chord.length), 0)
+  if (maxChordEnd > cleanText.length) {
+    cleanText = cleanText.padEnd(maxChordEnd, ' ')
   }
 
   return {
@@ -224,7 +227,7 @@ export function bracketedLineToModelLine(kind: 'lyric' | 'chords-only', content:
 
 /**
  * Converts a raw extracted line into the app's Line data model.
- * Prioritizes spaced chordLine + lyricLine to preserve timing and whitespace.
+ * Handles bracketed content (prioritized for syllable precision) or spaced chordLine + lyricLine.
  */
 export function rawLineToModelLine(line: RawExtractedLine): Line {
   if (line.kind === 'chords-only') {
@@ -237,7 +240,12 @@ export function rawLineToModelLine(line: RawExtractedLine): Line {
     return { kind: 'chords-only', chords: rawText.trim() ? [rawText.trim()] : [] }
   }
 
-  // Spaced chordLine and lyricLine mode (preserves exact timing whitespace)
+  // If bracketed notation is in content, use syllable-bound parsing
+  if (line.content && /\[[A-G][^\]]*\]/.test(line.content)) {
+    return bracketedLineToModelLine('lyric', line.content)
+  }
+
+  // Spaced chordLine and lyricLine mode (fallback)
   if (line.chordLine !== undefined || line.lyricLine !== undefined) {
     const chordLine = line.chordLine || ''
     const lyricLine = line.lyricLine || ''
@@ -248,7 +256,6 @@ export function rawLineToModelLine(line: RawExtractedLine): Line {
 
     const chords = extractChordsFromSpacedLine(chordLine)
 
-    // Ensure lyric text is padded if chords extend beyond the lyrics
     let text = lyricLine
     const maxChordPos = chords.reduce((max, c) => Math.max(max, c.pos + c.chord.length), 0)
     if (maxChordPos > text.length) {
@@ -262,7 +269,6 @@ export function rawLineToModelLine(line: RawExtractedLine): Line {
     }
   }
 
-  // Fallback to bracketed format if content provided
   return bracketedLineToModelLine('lyric', line.content || '')
 }
 
@@ -316,7 +322,7 @@ export async function extractSongsWithGemini(
   )
 
   contentsParts.push({
-    text: 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving horizontal spacing and timing.',
+    text: 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving syllable alignment and leading whitespace timing.',
   })
 
   const response = await ai.models.generateContent({
