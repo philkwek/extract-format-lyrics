@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
+import { partitionSections } from '../lib/songLayout'
 
 interface SongSheetProps {
   sections: Section[]
@@ -163,7 +164,17 @@ export default function SongSheet({
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [editingChord, setEditingChord] = useState<EditingChordTarget | null>(null)
-  const colClass = columns === 3 ? 'columns-3' : columns === 2 ? 'columns-2' : 'columns-1'
+  const columnPartitions = useMemo(
+    () => partitionSections(sections, columns),
+    [sections, columns]
+  )
+
+  const gridClass =
+    columns === 3
+      ? 'grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
+      : columns === 2
+      ? 'grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
+      : 'grid grid-cols-1 gap-6'
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = 'move'
@@ -222,7 +233,7 @@ export default function SongSheet({
 
   return (
     <div
-      className={`song-sheet select-text ${colClass}`}
+      className="song-sheet select-text"
       style={{ fontSize: `${fontSizePx}px` }}
     >
       {isEditingChords && (
@@ -235,75 +246,82 @@ export default function SongSheet({
           </span>
         </div>
       )}
-      {sections.map((section, sIdx) => {
-        const isDragging = draggedIdx === sIdx
-        const isOver = dragOverIdx === sIdx && draggedIdx !== sIdx
 
-        return (
-          <div
-            key={sIdx}
-            draggable={Boolean(onReorderSections)}
-            onDragStart={(e) => handleDragStart(e, sIdx)}
-            onDragOver={(e) => handleDragOver(e, sIdx)}
-            onDrop={(e) => handleDrop(e, sIdx)}
-            onDragEnd={handleDragEnd}
-            className={`section-block mb-6 break-inside-avoid relative transition-all ${
-              isDragging ? 'opacity-30 scale-[0.99]' : ''
-            }`}
-          >
-            {/* Top insertion indicator line when dragging over this section */}
-            {isOver && (
-              <div className="absolute -top-3 left-0 right-0 flex items-center z-10 pointer-events-none">
-                <div className="w-2 h-2 rounded-full bg-amber-500 -mr-1" />
-                <div className="h-0.5 flex-1 bg-amber-500 shadow-xs" />
-                <div className="w-2 h-2 rounded-full bg-amber-500 -ml-1" />
-              </div>
-            )}
-            <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2 select-none group">
-              <div
-                className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing"
-                title={onReorderSections ? 'Drag to reorder section' : undefined}
-              >
-                {onReorderSections && (
-                  <span
-                    className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none px-0.5"
-                    title="Drag to reorder"
-                  >
-                    ⋮⋮
-                  </span>
-                )}
-                <h3
-                  className="font-mono text-neutral-800 dark:text-[#d4d4d4] font-bold uppercase tracking-wider"
-                  style={{ fontSize: `${fontSizePx}px` }}
+      <div className={gridClass}>
+        {columnPartitions.map((colItems, colIdx) => (
+          <div key={colIdx} className="space-y-6 min-w-0">
+            {colItems.map(({ section, originalIndex }) => {
+              const isDragging = draggedIdx === originalIndex
+              const isOver = dragOverIdx === originalIndex && draggedIdx !== originalIndex
+
+              return (
+                <div
+                  key={originalIndex}
+                  draggable={Boolean(onReorderSections)}
+                  onDragStart={(e) => handleDragStart(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e, originalIndex)}
+                  onDrop={(e) => handleDrop(e, originalIndex)}
+                  onDragEnd={handleDragEnd}
+                  className={`section-block mb-6 relative transition-all ${
+                    isDragging ? 'opacity-30 scale-[0.99]' : ''
+                  }`}
                 >
-                  {section.label || 'Section'}
-                </h3>
-              </div>
-              {onDeleteSection && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteSection(sIdx)}
-                  title={`Delete ${section.label || 'this section'}`}
-                  className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <div className="space-y-0.5">
-              {section.lines.map((line, lIdx) =>
-                renderLine(
-                  line,
-                  lIdx,
-                  sIdx,
-                  lIdx,
-                  isEditingChords && (onEditChord || onDeleteChord) ? handleOpenEditChord : undefined
-                )
-              )}
-            </div>
+                  {/* Top insertion indicator line when dragging over this section */}
+                  {isOver && (
+                    <div className="absolute -top-3 left-0 right-0 flex items-center z-10 pointer-events-none">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 -mr-1" />
+                      <div className="h-0.5 flex-1 bg-amber-500 shadow-xs" />
+                      <div className="w-2 h-2 rounded-full bg-amber-500 -ml-1" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-b border-neutral-300 dark:border-[#282828] pb-1 mb-2 select-none group">
+                    <div
+                      className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing"
+                      title={onReorderSections ? 'Drag to reorder section' : undefined}
+                    >
+                      {onReorderSections && (
+                        <span
+                          className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs font-mono select-none px-0.5"
+                          title="Drag to reorder"
+                        >
+                          ⋮⋮
+                        </span>
+                      )}
+                      <h3
+                        className="font-mono text-neutral-800 dark:text-[#d4d4d4] font-bold uppercase tracking-wider"
+                        style={{ fontSize: `${fontSizePx}px` }}
+                      >
+                        {section.label || 'Section'}
+                      </h3>
+                    </div>
+                    {onDeleteSection && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteSection(originalIndex)}
+                        title={`Delete ${section.label || 'this section'}`}
+                        className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    {section.lines.map((line, lIdx) =>
+                      renderLine(
+                        line,
+                        lIdx,
+                        originalIndex,
+                        lIdx,
+                        isEditingChords && (onEditChord || onDeleteChord) ? handleOpenEditChord : undefined
+                      )
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        ))}
+      </div>
 
       {/* Custom Musical Keyboard Modal for editing or deleting a chord */}
       {editingChord && (
