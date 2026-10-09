@@ -10,11 +10,13 @@ import { calculateFitLayout } from '../lib/useFitToScreen'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
-import TransposeSelector from '../components/TransposeSelector'
 import ShareModal from '../components/ShareModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import { getInitialTheme, saveTheme } from '../lib/theme'
+import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
 import type { Song, Section, SharePayload } from '../types/song'
+
+const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
 export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -35,7 +37,23 @@ export default function SessionPage() {
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
   const [isArrangingSongs, setIsArrangingSongs] = useState(false)
-  const [isArrangingSections, setIsArrangingSections] = useState(false)
+  const [showSectionEditTip, setShowSectionEditTip] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem(SECTION_EDIT_TIP_STORAGE_KEY)
+    } catch {
+      return false
+    }
+  })
+  const [copiedLyrics, setCopiedLyrics] = useState(false)
+
+  const handleDismissSectionEditTip = () => {
+    setShowSectionEditTip(false)
+    try {
+      localStorage.setItem(SECTION_EDIT_TIP_STORAGE_KEY, 'true')
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
@@ -255,6 +273,38 @@ export default function SessionPage() {
     setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
 
     // Persist reordered sections to session so it survives page reloads
+    const updatedSongs = session.songs.map((s) =>
+      s.url === currentSong.sourceUrl
+        ? {
+            ...s,
+            customSections: isSimplified ? s.customSections : baseSections,
+            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
+          }
+        : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleRenameSection = async (sectionIndex: number, newLabel: string) => {
+    if (!currentSong || !session) return
+    const trimmed = newLabel.trim()
+    if (!trimmed) return
+
+    const baseSections = (
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+    ).map((sec, idx) => (idx === sectionIndex ? { ...sec, label: trimmed } : sec))
+
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: baseSections }
+        : { ...currentSong, sections: baseSections }
+
+    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+
     const updatedSongs = session.songs.map((s) =>
       s.url === currentSong.sourceUrl
         ? {
@@ -498,8 +548,8 @@ export default function SessionPage() {
 
   if (!session) {
     return (
-      <div className="py-12 text-center text-neutral-400 text-sm">
-        Session not found. <button onClick={() => navigate('/')} className="text-amber-400 underline">Return home</button>
+      <div className="bg-white dark:bg-[#151515] rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-[#C8DFDB]/50 dark:border-[#282828]">
+        Session not found. <button onClick={() => navigate('/')} className="text-[#3368A0] dark:text-amber-400 underline cursor-pointer">Return home</button>
       </div>
     )
   }
@@ -535,10 +585,25 @@ export default function SessionPage() {
     }
   }
 
+  const handleShareLyrics = async () => {
+    if (!session) return
+    const text = formatSetlistLyrics(
+      session.songs,
+      songsData,
+      (songId) => songPrefsOverrides.get(songId)?.simplified ?? getSongPrefs(songId)?.simplified ?? false
+    )
+    if (!text) return
+    const success = await copyLyricsToClipboard(text)
+    if (success) {
+      setCopiedLyrics(true)
+      setTimeout(() => setCopiedLyrics(false), 2000)
+    }
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="bg-white dark:bg-[#151515] rounded-2xl shadow-sm p-4 sm:p-6 sm:p-8 space-y-6 border border-[#C8DFDB]/50 dark:border-[#282828]">
       {/* Session Title Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-2 border-b border-neutral-200 dark:border-[#282828]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-2 border-b border-[#C8DFDB] dark:border-[#282828]">
         <div>
           {isEditingName ? (
             <div className="flex items-center gap-2">
@@ -549,11 +614,11 @@ export default function SessionPage() {
                 onBlur={handleSaveRename}
                 onKeyDown={handleKeyDownRename}
                 autoFocus
-                className="bg-white dark:bg-[#101010] border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-900 dark:text-[#e5e5e5] focus:outline-none"
+                className="bg-white dark:bg-[#101010] border border-[#3368A0] dark:border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-900 dark:text-[#e5e5e5] focus:outline-none"
               />
               <button
                 onClick={handleSaveRename}
-                className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-semibold cursor-pointer"
+                className="text-xs bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:text-black px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors"
               >
                 Save
               </button>
@@ -564,7 +629,7 @@ export default function SessionPage() {
               <button
                 onClick={handleStartRename}
                 title="Rename set"
-                className="text-xs text-neutral-500 hover:text-amber-500 p-1 cursor-pointer transition-colors"
+                className="text-xs text-neutral-500 hover:text-[#3368A0] dark:hover:text-amber-500 p-1 cursor-pointer transition-colors"
               >
                 ✎
               </button>
@@ -599,16 +664,24 @@ export default function SessionPage() {
                 songs: validSongs,
               })
             }}
-            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+            className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
             title="Share setlist via link"
           >
             <span>🔗</span>
-            <span>Share</span>
+            <span>Share Setlist</span>
+          </button>
+          <button
+            onClick={handleShareLyrics}
+            className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
+            title="Copy all lyrics without chords to clipboard"
+          >
+            <span>{copiedLyrics ? '✓' : '📋'}</span>
+            <span>{copiedLyrics ? 'Copied!' : 'Share Lyrics'}</span>
           </button>
           {session.songs.length > 1 && (
             <button
               onClick={() => setIsArrangingSongs(true)}
-              className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
               title="Arrange songs order in setlist"
             >
               <span>⇅</span>
@@ -617,7 +690,7 @@ export default function SessionPage() {
           )}
           <button
             onClick={() => navigate(`/search?session=${session.id}`)}
-            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer whitespace-nowrap"
+            className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
           >
             + Add song
           </button>
@@ -625,7 +698,7 @@ export default function SessionPage() {
       </div>
 
       {/* Scrollable Song Tabs */}
-      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 pt-1 px-1 no-scrollbar border-b border-neutral-200 dark:border-[#282828] relative">
+      <div className="flex space-x-1.5 overflow-x-auto pb-1.5 pt-1 px-1 no-scrollbar border-b border-[#C8DFDB] dark:border-[#282828] relative">
         {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
           const song = songsData.get(item.url)
@@ -659,23 +732,23 @@ export default function SessionPage() {
                 isDragging ? 'opacity-40 scale-95' : ''
               } ${
                 isActive
-                  ? 'bg-neutral-200 dark:bg-[#1a1a1a] text-amber-600 dark:text-amber-400 border-amber-500'
-                  : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] border-transparent'
+                  ? 'bg-white dark:bg-[#1a1a1a] text-[#255283] dark:text-amber-400 border-[#3368A0] dark:border-amber-500 font-bold shadow-2xs'
+                  : 'bg-[#C8DFDB]/25 dark:bg-[#101010] text-neutral-700 dark:text-[#999999] hover:bg-[#C8DFDB]/50 dark:hover:text-[#e5e5e5] border-transparent'
               }`}
             >
               {/* Drop insertion indicator line */}
               {isOver && (
                 draggedSongIdx! < idx ? (
                   <div className="absolute -right-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <div className="w-0.5 flex-1 bg-amber-500 shadow-xs" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
                   </div>
                 ) : (
                   <div className="absolute -left-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <div className="w-0.5 flex-1 bg-amber-500 shadow-xs" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
                   </div>
                 )
               )}
@@ -695,7 +768,7 @@ export default function SessionPage() {
                     ? 'bg-emerald-500'
                     : item.status === 'error'
                       ? 'bg-red-500'
-                      : 'bg-amber-500 animate-pulse'
+                      : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
                 }`}
               />
               <span className="truncate max-w-[140px]">{label}</span>
@@ -736,24 +809,15 @@ export default function SessionPage() {
             </div>
           ) : displayedSong ? (
             <div className="space-y-4">
-              {/* Header with Title, Artist, Original Key Badge */}
-              <SongHeader
-                song={displayedSong}
-                currentKey={currentKey}
-                offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                onResetKey={handleResetKey}
-              />
-
-              {/* Controls Toolbar: Transpose Key Selector & Display Controls */}
-              <div className="space-y-2">
-                <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-xs">
-                  <TransposeSelector
-                    originalKey={displayedSong.originalKey}
-                    currentKey={currentKey}
-                    onSelectKey={handleSelectKey}
-                    onReset={handleResetKey}
-                  />
-                </div>
+              {/* Header and Toolbar tightly grouped */}
+              <div className="space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]">
+                <SongHeader
+                  song={displayedSong}
+                  currentKey={currentKey}
+                  offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
+                  onResetKey={handleResetKey}
+                  onSelectKey={handleSelectKey}
+                />
 
                 <DisplayControls
                   prefs={prefs}
@@ -763,12 +827,11 @@ export default function SessionPage() {
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
                   onToggleEditChords={() => setIsEditingChords((prev) => !prev)}
-                  onOpenArrangeSections={() => setIsArrangingSections(true)}
                 />
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <SongSheet
                   sections={displayedSong.sections}
                   fontSizePx={fitResult.fontSizePx}
@@ -776,6 +839,7 @@ export default function SessionPage() {
                   isEditingChords={isEditingChords}
                   onDeleteSection={handleDeleteSection}
                   onReorderSections={handleReorderSections}
+                  onRenameSection={handleRenameSection}
                   onEditChord={handleEditChord}
                   onDeleteChord={handleDeleteChord}
                 />
@@ -817,22 +881,41 @@ export default function SessionPage() {
         onClose={() => setIsArrangingSongs(false)}
       />
 
-      {/* Arrange Sections Drawer */}
-      {currentSong && (
-        <ArrangeDrawer
-          isOpen={isArrangingSections}
-          title="Arrange Sections"
-          subtitle={`Reorder sections in "${currentSong.title}"`}
-          items={activeSections.map((sec, idx) => ({
-            id: `${sec.label}-${idx}`,
-            title: sec.label || `Section ${idx + 1}`,
-            subtitle: `${sec.lines.length} lines`,
-            badge: `#${idx + 1}`,
-          }))}
-          onMove={handleReorderSections}
-          onDelete={activeSections.length > 1 ? handleDeleteSection : undefined}
-          onClose={() => setIsArrangingSections(false)}
-        />
+      {/* Floating Section Customization Helper Tip (First song & first instance only) */}
+      {showSectionEditTip && activeIndex === 0 && Boolean(displayedSong) && (
+        <aside
+          role="complementary"
+          aria-label="Section customization tip"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 max-w-xs sm:max-w-sm bg-white dark:bg-[#1a1a1a] border border-[#3368A0]/40 dark:border-amber-500/50 rounded-xl p-3.5 shadow-2xl flex flex-col gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[#255283] dark:text-amber-400 font-semibold text-xs">
+              <span>💡</span>
+              <span>Pro Tip: Customize Sections</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDismissSectionEditTip}
+              className="p-1 -mr-1 -mt-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded transition-colors cursor-pointer"
+              title="Dismiss tip"
+              aria-label="Dismiss tip"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+            You can delete duplicate sections with <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder them anytime by <strong className="text-neutral-800 dark:text-neutral-100">dragging and dropping</strong>.
+          </p>
+          <div className="flex justify-end pt-0.5">
+            <button
+              type="button"
+              onClick={handleDismissSectionEditTip}
+              className="px-3 py-1 bg-[#3368A0] hover:bg-[#255283] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-xs dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black"
+            >
+              Got it
+            </button>
+          </div>
+        </aside>
       )}
     </div>
   )

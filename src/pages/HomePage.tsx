@@ -217,8 +217,8 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       {/* Create Setlist / Session Section */}
-      <section className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-neutral-200 dark:border-[#282828] pb-4">
+      <section className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#C8DFDB] dark:border-[#282828] pb-4">
           <div>
             <h2 className="text-xl font-bold text-neutral-900 dark:text-[#e5e5e5]">New Song Session</h2>
             <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
@@ -233,7 +233,7 @@ export default function HomePage() {
               onClick={() => setCreateMode('paste')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                 createMode === 'paste'
-                  ? 'bg-amber-500 text-black shadow-xs'
+                  ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
                   : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
               }`}
             >
@@ -245,7 +245,7 @@ export default function HomePage() {
               onClick={() => setCreateMode('search')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                 createMode === 'search'
-                  ? 'bg-amber-500 text-black shadow-xs'
+                  ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
                   : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
               }`}
             >
@@ -267,7 +267,7 @@ export default function HomePage() {
               disabled={isProcessing}
               placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
               rows={5}
-              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
             />
 
             {generalError && (
@@ -283,7 +283,7 @@ export default function HomePage() {
               <button
                 onClick={handleExtract}
                 disabled={isProcessing || !inputText.trim()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-black rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm"
+                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm"
               >
                 {isProcessing ? 'Extracting Songs...' : 'Extract & Open Session'}
               </button>
@@ -301,12 +301,12 @@ export default function HomePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
-                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
               />
               <button
                 type="submit"
                 disabled={isSearching || !searchQuery.trim()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-black rounded-lg transition-colors cursor-pointer text-sm shrink-0"
+                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-400 rounded-lg transition-colors cursor-pointer text-sm shrink-0"
               >
                 {isSearching ? 'Searching...' : 'Search'}
               </button>
@@ -366,7 +366,7 @@ export default function HomePage() {
                           type="button"
                           onClick={() => handleCreateFromSearch(item)}
                           disabled={creatingFromUrl === item.url}
-                          className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                          className="px-3.5 py-1.5 bg-[#3368A0] hover:bg-[#255283] disabled:opacity-50 text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                         >
                           {creatingFromUrl === item.url ? 'Creating...' : '+ Start Setlist'}
                         </button>
@@ -384,7 +384,7 @@ export default function HomePage() {
         )}
 
         {statuses.length > 0 && (
-          <div className="mt-6 border-t border-neutral-200 dark:border-[#282828] pt-4 space-y-2">
+          <div className="mt-6 border-t border-[#C8DFDB] dark:border-[#282828] pt-4 space-y-2">
             <h3 className="text-xs font-semibold text-neutral-600 dark:text-[#999999] uppercase tracking-wider">
               Import Progress
             </h3>
@@ -397,7 +397,7 @@ export default function HomePage() {
                       ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                       : s.status === 'error'
                         ? 'text-red-600 dark:text-red-400 font-medium'
-                        : 'text-amber-600 dark:text-amber-400 animate-pulse'
+                        : 'text-[#255283] dark:text-amber-400 animate-pulse font-medium'
                   }
                 >
                   {s.status === 'cached' && 'Cached ✓'}
@@ -413,7 +413,7 @@ export default function HomePage() {
       </section>
 
       {/* Recent Sessions */}
-      <section className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-5 shadow-xs">
+      <section className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]">Recent Sessions</h2>
@@ -439,10 +439,10 @@ export default function HomePage() {
               <div
                 key={session.id}
                 onClick={() => navigate(`/session/${session.id}`)}
-                className="py-3 flex items-center justify-between hover:bg-neutral-100 dark:hover:bg-[#252525] px-2 rounded -mx-2 transition-colors cursor-pointer group"
+                className="py-3 flex items-center justify-between hover:bg-[#C8DFDB]/20 dark:hover:bg-[#252525] px-2 rounded -mx-2 transition-colors cursor-pointer group"
               >
                 <div className="flex-1 mr-2">
-                  <h3 className="text-sm font-medium text-neutral-900 dark:text-[#e5e5e5] group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  <h3 className="text-sm font-medium text-neutral-900 dark:text-[#e5e5e5] group-hover:text-[#3368A0] dark:group-hover:text-amber-400 transition-colors">
                     {session.name}
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-[#999999]">
@@ -469,7 +469,7 @@ export default function HomePage() {
                       })
                     }}
                     title="Share setlist"
-                    className="text-xs text-neutral-400 hover:text-amber-500 dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
+                    className="text-xs text-neutral-400 hover:text-[#3368A0] dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
                   >
                     🔗
                   </button>
@@ -484,7 +484,7 @@ export default function HomePage() {
                       }
                     }}
                     title="Rename set"
-                    className="text-xs text-neutral-400 hover:text-amber-500 dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
+                    className="text-xs text-neutral-400 hover:text-[#3368A0] dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
                   >
                     ✎
                   </button>

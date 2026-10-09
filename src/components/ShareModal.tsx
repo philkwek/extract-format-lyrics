@@ -84,7 +84,7 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
             />
             <button
               onClick={handleCopy}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 font-semibold text-black text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+              className="px-4 py-2 bg-[#3368A0] hover:bg-[#255283] font-semibold text-white text-xs rounded-lg transition-colors cursor-pointer shrink-0 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black"
             >
               {copied ? 'Copied ✓' : 'Copy Link'}
             </button>
@@ -104,7 +104,7 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
                 <button
                   type="button"
                   onClick={() => setUsePermanentLink(!usePermanentLink)}
-                  className="text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                  className="text-[#255283] dark:text-amber-400 hover:underline cursor-pointer"
                 >
                   {usePermanentLink ? 'Switch to short link' : 'Switch to permanent link'}
                 </button>

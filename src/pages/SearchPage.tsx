@@ -237,7 +237,7 @@ export default function SearchPage() {
               navigate(-1)
             }
           }}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-[#e5e5e5] hover:text-amber-600 dark:hover:text-amber-400 bg-neutral-200/80 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] border border-neutral-300 dark:border-[#282828] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-[#e5e5e5] hover:text-[#3368A0] dark:hover:text-amber-400 bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border-[#282828] px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs"
         >
           ← {targetSession ? `Back to ${targetSession.name}` : 'Back'}
         </button>
@@ -248,14 +248,14 @@ export default function SearchPage() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-5 shadow-xs">
-        <div className="flex gap-2 border-b border-neutral-200 dark:border-[#282828] pb-3 mb-4">
+      <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm">
+        <div className="flex gap-2 border-b border-[#C8DFDB] dark:border-[#282828] pb-3 mb-4">
           <button
             type="button"
             onClick={() => setMode('search')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               mode === 'search'
-                ? 'bg-amber-500 text-black shadow-xs'
+                ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
                 : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
             }`}
           >
@@ -266,7 +266,7 @@ export default function SearchPage() {
             onClick={() => setMode('paste')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               mode === 'paste'
-                ? 'bg-amber-500 text-black shadow-xs'
+                ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
                 : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
             }`}
           >
@@ -287,12 +287,12 @@ export default function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
-                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
               />
               <button
                 type="submit"
                 disabled={isSearching || !query.trim()}
-                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-black rounded-lg transition-colors cursor-pointer text-sm"
+                className="px-5 py-2 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer text-sm"
               >
                 {isSearching ? 'Searching...' : 'Search'}
               </button>
@@ -317,7 +317,7 @@ export default function SearchPage() {
               disabled={isProcessingPaste}
               placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
               rows={4}
-              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
             />
 
             {pasteError && (
@@ -334,7 +334,7 @@ export default function SearchPage() {
                 type="button"
                 onClick={handlePasteExtract}
                 disabled={isProcessingPaste || !pasteText.trim()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-black rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-xs"
+                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-xs"
               >
                 {isProcessingPaste ? 'Extracting...' : targetSessionId ? '+ Add to Setlist' : 'Extract & Open'}
               </button>
@@ -354,7 +354,7 @@ export default function SearchPage() {
                           ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                           : s.status === 'error'
                             ? 'text-red-600 dark:text-red-400 font-medium'
-                            : 'text-amber-600 dark:text-amber-400 animate-pulse'
+                            : 'text-[#255283] dark:text-amber-400 animate-pulse'
                       }
                     >
                       {s.status === 'cached' && 'Cached ✓'}
@@ -387,7 +387,7 @@ export default function SearchPage() {
                 {results.map((item, idx) => (
                   <div
                     key={idx}
-                    className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-4 flex flex-col justify-between hover:border-neutral-300 dark:hover:border-[#383838] transition-colors shadow-xs"
+                    className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl p-4 flex flex-col justify-between hover:border-[#66A3BF] dark:hover:border-[#383838] transition-colors shadow-xs"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -405,7 +405,7 @@ export default function SearchPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-[#282828] flex items-center justify-between">
+                    <div className="mt-4 pt-3 border-t border-[#C8DFDB]/60 dark:border-[#282828] flex items-center justify-between">
                       <a
                         href={item.url}
                         target="_blank"
@@ -417,7 +417,7 @@ export default function SearchPage() {
                       <button
                         onClick={() => handleAddCandidate(item)}
                         disabled={addingUrls.has(item.url) || addedUrls.has(item.url)}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] text-white dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                       >
                         {addedUrls.has(item.url)
                           ? 'Added ✓'
