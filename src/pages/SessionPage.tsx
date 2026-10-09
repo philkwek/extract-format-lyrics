@@ -544,7 +544,7 @@ export default function SessionPage() {
   return (
     <div className="space-y-4">
       {/* Session Title Bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-[#282828]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-2 border-b border-neutral-200 dark:border-[#282828]">
         <div>
           {isEditingName ? (
             <div className="flex items-center gap-2">
@@ -576,11 +576,11 @@ export default function SessionPage() {
               </button>
             </div>
           )}
-          <p className="text-xs text-neutral-500 dark:text-[#999999]">
+          <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
             {session.songs.length} song(s) in setlist
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => {
               const validSongs = session.songs
@@ -605,7 +605,7 @@ export default function SessionPage() {
                 songs: validSongs,
               })
             }}
-            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             title="Share setlist via link"
           >
             <span>🔗</span>
@@ -614,7 +614,7 @@ export default function SessionPage() {
           {session.songs.length > 1 && (
             <button
               onClick={() => setIsArrangingSongs(true)}
-              className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+              className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
               title="Arrange songs order in setlist"
             >
               <span>⇅</span>
@@ -623,7 +623,7 @@ export default function SessionPage() {
           )}
           <button
             onClick={() => navigate(`/search?session=${session.id}`)}
-            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer"
+            className="text-xs bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer whitespace-nowrap"
           >
             + Add song
           </button>
