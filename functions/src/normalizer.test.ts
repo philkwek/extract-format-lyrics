@@ -169,4 +169,72 @@ Hallelujah
       ],
     })
   })
+
+  it('removes duplicate contiguous sections with identical lyrics and chords', () => {
+    const raw = `
+[Instrumental]
+G   A   D
+
+[Bridge]
+G A        D
+I, I'm lifting both of my hands
+           Bm        A
+You gave me chance after chance
+G A        D
+I, I'm giving all that I am
+           Bm        A
+You gave me chance after chance
+
+[Bridge]
+G A        D
+I, I'm lifting both of my hands
+           Bm        A
+You gave me chance after chance
+G A        D
+I, I'm giving all that I am
+           Bm        A
+You gave me chance after chance
+
+[Chorus 1]
+D
+All my life
+`
+    const sections = normalizeSongText(raw)
+    expect(sections.length).toBe(3)
+    expect(sections[0].label).toBe('Instrumental')
+    expect(sections[1].label).toBe('Bridge')
+    expect(sections[2].label).toBe('Chorus 1')
+  })
+
+  it('removes duplicate lines separated by blank lines', () => {
+    const raw = `
+[Chorus]
+C        G
+Hallelujah
+
+C        G
+Hallelujah
+`
+    const sections = normalizeSongText(raw)
+    expect(sections[0].lines.length).toBe(1)
+    expect(sections[0].lines[0].text).toBe('Hallelujah')
+  })
+
+  it('removes repeated multi-line stanzas within a section', () => {
+    const raw = `
+[Bridge]
+G A        D
+I, I'm lifting both of my hands
+           Bm        A
+You gave me chance after chance
+G A        D
+I, I'm lifting both of my hands
+           Bm        A
+You gave me chance after chance
+`
+    const sections = normalizeSongText(raw)
+    expect(sections[0].lines.length).toBe(2)
+    expect(sections[0].lines[0].text).toBe("I, I'm lifting both of my hands")
+    expect(sections[0].lines[1].text).toBe('You gave me chance after chance')
+  })
 })

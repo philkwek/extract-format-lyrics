@@ -77,17 +77,6 @@ export default function DisplayControls({
         </div>
       )}
 
-      {/* Theme toggle */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onChangePrefs({ ...prefs, darkMode: !prefs.darkMode })}
-          className="px-2.5 py-1 rounded font-medium transition-colors cursor-pointer border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white flex items-center gap-1.5"
-          title="Toggle light / dark mode"
-        >
-          <span>{prefs.darkMode ? '🌙' : '☀️'}</span>
-          <span>{prefs.darkMode ? 'Dark' : 'Light'}</span>
-        </button>
-      </div>
 
       {/* Notice if fit mode couldn't completely avoid scrolling */}
       {fitsNotice && (

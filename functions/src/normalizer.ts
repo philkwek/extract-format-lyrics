@@ -166,9 +166,9 @@ export function normalizeSongText(rawText: string): Section[] {
     sections.push(currentSection)
   }
 
-  // Deduplicate contiguous identical lines and strip trailing empty lines
+  // Deduplicate contiguous identical lines and blocks, and strip trailing empty lines
   for (const sec of sections) {
-    sec.lines = deduplicateSectionLines(sec.lines)
+    sec.lines = deduplicateRepeatedBlocks(sec.lines)
     while (
       sec.lines.length > 0 &&
       sec.lines[sec.lines.length - 1].kind === 'lyric' &&
@@ -178,7 +178,8 @@ export function normalizeSongText(rawText: string): Section[] {
     }
   }
 
-  return sections.filter((s) => s.lines.length > 0)
+  const nonEmptySections = sections.filter((s) => s.lines.length > 0)
+  return deduplicateSections(nonEmptySections)
 }
 
 export function areLinesIdentical(a: Line, b: Line): boolean {
@@ -218,8 +219,81 @@ export function deduplicateSectionLines(lines: Line[]): Line[] {
       continue
     }
     const prev = result[result.length - 1]
-    if (!areLinesIdentical(prev, line)) {
-      result.push(line)
+    if (areLinesIdentical(prev, line)) {
+      continue
+    }
+    // Also check if prev is an empty spacer line and the line before it is identical
+    if (
+      result.length >= 2 &&
+      prev.kind === 'lyric' &&
+      prev.text.trim() === '' &&
+      prev.chords.length === 0 &&
+      areLinesIdentical(result[result.length - 2], line)
+    ) {
+      result.pop() // remove blank spacer
+      continue
+    }
+    result.push(line)
+  }
+  return result
+}
+
+export function deduplicateRepeatedBlocks(lines: Line[]): Line[] {
+  let current = deduplicateSectionLines(lines)
+
+  let changed = true
+  while (changed) {
+    changed = false
+    const n = current.length
+    for (let blockSize = Math.floor(n / 2); blockSize >= 2; blockSize--) {
+      for (let start = 0; start <= n - 2 * blockSize; start++) {
+        let isIdentical = true
+        for (let k = 0; k < blockSize; k++) {
+          if (!areLinesIdentical(current[start + k], current[start + blockSize + k])) {
+            isIdentical = false
+            break
+          }
+        }
+        if (isIdentical) {
+          current = [
+            ...current.slice(0, start + blockSize),
+            ...current.slice(start + 2 * blockSize),
+          ]
+          changed = true
+          break
+        }
+      }
+      if (changed) break
+    }
+  }
+
+  return current
+}
+
+export function areSectionsIdentical(a: Section, b: Section): boolean {
+  const aLines = a.lines.filter(
+    (l) => l.kind !== 'lyric' || l.text.trim() !== '' || l.chords.length > 0
+  )
+  const bLines = b.lines.filter(
+    (l) => l.kind !== 'lyric' || l.text.trim() !== '' || l.chords.length > 0
+  )
+
+  if (aLines.length === 0 || bLines.length === 0) return false
+  if (aLines.length !== bLines.length) return false
+
+  return aLines.every((lineA, idx) => areLinesIdentical(lineA, bLines[idx]))
+}
+
+export function deduplicateSections(sections: Section[]): Section[] {
+  const result: Section[] = []
+  for (const sec of sections) {
+    if (result.length === 0) {
+      result.push(sec)
+      continue
+    }
+    const prev = result[result.length - 1]
+    if (!areSectionsIdentical(prev, sec)) {
+      result.push(sec)
     }
   }
   return result
