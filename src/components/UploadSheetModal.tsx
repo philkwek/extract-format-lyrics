@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import type { Song } from '../types/song'
 import { prepareFilesForExtraction } from '../lib/fileOptimizer'
 import { extractSongsApi } from '../lib/api'
@@ -20,18 +20,19 @@ export default function UploadSheetModal({
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showKeyConfig, setShowKeyConfig] = useState(false)
-  const [apiKey, setApiKey] = useState('')
+  const [apiKey, setApiKey] = useState(() => {
+    try {
+      return localStorage.getItem('gemini_api_key') || ''
+    } catch {
+      return ''
+    }
+  })
 
   // Review step state
   const [extractedSongs, setExtractedSongs] = useState<Song[] | null>(null)
   const [activePreviewIndex, setActivePreviewIndex] = useState(0)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key') || ''
-    setApiKey(savedKey)
-  }, [])
 
   if (!isOpen) return null
 
