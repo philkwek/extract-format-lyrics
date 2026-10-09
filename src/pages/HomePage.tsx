@@ -243,21 +243,38 @@ export default function HomePage() {
                 onClick={() => navigate(`/session/${session.id}`)}
                 className="py-3 flex items-center justify-between hover:bg-neutral-800/40 px-2 rounded -mx-2 transition-colors cursor-pointer group"
               >
-                <div>
+                <div className="flex-1 mr-2">
                   <h3 className="text-sm font-medium group-hover:text-amber-400 transition-colors">
                     {session.name}
                   </h3>
                   <p className="text-xs text-neutral-500">
-                    {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString()}
+                    {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <button
-                  onClick={(e) => handleDeleteSession(session.id, e)}
-                  title="Delete session"
-                  className="text-xs text-neutral-500 hover:text-red-400 p-2 transition-colors cursor-pointer"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      const newName = window.prompt('Rename set:', session.name)
+                      if (newName && newName.trim()) {
+                        await sessionStore.renameSession(session.id, newName.trim())
+                        const updated = await sessionStore.getAllSessions()
+                        setSessions(updated)
+                      }
+                    }}
+                    title="Rename set"
+                    className="text-xs text-neutral-500 hover:text-amber-400 p-2 transition-colors cursor-pointer"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    title="Delete session"
+                    className="text-xs text-neutral-500 hover:text-red-400 p-2 transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>

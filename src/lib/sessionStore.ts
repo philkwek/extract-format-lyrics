@@ -45,16 +45,26 @@ export class SessionStore {
   async createSession(songs: SessionSongItem[], name?: string): Promise<Session> {
     const list = await this.getAllSessions()
     const now = Date.now()
+    const dateStr = new Date(now).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    const timeStr = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     const newSession: Session = {
       id: `session_${now}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: now,
-      name: name || `Setlist ${new Date(now).toLocaleDateString()}`,
+      name: name || `Setlist (${dateStr}, ${timeStr})`,
       songs,
     }
 
     list.unshift(newSession)
     await this.store.set(SESSIONS_STORAGE_KEY, list)
     return newSession
+  }
+
+  async renameSession(id: string, newName: string): Promise<Session | null> {
+    const session = await this.getSession(id)
+    if (!session) return null
+    session.name = newName.trim() || session.name
+    await this.updateSession(session)
+    return session
   }
 
   async updateSession(session: Session): Promise<void> {

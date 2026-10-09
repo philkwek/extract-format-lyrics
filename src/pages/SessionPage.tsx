@@ -23,6 +23,8 @@ export default function SessionPage() {
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
   const [targetKeys, setTargetKeys] = useState<Map<string, string>>(new Map())
   const [songPrefsOverrides, setSongPrefsOverrides] = useState<Map<string, SongDisplayPrefs>>(new Map())
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editedName, setEditedName] = useState('')
 
   // Song index from ?song= query param, default 0
   const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
@@ -192,12 +194,67 @@ export default function SessionPage() {
     ? keyOffset(currentSong.originalKey, currentKey)
     : 0
 
+  const handleStartRename = () => {
+    if (!session) return
+    setEditedName(session.name)
+    setIsEditingName(true)
+  }
+
+  const handleSaveRename = async () => {
+    if (!session || !editedName.trim()) {
+      setIsEditingName(false)
+      return
+    }
+    const updated = await sessionStore.renameSession(session.id, editedName.trim())
+    if (updated) {
+      setSession(updated)
+    }
+    setIsEditingName(false)
+  }
+
+  const handleKeyDownRename = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveRename()
+    } else if (e.key === 'Escape') {
+      setIsEditingName(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Session Title Bar */}
       <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
         <div>
-          <h1 className="text-lg font-bold">{session.name}</h1>
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onBlur={handleSaveRename}
+                onKeyDown={handleKeyDownRename}
+                autoFocus
+                className="bg-neutral-950 border border-amber-500 rounded px-2 py-0.5 text-sm font-bold text-neutral-100 focus:outline-none"
+              />
+              <button
+                onClick={handleSaveRename}
+                className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-semibold cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold">{session.name}</h1>
+              <button
+                onClick={handleStartRename}
+                title="Rename set"
+                className="text-xs text-neutral-500 hover:text-amber-400 p-1 cursor-pointer transition-colors"
+              >
+                ✎
+              </button>
+            </div>
+          )}
           <p className="text-xs text-neutral-500">
             {session.songs.length} song(s) in setlist
           </p>

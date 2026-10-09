@@ -29,4 +29,25 @@ describe('SessionStore', () => {
     await store.deleteSession(created.id)
     expect(await store.getAllSessions()).toEqual([])
   })
+
+  it('renames an existing session', async () => {
+    let storedData: unknown = null
+    const fakeStore = {
+      get: vi.fn(async () => storedData),
+      set: vi.fn(async (_: unknown, val: unknown) => {
+        storedData = val
+      }),
+      del: vi.fn(async () => {
+        storedData = null
+      }),
+    }
+
+    const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
+    const session = await store.createSession([])
+    expect(session.name).toContain('Setlist (')
+
+    await store.renameSession(session.id, 'Sunday Morning Service')
+    const updated = await store.getSession(session.id)
+    expect(updated?.name).toBe('Sunday Morning Service')
+  })
 })
