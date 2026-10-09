@@ -128,11 +128,18 @@ npm test
 
 ---
 
-## Deployment
+## Deployment & CI/CD
 
-Refer to [`docs/deployment-and-cost.md`](docs/deployment-and-cost.md) for full deployment instructions, Google Cloud budget alert recommendations ($1/$5 safeguards), and Artifact Registry cleanup policies.
+### Automated Deployment (GitHub Actions)
+The repository includes a GitHub Actions CI/CD workflow (`.github/workflows/deploy.yml`) that automatically runs linter, tests, frontend build, functions typechecking, and deploys to Firebase Hosting on every commit/merge to `main`.
 
-Quick deployment command:
+To enable it, simply add two secrets in your GitHub repository (**Settings > Secrets and variables > Actions**):
+- `FIREBASE_SERVICE_ACCOUNT`: Service Account JSON key with Firebase Hosting Admin permissions.
+- `FIREBASE_PROJECT_ID`: Your Firebase project ID.
+
+See [`docs/deployment-and-cost.md`](docs/deployment-and-cost.md) for step-by-step instructions.
+
+### Manual Deployment
 ```bash
 npm run build
 npm run build:functions
