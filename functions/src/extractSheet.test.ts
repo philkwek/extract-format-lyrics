@@ -5,6 +5,7 @@ import {
   transformRawSongsToAppSongs,
   isExpectedSongCount,
   needsSongCountRetry,
+  mergeConsecutiveSongs,
   type RawExtractedSong,
 } from './extractSheet.js'
 
@@ -22,6 +23,18 @@ describe('expected song count helpers', () => {
     expect(needsSongCountRetry(undefined, 3)).toBe(false)
     expect(needsSongCountRetry(4, 4)).toBe(false)
     expect(needsSongCountRetry(4, 3)).toBe(true)
+  })
+})
+
+describe('mergeConsecutiveSongs', () => {
+  it('merges only adjacent continuation pages with the same title', () => {
+    const songs = mergeConsecutiveSongs([
+      { title: 'Song A', sections: [{ type: 'Verse', label: 'Verse 1', lines: [] }] },
+      { title: 'Song A', sections: [{ type: 'Chorus', label: 'Chorus', lines: [] }] },
+      { title: 'Song B', sections: [{ type: 'Verse', label: 'Verse 1', lines: [] }] },
+    ])
+    expect(songs).toHaveLength(2)
+    expect(songs[0].sections.map((section) => section.label)).toEqual(['Verse 1', 'Chorus'])
   })
 })
 

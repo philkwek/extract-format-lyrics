@@ -101,14 +101,21 @@ export async function prepareFilesForExtraction(files: File[]): Promise<Prepared
 
   for (const file of files) {
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-      const base64Data = await blobToBase64(file)
-      const previewUrl = URL.createObjectURL(file)
-      prepared.push({
-        mimeType: 'application/pdf',
-        base64Data,
-        fileName: file.name,
-        previewUrl,
-      })
+      const { PDFDocument } = await import('pdf-lib')
+      const source = await PDFDocument.load(await file.arrayBuffer())
+      for (let pageIndex = 0; pageIndex < source.getPageCount(); pageIndex += 1) {
+        const onePage = await PDFDocument.create()
+        const [page] = await onePage.copyPages(source, [pageIndex])
+        onePage.addPage(page)
+        const pageBytes = await onePage.save()
+        const pageBlob = new Blob([pageBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+        prepared.push({
+          mimeType: 'application/pdf',
+          base64Data: await blobToBase64(pageBlob),
+          fileName: `${file.name} - page ${pageIndex + 1}`,
+          previewUrl: URL.createObjectURL(pageBlob),
+        })
+      }
     } else if (file.type.startsWith('image/')) {
       const { mimeType, base64Data, previewUrl } = await optimizeImageFile(file)
       prepared.push({

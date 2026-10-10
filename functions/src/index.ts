@@ -272,9 +272,12 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       res.write(`${JSON.stringify({ type: 'progress', message: 'Transcribing SongSelect sheet(s) with Gemini...' })}\n`)
       const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
         expectedSongCount,
-        onProgress: ({ expectedSongCount: expected, extractedSongCount: found }) => {
+        onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage }) => {
+          const message = type === 'batch'
+            ? `Transcribing pages ${batchStartPage}-${batchEndPage}...`
+            : `Found ${found} of ${expected} songs - checking for missing songs...`
           res.write(
-            `${JSON.stringify({ type: 'progress', message: `Found ${found} of ${expected} songs - checking for missing songs...` })}\n`
+            `${JSON.stringify({ type: 'progress', message })}\n`
           )
         },
       })

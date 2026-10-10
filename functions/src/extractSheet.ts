@@ -52,9 +52,11 @@ export interface SheetFilePart {
 }
 
 export interface ExtractionProgress {
-  type: 'retrying'
-  expectedSongCount: number
-  extractedSongCount: number
+  type: 'batch' | 'retrying'
+  expectedSongCount?: number
+  extractedSongCount?: number
+  batchStartPage?: number
+  batchEndPage?: number
 }
 
 export interface ExtractionOptions {
@@ -77,6 +79,18 @@ export function isExpectedSongCount(value: unknown): value is number {
 
 export function needsSongCountRetry(expectedSongCount: number | undefined, extractedSongCount: number): boolean {
   return expectedSongCount !== undefined && extractedSongCount !== expectedSongCount
+}
+
+export function mergeConsecutiveSongs(songs: RawExtractedSong[]): RawExtractedSong[] {
+  return songs.reduce<RawExtractedSong[]>((merged, song) => {
+    const previous = merged.at(-1)
+    if (previous && previous.title.trim().toLowerCase() === song.title.trim().toLowerCase()) {
+      previous.sections.push(...song.sections)
+    } else {
+      merged.push(song)
+    }
+    return merged
+  }, [])
 }
 
 export const songSelectResponseSchema = {
@@ -457,8 +471,8 @@ export async function extractSongsWithGemini(
 
   const ai = new GoogleGenAI({ apiKey: resolvedApiKey })
 
-  const transcribe = async (instruction: string): Promise<RawExtractionResponse> => {
-    const contents: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = files.map(
+  const transcribe = async (batch: SheetFilePart[], instruction: string): Promise<RawExtractionResponse> => {
+    const contents: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = batch.map(
       (file) => ({ inlineData: { mimeType: file.mimeType, data: file.base64Data } })
     )
     contents.push({ text: instruction })
@@ -482,18 +496,35 @@ export async function extractSongsWithGemini(
     } catch {
       throw new Error(`Failed to parse structured JSON from Gemini: ${text.slice(0, 200)}`)
     }
-    if (!parsed.songs || !Array.isArray(parsed.songs) || parsed.songs.length === 0) {
-      throw new Error('No songs could be identified in the uploaded document/images')
+    console.log('[extract-sheet] Gemini response payload:', JSON.stringify(parsed))
+    if (!parsed.songs || !Array.isArray(parsed.songs)) {
+      throw new Error('Gemini returned an invalid songs payload')
     }
     return parsed
   }
 
   const expected = options.expectedSongCount
-  const firstPass = await transcribe(
-    expected
-      ? `Please transcribe exactly ${expected} distinct songs from the attached SongSelect sheets according to the system instructions. Ignore blank pages and strictly preserve syllable alignment and leading whitespace timing.`
-      : 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving syllable alignment and leading whitespace timing.'
-  )
+  const batches = Array.from({ length: Math.ceil(files.length / 2) }, (_, index) => files.slice(index * 2, index * 2 + 2))
+  const runBatches = async (isRetry: boolean): Promise<RawExtractionResponse> => {
+    const songs: RawExtractedSong[] = []
+    for (let index = 0; index < batches.length; index += 1) {
+      const batch = batches[index]
+      const batchStartPage = index * 2 + 1
+      const batchEndPage = batchStartPage + batch.length - 1
+      options.onProgress?.({ type: 'batch', batchStartPage, batchEndPage })
+      const result = await transcribe(
+        batch,
+        `${isRetry ? 'This is a completeness retry. ' : ''}These are ordered packet pages ${batchStartPage}-${batchEndPage}. Transcribe every section on these pages. If a chart continues from an earlier page, return it using its original title so it can be merged. Ignore blank pages and preserve chord alignment.`
+      )
+      songs.push(...result.songs)
+    }
+    const mergedSongs = mergeConsecutiveSongs(songs)
+    if (mergedSongs.length === 0) {
+      throw new Error('No songs could be identified in the uploaded document/images')
+    }
+    return { songs: mergedSongs }
+  }
+  const firstPass = await runBatches(false)
 
   if (expected === undefined || !needsSongCountRetry(expected, firstPass.songs.length)) {
     return transformRawSongsToAppSongs(firstPass.songs)
@@ -504,9 +535,7 @@ export async function extractSongsWithGemini(
     expectedSongCount: expected,
     extractedSongCount: firstPass.songs.length,
   })
-  const retry = await transcribe(
-    `The first transcription found ${firstPass.songs.length} of the expected ${expected} distinct songs. Re-read every attached page, including both columns, and return exactly ${expected} songs. Do not omit a song because it is dense or spans a continuation page; ignore blank pages.`
-  )
+  const retry = await runBatches(true)
   if (retry.songs.length !== expected) {
     throw new ExpectedSongCountMismatchError(expected, retry.songs.length)
   }
