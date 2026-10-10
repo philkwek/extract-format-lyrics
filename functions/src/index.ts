@@ -275,17 +275,27 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       res.write(
         `${JSON.stringify({
           type: 'progress',
-          message: 'Transcribing SongSelect sheet(s) with Gemini...',
+          message: 'Analyzing SongSelect sheet(s)...',
           completed: 0,
           total: files.length,
         })}\n`
       )
       const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
         expectedSongCount,
-        onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage }) => {
-          const message = type === 'batch'
-            ? `Transcribing pages ${batchStartPage}-${batchEndPage}...`
-            : `Found ${found} of ${expected} songs - checking for missing songs...`
+        onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
+          const message = type === 'analyzing'
+            ? 'Checking PDF text layers...'
+            : type === 'page-route'
+              ? route === 'deterministic'
+                ? `Page ${pageIndex}: selectable text detected — extracting directly.`
+                : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
+            : type === 'deterministic'
+              ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
+              : type === 'batch'
+                ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
+                : type === 'merging'
+                  ? 'Merging extracted pages...'
+                  : `Found ${found} of ${expected} songs - checking for missing songs...`
           res.write(
             `${JSON.stringify({
               type: 'progress',

@@ -94,7 +94,7 @@ export default function UploadSheetModal({
     try {
       const prepared = await prepareFilesForExtraction(selectedFiles)
 
-      setStatusMessage('Transcribing SongSelect sheet(s) with Gemini...')
+      setStatusMessage('Checking PDF text layers...')
       const payloadFiles = prepared.map((p) => ({
         mimeType: p.mimeType,
         base64Data: p.base64Data,
@@ -362,7 +362,7 @@ export default function UploadSheetModal({
                       className="mt-1.5 block w-full max-w-40 rounded-md border border-[#C8DFDB] bg-white px-2.5 py-1.5 text-sm text-neutral-800 dark:border-[#282828] dark:bg-[#151515] dark:text-[#e5e5e5]"
                     />
                     <span className="mt-1 block text-[11px] text-neutral-500 dark:text-neutral-400">
-                      We will check that Gemini finds this many songs and tell you if it needs another pass.
+                      We will check all extracted pages and tell you if another pass is needed.
                     </span>
                   </label>
                 </div>
@@ -381,7 +381,7 @@ export default function UploadSheetModal({
                 {showKeyConfig && (
                   <div className="mt-3 pt-3 border-t border-[#C8DFDB] dark:border-[#282828] space-y-2">
                     <p className="text-xs text-neutral-500 dark:text-[#999999]">
-                      If running locally or using your own personal free quota from{' '}
+                      Optional for selectable-text PDFs. Scanned pages use Gemini; if running locally or using your own personal free quota from{' '}
                       <a
                         href="https://aistudio.google.com"
                         target="_blank"
