@@ -39,6 +39,7 @@ export default function SessionPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
+  const [prefsRevision, setPrefsRevision] = useState(0)
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
@@ -147,13 +148,16 @@ export default function SessionPage() {
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
   const currentSong = currentItem ? songForItem(currentItem) : null
 
-  const prefs = useMemo(() => {
-    if (!currentSong) {
-      return { columns: 1 as const, fontSizePx: 14, darkMode: themeDark, simplified: false }
-    }
-    const stored = getSongPrefs(currentSong.id)
-    return { ...stored, darkMode: themeDark, simplified: currentItem?.simplified ?? false }
-  }, [currentSong, currentItem?.simplified, themeDark])
+  // Preference storage is not reactive, so prefsRevision makes a control click
+  // render immediately after persisting the new values.
+  void prefsRevision
+  const prefs = !currentSong
+    ? { columns: 1 as const, fontSizePx: 14, darkMode: themeDark, simplified: false }
+    : {
+        ...getSongPrefs(currentSong.id),
+        darkMode: themeDark,
+        simplified: currentItem?.simplified ?? false,
+      }
 
   const handleUpdatePrefs = (newPrefs: SongDisplayPrefs) => {
     if (newPrefs.darkMode !== themeDark) {
@@ -161,6 +165,7 @@ export default function SessionPage() {
     }
     if (currentSong && currentItem && session) {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
+      setPrefsRevision((revision) => revision + 1)
       if (newPrefs.simplified !== currentItem.simplified) {
         const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, simplified: newPrefs.simplified } : item) }
         void sessionStore.updateSession(updated)
