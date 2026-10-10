@@ -53,4 +53,4 @@ jobs:
         # `firebase` is the browser SDK dependency, not the Firebase CLI.
         # Pin and invoke the CLI explicitly because GitHub runners do not
         # provide a global Firebase command.
-        run: npx --yes firebase-tools@15.33.0 deploy --only hosting,functions --project extract-format-lyrics --non-interactive
+        run: npx --yes firebase-tools@15.33.0 deploy --only hosting,functions,firestore:rules --project extract-format-lyrics --non-interactive

@@ -74,26 +74,51 @@ export async function searchApi(query: string): Promise<SearchCandidate[]> {
   return data.results
 }
 
-export async function createShortLinkApi(payload: import('../types/song').SharePayload): Promise<string> {
+export class ShareApiError extends Error {
+  readonly code?: string
+  readonly status?: number
+
+  constructor(message: string, code?: string, status?: number) {
+    super(message)
+    this.code = code
+    this.status = status
+  }
+}
+
+async function readShareError(res: Response): Promise<ShareApiError> {
+  let code: string | undefined
+  let message = `Share link request failed (${res.status})`
+  try {
+    const data = await res.json()
+    code = data?.error?.code
+    message = data?.error?.message || message
+  } catch {
+    // Preserve the HTTP fallback.
+  }
+  return new ShareApiError(message, code, res.status)
+}
+
+export interface CreateShareResult { id: string; expiresAt: string }
+
+export async function createShareApi(snapshot: import('../types/song').SharedSetSnapshot): Promise<CreateShareResult> {
   const res = await fetch('/api/share', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ payload }),
+    body: JSON.stringify({ snapshot }),
   })
   if (!res.ok) {
-    throw new Error('Failed to create short link')
+    throw await readShareError(res)
   }
-  const data = await res.json()
-  return data.id
+  return await res.json() as CreateShareResult
 }
 
-export async function getShortLinkApi(id: string): Promise<import('../types/song').SharePayload> {
+export async function getShareApi(id: string): Promise<import('../types/song').SharedSetSnapshot> {
   const res = await fetch(`/api/share/${encodeURIComponent(id)}`)
   if (!res.ok) {
-    throw new Error('Share link not found or expired')
+    throw await readShareError(res)
   }
   const data = await res.json()
-  return data.payload
+  return data.snapshot
 }
 
 export interface ExtractSongsResponse {

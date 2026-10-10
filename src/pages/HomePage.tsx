@@ -6,7 +6,8 @@ import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
-import type { SharePayload, Song } from '../types/song'
+import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
+import type { SharedSetSnapshot, Song } from '../types/song'
 
 interface ImportStatus {
   url: string
@@ -33,7 +34,7 @@ export default function HomePage() {
   const [creatingFromUrl, setCreatingFromUrl] = useState<string | null>(null)
 
   const [sessions, setSessions] = useState<Session[]>([])
-  const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
+  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -69,6 +70,15 @@ export default function HomePage() {
         await sessionStore.deleteSession(s.id)
       }
       setSessions([])
+    }
+  }
+
+  const handleShareSession = async (session: Session) => {
+    try {
+      setSharingSnapshot(await buildSharedSetSnapshot(session))
+    } catch (err) {
+      const message = err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.'
+      window.alert(message)
     }
   }
 
@@ -476,22 +486,9 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation()
-                      const validSongs = session.songs
-                        .filter((s) => s.status === 'ok')
-                        .map((s) => ({
-                          url: s.url,
-                          title: s.title,
-                          artist: s.artist,
-                          customSections: s.customSections,
-                          customSimplifiedSections: s.customSimplifiedSections,
-                        }))
-                      setSharingPayload({
-                        v: 1,
-                        name: session.name,
-                        songs: validSongs,
-                      })
+                      await handleShareSession(session)
                     }}
                     title="Share setlist"
                     className="text-xs text-neutral-400 hover:text-[#3368A0] dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
@@ -528,11 +525,11 @@ export default function HomePage() {
       </section>
 
       {/* Share Modal */}
-      {sharingPayload && (
+      {sharingSnapshot && (
         <ShareModal
-          payload={sharingPayload}
-          isOpen={Boolean(sharingPayload)}
-          onClose={() => setSharingPayload(null)}
+          snapshot={sharingSnapshot}
+          isOpen={Boolean(sharingSnapshot)}
+          onClose={() => setSharingSnapshot(null)}
         />
       )}
 

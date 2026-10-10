@@ -1,54 +1,56 @@
-import { useState, useEffect } from 'react'
-import { createShortLinkApi } from '../lib/api'
-import { encodeSharePayload } from '../lib/shareLink'
-import type { SharePayload } from '../types/song'
+import { useState, useEffect, useRef } from 'react'
+import { createShareApi } from '../lib/api'
+import type { SharedSetSnapshot } from '../types/song'
 
 interface ShareModalProps {
-  payload: SharePayload
+  snapshot: SharedSetSnapshot
   isOpen: boolean
   onClose: () => void
 }
 
-export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps) {
+export default function ShareModal({ snapshot, isOpen, onClose }: ShareModalProps) {
   const [copied, setCopied] = useState(false)
-  const [shortUrl, setShortUrl] = useState<string | null>(null)
-  const [isGeneratingShort, setIsGeneratingShort] = useState(true)
-  const [usePermanentLink, setUsePermanentLink] = useState(false)
-
-  const clientHashUrl = `${window.location.origin}/share#${encodeSharePayload(payload)}`
-  const displayUrl = (!usePermanentLink && shortUrl) ? shortUrl : clientHashUrl
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(true)
+  const requestRef = useRef<ReturnType<typeof createShareApi> | null>(null)
 
   useEffect(() => {
     let active = true
     if (isOpen) {
-      createShortLinkApi(payload)
-        .then((id) => {
+      requestRef.current ??= createShareApi(snapshot)
+      requestRef.current
+        .then(({ id, expiresAt: expiry }) => {
           if (active) {
-            setShortUrl(`${window.location.origin}/s/${id}`)
-            setIsGeneratingShort(false)
+            setShareUrl(`${window.location.origin}/s/${id}`)
+            setExpiresAt(expiry)
+            setIsGenerating(false)
           }
         })
-        .catch(() => {
+        .catch((err: Error) => {
           if (active) {
-            setIsGeneratingShort(false)
+            setError(err.message || 'Failed to create sharing link')
+            setIsGenerating(false)
           }
         })
     }
     return () => {
       active = false
     }
-  }, [isOpen, payload])
+  }, [isOpen, snapshot])
 
   if (!isOpen) return null
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(displayUrl)
+      if (!shareUrl) return
+      await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     } catch {
       // Fallback prompt if clipboard API blocked
-      window.prompt('Copy this share link:', displayUrl)
+      window.prompt('Copy this share link:', shareUrl || '')
     }
   }
 
@@ -60,7 +62,7 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
       >
         <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-[#282828]">
           <h3 className="text-base font-bold text-neutral-900 dark:text-[#e5e5e5]">
-            Share Setlist: {payload.name}
+            Share Setlist: {snapshot.name}
           </h3>
           <button
             onClick={onClose}
@@ -71,7 +73,7 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
         </div>
 
         <p className="text-xs text-neutral-600 dark:text-[#999999]">
-          Anyone with this link can open and recreate this setlist ({payload.songs.length} songs) with your transpositions and custom arrangements.
+          Anyone with this link can recreate this setlist ({snapshot.songs.length} songs), including musical edits and transpositions. It expires after seven days.
         </p>
 
         <div className="space-y-1.5">
@@ -79,37 +81,19 @@ export default function ShareModal({ payload, isOpen, onClose }: ShareModalProps
             <input
               type="text"
               readOnly
-              value={displayUrl}
+              value={shareUrl || (isGenerating ? 'Creating sharing link…' : '')}
               className="flex-1 bg-neutral-100 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3 py-2 text-xs font-mono text-neutral-900 dark:text-[#e5e5e5] select-all focus:outline-none"
             />
             <button
               onClick={handleCopy}
+              disabled={!shareUrl}
               className="px-4 py-2 bg-[#3368A0] hover:bg-[#255283] font-semibold text-white text-xs rounded-lg transition-colors cursor-pointer shrink-0 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black"
             >
               {copied ? 'Copied ✓' : 'Copy Link'}
             </button>
           </div>
           <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-[#999999]">
-            <div className="flex items-center gap-2">
-              <span>
-                {isGeneratingShort
-                  ? 'Generating short link...'
-                  : usePermanentLink
-                    ? 'Permanent direct link'
-                    : shortUrl
-                      ? 'Short link ready ✓'
-                      : 'Permanent direct link ready'}
-              </span>
-              {shortUrl && (
-                <button
-                  type="button"
-                  onClick={() => setUsePermanentLink(!usePermanentLink)}
-                  className="text-[#255283] dark:text-amber-400 hover:underline cursor-pointer"
-                >
-                  {usePermanentLink ? 'Switch to short link' : 'Switch to permanent link'}
-                </button>
-              )}
-            </div>
+            <span>{isGenerating ? 'Creating sharing link...' : error ? error : expiresAt ? `Expires ${new Date(expiresAt).toLocaleString()}` : ''}</span>
             {copied && <span className="text-emerald-500 font-medium">Copied to clipboard!</span>}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import { makeEntryId, sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
 import { getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
@@ -17,7 +17,8 @@ import { getInitialTheme, saveTheme } from '../lib/theme'
 import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
 import { getChordPos, setChordPos } from '../lib/chordNudge'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
-import type { Song, Section, SharePayload } from '../types/song'
+import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
+import type { Song, Section, SharedSetSnapshot } from '../types/song'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -39,12 +40,10 @@ export default function SessionPage() {
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
-  const [targetKeys, setTargetKeys] = useState<Map<string, string>>(new Map())
-  const [songPrefsOverrides, setSongPrefsOverrides] = useState<Map<string, SongDisplayPrefs>>(new Map())
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
-  const [sharingPayload, setSharingPayload] = useState<SharePayload | null>(null)
+  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
@@ -66,6 +65,7 @@ export default function SessionPage() {
       await songCache.saveSong(song)
     }
     const newItems: SessionSongItem[] = songs.map((s) => ({
+      entryId: makeEntryId(),
       url: s.sourceUrl,
       title: s.title,
       artist: s.artist,
@@ -77,12 +77,12 @@ export default function SessionPage() {
     setSession(updatedSession)
     setSongsData((prev) => {
       const next = new Map(prev)
-      songs.forEach((s) => next.set(s.sourceUrl, s))
+      newItems.forEach((item, index) => next.set(item.entryId!, songs[index]))
       return next
     })
     setOriginalSongs((prev) => {
       const next = new Map(prev)
-      songs.forEach((s) => next.set(s.sourceUrl, s))
+      newItems.forEach((item, index) => next.set(item.entryId!, songs[index]))
       return next
     })
     selectSong(session.songs.length)
@@ -126,7 +126,7 @@ export default function SessionPage() {
         if (item.status === 'ok') {
           const loaded = await songCache.getSong(item.url)
           if (loaded) {
-            origMap.set(item.url, loaded)
+            origMap.set(item.entryId || item.url, loaded)
             let songToUse = loaded
             if (item.customSections) {
               songToUse = { ...songToUse, sections: item.customSections }
@@ -134,7 +134,7 @@ export default function SessionPage() {
             if (item.customSimplifiedSections && songToUse.simplifiedSections) {
               songToUse = { ...songToUse, simplifiedSections: item.customSimplifiedSections }
             }
-            map.set(item.url, songToUse)
+            map.set(item.entryId || item.url, songToUse)
           }
         }
       }
@@ -144,24 +144,28 @@ export default function SessionPage() {
   }, [sessionId])
 
   const currentItem = session?.songs[activeIndex]
-  const currentSong = currentItem ? songsData.get(currentItem.url) : null
+  const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
+  const currentSong = currentItem ? songForItem(currentItem) : null
 
   const prefs = useMemo(() => {
     if (!currentSong) {
-      return { columns: 1 as const, fontSizePx: 14, darkMode: themeDark }
+      return { columns: 1 as const, fontSizePx: 14, darkMode: themeDark, simplified: false }
     }
-    const override = songPrefsOverrides.get(currentSong.id)
-    const stored = override ?? getSongPrefs(currentSong.id)
-    return { ...stored, darkMode: themeDark }
-  }, [currentSong, songPrefsOverrides, themeDark])
+    const stored = getSongPrefs(currentSong.id)
+    return { ...stored, darkMode: themeDark, simplified: currentItem?.simplified ?? false }
+  }, [currentSong, currentItem?.simplified, themeDark])
 
   const handleUpdatePrefs = (newPrefs: SongDisplayPrefs) => {
     if (newPrefs.darkMode !== themeDark) {
       saveTheme(newPrefs.darkMode)
     }
-    if (currentSong) {
-      setSongPrefsOverrides((prev) => new Map(prev).set(currentSong.id, newPrefs))
-      saveSongPrefs(currentSong.id, newPrefs)
+    if (currentSong && currentItem && session) {
+      saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
+      if (newPrefs.simplified !== currentItem.simplified) {
+        const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, simplified: newPrefs.simplified } : item) }
+        void sessionStore.updateSession(updated)
+        setSession(updated)
+      }
     }
   }
 
@@ -170,18 +174,18 @@ export default function SessionPage() {
     setSearchParams({ song: index.toString() })
   }
 
-  const handleSelectKey = (newKey: string) => {
-    if (!currentSong) return
-    setTargetKeys((prev) => new Map(prev).set(currentSong.id, newKey))
+  const handleSelectKey = async (newKey: string) => {
+    if (!currentItem || !session) return
+    const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, targetKey: newKey } : item) }
+    await sessionStore.updateSession(updated)
+    setSession(updated)
   }
 
-  const handleResetKey = () => {
-    if (!currentSong) return
-    setTargetKeys((prev) => {
-      const next = new Map(prev)
-      next.delete(currentSong.id)
-      return next
-    })
+  const handleResetKey = async () => {
+    if (!currentItem || !session) return
+    const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, targetKey: undefined } : item) }
+    await sessionStore.updateSession(updated)
+    setSession(updated)
   }
 
   const canSimplify = Boolean(currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0)
@@ -200,13 +204,13 @@ export default function SessionPage() {
       ...currentSong,
       sections: activeSections,
     }
-    const targetKey = targetKeys.get(currentSong.id)
+    const targetKey = currentItem?.targetKey
     if (!targetKey || !currentSong.originalKey || targetKey === currentSong.originalKey) {
       return baseSong
     }
     const offset = keyOffset(currentSong.originalKey, targetKey)
     return transposeSong(baseSong, offset, targetKey)
-  }, [currentSong, activeSections, targetKeys])
+  }, [currentSong, activeSections, currentItem?.targetKey])
 
   // Sections rendered on the sheet, incorporating live position draft if positioning a chord
   const displayedSections = useMemo(() => {
@@ -261,19 +265,19 @@ export default function SessionPage() {
       if (res && res.status === 'ok' && res.song) {
         await songCache.saveSong(res.song)
         const updatedSongs = session.songs.map((s) =>
-          s.url === item.url
+          s.entryId === item.entryId
             ? { ...s, status: 'ok' as const, title: res.song?.title, artist: res.song?.artist, errorMessage: undefined }
             : s
         )
         const updatedSession = { ...session, songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
         setSession(updatedSession)
-        setSongsData((prev) => new Map(prev).set(item.url, res.song!))
-        setOriginalSongs((prev) => new Map(prev).set(item.url, res.song!))
+        setSongsData((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
+        setOriginalSongs((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
       } else {
         const errorMsg = res?.message || 'Retry failed'
         const updatedSongs = session.songs.map((s) =>
-          s.url === item.url ? { ...s, errorMessage: errorMsg } : s
+          s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s
         )
         const updatedSession = { ...session, songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
@@ -282,7 +286,7 @@ export default function SessionPage() {
     } catch (err) {
       const errorMsg = (err as Error).message || 'Retry network error'
       const updatedSongs = session.songs.map((s) =>
-        s.url === item.url ? { ...s, errorMessage: errorMsg } : s
+        s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s
       )
       const updatedSession = { ...session, songs: updatedSongs }
       await sessionStore.updateSession(updatedSession)
@@ -296,9 +300,9 @@ export default function SessionPage() {
     }
   }
 
-  const handleRemoveSong = async (url: string) => {
+  const handleRemoveSong = async (entryId: string) => {
     if (!session) return
-    const updated = await sessionStore.removeSongFromSession(session.id, url)
+    const updated = await sessionStore.removeSongFromSession(session.id, entryId)
     if (updated) {
       setSession(updated)
       if (activeIndex >= updated.songs.length) {
@@ -326,11 +330,11 @@ export default function SessionPage() {
       ? { ...currentSong, simplifiedSections: baseSections }
       : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     // Persist reordered sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : baseSections,
@@ -359,10 +363,10 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : baseSections,
@@ -379,13 +383,13 @@ export default function SessionPage() {
     if (!session || fromIndex === toIndex) return
     if (fromIndex < 0 || fromIndex >= session.songs.length || toIndex < 0 || toIndex >= session.songs.length) return
 
-    const currentActiveUrl = session.songs[activeIndex]?.url
+    const currentActiveEntryId = session.songs[activeIndex]?.entryId
 
     const updatedSession = await sessionStore.reorderSongsInSession(session.id, fromIndex, toIndex)
     if (updatedSession) {
       setSession(updatedSession)
-      if (currentActiveUrl) {
-        const newActiveIndex = updatedSession.songs.findIndex((s) => s.url === currentActiveUrl)
+      if (currentActiveEntryId) {
+        const newActiveIndex = updatedSession.songs.findIndex((s) => s.entryId === currentActiveEntryId)
         if (newActiveIndex >= 0 && newActiveIndex !== activeIndex) {
           setSearchParams({ song: newActiveIndex.toString() })
         }
@@ -440,11 +444,11 @@ export default function SessionPage() {
       ? { ...currentSong, simplifiedSections: updatedSections }
       : { ...currentSong, sections: updatedSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     // Persist custom sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : updatedSections,
@@ -467,7 +471,7 @@ export default function SessionPage() {
 
     // If currently transposed, map edited chord back to original key for base storage
     let baseChord = newChord
-    const currentKey = targetKeys.get(currentSong.id) || currentSong.originalKey
+    const currentKey = currentItem?.targetKey || currentSong.originalKey
     if (currentKey && currentSong.originalKey && currentKey !== currentSong.originalKey) {
       const offset = keyOffset(currentSong.originalKey, currentKey)
       if (offset !== 0) {
@@ -508,10 +512,10 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : baseSections,
@@ -563,10 +567,10 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : baseSections,
@@ -599,10 +603,10 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     const updatedSongs = session.songs.map((s) =>
-      s.url === currentSong.sourceUrl
+      s.entryId === currentItem?.entryId
         ? {
             ...s,
             customSections: isSimplified ? s.customSections : baseSections,
@@ -672,12 +676,12 @@ export default function SessionPage() {
     if (!confirmed) return
 
     const cached = await songCache.getSong(currentSong.sourceUrl)
-    const orig = cached || originalSongs.get(currentSong.sourceUrl)
+    const orig = cached || originalSongs.get(currentItem?.entryId || currentSong.sourceUrl)
     if (orig) {
       const freshCopy: Song = JSON.parse(JSON.stringify(orig))
-      setSongsData((prev) => new Map(prev).set(currentSong.sourceUrl, freshCopy))
+      setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, freshCopy))
       const updatedSongs = session.songs.map((s) =>
-        s.url === currentSong.sourceUrl
+        s.entryId === currentItem?.entryId
           ? { ...s, customSections: undefined, customSimplifiedSections: undefined }
           : s
       )
@@ -695,7 +699,7 @@ export default function SessionPage() {
     )
   }
 
-  const currentKey = currentSong ? targetKeys.get(currentSong.id) || currentSong.originalKey : null
+  const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
   const offset = currentSong && currentSong.originalKey && currentKey
     ? keyOffset(currentSong.originalKey, currentKey)
     : 0
@@ -731,13 +735,21 @@ export default function SessionPage() {
     const text = formatSetlistLyrics(
       session.songs,
       songsData,
-      (songId) => songPrefsOverrides.get(songId)?.simplified ?? getSongPrefs(songId)?.simplified ?? false
+      (item) => item.simplified ?? false
     )
     if (!text) return
     const success = await copyLyricsToClipboard(text)
     if (success) {
       setCopiedLyrics(true)
       setTimeout(() => setCopiedLyrics(false), 2000)
+    }
+  }
+
+  const handleShareSet = async () => {
+    try {
+      setSharingSnapshot(await buildSharedSetSnapshot(session))
+    } catch (err) {
+      window.alert(err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.')
     }
   }
 
@@ -782,29 +794,7 @@ export default function SessionPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => {
-              const validSongs = session.songs
-                .filter((s) => s.status === 'ok')
-                .map((s) => {
-                  const song = songsData.get(s.url)
-                  const targetKey = song ? targetKeys.get(song.id) : undefined
-                  const prefsOverride = song ? songPrefsOverrides.get(song.id) : undefined
-                  return {
-                    url: s.url,
-                    title: s.title,
-                    artist: s.artist,
-                    targetKey: targetKey && song?.originalKey && targetKey !== song.originalKey ? targetKey : undefined,
-                    simplified: prefsOverride?.simplified ?? false,
-                    customSections: s.customSections,
-                    customSimplifiedSections: s.customSimplifiedSections,
-                  }
-                })
-              setSharingPayload({
-                v: 1,
-                name: session.name,
-                songs: validSongs,
-              })
-            }}
+            onClick={handleShareSet}
             className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
             title="Share setlist via link"
           >
@@ -850,7 +840,7 @@ export default function SessionPage() {
       <div className="flex space-x-1.5 overflow-x-auto pb-1.5 pt-1 px-1 no-scrollbar border-b border-[#C8DFDB] dark:border-[#282828] relative">
         {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
-          const song = songsData.get(item.url)
+          const song = songForItem(item)
           const label = song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
           const isDragging = draggedSongIdx === idx
           const isOver = dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
@@ -926,7 +916,7 @@ export default function SessionPage() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleRemoveSong(item.url)
+                    handleRemoveSong(item.entryId || '')
                   }}
                   onMouseDown={(e) => e.stopPropagation()}
                   title="Remove song from setlist"
@@ -1026,11 +1016,11 @@ export default function SessionPage() {
       )}
 
       {/* Share Modal */}
-      {sharingPayload && (
+      {sharingSnapshot && (
         <ShareModal
-          payload={sharingPayload}
-          isOpen={Boolean(sharingPayload)}
-          onClose={() => setSharingPayload(null)}
+          snapshot={sharingSnapshot}
+          isOpen={Boolean(sharingSnapshot)}
+          onClose={() => setSharingSnapshot(null)}
         />
       )}
 
@@ -1040,7 +1030,7 @@ export default function SessionPage() {
         title="Arrange Setlist"
         subtitle={`Reorder songs in "${session.name}"`}
         items={session.songs.map((item, idx) => {
-          const s = songsData.get(item.url)
+          const s = songForItem(item)
           return {
             id: `${item.url}-${idx}`,
             title: s?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 24),
@@ -1049,7 +1039,7 @@ export default function SessionPage() {
           }
         })}
         onMove={handleReorderSongs}
-        onDelete={session.songs.length > 1 ? (idx) => handleRemoveSong(session.songs[idx].url) : undefined}
+        onDelete={session.songs.length > 1 ? (idx) => handleRemoveSong(session.songs[idx].entryId || '') : undefined}
         onClose={() => setIsArrangingSongs(false)}
       />
 

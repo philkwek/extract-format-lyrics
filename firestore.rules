@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Shared-set records are accessed exclusively by the Cloud Function using
+    // Admin credentials. Browser clients must never read or write them directly.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

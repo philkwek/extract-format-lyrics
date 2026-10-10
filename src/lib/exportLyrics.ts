@@ -14,18 +14,18 @@ import type { Song, Section } from '../types/song'
 export function formatSetlistLyrics(
   songs: SessionSongItem[],
   songsData: Map<string, Song>,
-  getSongSimplifiedPreference?: (songId: string) => boolean
+  getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean
 ): string {
   const songBlocks: string[] = []
 
   for (const item of songs) {
     if (item.status === 'error') continue
 
-    const loadedSong = songsData.get(item.url)
+    const loadedSong = songsData.get(item.entryId || item.url)
     const title = loadedSong?.title || item.title || 'Untitled Song'
 
-    const isSimplified = loadedSong?.id && getSongSimplifiedPreference
-      ? getSongSimplifiedPreference(loadedSong.id)
+    const isSimplified = loadedSong && getSongSimplifiedPreference
+      ? getSongSimplifiedPreference(item, loadedSong)
       : false
 
     // Determine 1:1 active sections as seen by the musician

@@ -40,10 +40,10 @@ Designed specifically for musicians and worship leaders performing on tablets or
 - **Mobile Arrange Drawer:** Touch-friendly drawer interface with one-tap up/down step arrows to reorder songs and sections on phones and tablets where dragging is cumbersome.
 - **Section Deletion & Restore:** Delete unneeded sections (intros, instrumentals, or repeated outros) with a confirmation dialog and a quick restore banner.
 
-### 🔗 Zero-Backend Link Sharing
-- **Client-Side Compressed Hash:** Share entire setlists (including songs, custom section arrangements, transpositions, and manual chord edits) using a compressed URL hash (`/#share=...` with `lz-string`).
-- **No Database Dependency:** Setlists are reconstructed client-side in the recipient's browser with zero server storage costs or user accounts required.
-- **Optional Shortlink Support:** Built-in Cloud Function endpoint (`/api/share`) to create clean short links when desired.
+### 🔗 Seven-Day Set Sharing
+- **Faithful server snapshots:** Share a complete immutable copy of a set, including song data, custom section/chord edits, transpose choices, simplified selections, and song order.
+- **Seven-day capability links:** Anyone holding a link can import the set for seven days; no account is required. Links expire at the backend and Firestore TTL later removes the stored snapshot.
+- **Personal display stays personal:** Column layout, font size, and theme are not shared.
 
 ### 📱 Eye-Friendly Design & Theming
 - **Custom Low-Contrast Dark Mode:** Carefully tuned dark palette (`#101010` base, `#1a1a1a` cards, `#e5e5e5` soft text) designed to minimize glare and eye fatigue on dark stages or dimly lit rehearsal rooms.
@@ -59,7 +59,7 @@ Designed specifically for musicians and worship leaders performing on tablets or
 ## Architecture & Security Safeguards
 
 ### Tech Stack
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, `idb-keyval`, `lz-string`.
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, `idb-keyval`.
 - **Backend:** Firebase Cloud Functions (2nd Gen, Node 22, TypeScript, Express, Cheerio).
 - **Hosting:** Firebase Hosting with `/api/**` rewritten to the Cloud Function.
 
@@ -78,6 +78,7 @@ Designed specifically for musicians and worship leaders performing on tablets or
 - **Node.js:** 22+
 - **npm:** 10+
 - **Firebase CLI:** Installed globally (`npm install -g firebase-tools`)
+- **Firestore:** Create the project database in Native mode and configure a TTL policy on the `sharedSets` collection group’s `expiresAt` field. The deployed rules deny browser access; Cloud Functions use Admin credentials.
 
 ### Installation
 ```bash
@@ -118,7 +119,7 @@ Alternatively, run them in separate terminals:
 
 ## Testing & Verification
 
-The project includes thorough unit and integration test suites covering the scraper, normalizer, chord parser, transposer, session storage, deduplication, URL share compression, and security guards:
+The project includes thorough unit and integration test suites covering the scraper, normalizer, chord parser, transposer, session storage, set snapshot construction, and security guards:
 
 ```bash
 npm test

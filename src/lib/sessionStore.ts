@@ -2,6 +2,8 @@ import { get, set, del } from 'idb-keyval'
 import type { Section } from '../types/song'
 
 export interface SessionSongItem {
+  /** Stable per-occurrence ID. This permits the same source song more than once. */
+  entryId?: string
   url: string
   title?: string
   artist?: string
@@ -9,6 +11,9 @@ export interface SessionSongItem {
   errorMessage?: string
   customSections?: Section[]
   customSimplifiedSections?: Section[]
+  /** Per-set musical choices; layout and typography remain personal preferences. */
+  targetKey?: string
+  simplified?: boolean
 }
 
 export interface Session {
@@ -48,7 +53,19 @@ export class SessionStore {
 
   async getAllSessions(): Promise<Session[]> {
     const list = await this.store.get<Session[]>(SESSIONS_STORAGE_KEY)
-    return list ?? []
+    const sessions = list ?? []
+    // Lightweight migration for sessions made before per-entry IDs existed.
+    let changed = false
+    for (const session of sessions) {
+      for (const item of session.songs) {
+        if (!item.entryId) {
+          item.entryId = makeEntryId()
+          changed = true
+        }
+      }
+    }
+    if (changed) await this.store.set(SESSIONS_STORAGE_KEY, sessions)
+    return sessions
   }
 
   async getSession(id: string): Promise<Session | null> {
@@ -63,7 +80,7 @@ export class SessionStore {
       id: `session_${now}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
-      songs,
+      songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
     }
 
     list.unshift(newSession)
@@ -80,6 +97,9 @@ export class SessionStore {
   }
 
   async updateSession(session: Session): Promise<void> {
+    for (const item of session.songs) {
+      item.entryId ||= makeEntryId()
+    }
     const list = await this.getAllSessions()
     const index = list.findIndex((s) => s.id === session.id)
     if (index >= 0) {
@@ -97,15 +117,15 @@ export class SessionStore {
   async addSongToSession(sessionId: string, song: SessionSongItem): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
-    session.songs.push(song)
+    session.songs.push({ ...song, entryId: song.entryId || makeEntryId() })
     await this.updateSession(session)
     return session
   }
 
-  async removeSongFromSession(sessionId: string, url: string): Promise<Session | null> {
+  async removeSongFromSession(sessionId: string, entryId: string): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
-    session.songs = session.songs.filter((s) => s.url !== url)
+    session.songs = session.songs.filter((s) => s.entryId !== entryId)
     await this.updateSession(session)
     return session
   }
@@ -128,6 +148,10 @@ export class SessionStore {
     await this.updateSession(session)
     return session
   }
+}
+
+export function makeEntryId(): string {
+  return `entry_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`
 }
 
 export const sessionStore = new SessionStore()

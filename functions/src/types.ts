@@ -43,18 +43,20 @@ export interface Song {
   simplifiedSections?: Section[]
 }
 
-export interface ShareSongItem {
-  url: string
-  title?: string
-  artist?: string
-  targetKey?: string
-  simplified?: boolean
+/** A song plus all per-set state needed to reproduce a shared set exactly. */
+export interface SharedSetSong {
+  /** Stable ID for this occurrence; the same source song may appear twice in one set. */
+  entryId: string
+  song: Song
   customSections?: Section[]
   customSimplifiedSections?: Section[]
+  targetKey?: string
+  simplified?: boolean
 }
 
-export interface SharePayload {
-  v: 1
+/** Immutable, server-stored share format. */
+export interface SharedSetSnapshot {
+  v: 2
   name: string
-  songs: ShareSongItem[]
+  songs: SharedSetSong[]
 }

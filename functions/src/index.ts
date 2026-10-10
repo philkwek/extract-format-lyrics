@@ -7,9 +7,9 @@ import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
-import { shortLinkStore } from './shortLinkStore.js'
+import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
-import type { Song, SharePayload } from './types.js'
+import type { Song } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
 setGlobalOptions({
@@ -177,25 +177,44 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
   }
 
-  // Short link creation: POST /api/share
+  // Immutable Firestore-backed shared set creation: POST /api/share
   if (req.path === '/api/share' || req.path === '/share') {
     if (req.method !== 'POST') {
       sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/share')
       return
     }
 
-    const { payload } = req.body || {}
-    if (!payload || !payload.name || !Array.isArray(payload.songs)) {
-      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing valid "payload" object with name and songs')
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
       return
     }
-
-    const id = shortLinkStore.save(payload as SharePayload)
-    res.status(200).json({ id })
+    const { snapshot } = req.body || {}
+    const contentLength = Number(req.headers['content-length'] || 0)
+    if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
+      sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Shared set data is too large')
+      return
+    }
+    if (snapshot?.songs?.length > MAX_SHARED_SET_SONGS) {
+      sendJsonError(res, 400, 'SONG_LIMIT_EXCEEDED', `Shared sets are limited to ${MAX_SHARED_SET_SONGS} songs`)
+      return
+    }
+    if (!isSharedSetSnapshot(snapshot)) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing or invalid shared set snapshot')
+      return
+    }
+    try {
+      const created = await shareStore.create(snapshot)
+      res.status(201).json({ id: created.id, expiresAt: created.expiresAt.toISOString() })
+    } catch (err) {
+      sendJsonError(res, 500, 'SHARE_CREATE_FAILED', (err as Error).message || 'Failed to create sharing link')
+    }
     return
   }
 
-  // Short link lookup: GET /api/share/:id
+  // Shared set lookup: GET /api/share/:id
   const shareMatch = req.path.match(/^\/(?:api\/)?share\/([a-zA-Z0-9_-]+)$/)
   if (shareMatch) {
     if (req.method !== 'GET') {
@@ -204,14 +223,24 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     const id = shareMatch[1]
-    const payload = shortLinkStore.get(id)
-    if (!payload) {
-      sendJsonError(res, 404, 'NOT_FOUND', 'Share link not found or expired')
+    let result
+    try {
+      result = await shareStore.get(id)
+    } catch (err) {
+      sendJsonError(res, 500, 'SHARE_LOOKUP_FAILED', (err as Error).message || 'Failed to retrieve sharing link')
+      return
+    }
+    if (result.kind === 'expired') {
+      sendJsonError(res, 410, 'EXPIRED', 'This sharing link has expired')
+      return
+    }
+    if (result.kind === 'missing') {
+      sendJsonError(res, 404, 'NOT_FOUND', 'Share link not found')
       return
     }
 
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
-    res.status(200).json({ id, payload })
+    res.status(200).json({ id, snapshot: result.snapshot, expiresAt: result.expiresAt.toISOString() })
     return
   }
 
