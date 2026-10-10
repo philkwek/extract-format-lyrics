@@ -315,7 +315,7 @@ interface ChordFragment {
 }
 
 function cleanChordFragment(text: string): string {
-  let cleaned = text.replace(/^[|:\[]+|[|:\]]+$/g, '').trim()
+  let cleaned = text.replaceAll('[', '').replaceAll(']', '').replace(/^[|:]+|[|:]+$/g, '').trim()
   if (cleaned.startsWith('(') && cleaned.endsWith(')')) return cleaned.slice(1, -1)
   if (cleaned.startsWith('(')) cleaned = cleaned.slice(1)
   // Keep the closing parenthesis in chord qualities such as G2(no3).
@@ -549,7 +549,7 @@ function isSongSelectCreditLine(text: string): boolean {
 }
 
 function sectionHeaderFromRawLine(line: RawExtractedLine): { type: SectionType; label: string } | null {
-  const text = rawLineText(line).replace(/[\[\]()]/g, '').replace(/\s+/g, ' ').trim()
+  const text = rawLineText(line).replaceAll('[', '').replaceAll(']', '').replace(/[()]/g, '').replace(/\s+/g, ' ').trim()
   if (!text || isSongSelectCreditLine(text)) return null
   const normalized = text.toLowerCase()
   if (/^verse(?:\s+\d+)?$/.test(normalized)) return { type: 'Verse', label: text }

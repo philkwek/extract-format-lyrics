@@ -118,7 +118,7 @@ function hasTwoColumnLayout(groups: PositionedPdfText[][], pageWidth: number): b
 }
 
 function cleanChordFragment(text: string): string {
-  let cleaned = text.replace(/^[|:\[]+|[|:\]]+$/g, '').trim()
+  let cleaned = text.replaceAll('[', '').replaceAll(']', '').replace(/^[|:]+|[|:]+$/g, '').trim()
   if (cleaned.startsWith('(') && cleaned.endsWith(')')) return cleaned.slice(1, -1)
   if (cleaned.startsWith('(')) cleaned = cleaned.slice(1)
   if (!cleaned.includes('(') && cleaned.endsWith(')')) cleaned = cleaned.slice(0, -1)
@@ -235,7 +235,7 @@ export function normalizeRows(items: PositionedPdfText[], pageWidth: number): No
 
 const isFooter = (text: string) => /(?:©|\(c\)|copyright|all rights reserved|ccli\s*(?:licen[cs]e|song|#)?|used by permission|published by|administered by|integrity['’]s praise|open hands music|little way creative|page \d+)/i.test(text)
 const sectionType = (text: string): RawExtractedSong['sections'][number]['type'] | null => {
-  const normalized = text.replace(/[\[\]()]/g, '').trim().toLowerCase()
+  const normalized = text.replaceAll('[', '').replaceAll(']', '').replace(/[()]/g, '').trim().toLowerCase()
   if (/^verse(?:\s+\d+)?$/.test(normalized)) return 'Verse'
   if (/^pre[- ]?chorus(?:\s+\d+)?$/.test(normalized)) return 'Pre-Chorus'
   if (/^chorus(?:\s+\d+)?$/.test(normalized)) return 'Chorus'
@@ -294,7 +294,7 @@ export function parseDigitalSongSelectPage(analysis: PdfPageAnalysis): { song?: 
     if (type) {
       hasSongSelectStructure = true
       flush()
-      current = { type, label: row.text.replace(/[\[\]]/g, '').trim(), lines: [] }
+      current = { type, label: row.text.replaceAll('[', '').replaceAll(']', '').trim(), lines: [] }
       continue
     }
     if (isChordRow(row)) {

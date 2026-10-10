@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build",
     "build:functions": "npm run build --prefix functions",
     "lint": "eslint .",
+    "push:checked": "npm run lint && git push",
     "format": "prettier --write src",
     "test": "vitest run --passWithNoTests",
     "test:functions": "npm run test --prefix functions",
