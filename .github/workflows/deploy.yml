@@ -44,10 +44,10 @@ jobs:
       - name: Build functions (typecheck)
         run: npm run build:functions
 
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS || secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: extract-format-lyrics
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS || secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Firebase Hosting and Functions
+        run: firebase deploy --only hosting,functions --project extract-format-lyrics --non-interactive

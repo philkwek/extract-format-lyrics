@@ -17,7 +17,10 @@ setGlobalOptions({
   maxInstances: 3,
   minInstances: 0,
   memory: '512MiB',
-  timeoutSeconds: 60,
+  // Requests made through Firebase Hosting are limited to 60 seconds, but
+  // production extraction calls this HTTPS function directly. Allow enough
+  // time for sequential Gemini batches in a multi-page packet.
+  timeoutSeconds: 300,
   concurrency: 5,
 })
 
