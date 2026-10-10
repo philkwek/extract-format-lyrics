@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { partitionSections, getSectionWeight } from './songLayout'
+import {
+  getColumnDisplayWidths,
+  getLineDisplayWidth,
+  getSectionDisplayWidth,
+  getSectionWeight,
+  partitionSections,
+} from './songLayout'
 import type { Section } from '../types/song'
 
 function makeMockSection(label: string, lineCount: number): Section {
@@ -15,6 +21,40 @@ function makeMockSection(label: string, lineCount: number): Section {
 }
 
 describe('songLayout - partitionSections', () => {
+  it('measures lyric segments using the wider of their chord or lyric content', () => {
+    expect(
+      getLineDisplayWidth({
+        kind: 'lyric',
+        text: 'go now',
+        chords: [{ chord: 'Cmaj7', pos: 3 }],
+      })
+    ).toBe(9)
+  })
+
+  it('measures chord-only and tab lines as their preformatted content', () => {
+    expect(getLineDisplayWidth({ kind: 'chords-only', chords: ['G', 'Cmaj7', 'D'] })).toBe(13)
+    expect(getLineDisplayWidth({ kind: 'tab', raw: 'e|---0---|' })).toBe(10)
+  })
+
+  it('uses the widest section text in each non-empty column', () => {
+    const shortSection = makeMockSection('Verse', 1)
+    const longSection: Section = {
+      type: 'Chorus',
+      label: 'Long section heading',
+      lines: [{ kind: 'lyric', text: 'A much longer lyric line', chords: [] }],
+    }
+
+    expect(getSectionDisplayWidth(shortSection)).toBe('Line text 1'.length)
+    expect(getSectionDisplayWidth(longSection)).toBe('A much longer lyric line'.length)
+    expect(
+      getColumnDisplayWidths([
+        [{ section: shortSection, originalIndex: 0 }],
+        [{ section: longSection, originalIndex: 1 }],
+        [],
+      ])
+    ).toEqual(['Line text 1'.length, 'A much longer lyric line'.length])
+  })
+
   it('returns single column when numColumns is 1', () => {
     const sections = [
       makeMockSection('Intro', 4),

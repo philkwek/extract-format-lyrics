@@ -1,8 +1,71 @@
-import type { Section } from '../types/song'
+import type { Line, Section } from '../types/song'
 
 export interface ColumnSectionItem {
   section: Section
   originalIndex: number
+}
+
+/**
+ * Returns the rendered width of a line in monospace character cells.
+ *
+ * Lyric lines are rendered as flex segments. A chord segment must be wide
+ * enough for either its lyric slice or its chord label plus the 1ch gap that
+ * follows it, so measuring the raw lyric string alone would under-estimate
+ * the column width.
+ */
+export function getLineDisplayWidth(line: Line): number {
+  if (line.kind === 'tab') {
+    return line.raw.length
+  }
+
+  if (line.kind === 'chords-only') {
+    return line.chords.join('   ').length
+  }
+
+  if (!line.text && line.chords.length === 0) {
+    return 0
+  }
+
+  const sortedChords = line.chords
+    .map((chord, originalIndex) => ({ ...chord, originalIndex }))
+    .sort((a, b) => a.pos - b.pos || a.originalIndex - b.originalIndex)
+
+  const textLength = line.text.length
+  const clampPosition = (position: number) => Math.min(Math.max(position, 0), textLength)
+  let width = 0
+  const firstPos = sortedChords.length > 0 ? clampPosition(sortedChords[0].pos) : textLength
+
+  if (firstPos > 0 || sortedChords.length === 0) {
+    // The renderer reserves one cell for the empty chord row in this segment.
+    width += Math.max(1, line.text.slice(0, firstPos).length)
+  }
+
+  for (let index = 0; index < sortedChords.length; index++) {
+    const chord = sortedChords[index]
+    const start = clampPosition(chord.pos)
+    const nextChord = sortedChords[index + 1]
+    const end = nextChord ? Math.max(start, clampPosition(nextChord.pos)) : textLength
+    const lyricWidth = Math.max(1, line.text.slice(start, end).length)
+    const chordWidth = chord.chord.length + 1 // The renderer applies padding-right: 1ch.
+    width += Math.max(lyricWidth, chordWidth)
+  }
+
+  return width
+}
+
+/** Returns the intrinsic text width required by a section in character cells. */
+export function getSectionDisplayWidth(section: Section): number {
+  return Math.max(section.label.length, ...section.lines.map(getLineDisplayWidth), 1)
+}
+
+/**
+ * Computes one intrinsic width for each partitioned column. Empty columns are
+ * excluded so an absent third section does not reserve horizontal space.
+ */
+export function getColumnDisplayWidths(columns: ColumnSectionItem[][]): number[] {
+  return columns
+    .filter((column) => column.length > 0)
+    .map((column) => Math.max(...column.map((item) => getSectionDisplayWidth(item.section)), 1))
 }
 
 /**

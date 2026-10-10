@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type CSSProperties } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
-import { partitionSections } from '../lib/songLayout'
+import { getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
 
 interface SongSheetProps {
   sections: Section[]
@@ -203,13 +203,30 @@ export default function SongSheet({
     () => partitionSections(sections, columns),
     [sections, columns]
   )
+  const visibleColumnPartitions = useMemo(() => {
+    const nonEmptyPartitions = columnPartitions.filter((partition) => partition.length > 0)
+    return nonEmptyPartitions.length > 0 ? nonEmptyPartitions : [[]]
+  }, [columnPartitions])
+  const columnDisplayWidths = useMemo(
+    () => getColumnDisplayWidths(visibleColumnPartitions),
+    [visibleColumnPartitions]
+  )
+  const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as 1 | 2 | 3
+  const hasAdaptiveColumns = desktopColumnCount > 1 && columnDisplayWidths.length > 1
+  const adaptiveGridStyle: CSSProperties | undefined = hasAdaptiveColumns
+    ? {
+        '--song-sheet-column-template': columnDisplayWidths
+          .map((width) => `minmax(0, ${width}fr)`)
+          .join(' '),
+      } as CSSProperties
+    : undefined
 
   const gridClass =
-    columns === 3
-      ? 'grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
-      : columns === 2
-      ? 'grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
-      : 'grid grid-cols-1 gap-6'
+    desktopColumnCount === 3
+      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
+      : desktopColumnCount === 2
+      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
+      : 'song-sheet-grid grid grid-cols-1 gap-6'
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = 'move'
@@ -299,8 +316,11 @@ export default function SongSheet({
         </div>
       )}
 
-      <div className={gridClass}>
-        {columnPartitions.map((colItems, colIdx) => (
+      <div
+        className={`${gridClass}${hasAdaptiveColumns ? ' song-sheet-grid--adaptive' : ''}`}
+        style={adaptiveGridStyle}
+      >
+        {visibleColumnPartitions.map((colItems, colIdx) => (
           <div key={colIdx} className="space-y-6 min-w-0">
             {colItems.map(({ section, originalIndex }) => {
               const isDragging = draggedIdx === originalIndex

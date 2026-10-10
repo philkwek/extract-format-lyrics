@@ -61,3 +61,10 @@ html.dark body {
   break-inside: avoid-column;
   page-break-inside: avoid;
 }
+
+/* Mobile remains a single column; desktop columns receive their calculated proportions. */
+@media (min-width: 40rem) {
+  .song-sheet-grid--adaptive {
+    grid-template-columns: var(--song-sheet-column-template);
+  }
+}
