@@ -100,7 +100,13 @@ export interface ExtractSongsResponse {
   songs: Song[]
 }
 
-export type ExtractSongsProgress = (message: string) => void
+export interface ExtractSongsProgressEvent {
+  message: string
+  completed?: number
+  total?: number
+}
+
+export type ExtractSongsProgress = (progress: ExtractSongsProgressEvent) => void
 
 export async function extractSongsApi(
   files: Array<{ mimeType: string; base64Data: string }>,
@@ -140,8 +146,16 @@ export async function extractSongsApi(
     buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (!line) continue
-      const event = JSON.parse(line) as { type: string; message?: string; songs?: Song[] }
-      if (event.type === 'progress' && event.message) onProgress?.(event.message)
+      const event = JSON.parse(line) as {
+        type: string
+        message?: string
+        songs?: Song[]
+        completed?: number
+        total?: number
+      }
+      if (event.type === 'progress' && event.message) {
+        onProgress?.({ message: event.message, completed: event.completed, total: event.total })
+      }
       if (event.type === 'error') throw new Error(event.message || 'Extraction failed')
       if (event.type === 'result' && event.songs) result = { songs: event.songs }
     }

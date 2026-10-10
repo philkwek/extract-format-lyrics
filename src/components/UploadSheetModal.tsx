@@ -19,6 +19,7 @@ export default function UploadSheetModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const [extractionProgress, setExtractionProgress] = useState<{ completed: number; total: number } | null>(null)
   const [expectedSongCount, setExpectedSongCount] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showKeyConfig, setShowKeyConfig] = useState(false)
@@ -88,6 +89,7 @@ export default function UploadSheetModal({
     setErrorMessage(null)
     setIsProcessing(true)
     setStatusMessage('Reading & optimizing documents...')
+    setExtractionProgress(null)
 
     try {
       const prepared = await prepareFilesForExtraction(selectedFiles)
@@ -102,13 +104,19 @@ export default function UploadSheetModal({
         payloadFiles,
         apiKey.trim() || undefined,
         expectedCount,
-        setStatusMessage
+        ({ message, completed, total }) => {
+          setStatusMessage(message)
+          if (typeof completed === 'number' && typeof total === 'number' && total > 0) {
+            setExtractionProgress({ completed, total })
+          }
+        }
       )
 
       setExtractedSongs(songs)
       setSelectedChord(null)
       setActivePreviewIndex(0)
       setStatusMessage('')
+      setExtractionProgress(null)
     } catch (err) {
       setErrorMessage((err as Error).message || 'Extraction failed')
     } finally {
@@ -395,11 +403,31 @@ export default function UploadSheetModal({
                 )}
               </div>
 
-              {/* Processing Spinner / Status */}
+              {/* Processing Status */}
               {isProcessing && (
-                <div className="p-4 rounded-lg bg-[#3368A0]/10 border border-[#3368A0]/30 dark:bg-amber-950/30 dark:border-amber-900/50 flex items-center gap-3 shadow-2xs">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#3368A0] dark:border-amber-400 border-t-transparent" />
-                  <div className="text-sm text-[#255283] dark:text-amber-200 font-medium">{statusMessage}</div>
+                <div className="p-4 rounded-lg bg-[#3368A0]/10 border border-[#3368A0]/30 dark:bg-amber-950/30 dark:border-amber-900/50 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 shrink-0 border-2 border-[#3368A0] dark:border-amber-400 border-t-transparent" />
+                    <div className="text-sm text-[#255283] dark:text-amber-200 font-medium">{statusMessage}</div>
+                  </div>
+                  <div
+                    className="mt-3 h-2 overflow-hidden rounded-full bg-[#3368A0]/15 dark:bg-amber-100/10"
+                    role="progressbar"
+                    aria-label="PDF extraction progress"
+                    aria-valuemin={0}
+                    aria-valuemax={extractionProgress?.total}
+                    aria-valuenow={extractionProgress?.completed}
+                  >
+                    <div
+                      className={`h-full rounded-full bg-[#3368A0] dark:bg-amber-400 transition-all duration-500 ${extractionProgress ? '' : 'w-full animate-pulse'}`}
+                      style={extractionProgress ? { width: `${Math.min(100, (extractionProgress.completed / extractionProgress.total) * 100)}%` } : undefined}
+                    />
+                  </div>
+                  {extractionProgress && (
+                    <div className="mt-1.5 text-right text-xs text-[#255283]/80 dark:text-amber-200/80">
+                      {Math.min(extractionProgress.completed, extractionProgress.total)} of {extractionProgress.total} pages processed
+                    </div>
+                  )}
                 </div>
               )}
             </div>

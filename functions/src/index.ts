@@ -269,7 +269,14 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
       res.setHeader('Cache-Control', 'no-cache, no-transform')
       res.flushHeaders()
-      res.write(`${JSON.stringify({ type: 'progress', message: 'Transcribing SongSelect sheet(s) with Gemini...' })}\n`)
+      res.write(
+        `${JSON.stringify({
+          type: 'progress',
+          message: 'Transcribing SongSelect sheet(s) with Gemini...',
+          completed: 0,
+          total: files.length,
+        })}\n`
+      )
       const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
         expectedSongCount,
         onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage }) => {
@@ -277,7 +284,12 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
             ? `Transcribing pages ${batchStartPage}-${batchEndPage}...`
             : `Found ${found} of ${expected} songs - checking for missing songs...`
           res.write(
-            `${JSON.stringify({ type: 'progress', message })}\n`
+            `${JSON.stringify({
+              type: 'progress',
+              message,
+              completed: type === 'batch' ? Math.max(0, (batchStartPage ?? 1) - 1) : 0,
+              total: files.length,
+            })}\n`
           )
         },
       })

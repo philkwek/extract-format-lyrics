@@ -29,7 +29,11 @@ describe('extractSongsApi', () => {
       extractSongsApi([{ mimeType: 'application/pdf', base64Data: 'data' }], 'key', 4, onProgress)
     ).resolves.toEqual([song])
 
-    expect(onProgress).toHaveBeenCalledWith('Found 3 of 4 songs - checking for missing songs...')
+    expect(onProgress).toHaveBeenCalledWith({
+      message: 'Found 3 of 4 songs - checking for missing songs...',
+      completed: undefined,
+      total: undefined,
+    })
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ expectedSongCount: 4 })
   })
 
