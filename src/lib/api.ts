@@ -100,14 +100,18 @@ export interface ExtractSongsResponse {
   songs: Song[]
 }
 
+export type ExtractSongsProgress = (message: string) => void
+
 export async function extractSongsApi(
   files: Array<{ mimeType: string; base64Data: string }>,
-  apiKey?: string
+  apiKey?: string,
+  expectedSongCount?: number,
+  onProgress?: ExtractSongsProgress
 ): Promise<Song[]> {
   const res = await fetch('/api/extract-sheet', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ files, apiKey }),
+    body: JSON.stringify({ files, apiKey, expectedSongCount }),
   })
 
   if (!res.ok) {
@@ -123,7 +127,26 @@ export async function extractSongsApi(
     throw new Error(errMsg)
   }
 
-  const data = (await res.json()) as ExtractSongsResponse
-  return data.songs
-}
+  if (!res.body) throw new Error('Extraction response did not include a readable result')
 
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: ExtractSongsResponse | null = null
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line) continue
+      const event = JSON.parse(line) as { type: string; message?: string; songs?: Song[] }
+      if (event.type === 'progress' && event.message) onProgress?.(event.message)
+      if (event.type === 'error') throw new Error(event.message || 'Extraction failed')
+      if (event.type === 'result' && event.songs) result = { songs: event.songs }
+    }
+    if (done) break
+  }
+  if (!result) throw new Error('Extraction ended without a result')
+  return result.songs
+}

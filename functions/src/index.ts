@@ -8,7 +8,7 @@ import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { shortLinkStore } from './shortLinkStore.js'
-import { extractSongsWithGemini, type SheetFilePart } from './extractSheet.js'
+import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
 import type { Song, SharePayload } from './types.js'
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -233,7 +233,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const { files, apiKey, model } = req.body || {}
+    const { files, apiKey, model, expectedSongCount } = req.body || {}
     if (!files || !Array.isArray(files) || files.length === 0) {
       sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
       return
@@ -256,14 +256,38 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       }
     }
 
+    if (
+      expectedSongCount !== undefined &&
+      !isExpectedSongCount(expectedSongCount)
+    ) {
+      sendJsonError(res, 400, 'INVALID_EXPECTED_SONG_COUNT', 'Expected song count must be a positive whole number')
+      return
+    }
+
     try {
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model)
-      res.status(200).json({ songs })
+      res.status(200)
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+      res.setHeader('Cache-Control', 'no-cache, no-transform')
+      res.flushHeaders()
+      res.write(`${JSON.stringify({ type: 'progress', message: 'Transcribing SongSelect sheet(s) with Gemini...' })}\n`)
+      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
+        expectedSongCount,
+        onProgress: ({ expectedSongCount: expected, extractedSongCount: found }) => {
+          res.write(
+            `${JSON.stringify({ type: 'progress', message: `Found ${found} of ${expected} songs - checking for missing songs...` })}\n`
+          )
+        },
+      })
+      res.end(`${JSON.stringify({ type: 'result', songs })}\n`)
       return
     } catch (err) {
       const msg = (err as Error).message || 'Extraction failed'
-      const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
-      sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
+      if (res.headersSent) {
+        res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
+      } else {
+        const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
+        sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
+      }
       return
     }
   }

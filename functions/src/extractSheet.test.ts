@@ -3,8 +3,27 @@ import {
   bracketedLineToModelLine,
   extractChordsFromSpacedLine,
   transformRawSongsToAppSongs,
+  isExpectedSongCount,
+  needsSongCountRetry,
   type RawExtractedSong,
 } from './extractSheet.js'
+
+describe('expected song count helpers', () => {
+  it('accepts only positive whole-number counts', () => {
+    expect(isExpectedSongCount(1)).toBe(true)
+    expect(isExpectedSongCount(4)).toBe(true)
+    expect(isExpectedSongCount(0)).toBe(false)
+    expect(isExpectedSongCount(-1)).toBe(false)
+    expect(isExpectedSongCount(1.5)).toBe(false)
+    expect(isExpectedSongCount('4')).toBe(false)
+  })
+
+  it('requests a retry only for an explicit count mismatch', () => {
+    expect(needsSongCountRetry(undefined, 3)).toBe(false)
+    expect(needsSongCountRetry(4, 4)).toBe(false)
+    expect(needsSongCountRetry(4, 3)).toBe(true)
+  })
+})
 
 describe('bracketedLineToModelLine (Syllable Alignment)', () => {
   it('aligns chords accurately above words without drift (Found in Your hands fullness of joy)', () => {

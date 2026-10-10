@@ -19,6 +19,7 @@ export default function UploadSheetModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const [expectedSongCount, setExpectedSongCount] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showKeyConfig, setShowKeyConfig] = useState(false)
   const [apiKey, setApiKey] = useState(() => {
@@ -78,6 +79,12 @@ export default function UploadSheetModal({
   const handleExtract = async () => {
     if (selectedFiles.length === 0) return
 
+    const expectedCount = expectedSongCount.trim() ? Number(expectedSongCount) : undefined
+    if (expectedCount !== undefined && (!Number.isSafeInteger(expectedCount) || expectedCount < 1)) {
+      setErrorMessage('Expected songs must be a positive whole number.')
+      return
+    }
+
     setErrorMessage(null)
     setIsProcessing(true)
     setStatusMessage('Reading & optimizing documents...')
@@ -91,7 +98,12 @@ export default function UploadSheetModal({
         base64Data: p.base64Data,
       }))
 
-      const songs = await extractSongsApi(payloadFiles, apiKey.trim() || undefined)
+      const songs = await extractSongsApi(
+        payloadFiles,
+        apiKey.trim() || undefined,
+        expectedCount,
+        setStatusMessage
+      )
 
       setExtractedSongs(songs)
       setSelectedChord(null)
@@ -133,6 +145,7 @@ export default function UploadSheetModal({
       onClose()
       // Reset state
       setSelectedFiles([])
+      setExpectedSongCount('')
       setExtractedSongs(null)
     }
   }
@@ -328,6 +341,22 @@ export default function UploadSheetModal({
                       </div>
                     ))}
                   </div>
+                  <label className="block text-xs text-neutral-600 dark:text-neutral-300">
+                    <span className="font-semibold">Expected songs (optional)</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      value={expectedSongCount}
+                      onChange={(e) => setExpectedSongCount(e.target.value)}
+                      placeholder="e.g. 4"
+                      className="mt-1.5 block w-full max-w-40 rounded-md border border-[#C8DFDB] bg-white px-2.5 py-1.5 text-sm text-neutral-800 dark:border-[#282828] dark:bg-[#151515] dark:text-[#e5e5e5]"
+                    />
+                    <span className="mt-1 block text-[11px] text-neutral-500 dark:text-neutral-400">
+                      We will check that Gemini finds this many songs and tell you if it needs another pass.
+                    </span>
+                  </label>
                 </div>
               )}
 

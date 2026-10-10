@@ -51,6 +51,34 @@ export interface SheetFilePart {
   base64Data: string
 }
 
+export interface ExtractionProgress {
+  type: 'retrying'
+  expectedSongCount: number
+  extractedSongCount: number
+}
+
+export interface ExtractionOptions {
+  expectedSongCount?: number
+  onProgress?: (progress: ExtractionProgress) => void
+}
+
+export class ExpectedSongCountMismatchError extends Error {
+  constructor(expectedSongCount: number, extractedSongCount: number) {
+    super(
+      `Could not reliably extract all ${expectedSongCount} songs. The final check found ${extractedSongCount}. Please try uploading the sheets as separate files.`
+    )
+    this.name = 'ExpectedSongCountMismatchError'
+  }
+}
+
+export function isExpectedSongCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1
+}
+
+export function needsSongCountRetry(expectedSongCount: number | undefined, extractedSongCount: number): boolean {
+  return expectedSongCount !== undefined && extractedSongCount !== expectedSongCount
+}
+
 export const songSelectResponseSchema = {
   type: Type.OBJECT,
   properties: {
@@ -419,7 +447,8 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
 export async function extractSongsWithGemini(
   files: SheetFilePart[],
   apiKey?: string,
-  modelName: string = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite'
+  modelName: string = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+  options: ExtractionOptions = {}
 ): Promise<Song[]> {
   const resolvedApiKey = apiKey || process.env.GEMINI_API_KEY
   if (!resolvedApiKey) {
@@ -428,45 +457,58 @@ export async function extractSongsWithGemini(
 
   const ai = new GoogleGenAI({ apiKey: resolvedApiKey })
 
-  const contentsParts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = files.map(
-    (file) => ({
-      inlineData: {
-        mimeType: file.mimeType,
-        data: file.base64Data,
+  const transcribe = async (instruction: string): Promise<RawExtractionResponse> => {
+    const contents: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = files.map(
+      (file) => ({ inlineData: { mimeType: file.mimeType, data: file.base64Data } })
+    )
+    contents.push({ text: instruction })
+
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        systemInstruction: SONGSELECT_SYSTEM_PROMPT,
+        responseMimeType: 'application/json',
+        responseSchema: songSelectResponseSchema,
+        temperature: 0.1,
       },
     })
+    const text = response.text
+    if (!text) throw new Error('Empty response from Gemini vision model')
+
+    let parsed: RawExtractionResponse
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      throw new Error(`Failed to parse structured JSON from Gemini: ${text.slice(0, 200)}`)
+    }
+    if (!parsed.songs || !Array.isArray(parsed.songs) || parsed.songs.length === 0) {
+      throw new Error('No songs could be identified in the uploaded document/images')
+    }
+    return parsed
+  }
+
+  const expected = options.expectedSongCount
+  const firstPass = await transcribe(
+    expected
+      ? `Please transcribe exactly ${expected} distinct songs from the attached SongSelect sheets according to the system instructions. Ignore blank pages and strictly preserve syllable alignment and leading whitespace timing.`
+      : 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving syllable alignment and leading whitespace timing.'
   )
 
-  contentsParts.push({
-    text: 'Please transcribe all songs from the attached SongSelect sheets according to the system instructions, strictly preserving syllable alignment and leading whitespace timing.',
+  if (expected === undefined || !needsSongCountRetry(expected, firstPass.songs.length)) {
+    return transformRawSongsToAppSongs(firstPass.songs)
+  }
+
+  options.onProgress?.({
+    type: 'retrying',
+    expectedSongCount: expected,
+    extractedSongCount: firstPass.songs.length,
   })
-
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: contentsParts,
-    config: {
-      systemInstruction: SONGSELECT_SYSTEM_PROMPT,
-      responseMimeType: 'application/json',
-      responseSchema: songSelectResponseSchema,
-      temperature: 0.1,
-    },
-  })
-
-  const text = response.text
-  if (!text) {
-    throw new Error('Empty response from Gemini vision model')
+  const retry = await transcribe(
+    `The first transcription found ${firstPass.songs.length} of the expected ${expected} distinct songs. Re-read every attached page, including both columns, and return exactly ${expected} songs. Do not omit a song because it is dense or spans a continuation page; ignore blank pages.`
+  )
+  if (retry.songs.length !== expected) {
+    throw new ExpectedSongCountMismatchError(expected, retry.songs.length)
   }
-
-  let parsed: RawExtractionResponse
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    throw new Error(`Failed to parse structured JSON from Gemini: ${text.slice(0, 200)}`)
-  }
-
-  if (!parsed.songs || !Array.isArray(parsed.songs) || parsed.songs.length === 0) {
-    throw new Error('No songs could be identified in the uploaded document/images')
-  }
-
-  return transformRawSongsToAppSongs(parsed.songs)
+  return transformRawSongsToAppSongs(retry.songs)
 }
