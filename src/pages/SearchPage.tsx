@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AlertCircle, ArrowLeft, ExternalLink, Link2, Search } from 'lucide-react'
 import { searchApi, type SearchCandidate, scrapeApi } from '../lib/api'
 import { songCache } from '../lib/songCache'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { splitUrls, validateUrls } from '../../functions/src/urls'
+import { Button, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 
 interface ImportStatus {
   url: string
@@ -225,11 +227,11 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Top Navigation & Back Button */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
+    <div className="mx-auto max-w-5xl space-y-5">
+      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          variant="ghost"
+          icon={<ArrowLeft size={15} />}
           onClick={() => {
             if (targetSessionId) {
               navigate(`/session/${targetSessionId}`)
@@ -237,77 +239,69 @@ export default function SearchPage() {
               navigate(-1)
             }
           }}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-[#e5e5e5] hover:text-[#3368A0] dark:hover:text-amber-400 bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border-[#282828] px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs"
         >
-          ← {targetSession ? `Back to ${targetSession.name}` : 'Back'}
-        </button>
+          {targetSession ? `Back to ${targetSession.name}` : 'Back'}
+        </Button>
         {targetSession && (
-          <span className="text-xs text-neutral-500 dark:text-[#999999]">
-            Adding to setlist: <strong className="text-neutral-900 dark:text-[#e5e5e5]">{targetSession.name}</strong>
+          <span className="rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 text-xs text-[var(--ui-text-muted)]">
+            Adding to <strong className="text-[var(--ui-text)]">{targetSession.name}</strong>
           </span>
         )}
       </div>
 
-      <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm">
-        <div className="flex gap-2 border-b border-[#C8DFDB] dark:border-[#282828] pb-3 mb-4">
-          <button
-            type="button"
-            onClick={() => setMode('search')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              mode === 'search'
-                ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
-                : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-            }`}
-          >
-            🔍 Search Chords
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('paste')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              mode === 'paste'
-                ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
-                : 'bg-neutral-100 dark:bg-[#101010] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-            }`}
-          >
-            🔗 Paste Link(s)
-          </button>
+      <Surface className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#3368A0] dark:text-amber-400">Song library</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[var(--ui-text)]">Find the next chart</h1>
+            <p className="mt-1 text-sm text-[var(--ui-text-muted)]">Search supported sites or bring a link you already trust.</p>
+          </div>
+          <SegmentedControl
+            label="Import method"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'search', label: 'Search', icon: <Search size={14} /> },
+              { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
+            ]}
+          />
         </div>
 
+        <div className="p-4 sm:p-5">
         {mode === 'search' ? (
-          <div>
-            <h2 className="text-xl font-bold mb-1 text-neutral-900 dark:text-[#e5e5e5]">Search Chords & Lyrics</h2>
-            <p className="text-sm text-neutral-600 dark:text-[#999999] mb-4">
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
               Find chord sheets across Ultimate Guitar, PNW Chords, and Worship Together.
             </p>
 
-            <form onSubmit={handleSearch} className="flex gap-2">
+            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
-                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+                className="ui-field flex-1 px-3.5 py-2.5 text-sm"
               />
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                icon={<Search size={15} />}
                 disabled={isSearching || !query.trim()}
-                className="px-5 py-2 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer text-sm"
+                loading={isSearching}
               >
-                {isSearching ? 'Searching...' : 'Search'}
-              </button>
+                Search
+              </Button>
             </form>
 
             {error && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 rounded text-red-700 dark:text-red-200 text-xs">
+              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
                 {error}
-              </div>
+              </StatusBanner>
             )}
           </div>
         ) : (
-          <div>
-            <h2 className="text-xl font-bold mb-1 text-neutral-900 dark:text-[#e5e5e5]">Paste Chord Sheet Link(s)</h2>
-            <p className="text-sm text-neutral-600 dark:text-[#999999] mb-4">
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
               Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords, Worship Together).
             </p>
 
@@ -317,37 +311,37 @@ export default function SearchPage() {
               disabled={isProcessingPaste}
               placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
               rows={4}
-              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+              className="ui-field min-h-32 resize-y p-3.5 font-mono text-sm leading-6"
             />
 
             {pasteError && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/80 rounded text-red-700 dark:text-red-200 text-xs">
+              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
                 {pasteError}
-              </div>
+              </StatusBanner>
             )}
 
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500 dark:text-[#999999]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
                 {splitUrls(pasteText).length} link(s) entered
               </span>
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={handlePasteExtract}
                 disabled={isProcessingPaste || !pasteText.trim()}
-                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-xs"
+                loading={isProcessingPaste}
               >
-                {isProcessingPaste ? 'Extracting...' : targetSessionId ? '+ Add to Setlist' : 'Extract & Open'}
-              </button>
+                {targetSessionId ? 'Add to setlist' : 'Extract and open'}
+              </Button>
             </div>
 
             {pasteStatuses.length > 0 && (
-              <div className="mt-5 border-t border-neutral-200 dark:border-[#282828] pt-3 space-y-2">
-                <h3 className="text-xs font-semibold text-neutral-600 dark:text-[#999999] uppercase tracking-wider">
+              <div className="mt-5 space-y-2 border-t border-[var(--ui-border)] pt-4">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
                   Import Progress
                 </h3>
                 {pasteStatuses.map((s, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs py-1">
-                    <span className="truncate max-w-[70%] font-mono text-neutral-700 dark:text-[#d4d4d4]">{s.url}</span>
+                  <div key={idx} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ui-surface-muted)] px-3 py-2 text-xs">
+                    <span className="max-w-[70%] truncate font-mono text-[var(--ui-text)]">{s.url}</span>
                     <span
                       className={
                         s.status === 'done' || s.status === 'cached'
@@ -369,71 +363,74 @@ export default function SearchPage() {
             )}
           </div>
         )}
-      </div>
+        </div>
+      </Surface>
 
       {/* Results (Only shown in search mode) */}
       {mode === 'search' && (
         <>
           {isSearching ? (
-            <div className="py-12 text-center text-xs text-neutral-500 dark:text-[#999999] animate-pulse">
-              Searching supported chord sites...
+            <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--ui-text-muted)]" role="status">
+              <span className="ui-spinner" /> Searching supported chord sites
             </div>
           ) : results.length > 0 ? (
             <div className="space-y-3">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999]">
-                Search Results ({results.length})
+              <h3 className="px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
+                Search results · {results.length}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 {results.map((item, idx) => (
                   <div
                     key={idx}
-                    className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl p-4 flex flex-col justify-between hover:border-[#66A3BF] dark:hover:border-[#383838] transition-colors shadow-xs"
+                    className="ui-surface flex min-h-40 flex-col justify-between p-4 transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)]"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-bold text-neutral-900 dark:text-[#e5e5e5] text-sm leading-snug">{item.title}</h4>
-                        <span className="text-[10px] bg-neutral-100 dark:bg-[#282828] text-neutral-600 dark:text-[#999999] px-2 py-0.5 rounded uppercase font-medium">
+                        <h4 className="text-sm font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">{item.title}</h4>
+                        <span className="rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
                           {item.site}
                         </span>
                       </div>
-                      <p className="text-xs text-neutral-600 dark:text-[#999999] mt-0.5">{item.artist}</p>
+                      <p className="mt-1 text-xs text-[var(--ui-text-muted)]">{item.artist}</p>
 
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-neutral-500 dark:text-[#999999]">
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--ui-text-muted)]">
                         {item.versionLabel && <span>{item.versionLabel}</span>}
                         {item.rating && <span>★ {item.rating.toFixed(1)}</span>}
                         {item.type && <span>• {item.type}</span>}
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-[#C8DFDB]/60 dark:border-[#282828] flex items-center justify-between">
+                    <div className="mt-4 flex items-center justify-between border-t border-[var(--ui-border)] pt-3">
                       <a
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-neutral-500 hover:text-neutral-800 dark:text-[#999999] dark:hover:text-[#e5e5e5] underline"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
                       >
-                        View source ↗
+                        View source <ExternalLink size={12} />
                       </a>
-                      <button
+                      <Button
+                        size="sm"
+                        variant="primary"
                         onClick={() => handleAddCandidate(item)}
                         disabled={addingUrls.has(item.url) || addedUrls.has(item.url)}
-                        className="px-3 py-1.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] text-white dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                        loading={addingUrls.has(item.url)}
                       >
                         {addedUrls.has(item.url)
                           ? 'Added ✓'
                           : addingUrls.has(item.url)
                             ? 'Adding...'
                             : targetSessionId
-                              ? '+ Add to Setlist'
-                              : 'Extract & View'}
-                      </button>
+                              ? 'Add to setlist'
+                              : 'Extract and view'}
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           ) : hasSearched ? (
-            <div className="py-12 text-center text-sm text-neutral-500 dark:text-[#999999] italic">
+            <div className="py-12 text-center text-sm text-[var(--ui-text-muted)]">
               No matching songs found. Try a different query or paste links above.
             </div>
           ) : null}

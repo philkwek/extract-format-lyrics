@@ -1,4 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { ArrowDown, ArrowUp, GripHorizontal, Trash2, X } from 'lucide-react'
+import { momentumSpring, reducedMotionTransition } from '../lib/uiMotion'
+import { Button, IconButton } from './ui'
 
 export interface ArrangeItem {
   id: string
@@ -17,6 +21,8 @@ interface ArrangeDrawerProps {
   onClose: () => void
 }
 
+const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export default function ArrangeDrawer({
   isOpen,
   title,
@@ -26,134 +32,146 @@ export default function ArrangeDrawer({
   onDelete,
   onClose,
 }: ArrangeDrawerProps) {
+  const titleId = useId()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+  const [moveFeedback, setMoveFeedback] = useState<{ itemId: string; direction: 'up' | 'down' } | null>(null)
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)')
+    const update = (event: MediaQueryListEvent) => setIsMobile(event.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
   useEffect(() => {
     if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const frame = window.requestAnimationFrame(() => {
+      panelRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus()
+    })
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+      previousFocus?.focus()
+    }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (!moveFeedback) return
+    const timeout = window.setTimeout(() => setMoveFeedback(null), 420)
+    return () => window.clearTimeout(timeout)
+  }, [moveFeedback])
+
+  const moveItem = (fromIndex: number, toIndex: number) => {
+    const item = items[fromIndex]
+    if (!item || fromIndex === toIndex) return
+    setMoveFeedback({ itemId: item.id, direction: toIndex < fromIndex ? 'up' : 'down' })
+    onMove(fromIndex, toIndex)
+  }
+
+  const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !panelRef.current) return
+    const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(focusableSelector))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="arrange-drawer-title"
-      className="fixed inset-0 bg-black/60 z-50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 select-none"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-[#1a1a1a] border border-neutral-300 dark:border-[#282828] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Mobile Drag Pill */}
-        <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full mx-auto mt-2.5 sm:hidden" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 pb-3 border-b border-neutral-200 dark:border-[#282828]">
-          <div>
-            <h2 id="arrange-drawer-title" className="text-base font-bold text-neutral-900 dark:text-[#e5e5e5]">
-              {title}
-            </h2>
-            {subtitle && (
-              <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] p-1.5 rounded-lg text-sm leading-none cursor-pointer"
-            title="Close"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="ui-overlay sm:items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={reduceMotion ? reducedMotionTransition : { duration: 0.2 }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) onClose()
+          }}
+        >
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+            drag={isMobile && !reduceMotion ? 'y' : false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.34 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 110 || info.velocity.y > 700) onClose()
+            }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: isMobile ? '100%' : 18, scale: isMobile ? 1 : 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: isMobile ? '100%' : 16, scale: isMobile ? 1 : 0.98 }}
+            transition={reduceMotion ? reducedMotionTransition : momentumSpring}
+            onKeyDown={handlePanelKeyDown}
+            className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.35rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)] outline-none sm:rounded-[1.35rem]"
           >
-            ✕
-          </button>
-        </div>
-
-        {/* Scrollable Item List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {items.length === 0 ? (
-            <div className="py-8 text-center text-xs text-neutral-500">
-              No items to arrange.
+            <div className="flex h-7 shrink-0 touch-none items-center justify-center sm:hidden" aria-hidden="true">
+              <GripHorizontal size={25} className="text-[var(--ui-text-muted)]" />
             </div>
-          ) : (
-            items.map((item, idx) => {
-              const isFirst = idx === 0
-              const isLast = idx === items.length - 1
-
-              return (
-                <div
+            <header className="flex items-start justify-between gap-3 border-b border-[var(--ui-border)] px-4 pb-3 pt-1 sm:pt-4">
+              <div className="min-w-0">
+                <h2 id={titleId} className="text-base font-bold tracking-[-0.02em]">{title}</h2>
+                {subtitle && <p className="mt-1 truncate text-xs text-[var(--ui-text-muted)]">{subtitle}</p>}
+              </div>
+              <IconButton label="Close" variant="ghost" onClick={onClose}><X size={17} /></IconButton>
+            </header>
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+              {items.length === 0 ? (
+                <div className="py-10 text-center text-sm text-[var(--ui-text-muted)]">No items to arrange.</div>
+              ) : items.map((item, idx) => (
+                <motion.div
                   key={item.id}
-                  className="flex items-center justify-between gap-3 p-3 bg-neutral-50 dark:bg-[#202020] border border-neutral-200 dark:border-[#282828] rounded-xl transition-all"
+                  layout="position"
+                  initial={false}
+                  animate={moveFeedback?.itemId === item.id && !reduceMotion ? { scale: [1, 1.018, 1] } : { scale: 1 }}
+                  transition={reduceMotion ? reducedMotionTransition : {
+                    layout: { type: 'spring', stiffness: 520, damping: 38, mass: 0.65 },
+                    scale: { duration: 0.28, ease: 'easeOut' },
+                  }}
+                  data-move-direction={moveFeedback?.itemId === item.id ? moveFeedback.direction : undefined}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span className="text-xs font-mono font-bold text-[#255283] dark:text-amber-400 bg-[#C8DFDB]/50 dark:bg-amber-400/10 px-2 py-1 rounded-md shrink-0">
-                      {item.badge || `#${idx + 1}`}
-                    </span>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-[#3368A0]/10 px-2 font-mono text-xs font-bold text-[#255283] dark:bg-amber-400/10 dark:text-amber-400">{item.badge || `#${idx + 1}`}</span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e5e5e5] truncate">
-                        {item.title}
-                      </div>
-                      {item.subtitle && (
-                        <div className="text-xs text-neutral-500 dark:text-[#999999] truncate">
-                          {item.subtitle}
-                        </div>
-                      )}
+                      <p className="truncate text-sm font-bold">{item.title}</p>
+                      {item.subtitle && <p className="mt-0.5 truncate text-xs text-[var(--ui-text-muted)]">{item.subtitle}</p>}
                     </div>
                   </div>
-
-                  {/* Nudge Buttons */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isFirst}
-                      onClick={() => onMove(idx, idx - 1)}
-                      title="Move up"
-                      className="w-9 h-9 flex items-center justify-center rounded-lg font-bold text-sm bg-neutral-200 hover:bg-neutral-300 dark:bg-[#2a2a2a] dark:hover:bg-[#353535] text-neutral-800 dark:text-[#e5e5e5] disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer transition-colors active:scale-95"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isLast}
-                      onClick={() => onMove(idx, idx + 1)}
-                      title="Move down"
-                      className="w-9 h-9 flex items-center justify-center rounded-lg font-bold text-sm bg-neutral-200 hover:bg-neutral-300 dark:bg-[#2a2a2a] dark:hover:bg-[#353535] text-neutral-800 dark:text-[#e5e5e5] disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer transition-colors active:scale-95"
-                    >
-                      ↓
-                    </button>
-                    {onDelete && items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => onDelete(idx)}
-                        title="Delete"
-                        className="w-9 h-9 flex items-center justify-center rounded-lg text-sm text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer transition-colors"
-                      >
-                        ✕
-                      </button>
-                    )}
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <IconButton label={`Move ${item.title} up`} variant="ghost" disabled={idx === 0} onClick={() => moveItem(idx, idx - 1)}><ArrowUp size={16} /></IconButton>
+                    <IconButton label={`Move ${item.title} down`} variant="ghost" disabled={idx === items.length - 1} onClick={() => moveItem(idx, idx + 1)}><ArrowDown size={16} /></IconButton>
+                    {onDelete && items.length > 1 && <IconButton label={`Remove ${item.title}`} variant="danger" onClick={() => onDelete(idx)}><Trash2 size={16} /></IconButton>}
                   </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 pt-3 border-t border-neutral-200 dark:border-[#282828] bg-neutral-50/50 dark:bg-[#151515] rounded-b-2xl">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 px-4 bg-[#3368A0] hover:bg-[#255283] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-xs dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
+                </motion.div>
+              ))}
+            </div>
+            <footer className="border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+              <Button variant="primary" className="w-full" onClick={onClose}>Done</Button>
+            </footer>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

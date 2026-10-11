@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  AlertCircle,
+  ExternalLink,
+  FileUp,
+  Lightbulb,
+  Link2,
+  ListMusic,
+  Pencil,
+  Search,
+  Share2,
+  Trash2,
+} from 'lucide-react'
 import { splitUrls, validateUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
@@ -8,6 +20,7 @@ import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
+import { Button, IconButton, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 
 interface ImportStatus {
   url: string
@@ -15,8 +28,20 @@ interface ImportStatus {
   message?: string
 }
 
+const HOME_TIPS = [
+  'Use Fit columns when you want the sheet to choose the clearest layout for the current screen.',
+  'Open Edit chords to nudge a chord into place, then keep its musical spacing exactly where you want it.',
+  'Import a PDF or image chart when you already have a polished source sheet to work from.',
+  'Share a setlist when your team needs the same songs, order, keys, and chord edits.',
+  'Use Arrange setlist in a session to quickly set the running order before rehearsal or service.',
+  'Search by song title or artist when you do not already have a chord-sheet link.',
+  'Transpose a song from its title area while keeping the original key visible for reference.',
+  'If a lyric line overflows, use Edit chords to choose a deliberate phrase break instead of auto-wrapping it.',
+] as const
+
 export default function HomePage() {
   const navigate = useNavigate()
+  const [homeTip] = useState(() => HOME_TIPS[Math.floor(Math.random() * HOME_TIPS.length)])
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('paste')
 
   // Paste mode state
@@ -241,177 +266,158 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Create Setlist / Session Section */}
-      <section className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#C8DFDB] dark:border-[#282828] pb-4">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-[#e5e5e5]">New Song Session</h2>
-            <p className="text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
-              Paste chord sheet links or search online to start a new setlist.
-            </p>
-          </div>
+    <div className="mx-auto max-w-6xl space-y-7">
+      <div className="px-1 pt-2 sm:pt-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-[#3368A0]/20 bg-white/70 px-4 py-3 text-sm leading-6 text-neutral-700 shadow-sm backdrop-blur-sm dark:border-amber-400/20 dark:bg-[#1a1a1a]/80 dark:text-[#d4d4d0]">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400" aria-hidden="true"><Lightbulb size={14} /></span>
+          <p><span className="mr-1 font-bold text-[#255283] dark:text-amber-300">Tip:</span>{homeTip}</p>
+        </div>
+      </div>
 
-          {/* Mode Switcher Tabs */}
-          <div className="flex bg-neutral-100 dark:bg-[#101010] p-1 rounded-lg border border-neutral-200 dark:border-[#282828] self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setCreateMode('paste')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                createMode === 'paste'
-                  ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
-                  : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-              }`}
-            >
-              <span>📋</span>
-              <span>Paste Links</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreateMode('search')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                createMode === 'search'
-                  ? 'bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black'
-                  : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-              }`}
-            >
-              <span>🔍</span>
-              <span>Search Songs</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsUploadModalOpen(true)}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 bg-[#3368A0]/10 text-[#255283] hover:bg-[#3368A0]/20 border border-[#3368A0]/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:border-amber-500/30"
-              title="Upload SongSelect chord chart PDF or PNG/JPG images"
-            >
-              <span>📄</span>
-              <span>Upload PDF / Images</span>
-            </button>
+      <Surface className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">New session</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">Choose the fastest way to bring in your first song.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SegmentedControl
+              label="Session source"
+              value={createMode}
+              onChange={setCreateMode}
+              options={[
+                { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
+                { value: 'search', label: 'Search', icon: <Search size={14} /> },
+              ]}
+            />
+            <Button variant="secondary" icon={<FileUp size={15} />} onClick={() => setIsUploadModalOpen(true)}>
+              Upload chart
+            </Button>
           </div>
         </div>
 
+        <div className="p-4 sm:p-5">
+
         {createMode === 'paste' ? (
-          <div>
-            <p className="text-sm text-neutral-600 dark:text-[#999999] mb-4">
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
               Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords, Worship Together).
             </p>
-
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={isProcessing}
               placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
               rows={5}
-              className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg p-3 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono resize-y text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+              className="ui-field min-h-36 resize-y p-3.5 font-mono text-sm leading-6"
             />
-
             {generalError && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/80 rounded text-red-700 dark:text-red-200 text-sm">
+              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
                 {generalError}
-              </div>
+              </StatusBanner>
             )}
-
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-neutral-500 dark:text-[#999999]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
                 {splitUrls(inputText).length} link(s) entered
               </span>
-              <button
+              <Button
+                variant="primary"
                 onClick={handleExtract}
                 disabled={isProcessing || !inputText.trim()}
-                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed text-sm"
+                loading={isProcessing}
               >
-                {isProcessing ? 'Extracting Songs...' : 'Extract & Open Session'}
-              </button>
+                {isProcessing ? 'Extracting songs' : 'Extract and open session'}
+              </Button>
             </div>
           </div>
         ) : (
-          <div>
-            <p className="text-sm text-neutral-600 dark:text-[#999999] mb-4">
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
               Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together.
             </p>
-
-            <form onSubmit={handleSearch} className="flex gap-2">
+            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
-                className="flex-1 bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-sans text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666]"
+                className="ui-field flex-1 px-3.5 py-2.5 text-sm"
               />
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                icon={<Search size={15} />}
                 disabled={isSearching || !searchQuery.trim()}
-                className="px-5 py-2.5 bg-[#3368A0] hover:bg-[#255283] disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-[#282828] dark:disabled:text-[#666666] font-semibold text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-400 rounded-lg transition-colors cursor-pointer text-sm shrink-0"
+                loading={isSearching}
               >
-                {isSearching ? 'Searching...' : 'Search'}
-              </button>
+                Search
+              </Button>
             </form>
-
             {searchError && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 rounded text-red-700 dark:text-red-200 text-xs">
+              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
                 {searchError}
-              </div>
+              </StatusBanner>
             )}
-
             {isSearching ? (
-              <div className="py-8 text-center text-xs text-neutral-500 dark:text-[#999999] animate-pulse">
-                Searching supported chord sites...
+              <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--ui-text-muted)]" role="status">
+                <span className="ui-spinner" /> Searching supported chord sites
               </div>
             ) : searchResults.length > 0 ? (
-              <div className="mt-4 space-y-3">
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-600 dark:text-[#999999]">
-                  Search Results ({searchResults.length}) — Click &ldquo;+ Start Setlist&rdquo; to create a session
+              <div className="space-y-3">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
+                  Search results · {searchResults.length}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {searchResults.map((item, idx) => (
                     <div
                       key={idx}
-                      className="bg-neutral-50 dark:bg-[#101010] border border-neutral-200 dark:border-[#282828] rounded-xl p-4 flex flex-col justify-between hover:border-neutral-300 dark:hover:border-[#383838] transition-colors"
+                      className="flex min-h-40 flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 transition hover:border-[var(--ui-border-strong)]"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-bold text-neutral-900 dark:text-[#e5e5e5] text-sm leading-snug">
+                          <h4 className="text-sm font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">
                             {item.title}
                           </h4>
-                          <span className="text-[10px] bg-neutral-200 dark:bg-[#282828] text-neutral-600 dark:text-[#999999] px-2 py-0.5 rounded uppercase font-medium shrink-0">
+                          <span className="shrink-0 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
                             {item.site}
                           </span>
                         </div>
-                        <p className="text-xs text-neutral-600 dark:text-[#999999] mt-0.5">
+                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
                           {item.artist}
                         </p>
 
-                        <div className="flex items-center gap-2 mt-2 text-[11px] text-neutral-500 dark:text-[#999999]">
+                        <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--ui-text-muted)]">
                           {item.versionLabel && <span>{item.versionLabel}</span>}
                           {item.rating && <span>★ {item.rating.toFixed(1)}</span>}
                           {item.type && <span>• {item.type}</span>}
                         </div>
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-[#282828] flex items-center justify-between">
+                      <div className="mt-4 flex items-center justify-between border-t border-[var(--ui-border)] pt-3">
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-neutral-500 hover:text-neutral-800 dark:text-[#999999] dark:hover:text-[#e5e5e5] underline"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
                         >
-                          View source ↗
+                          View source <ExternalLink size={12} />
                         </a>
-                        <button
-                          type="button"
+                        <Button
+                          size="sm"
+                          variant="primary"
                           onClick={() => handleCreateFromSearch(item)}
                           disabled={creatingFromUrl === item.url}
-                          className="px-3.5 py-1.5 bg-[#3368A0] hover:bg-[#255283] disabled:opacity-50 text-white dark:text-black dark:bg-amber-500 dark:hover:bg-amber-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                          loading={creatingFromUrl === item.url}
                         >
-                          {creatingFromUrl === item.url ? 'Creating...' : '+ Start Setlist'}
-                        </button>
+                          Start setlist
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : hasSearched ? (
-              <div className="py-8 text-center text-xs text-neutral-500 dark:text-[#999999]">
+              <div className="py-8 text-center text-xs text-[var(--ui-text-muted)]">
                 No matching chord sheets found. Try a different title or artist name.
               </div>
             ) : null}
@@ -419,13 +425,13 @@ export default function HomePage() {
         )}
 
         {statuses.length > 0 && (
-          <div className="mt-6 border-t border-[#C8DFDB] dark:border-[#282828] pt-4 space-y-2">
-            <h3 className="text-xs font-semibold text-neutral-600 dark:text-[#999999] uppercase tracking-wider">
+          <div className="mt-6 space-y-2 border-t border-[var(--ui-border)] pt-4">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
               Import Progress
             </h3>
             {statuses.map((s, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs py-1">
-                <span className="truncate max-w-[70%] font-mono text-neutral-700 dark:text-[#d4d4d4]">{s.url}</span>
+              <div key={idx} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ui-surface-muted)] px-3 py-2 text-xs">
+                <span className="max-w-[70%] truncate font-mono text-[var(--ui-text)]">{s.url}</span>
                 <span
                   className={
                     s.status === 'done' || s.status === 'cached'
@@ -445,57 +451,62 @@ export default function HomePage() {
             ))}
           </div>
         )}
-      </section>
+        </div>
+      </Surface>
 
-      {/* Recent Sessions */}
-      <section className="bg-white dark:bg-[#1a1a1a] rounded-xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+      <Surface className="p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]">Recent Sessions</h2>
-            <p className="text-xs text-neutral-500 dark:text-[#999999]">Stored locally in your browser.</p>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
+            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Private to this browser and ready when you return.</p>
           </div>
           {sessions.length > 0 && (
-            <button
-              onClick={handleClearLibrary}
-              className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors cursor-pointer"
-            >
-              Clear Library
-            </button>
+            <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleClearLibrary}>Clear library</Button>
           )}
         </div>
 
         {sessions.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-[#999999] py-3 italic">
-            No saved sessions yet. Paste links above to start one!
-          </p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-5 py-10 text-center">
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={19} /></span>
+            <p className="text-sm font-semibold text-[var(--ui-text)]">No saved sessions yet</p>
+            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Your next setlist will appear here.</p>
+          </div>
         ) : (
-          <div className="divide-y divide-neutral-200 dark:divide-[#282828]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sessions.map((session) => (
-              <div
+              <article
                 key={session.id}
                 onClick={() => navigate(`/session/${session.id}`)}
-                className="py-3 flex items-center justify-between hover:bg-[#C8DFDB]/20 dark:hover:bg-[#252525] px-2 rounded -mx-2 transition-colors cursor-pointer group"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') navigate(`/session/${session.id}`)
+                }}
+                role="link"
+                tabIndex={0}
+                className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
               >
-                <div className="flex-1 mr-2">
-                  <h3 className="text-sm font-medium text-neutral-900 dark:text-[#e5e5e5] group-hover:text-[#3368A0] dark:group-hover:text-amber-400 transition-colors">
+                <div>
+                  <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={16} /></span>
+                  <h3 className="truncate text-sm font-bold text-[var(--ui-text)] transition-colors group-hover:text-[#3368A0] dark:group-hover:text-amber-400">
                     {session.name}
                   </h3>
-                  <p className="text-xs text-neutral-500 dark:text-[#999999]">
+                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
                     {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
+                <div className="mt-4 flex items-center justify-end gap-1 border-t border-[var(--ui-border)] pt-2">
+                  <IconButton
+                    label="Share setlist"
+                    variant="ghost"
                     onClick={async (e) => {
                       e.stopPropagation()
                       await handleShareSession(session)
                     }}
-                    title="Share setlist"
-                    className="text-xs text-neutral-400 hover:text-[#3368A0] dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
                   >
-                    🔗
-                  </button>
-                  <button
+                    <Share2 size={15} />
+                  </IconButton>
+                  <IconButton
+                    label="Rename set"
+                    variant="ghost"
                     onClick={async (e) => {
                       e.stopPropagation()
                       const newName = window.prompt('Rename set:', session.name)
@@ -505,24 +516,22 @@ export default function HomePage() {
                         setSessions(updated)
                       }
                     }}
-                    title="Rename set"
-                    className="text-xs text-neutral-400 hover:text-[#3368A0] dark:text-[#999999] dark:hover:text-amber-400 p-2 transition-colors cursor-pointer"
                   >
-                    ✎
-                  </button>
-                  <button
+                    <Pencil size={15} />
+                  </IconButton>
+                  <IconButton
+                    label="Delete session"
+                    variant="danger"
                     onClick={(e) => handleDeleteSession(session.id, e)}
-                    title="Delete session"
-                    className="text-xs text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 p-2 transition-colors cursor-pointer"
                   >
-                    ✕
-                  </button>
+                    <Trash2 size={15} />
+                  </IconButton>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
-      </section>
+      </Surface>
 
       {/* Share Modal */}
       {sharingSnapshot && (

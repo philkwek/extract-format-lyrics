@@ -1,4 +1,5 @@
 import type { Song } from '../types/song'
+import { ExternalLink } from 'lucide-react'
 import TransposeSelector from './TransposeSelector'
 
 interface SongHeaderProps {
@@ -19,19 +20,21 @@ export default function SongHeader({
   const isTransposed = song.originalKey && currentKey && currentKey !== song.originalKey
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-[#e5e5e5]">{song.title}</h2>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-600 dark:text-[#999999]">
+    <div className="flex flex-col justify-between gap-3 pb-1 sm:flex-row sm:items-center">
+      <div className="min-w-0">
+        <div>
+          <h2 className="truncate text-xl font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb] sm:text-2xl">{song.title}</h2>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)]">
           <span>{song.artist}</span>
-          <span>•</span>
+          <span aria-hidden="true">•</span>
           <a
             href={song.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-[#3368A0] dark:hover:text-amber-400 transition-colors underline decoration-neutral-400 dark:decoration-neutral-700 underline-offset-2"
+            className="inline-flex items-center gap-1 font-medium transition-colors hover:text-[#3368A0] dark:hover:text-amber-400"
           >
-            {song.sourceSite} ↗
+            {song.sourceSite} <ExternalLink size={11} />
           </a>
           {song.capo && (
             <>
@@ -42,7 +45,7 @@ export default function SongHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Transpose Key Selector */}
         {onSelectKey ? (
           <TransposeSelector
@@ -53,7 +56,7 @@ export default function SongHeader({
           />
         ) : (
           isTransposed && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#C8DFDB]/40 dark:bg-amber-950/30 border border-[#66A3BF]/40 dark:border-amber-800/40 text-xs text-[#1c436b] dark:text-amber-300">
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1 text-xs text-[#1c436b] dark:text-amber-300">
               <span>Key: {currentKey}</span>
               {offsetDisplay && <span className="text-neutral-500 dark:text-[#999999]">({offsetDisplay})</span>}
               {onResetKey && (
@@ -69,8 +72,8 @@ export default function SongHeader({
         )}
 
         {/* Original Key Badge */}
-        <div className="inline-flex items-center px-2.5 py-1 rounded bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-xs">
-          <span className="text-neutral-600 dark:text-[#999999] mr-1.5">Original Key:</span>
+        <div className="inline-flex items-center rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 py-1 text-xs">
+          <span className="mr-1.5 text-[var(--ui-text-muted)]">Original key</span>
           <span className="font-bold text-[#255283] dark:text-amber-400">{song.originalKey || 'Unknown'}</span>
         </div>
       </div>

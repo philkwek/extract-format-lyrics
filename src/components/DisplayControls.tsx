@@ -1,9 +1,10 @@
+import { AlertTriangle, Columns3, Pencil, RotateCcw, Type, WandSparkles } from 'lucide-react'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
+import { Button, StatusBanner } from './ui'
 
 interface DisplayControlsProps {
   prefs: SongDisplayPrefs
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
-  fitsNotice?: string | null
   canSimplify?: boolean
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
@@ -14,7 +15,6 @@ interface DisplayControlsProps {
 export default function DisplayControls({
   prefs,
   onChangePrefs,
-  fitsNotice,
   canSimplify,
   onRestoreOriginal,
   isEditingChords,
@@ -22,125 +22,90 @@ export default function DisplayControls({
   hasLyricOverflow,
 }: DisplayControlsProps) {
   return (
-    <div className="space-y-2 text-xs pt-0 pb-2">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        {/* View Display Controls: Columns & Font size */}
-        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4">
-        {/* Column controls */}
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-600 dark:text-[#999999] font-medium">Columns:</span>
-          <div className="flex bg-neutral-100 dark:bg-[#101010] p-0.5 rounded-lg border border-neutral-200 dark:border-[#282828]">
-            {([1, 2, 3, 'fit'] as const).map((col) => (
+    <div className="space-y-2 pb-2 text-xs">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]"><Columns3 size={13} /> Columns</span>
+            <div className="ui-segmented ui-segmented--compact">
+              {([1, 2, 3] as const).map((column) => (
+                <button
+                  key={column}
+                  type="button"
+                  aria-pressed={prefs.columns === column}
+                  onClick={() => onChangePrefs({ ...prefs, columns: column })}
+                  className={`ui-segmented__item ${prefs.columns === column ? 'ui-segmented__item--active' : ''}`}
+                >
+                  {column}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]"><Type size={13} /> Size</span>
+            <div className="flex items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[3px]">
               <button
-                key={col}
-                onClick={() => onChangePrefs({ ...prefs, columns: col })}
-                className={`px-2.5 py-1 rounded font-medium transition-colors cursor-pointer capitalize ${
-                  prefs.columns === col
-                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
-                    : 'text-neutral-600 dark:text-[#999999] hover:text-black dark:hover:text-[#e5e5e5]'
-                }`}
-              >
-                {col === 'fit' ? 'Fit Screen' : `${col} Col`}
-              </button>
-            ))}
+                type="button"
+                aria-label="Decrease song font size"
+                onClick={() => onChangePrefs({ ...prefs, fontSizePx: Math.max(10, prefs.fontSizePx - 1) })}
+                className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
+              >A−</button>
+              <span className="w-7 text-center font-mono text-[11px] font-bold text-[var(--ui-text)]">{prefs.fontSizePx}</span>
+              <button
+                type="button"
+                aria-label="Increase song font size"
+                onClick={() => onChangePrefs({ ...prefs, fontSizePx: Math.min(22, prefs.fontSizePx + 1) })}
+                className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
+              >A+</button>
+            </div>
           </div>
         </div>
 
-        {/* Font size controls */}
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-600 dark:text-[#999999] font-medium">Font:</span>
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-[#101010] px-2 py-0.5 rounded-lg border border-neutral-200 dark:border-[#282828]">
-            <button
-              onClick={() =>
-                onChangePrefs({ ...prefs, fontSizePx: Math.max(10, prefs.fontSizePx - 1) })
-              }
-              disabled={prefs.columns === 'fit'}
-              className="px-1.5 py-0.5 text-neutral-600 dark:text-[#999999] hover:text-black dark:hover:text-[#e5e5e5] disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+        <div className="grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0">
+          {canSimplify && (
+            <Button
+              size="sm"
+              variant={prefs.simplified ? 'primary' : 'secondary'}
+              icon={<WandSparkles size={14} />}
+              onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
             >
-              A-
-            </button>
-            <span className="text-neutral-800 dark:text-[#e5e5e5] font-mono w-6 text-center">{prefs.fontSizePx}</span>
-            <button
-              onClick={() =>
-                onChangePrefs({ ...prefs, fontSizePx: Math.min(22, prefs.fontSizePx + 1) })
-              }
-              disabled={prefs.columns === 'fit'}
-              className="px-1.5 py-0.5 text-neutral-600 dark:text-[#999999] hover:text-black dark:hover:text-[#e5e5e5] disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+              {prefs.simplified ? 'Simplified' : 'Simplify'}
+            </Button>
+          )}
+          {onToggleEditChords && (
+            <Button
+              size="sm"
+              variant={isEditingChords ? 'primary' : 'secondary'}
+              icon={<Pencil size={14} />}
+              onClick={onToggleEditChords}
+              title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}
             >
-              A+
-            </button>
-          </div>
-        </div>
-        </div>
-
-        {/* Action Buttons: Arranged neatly in a 2-column grid on mobile, flex row on desktop */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-neutral-100 dark:border-[#222222]">
-        {/* Simplify toggle (when available from source) */}
-        {canSimplify && (
-          <button
-            type="button"
-            onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
-            className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border flex items-center justify-center gap-1.5 ${
-              prefs.simplified
-                ? 'bg-[#3368A0] text-white border-[#3368A0] font-bold dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                : 'bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]'
-            }`}
-          >
-            <span>{prefs.simplified ? 'Simplified Chords ✓' : 'Simplify Chords'}</span>
-          </button>
-        )}
-
-        {/* Edit Chords Toggle Button */}
-        {onToggleEditChords && (
-          <button
-            type="button"
-            onClick={onToggleEditChords}
-            className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border flex items-center justify-center gap-1.5 ${
-              isEditingChords
-                ? 'bg-[#3368A0] text-white border-[#3368A0] font-bold shadow-xs dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                : 'bg-neutral-100 dark:bg-[#101010] text-neutral-700 dark:text-[#d4d4d4] border-neutral-300 dark:border-[#282828] hover:text-black dark:hover:text-[#e5e5e5]'
-            }`}
-            title={isEditingChords ? 'Exit chord editing mode' : 'Click to enable editing or deleting chords'}
-          >
-            <span>✎</span>
-            <span>{isEditingChords ? 'Done Editing' : 'Edit Chords'}</span>
-          </button>
-        )}
-
-        {/* Restore to original button (persists always) */}
-        {onRestoreOriginal && (
-          <button
-            type="button"
-            onClick={onRestoreOriginal}
-            className={`w-full sm:w-auto px-2.5 sm:px-3 py-2 sm:py-1 rounded font-medium transition-colors cursor-pointer border border-[#3368A0]/40 bg-neutral-100 dark:bg-[#101010] text-[#255283] dark:text-amber-400 hover:bg-[#C8DFDB]/30 dark:hover:bg-[#252525] flex items-center justify-center gap-1.5 ${
-              canSimplify ? '' : 'col-span-2 sm:col-auto'
-            }`}
-            title="Restore original chords and sections"
-          >
-            <span>↺</span>
-            <span>Restore Original Sheet</span>
-          </button>
-        )}
+              {isEditingChords ? 'Done editing' : 'Edit chords'}
+            </Button>
+          )}
+          {onRestoreOriginal && (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<RotateCcw size={14} />}
+              onClick={onRestoreOriginal}
+              className={canSimplify ? '' : 'col-span-2'}
+              title="Restore original chords and sections"
+            >
+              Restore
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Notice if fit mode couldn't completely avoid scrolling */}
-      {fitsNotice && (
-        <div className="w-full text-xs text-[#1c436b] dark:text-amber-400/90 italic bg-[#C8DFDB]/40 dark:bg-amber-950/20 px-2 py-1 rounded border border-[#66A3BF]/40 dark:border-amber-900/40">
-          {fitsNotice}
-        </div>
-      )}
-
       {hasLyricOverflow && (
-        <div className="w-full mt-3 text-xs text-[#1c436b] dark:text-amber-200 bg-[#C8DFDB]/40 dark:bg-amber-950/20 px-2.5 py-2 rounded border border-[#66A3BF]/50 dark:border-amber-900/50 flex items-center gap-1.5">
-          <span aria-hidden="true">⚠</span>
-          <span>
-            <strong>Lyric overflow detected.</strong>{' '}
-            {isEditingChords
-              ? 'Use Split line to choose a line phrase break.'
-              : 'Enter Edit Chords to choose a line phrase break.'}
-          </span>
-        </div>
+        <StatusBanner tone="warning" icon={<AlertTriangle size={15} />}>
+          <strong>Lyric overflow detected.</strong>{' '}
+          {isEditingChords
+            ? 'Use Split line to choose a line phrase break.'
+            : 'Enter Edit Chords to choose a line phrase break.'}
+        </StatusBanner>
       )}
     </div>
   )

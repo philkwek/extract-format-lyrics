@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { MoveHorizontal, Trash2 } from 'lucide-react'
 import {
   parseChordComponents,
   applyRoot,
@@ -7,6 +8,8 @@ import {
   applySlash,
 } from '../lib/chordEdit'
 import { isMobileOrTablet } from '../lib/device'
+import { Button, SegmentedControl } from './ui'
+import OverlayDialog from './ui/OverlayDialog'
 
 interface ChordKeyboardProps {
   initialChord: string
@@ -122,55 +125,17 @@ export default function ChordKeyboard({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs overflow-y-auto"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-white dark:bg-[#1a1a1a] border border-neutral-300 dark:border-[#282828] rounded-2xl shadow-2xl p-4 sm:p-5 w-full max-w-md space-y-4 my-auto select-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header with Title, Mode Switcher, and Close button */}
-        <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-[#282828]">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-[#e5e5e5]">
-              Edit Chord
-            </h3>
-            {/* Simple / Advanced Mode Pill */}
-            <div className="flex bg-neutral-100 dark:bg-[#101010] p-0.5 rounded-lg border border-neutral-200 dark:border-[#282828] text-xs">
-              <button
-                type="button"
-                onClick={() => setMode('simple')}
-                className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
-                  mode === 'simple'
-                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
-                    : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-                }`}
-              >
-                Simple
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('advanced')}
-                className={`px-2 py-0.5 rounded font-medium transition-colors cursor-pointer ${
-                  mode === 'advanced'
-                    ? 'bg-[#3368A0] text-white font-semibold dark:bg-amber-500 dark:text-black'
-                    : 'text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
-                }`}
-              >
-                Advanced
-              </button>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-base p-1 leading-none cursor-pointer"
-            title="Close"
-          >
-            ✕
-          </button>
-        </div>
+    <OverlayDialog isOpen onClose={onCancel} title="Edit chord" description="Choose a root and quality, or type the chord directly." size="sm">
+      <div className="space-y-4 select-none">
+        <SegmentedControl
+          label="Chord editor detail"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'simple', label: 'Simple' },
+            { value: 'advanced', label: 'Advanced' },
+          ]}
+        />
 
         {/* Lyric Context (if available) */}
         {lyricContext && (
@@ -355,46 +320,34 @@ export default function ChordKeyboard({
         {/* Modal Action Buttons: Delete Chord, Edit Position, Cancel, Save */}
         <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-[#282828] gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Trash2 size={14} />}
               onClick={onDelete}
-              className="text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5"
               title="Cancel out / remove this chord"
             >
-              <span>🗑️</span>
-              <span>Delete chord</span>
-            </button>
+              Delete chord
+            </Button>
             {onEditPosition && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<MoveHorizontal size={14} />}
                 onClick={onEditPosition}
-                className="text-xs text-neutral-700 dark:text-[#d4d4d4] hover:bg-neutral-100 dark:hover:bg-[#252525] px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer border border-neutral-200 dark:border-[#2e2e2e] flex items-center gap-1.5"
                 title="Adjust chord position over lyrics"
               >
-                <span>↔</span>
-                <span>Edit Position</span>
-              </button>
+                Edit position
+              </Button>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-xs text-neutral-600 dark:text-[#999999] hover:bg-neutral-100 dark:hover:bg-[#252525] px-3.5 py-2 rounded-lg font-medium transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => onSave(chord.trim())}
-              className="text-xs bg-[#3368A0] hover:bg-[#255283] text-white font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black"
-            >
-              Save
-            </button>
+            <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={() => onSave(chord.trim())}>Save</Button>
           </div>
         </div>
       </div>
-    </div>
+    </OverlayDialog>
   )
 }

@@ -8,8 +8,32 @@ This document outlines the design system, color palettes, typography, and compon
 
 - **Performance-Oriented:** Optimized for musicians and worship leaders performing on tablets or laptops in both bright daylight rehearsals and dimly lit stages.
 - **Anti-Glare Dark Mode:** Uses low-contrast matte dark tones (`#101010`, `#1a1a1a`, soft text `#e5e5e5`) paired with a warm amber accent (`amber-400` / `amber-500`) to avoid screen glare and eye fatigue.
-- **Warm Paper Light Mode:** Uses a warm parchment/cream background (`#F2EFE7`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`) for high readability without harsh white glare.
+- **White Light Mode:** Uses a clean white primary canvas and main surfaces (`#FFFFFF`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`). Only muted supporting panels retain a subtle neutral off-white to preserve hierarchy.
 - **Monospace Alignment:** Chords sit on their own line with character-exact spacing directly above lyrics, demanding strict monospace formatting (`font-sheet`).
+
+### Application chrome
+
+The application shell and workflow controls use a restrained, Apple-inspired hierarchy without copying Apple branding. Translucency is limited to global chrome and overlay backdrops; forms, cards, and song-adjacent controls use solid surfaces so materials never stack and reduce legibility.
+
+- Shared primitives in `src/components/ui/` provide buttons, icon buttons, segmented controls, status banners, surfaces, and accessible overlays.
+- Controls use immediate CSS feedback. Interruptible spring motion is reserved for dialogs, drawers, and direct manipulation.
+- Light mode retains the parchment and sea-blue identity. Dark mode retains matte charcoal surfaces and amber accents.
+- `prefers-reduced-motion`, `prefers-reduced-transparency`, and `prefers-contrast: more` receive simplified motion and stronger, more opaque surfaces.
+- UI icons come from the shared SVG icon set; status and meaning are never communicated by icon or colour alone.
+
+### Protected musician-reading surface
+
+The chord-and-lyric canvas is a separate, stability-critical design surface. UI refreshes must not change its width, padding, typography, colours, DOM structure, column calculations, wrapping, overflow detection, or editing semantics.
+
+The protected implementation boundary includes:
+
+- `src/components/SongSheet.tsx`
+- `src/lib/songLayout.ts`
+- `src/lib/lineSplit.ts`
+- `src/lib/useFitToScreen.ts`
+- `.font-sheet`, adaptive column CSS, section blocks, chord positioning, and split/merge controls
+
+Session-page work should remain in surrounding title, action, tab, status, and overlay chrome. Any future song-canvas change requires its own musician-readability review and identical-viewport before/after comparison.
 
 ---
 
@@ -25,7 +49,7 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 | `--color-palette-deep-dark` | `#255283` | Primary hover & active states in Light Mode |
 | `--color-palette-mid` | `#66A3BF` | Secondary accents, highlights |
 | `--color-palette-soft` | `#C8DFDB` | Borders, subtle dividers, badge backgrounds |
-| `--color-palette-light` | `#F2EFE7` | Light mode page background (parchment/cream) |
+| `--color-palette-light` | `#FFFFFF` | Light mode primary page canvas |
 
 ---
 
@@ -33,7 +57,7 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 
 | Element | Light Mode | Dark Mode | Tailwind Classes |
 | :--- | :--- | :--- | :--- |
-| **Page Canvas** | `#F2EFE7` | `#101010` | `bg-[#F2EFE7] dark:bg-[#101010]` |
+| **Page Canvas** | `#FFFFFF` | `#101010` | `bg-white dark:bg-[#101010]` |
 | **Card / Surface** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
 | **Modal / Dialog** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
 | **Elevated Sub-panel** | `#FCFBFA` / `neutral-50` | `#151515` | `bg-neutral-50/60 dark:bg-[#151515]` |
