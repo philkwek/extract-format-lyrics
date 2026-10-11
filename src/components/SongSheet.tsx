@@ -1,7 +1,8 @@
-import { useState, useMemo, type CSSProperties } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
 import { getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
+import { getLyricSplitPositions } from '../lib/lineSplit'
 
 interface SongSheetProps {
   sections: Section[]
@@ -24,6 +25,8 @@ interface SongSheetProps {
     chordIndex: number
     chord: string
   }) => void
+  onSplitLine?: (sectionIndex: number, lineIndex: number, splitAt: number) => void
+  onMergeLineWithPrevious?: (sectionIndex: number, lineIndex: number) => void
 }
 
 interface EditingChordTarget {
@@ -44,7 +47,8 @@ function renderLyricSegments(
   text: string,
   chords: ChordPlacement[],
   onChordClick?: (chordIndex: number, chord: string) => void,
-  selectedIndex?: number
+  selectedIndex?: number,
+  measurementKey?: string
 ) {
   const sorted = chords
     .map((c, originalIndex) => ({ ...c, originalIndex }))
@@ -63,7 +67,10 @@ function renderLyricSegments(
   })
 
   return (
-    <div className="font-mono whitespace-pre leading-none flex items-end w-max max-w-full">
+    <div
+      className="font-mono whitespace-pre leading-none flex items-end w-max max-w-full"
+      data-lyric-line-key={measurementKey}
+    >
       {segments.map((seg, i) => {
         const c = seg.chord
         return (
@@ -107,6 +114,55 @@ function renderLyricSegments(
   )
 }
 
+function renderSplitCaretPicker(
+  line: Extract<Line, { kind: 'lyric' }>,
+  onSplitAt: (splitAt: number) => void,
+  onCancel: () => void
+) {
+  const splitPositions = getLyricSplitPositions(line)
+  let previousPosition = 0
+
+  return (
+    <div className="mt-2 rounded border border-[#66A3BF]/50 dark:border-amber-500/50 bg-[#C8DFDB]/25 dark:bg-amber-400/10 px-2 py-1.5 text-xs text-[#1c436b] dark:text-amber-200">
+      <div className="mb-1 font-medium">Choose where the next lyric line begins:</div>
+      <div className="font-mono whitespace-pre leading-relaxed break-words">
+        {splitPositions.map((position) => {
+          const text = line.text.slice(previousPosition, position)
+          previousPosition = position
+          return (
+            <span key={position}>
+              {text}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSplitAt(position)
+                }}
+                className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-[#3368A0] px-0.5 text-[10px] leading-none text-white hover:bg-[#255283] dark:bg-amber-500 dark:text-black dark:hover:bg-amber-400"
+                title="Start a new lyric line here"
+                aria-label={`Start a new lyric line before ${line.text.slice(position).split(/\s/, 1)[0]}`}
+              >
+                ↵
+              </button>
+            </span>
+          )
+        })}
+        {line.text.slice(previousPosition)}
+      </div>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          onCancel()
+        }}
+        className="mt-1 text-[11px] font-semibold underline underline-offset-2 hover:text-[#255283] dark:hover:text-amber-400"
+      >
+        Cancel
+      </button>
+    </div>
+  )
+}
+
 function renderLine(
   line: Line,
   key: number,
@@ -119,7 +175,17 @@ function renderLine(
     chord: string,
     lyricContext?: string
   ) => void,
-  selectedChordIndex?: number
+  selectedChordIndex?: number,
+  controls?: {
+    measurementKey: string
+    isOverflowing: boolean
+    isSplitting: boolean
+    canMergeWithPrevious: boolean
+    onStartSplit?: () => void
+    onSplitAt?: (splitAt: number) => void
+    onCancelSplit?: () => void
+    onMergeWithPrevious?: () => void
+  }
 ) {
   if (line.kind === 'tab') {
     return (
@@ -166,7 +232,7 @@ function renderLine(
   }
 
   return (
-    <div key={key} className="py-1">
+    <div key={key} className="min-w-0 py-1">
       {renderLyricSegments(
         line.text,
         line.chords,
@@ -174,7 +240,38 @@ function renderLine(
           ? (chordIndex, chord) =>
               onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
           : undefined,
-        selectedChordIndex
+        selectedChordIndex,
+        controls?.measurementKey
+      )}
+      {controls?.isSplitting && controls.onSplitAt && controls.onCancelSplit ? (
+        renderSplitCaretPicker(line, controls.onSplitAt, controls.onCancelSplit)
+      ) : (
+        <div className="mt-1 flex flex-wrap gap-2">
+          {controls?.isOverflowing && controls.onStartSplit && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                controls.onStartSplit?.()
+              }}
+              className="text-[11px] font-semibold text-[#3368A0] hover:underline dark:text-amber-400"
+            >
+              Split line
+            </button>
+          )}
+          {controls?.canMergeWithPrevious && controls.onMergeWithPrevious && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                controls.onMergeWithPrevious?.()
+              }}
+              className="text-[11px] font-semibold text-neutral-500 hover:underline dark:text-[#999999] dark:hover:text-[#e5e5e5]"
+            >
+              Merge with previous line
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -193,12 +290,17 @@ export default function SongSheet({
   onChordSelect,
   selectedChord,
   onStartEditPosition,
+  onSplitLine,
+  onMergeLineWithPrevious,
 }: SongSheetProps) {
+  const sheetRef = useRef<HTMLDivElement | null>(null)
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [editingChord, setEditingChord] = useState<EditingChordTarget | null>(null)
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null)
   const [editingLabel, setEditingLabel] = useState<string>('')
+  const [splittingLine, setSplittingLine] = useState<{ sectionIndex: number; lineIndex: number } | null>(null)
+  const [overflowingLineKeys, setOverflowingLineKeys] = useState<Set<string>>(new Set())
   const columnPartitions = useMemo(
     () => partitionSections(sections, columns),
     [sections, columns]
@@ -227,6 +329,40 @@ export default function SongSheet({
       : desktopColumnCount === 2
       ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
       : 'song-sheet-grid grid grid-cols-1 gap-6'
+
+  useLayoutEffect(() => {
+    if (!isEditingChords || !sheetRef.current) return
+
+    const sheet = sheetRef.current
+    const measureOverflow = () => {
+      const nextOverflowingLines = new Set<string>()
+      sheet.querySelectorAll<HTMLElement>('[data-lyric-line-key]').forEach((element) => {
+        const key = element.dataset.lyricLineKey
+        if (key && element.scrollWidth > element.clientWidth + 1) {
+          nextOverflowingLines.add(key)
+        }
+      })
+
+      setOverflowingLineKeys((current) => {
+        if (
+          current.size === nextOverflowingLines.size &&
+          [...current].every((key) => nextOverflowingLines.has(key))
+        ) {
+          return current
+        }
+        return nextOverflowingLines
+      })
+    }
+
+    measureOverflow()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureOverflow)
+    observer?.observe(sheet)
+    window.addEventListener('resize', measureOverflow)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measureOverflow)
+    }
+  }, [columns, fontSizePx, isEditingChords, sections])
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = 'move'
@@ -302,6 +438,7 @@ export default function SongSheet({
 
   return (
     <div
+      ref={sheetRef}
       className="song-sheet select-text"
       style={{ fontSize: `${fontSizePx}px` }}
     >
@@ -470,6 +607,38 @@ export default function SongSheet({
                           selectedChord.sectionIndex === originalIndex &&
                           selectedChord.lineIndex === lIdx
                           ? selectedChord.chordIndex
+                          : undefined,
+                        line.kind === 'lyric'
+                          ? {
+                              measurementKey: `${originalIndex}:${lIdx}`,
+                              isOverflowing: overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
+                              isSplitting:
+                                splittingLine?.sectionIndex === originalIndex && splittingLine.lineIndex === lIdx,
+                              canMergeWithPrevious:
+                                isEditingChords &&
+                                lIdx > 0 &&
+                                section.lines[lIdx - 1]?.kind === 'lyric' &&
+                                line.splitFromPrevious === true,
+                              onStartSplit:
+                                isEditingChords && onSplitLine
+                                  ? () => setSplittingLine({ sectionIndex: originalIndex, lineIndex: lIdx })
+                                  : undefined,
+                              onSplitAt:
+                                isEditingChords && onSplitLine
+                                  ? (splitAt) => {
+                                      onSplitLine(originalIndex, lIdx, splitAt)
+                                      setSplittingLine(null)
+                                    }
+                                  : undefined,
+                              onCancelSplit: () => setSplittingLine(null),
+                              onMergeWithPrevious:
+                                isEditingChords && onMergeLineWithPrevious
+                                  ? () => {
+                                      onMergeLineWithPrevious(originalIndex, lIdx)
+                                      setSplittingLine(null)
+                                    }
+                                  : undefined,
+                            }
                           : undefined
                       )
                     )}

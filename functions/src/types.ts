@@ -17,7 +17,13 @@ export interface ChordPlacement {
 }
 
 export type Line =
-  | { kind: 'lyric'; text: string; chords: ChordPlacement[] }
+  | {
+      kind: 'lyric'
+      text: string
+      chords: ChordPlacement[]
+      /** True only when this line was created by splitting the preceding lyric line. */
+      splitFromPrevious?: boolean
+    }
   | { kind: 'chords-only'; chords: string[] }
   /** Tab / other preformatted text: rendered monospace, never transposed. */
   | { kind: 'tab'; raw: string }

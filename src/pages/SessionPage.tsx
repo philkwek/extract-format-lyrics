@@ -16,6 +16,7 @@ import UploadSheetModal from '../components/UploadSheetModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
 import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
 import { getChordPos, setChordPos } from '../lib/chordNudge'
+import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
@@ -460,6 +461,62 @@ export default function SessionPage() {
             customSimplifiedSections: isSimplified ? updatedSections : s.customSimplifiedSections,
           }
         : s
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleSplitLine = async (sectionIndex: number, lineIndex: number, splitAt: number) => {
+    if (!currentSong || !session) return
+
+    const sourceSections = isSimplified && currentSong.simplifiedSections
+      ? currentSong.simplifiedSections
+      : currentSong.sections
+    const updatedSections = splitSectionLyricLine(sourceSections, sectionIndex, lineIndex, splitAt)
+    if (!updatedSections) return
+
+    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
+      ? { ...currentSong, simplifiedSections: updatedSections }
+      : { ...currentSong, sections: updatedSections }
+
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    const updatedSongs = session.songs.map((song) =>
+      song.entryId === currentItem?.entryId
+        ? {
+            ...song,
+            customSections: isSimplified ? song.customSections : updatedSections,
+            customSimplifiedSections: isSimplified ? updatedSections : song.customSimplifiedSections,
+          }
+        : song
+    )
+    const updatedSession = { ...session, songs: updatedSongs }
+    await sessionStore.updateSession(updatedSession)
+    setSession(updatedSession)
+  }
+
+  const handleMergeLineWithPrevious = async (sectionIndex: number, lineIndex: number) => {
+    if (!currentSong || !session) return
+
+    const sourceSections = isSimplified && currentSong.simplifiedSections
+      ? currentSong.simplifiedSections
+      : currentSong.sections
+    const updatedSections = mergeSectionLyricLineWithPrevious(sourceSections, sectionIndex, lineIndex)
+    if (!updatedSections) return
+
+    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
+      ? { ...currentSong, simplifiedSections: updatedSections }
+      : { ...currentSong, sections: updatedSections }
+
+    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    const updatedSongs = session.songs.map((song) =>
+      song.entryId === currentItem?.entryId
+        ? {
+            ...song,
+            customSections: isSimplified ? song.customSections : updatedSections,
+            customSimplifiedSections: isSimplified ? updatedSections : song.customSimplifiedSections,
+          }
+        : song
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -1009,6 +1066,8 @@ export default function SessionPage() {
                   onEditChord={handleEditChord}
                   onDeleteChord={handleDeleteChord}
                   onStartEditPosition={handleStartEditPosition}
+                  onSplitLine={handleSplitLine}
+                  onMergeLineWithPrevious={handleMergeLineWithPrevious}
                 />
               </div>
             </div>
