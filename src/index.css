@@ -224,22 +224,22 @@ html.dark body {
 .ui-segmented__item:active { transform: scale(0.97); }
 .ui-segmented__item--active { background: var(--ui-surface-raised); color: var(--ui-text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), inset 0 0 0 1px var(--ui-border); }
 
-/* A deliberately dense variant for the song-column control. Its explicit
-   dimensions override the default touch-target sizing for every segment, so
-   selected and unselected choices share one visual height. */
+/* Match the song-column selector to the font-size selector. Explicit dimensions
+   override the shared segmented defaults, keeping selected and unselected
+   choices at the same height. */
 .ui-segmented--compact {
-  height: 18px;
-  gap: 1px;
-  padding: 1px;
-  border-radius: 0.375rem;
+  height: 36px;
+  gap: 0.2rem;
+  padding: 3px;
+  border-radius: 0.7rem;
 }
 
 .ui-segmented--compact .ui-segmented__item {
-  height: 14px;
-  min-height: 14px;
-  padding: 0 0.375rem;
-  border-radius: 0.3rem;
-  font-size: 10px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 11px;
   line-height: 1;
 }
 
