@@ -27,6 +27,7 @@ interface SongSheetProps {
   }) => void
   onSplitLine?: (sectionIndex: number, lineIndex: number, splitAt: number) => void
   onMergeLineWithPrevious?: (sectionIndex: number, lineIndex: number) => void
+  onLyricOverflowChange?: (hasOverflow: boolean) => void
 }
 
 interface EditingChordTarget {
@@ -292,6 +293,7 @@ export default function SongSheet({
   onStartEditPosition,
   onSplitLine,
   onMergeLineWithPrevious,
+  onLyricOverflowChange,
 }: SongSheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null)
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
@@ -331,7 +333,7 @@ export default function SongSheet({
       : 'song-sheet-grid grid grid-cols-1 gap-6'
 
   useLayoutEffect(() => {
-    if (!isEditingChords || !sheetRef.current) return
+    if (!sheetRef.current) return
 
     const sheet = sheetRef.current
     const measureOverflow = () => {
@@ -342,6 +344,8 @@ export default function SongSheet({
           nextOverflowingLines.add(key)
         }
       })
+
+      onLyricOverflowChange?.(nextOverflowingLines.size > 0)
 
       setOverflowingLineKeys((current) => {
         if (
@@ -362,7 +366,7 @@ export default function SongSheet({
       observer?.disconnect()
       window.removeEventListener('resize', measureOverflow)
     }
-  }, [columns, fontSizePx, isEditingChords, sections])
+  }, [columns, fontSizePx, isEditingChords, onLyricOverflowChange, sections])
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = 'move'

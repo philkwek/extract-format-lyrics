@@ -8,6 +8,7 @@ interface DisplayControlsProps {
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
   onToggleEditChords?: () => void
+  hasLyricOverflow?: boolean
 }
 
 export default function DisplayControls({
@@ -18,11 +19,13 @@ export default function DisplayControls({
   onRestoreOriginal,
   isEditingChords,
   onToggleEditChords,
+  hasLyricOverflow,
 }: DisplayControlsProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 text-xs pt-0 pb-4">
-      {/* View Display Controls: Columns & Font size */}
-      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4">
+    <div className="space-y-2 text-xs pt-0 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        {/* View Display Controls: Columns & Font size */}
+        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4">
         {/* Column controls */}
         <div className="flex items-center gap-2">
           <span className="text-neutral-600 dark:text-[#999999] font-medium">Columns:</span>
@@ -68,10 +71,10 @@ export default function DisplayControls({
             </button>
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Action Buttons: Arranged neatly in a 2-column grid on mobile, flex row on desktop */}
-      <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-neutral-100 dark:border-[#222222]">
+        {/* Action Buttons: Arranged neatly in a 2-column grid on mobile, flex row on desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-neutral-100 dark:border-[#222222]">
         {/* Simplify toggle (when available from source) */}
         {canSimplify && (
           <button
@@ -118,12 +121,25 @@ export default function DisplayControls({
             <span>Restore Original Sheet</span>
           </button>
         )}
+        </div>
       </div>
 
       {/* Notice if fit mode couldn't completely avoid scrolling */}
       {fitsNotice && (
         <div className="w-full text-xs text-[#1c436b] dark:text-amber-400/90 italic bg-[#C8DFDB]/40 dark:bg-amber-950/20 px-2 py-1 rounded border border-[#66A3BF]/40 dark:border-amber-900/40">
           {fitsNotice}
+        </div>
+      )}
+
+      {hasLyricOverflow && (
+        <div className="w-full mt-3 text-xs text-[#1c436b] dark:text-amber-200 bg-[#C8DFDB]/40 dark:bg-amber-950/20 px-2.5 py-2 rounded border border-[#66A3BF]/50 dark:border-amber-900/50 flex items-center gap-1.5">
+          <span aria-hidden="true">⚠</span>
+          <span>
+            <strong>Lyric overflow detected.</strong>{' '}
+            {isEditingChords
+              ? 'Use Split line to choose a line phrase break.'
+              : 'Enter Edit Chords to choose a line phrase break.'}
+          </span>
         </div>
       )}
     </div>

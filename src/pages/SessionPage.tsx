@@ -49,6 +49,7 @@ export default function SessionPage() {
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
+  const [hasLyricOverflow, setHasLyricOverflow] = useState(false)
   const [positioningChord, setPositioningChord] = useState<PositioningChordState | null>(null)
   const [isArrangingSongs, setIsArrangingSongs] = useState(false)
   const [showSectionEditTip, setShowSectionEditTip] = useState<boolean>(() => {
@@ -1027,6 +1028,7 @@ export default function SessionPage() {
                   canSimplify={canSimplify}
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
+                  hasLyricOverflow={hasLyricOverflow}
                   onToggleEditChords={() => {
                     setIsEditingChords((prev) => {
                       if (prev) {
@@ -1068,6 +1070,7 @@ export default function SessionPage() {
                   onStartEditPosition={handleStartEditPosition}
                   onSplitLine={handleSplitLine}
                   onMergeLineWithPrevious={handleMergeLineWithPrevious}
+                  onLyricOverflowChange={setHasLyricOverflow}
                 />
               </div>
             </div>
