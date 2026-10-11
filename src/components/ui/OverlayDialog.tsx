@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 're
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 import { classes } from '../../lib/classes'
-import { reducedMotionTransition, uiSpring } from '../../lib/uiMotion'
+import { getDialogMotion, reducedMotionTransition } from '../../lib/uiMotion'
 import { IconButton } from './index'
 
 interface OverlayDialogProps {
@@ -43,6 +43,7 @@ export default function OverlayDialog({
   const descriptionId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const reduceMotion = useReducedMotion()
+  const dialogMotion = getDialogMotion(Boolean(reduceMotion))
 
   useEffect(() => {
     if (!isOpen) return
@@ -104,10 +105,10 @@ export default function OverlayDialog({
             aria-describedby={description ? descriptionId : undefined}
             tabIndex={-1}
             className={classes('ui-dialog', `ui-dialog--${size}`, className)}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12, filter: 'blur(7px)' }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8, filter: 'blur(5px)' }}
-            transition={reduceMotion ? reducedMotionTransition : uiSpring}
+            initial={dialogMotion.initial}
+            animate={dialogMotion.animate}
+            exit={dialogMotion.exit}
+            transition={dialogMotion.transition}
             onKeyDown={handleKeyDown}
           >
             <header className="ui-dialog__header">

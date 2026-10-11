@@ -33,6 +33,7 @@ import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
 import { Button, IconButton } from '../components/ui'
+import { getNextTabIndex } from '../lib/tabNavigation'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -897,21 +898,12 @@ export default function SessionPage() {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
                   selectSong(idx)
-                } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                } else {
+                  const nextIndex = getNextTabIndex(e.key, idx, session.songs.length)
+                  if (nextIndex === null) return
                   e.preventDefault()
-                  const delta = e.key === 'ArrowRight' ? 1 : -1
-                  const nextIndex = (idx + delta + session.songs.length) % session.songs.length
                   selectSong(nextIndex)
                   window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-song-tab="${nextIndex}"]`)?.focus())
-                } else if (e.key === 'Home') {
-                  e.preventDefault()
-                  selectSong(0)
-                  window.requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-song-tab="0"]')?.focus())
-                } else if (e.key === 'End') {
-                  e.preventDefault()
-                  const lastIndex = session.songs.length - 1
-                  selectSong(lastIndex)
-                  window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-song-tab="${lastIndex}"]`)?.focus())
                 }
               }}
               title={canDrag ? 'Drag to reorder songs in setlist' : undefined}

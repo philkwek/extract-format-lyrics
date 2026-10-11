@@ -11,6 +11,30 @@ This document outlines the design system, color palettes, typography, and compon
 - **Warm Paper Light Mode:** Uses a warm parchment/cream background (`#F2EFE7`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`) for high readability without harsh white glare.
 - **Monospace Alignment:** Chords sit on their own line with character-exact spacing directly above lyrics, demanding strict monospace formatting (`font-sheet`).
 
+### Application chrome
+
+The application shell and workflow controls use a restrained, Apple-inspired hierarchy without copying Apple branding. Translucency is limited to global chrome and overlay backdrops; forms, cards, and song-adjacent controls use solid surfaces so materials never stack and reduce legibility.
+
+- Shared primitives in `src/components/ui/` provide buttons, icon buttons, segmented controls, status banners, surfaces, and accessible overlays.
+- Controls use immediate CSS feedback. Interruptible spring motion is reserved for dialogs, drawers, and direct manipulation.
+- Light mode retains the parchment and sea-blue identity. Dark mode retains matte charcoal surfaces and amber accents.
+- `prefers-reduced-motion`, `prefers-reduced-transparency`, and `prefers-contrast: more` receive simplified motion and stronger, more opaque surfaces.
+- UI icons come from the shared SVG icon set; status and meaning are never communicated by icon or colour alone.
+
+### Protected musician-reading surface
+
+The chord-and-lyric canvas is a separate, stability-critical design surface. UI refreshes must not change its width, padding, typography, colours, DOM structure, column calculations, wrapping, overflow detection, or editing semantics.
+
+The protected implementation boundary includes:
+
+- `src/components/SongSheet.tsx`
+- `src/lib/songLayout.ts`
+- `src/lib/lineSplit.ts`
+- `src/lib/useFitToScreen.ts`
+- `.font-sheet`, adaptive column CSS, section blocks, chord positioning, and split/merge controls
+
+Session-page work should remain in surrounding title, action, tab, status, and overlay chrome. Any future song-canvas change requires its own musician-readability review and identical-viewport before/after comparison.
+
 ---
 
 ## 2. Color Palette Tokens
