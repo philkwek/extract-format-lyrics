@@ -224,6 +224,25 @@ html.dark body {
 .ui-segmented__item:active { transform: scale(0.97); }
 .ui-segmented__item--active { background: var(--ui-surface-raised); color: var(--ui-text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), inset 0 0 0 1px var(--ui-border); }
 
+/* A deliberately dense variant for the song-column control. Its explicit
+   dimensions override the default touch-target sizing for every segment, so
+   selected and unselected choices share one visual height. */
+.ui-segmented--compact {
+  height: 18px;
+  gap: 1px;
+  padding: 1px;
+  border-radius: 0.375rem;
+}
+
+.ui-segmented--compact .ui-segmented__item {
+  height: 14px;
+  min-height: 14px;
+  padding: 0 0.375rem;
+  border-radius: 0.3rem;
+  font-size: 10px;
+  line-height: 1;
+}
+
 .ui-field {
   width: 100%;
   border: 1px solid var(--ui-border);
@@ -298,6 +317,8 @@ html.dark body {
 @media (max-width: 39.99rem) {
   .ui-segmented { width: 100%; }
   .ui-segmented__item { flex: 1; }
+  .ui-segmented--compact { width: auto; }
+  .ui-segmented--compact .ui-segmented__item { flex: initial; }
   .ui-overlay { align-items: flex-end; padding: 0; }
   .ui-dialog { max-height: 92dvh; border-radius: 1.25rem 1.25rem 0 0; border-bottom: 0; }
 }
