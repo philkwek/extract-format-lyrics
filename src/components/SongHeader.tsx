@@ -1,5 +1,5 @@
 import type { Song } from '../types/song'
-import { ExternalLink, Music2 } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import TransposeSelector from './TransposeSelector'
 
 interface SongHeaderProps {
@@ -22,11 +22,10 @@ export default function SongHeader({
   return (
     <div className="flex flex-col justify-between gap-3 pb-1 sm:flex-row sm:items-center">
       <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400 sm:flex"><Music2 size={16} /></span>
+        <div>
           <h2 className="truncate text-xl font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb] sm:text-2xl">{song.title}</h2>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)] sm:pl-10">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)]">
           <span>{song.artist}</span>
           <span aria-hidden="true">•</span>
           <a
