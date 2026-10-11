@@ -72,9 +72,9 @@ html.dark body {
 /* Application chrome: intentionally separate from the protected song-sheet styles above. */
 :root {
   --ui-canvas: #ffffff;
-  --ui-surface: #fffefa;
+  --ui-surface: #ffffff;
   --ui-surface-raised: #ffffff;
-  --ui-surface-muted: #f8f7f2;
+  --ui-surface-muted: #fafafa;
   --ui-text: #171717;
   --ui-text-muted: #686865;
   --ui-border: rgba(74, 105, 106, 0.2);

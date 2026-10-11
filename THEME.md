@@ -8,7 +8,7 @@ This document outlines the design system, color palettes, typography, and compon
 
 - **Performance-Oriented:** Optimized for musicians and worship leaders performing on tablets or laptops in both bright daylight rehearsals and dimly lit stages.
 - **Anti-Glare Dark Mode:** Uses low-contrast matte dark tones (`#101010`, `#1a1a1a`, soft text `#e5e5e5`) paired with a warm amber accent (`amber-400` / `amber-500`) to avoid screen glare and eye fatigue.
-- **White Light Mode:** Uses a clean white primary canvas (`#FFFFFF`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`). Cream-tinted secondary surfaces remain available to separate controls and supporting content.
+- **White Light Mode:** Uses a clean white primary canvas and main surfaces (`#FFFFFF`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`). Only muted supporting panels retain a subtle neutral off-white to preserve hierarchy.
 - **Monospace Alignment:** Chords sit on their own line with character-exact spacing directly above lyrics, demanding strict monospace formatting (`font-sheet`).
 
 ### Application chrome
