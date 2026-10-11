@@ -443,11 +443,15 @@ export default function SongSheet({
       style={{ fontSize: `${fontSizePx}px` }}
     >
       {isEditingChords && (
-        <div className="mb-4 bg-[#C8DFDB]/40 dark:bg-amber-400/10 border border-[#66A3BF]/40 dark:border-amber-500/30 rounded-lg px-3 py-2 text-xs text-[#1c436b] dark:text-amber-300 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 font-medium">
+        <div className="mb-4 bg-[#C8DFDB]/40 dark:bg-amber-400/10 border border-[#66A3BF]/40 dark:border-amber-500/30 rounded-lg px-3 py-2 text-md text-[#1c436b] dark:text-amber-300 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
             <span>✎</span>
             <span>
-              <strong>Chord editing active:</strong> Click on any underlined chord below to change or delete it.
+              <strong>Chord editing active:</strong>
+              <ul className="list-disc pl-5">
+                <li>Click on any underlined chord below to change, shift or delete it.</li>
+                <li>You can also fix suggested lines that clash with other sections by splitting them.</li>
+              </ul>
             </span>
           </span>
         </div>
