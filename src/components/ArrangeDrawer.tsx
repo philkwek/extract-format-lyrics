@@ -125,7 +125,15 @@ export default function ArrangeDrawer({
               {items.length === 0 ? (
                 <div className="py-10 text-center text-sm text-[var(--ui-text-muted)]">No items to arrange.</div>
               ) : items.map((item, idx) => (
-                <motion.div layout key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
+                <motion.div
+                  key={item.id}
+                  layout="position"
+                  initial={false}
+                  transition={reduceMotion ? reducedMotionTransition : {
+                    layout: { type: 'spring', stiffness: 520, damping: 38, mass: 0.65 },
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
+                >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-[#3368A0]/10 px-2 font-mono text-xs font-bold text-[#255283] dark:bg-amber-400/10 dark:text-amber-400">{item.badge || `#${idx + 1}`}</span>
                     <div className="min-w-0 flex-1">
