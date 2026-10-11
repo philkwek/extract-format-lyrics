@@ -42,7 +42,7 @@ function App() {
               </span>
               <span>
                 <span className="block text-sm font-bold leading-none tracking-[-0.02em]">Chord Sheets</span>
-                <span className="mt-1 hidden text-[10px] font-medium leading-none text-neutral-500 dark:text-[#999999] sm:block">Setlists built for the stage</span>
+                <span className="mt-1 hidden text-[10px] font-medium leading-none text-neutral-500 dark:text-[#999999] sm:block">Developed by Phil</span>
               </span>
             </NavLink>
             <nav className="flex items-center gap-1.5" aria-label="Primary navigation">

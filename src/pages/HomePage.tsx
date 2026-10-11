@@ -29,14 +29,12 @@ interface ImportStatus {
 }
 
 const HOME_TIPS = [
-  'Use Fit columns when you want the sheet to choose the clearest layout for the current screen.',
-  'Open Edit chords to nudge a chord into place, then keep its musical spacing exactly where you want it.',
-  'Import a PDF or image chart when you already have a polished source sheet to work from.',
-  'Share a setlist when your team needs the same songs, order, keys, and chord edits.',
-  'Use Arrange setlist in a session to quickly set the running order before rehearsal or service.',
-  'Search by song title or artist when you do not already have a chord-sheet link.',
-  'Transpose a song from its title area while keeping the original key visible for reference.',
-  'If a lyric line overflows, use Edit chords to choose a deliberate phrase break instead of auto-wrapping it.',
+  'Use Edit chords to move, change, or delete chords.',
+  'Share a setlist so everyone gets the same songs and song order.',
+  'Use Arrange setlist to put your songs in the right order.',
+  'Search by song title or artist if you do not have a link.',
+  'Use the key menu near the song title to change the song key.',
+  'If a lyric line is too long, open Edit chords and split it where you want.',
 ] as const
 
 export default function HomePage() {
@@ -278,7 +276,6 @@ export default function HomePage() {
         <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">New session</h2>
-            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">Choose the fastest way to bring in your first song.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <SegmentedControl
@@ -458,7 +455,7 @@ export default function HomePage() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
-            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Private to this browser and ready when you return.</p>
+            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Sessions are saved locally within your browser.</p>
           </div>
           {sessions.length > 0 && (
             <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleClearLibrary}>Clear library</Button>
