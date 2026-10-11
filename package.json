@@ -11,6 +11,8 @@
     "build:functions": "npm run build --prefix functions",
     "lint": "eslint .",
     "push:checked": "npm run lint && git push",
+    "graph:build": "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . --no-label",
+    "graph:update": "graphify update .",
     "format": "prettier --write src",
     "test": "vitest run --passWithNoTests",
     "test:functions": "npm run test --prefix functions",

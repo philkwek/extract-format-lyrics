@@ -41,3 +41,6 @@ functions/node_modules/
 coverage
 playwright-report
 test-results
+
+# Local Graphify knowledge graph (regenerated on demand)
+graphify-out/

@@ -12,7 +12,12 @@ interface SongSheetProps {
   onDeleteSection?: (sectionIndex: number) => void
   onReorderSections?: (fromIndex: number, toIndex: number) => void
   onRenameSection?: (sectionIndex: number, newLabel: string) => void
-  onEditChord?: (sectionIndex: number, lineIndex: number, chordIndex: number, newChord: string) => void
+  onEditChord?: (
+    sectionIndex: number,
+    lineIndex: number,
+    chordIndex: number,
+    newChord: string,
+  ) => void
   onDeleteChord?: (sectionIndex: number, lineIndex: number, chordIndex: number) => void
   /** When set, tapping a lyric-line chord selects it (instead of opening the chord keyboard). */
   onChordSelect?: (sectionIndex: number, lineIndex: number, chordIndex: number) => void
@@ -49,22 +54,25 @@ function renderLyricSegments(
   chords: ChordPlacement[],
   onChordClick?: (chordIndex: number, chord: string) => void,
   selectedIndex?: number,
-  measurementKey?: string
+  measurementKey?: string,
+  splitPositions?: number[],
+  onSplitAt?: (splitAt: number) => void,
 ) {
   const sorted = chords
     .map((c, originalIndex) => ({ ...c, originalIndex }))
     .sort((a, b) => a.pos - b.pos || a.originalIndex - b.originalIndex)
 
-  const segments: { chord?: (typeof sorted)[number]; text: string }[] = []
-  const firstPos = sorted.length > 0 ? Math.min(Math.max(sorted[0].pos, 0), text.length) : text.length
+  const segments: { chord?: (typeof sorted)[number]; text: string; start: number }[] = []
+  const firstPos =
+    sorted.length > 0 ? Math.min(Math.max(sorted[0].pos, 0), text.length) : text.length
   if (firstPos > 0 || sorted.length === 0) {
-    segments.push({ text: text.slice(0, firstPos) })
+    segments.push({ text: text.slice(0, firstPos), start: 0 })
   }
   sorted.forEach((c, i) => {
     const start = Math.min(Math.max(c.pos, 0), text.length)
     const next = sorted[i + 1]
     const end = next ? Math.min(Math.max(next.pos, start), text.length) : text.length
-    segments.push({ chord: c, text: text.slice(start, end) })
+    segments.push({ chord: c, text: text.slice(start, end), start })
   })
 
   return (
@@ -95,8 +103,8 @@ function renderLyricSegments(
                     c.originalIndex === selectedIndex
                       ? 'cursor-pointer inline-block px-1 -mx-1 rounded bg-[#3368A0] text-white dark:bg-amber-400 dark:text-black ring-2 ring-[#3368A0]/40 dark:ring-amber-400/40'
                       : onChordClick
-                      ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
-                      : undefined
+                        ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
+                        : undefined
                   }
                 >
                   {c.chord}
@@ -106,7 +114,9 @@ function renderLyricSegments(
               )}
             </span>
             <span className="text-neutral-800 dark:text-[#d4d4d4] leading-relaxed select-none">
-              {seg.text || ' '}
+              {splitPositions && onSplitAt
+                ? renderInlineSplitMarkers(seg.text, seg.start, splitPositions, onSplitAt)
+                : seg.text || ' '}
             </span>
           </span>
         )
@@ -115,52 +125,43 @@ function renderLyricSegments(
   )
 }
 
-function renderSplitCaretPicker(
-  line: Extract<Line, { kind: 'lyric' }>,
+function renderInlineSplitMarkers(
+  segmentText: string,
+  segmentStart: number,
+  splitPositions: number[],
   onSplitAt: (splitAt: number) => void,
-  onCancel: () => void
 ) {
-  const splitPositions = getLyricSplitPositions(line)
-  let previousPosition = 0
+  const segmentEnd = segmentStart + segmentText.length
+  const positionsInSegment = splitPositions.filter(
+    (position) => position > segmentStart && position <= segmentEnd,
+  )
+  let previousPosition = segmentStart
 
   return (
-    <div className="mt-2 rounded border border-[#66A3BF]/50 dark:border-amber-500/50 bg-[#C8DFDB]/25 dark:bg-amber-400/10 px-2 py-1.5 text-xs text-[#1c436b] dark:text-amber-200">
-      <div className="mb-1 font-medium">Choose where the next lyric line begins:</div>
-      <div className="font-mono whitespace-pre leading-relaxed break-words">
-        {splitPositions.map((position) => {
-          const text = line.text.slice(previousPosition, position)
-          previousPosition = position
-          return (
-            <span key={position}>
-              {text}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onSplitAt(position)
-                }}
-                className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-[#3368A0] px-0.5 text-[10px] leading-none text-white hover:bg-[#255283] dark:bg-amber-500 dark:text-black dark:hover:bg-amber-400"
-                title="Start a new lyric line here"
-                aria-label={`Start a new lyric line before ${line.text.slice(position).split(/\s/, 1)[0]}`}
-              >
-                ↵
-              </button>
-            </span>
-          )
-        })}
-        {line.text.slice(previousPosition)}
-      </div>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation()
-          onCancel()
-        }}
-        className="mt-1 text-[11px] font-semibold underline underline-offset-2 hover:text-[#255283] dark:hover:text-amber-400"
-      >
-        Cancel
-      </button>
-    </div>
+    <>
+      {positionsInSegment.map((position) => {
+        const text = segmentText.slice(previousPosition - segmentStart, position - segmentStart)
+        previousPosition = position
+        return (
+          <span key={position}>
+            {text}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onSplitAt(position)
+              }}
+              className="relative z-10 inline-block w-[0.7ch] origin-left scale-x-125 text-left font-black text-[#3368A0] after:absolute after:-inset-x-2 after:-inset-y-1 after:content-[''] hover:text-[#255283] dark:text-amber-400 dark:hover:text-amber-300"
+              title="Start a new lyric line here"
+              aria-label={`Start a new lyric line before position ${position}`}
+            >
+              |
+            </button>
+          </span>
+        )
+      })}
+      {segmentText.slice(previousPosition - segmentStart) || ' '}
+    </>
   )
 }
 
@@ -174,7 +175,7 @@ function renderLine(
     lineIndex: number,
     chordIndex: number,
     chord: string,
-    lyricContext?: string
+    lyricContext?: string,
   ) => void,
   selectedChordIndex?: number,
   controls?: {
@@ -186,11 +187,14 @@ function renderLine(
     onSplitAt?: (splitAt: number) => void
     onCancelSplit?: () => void
     onMergeWithPrevious?: () => void
-  }
+  },
 ) {
   if (line.kind === 'tab') {
     return (
-      <div key={key} className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-0.5 whitespace-pre overflow-x-auto">
+      <div
+        key={key}
+        className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-0.5 whitespace-pre overflow-x-auto"
+      >
         {line.raw}
       </div>
     )
@@ -198,7 +202,10 @@ function renderLine(
 
   if (line.kind === 'chords-only') {
     return (
-      <div key={key} className="font-mono text-[#255283] dark:text-amber-400 font-bold py-1 whitespace-pre">
+      <div
+        key={key}
+        className="font-mono text-[#255283] dark:text-amber-400 font-bold py-1 whitespace-pre"
+      >
         {line.chords.map((chord, cIdx) => (
           <span key={cIdx}>
             {cIdx > 0 && '   '}
@@ -232,8 +239,16 @@ function renderLine(
     return <div key={key} className="h-3" />
   }
 
+  const isSplitting = Boolean(controls?.isSplitting && controls.onSplitAt && controls.onCancelSplit)
+  const splitPositions = isSplitting ? getLyricSplitPositions(line) : undefined
+
   return (
-    <div key={key} className="min-w-0 py-1">
+    <div
+      key={key}
+      className={`min-w-0 py-1 ${
+        isSplitting ? '-mx-1 rounded bg-[#C8DFDB]/40 px-1 dark:bg-amber-400/10' : ''
+      }`}
+    >
       {renderLyricSegments(
         line.text,
         line.chords,
@@ -242,11 +257,26 @@ function renderLine(
               onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
           : undefined,
         selectedChordIndex,
-        controls?.measurementKey
+        controls?.measurementKey,
+        splitPositions,
+        controls?.onSplitAt,
       )}
-      {controls?.isSplitting && controls.onSplitAt && controls.onCancelSplit ? (
-        renderSplitCaretPicker(line, controls.onSplitAt, controls.onCancelSplit)
-      ) : (
+      {isSplitting && (
+        <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-medium leading-none text-[#1c436b] dark:text-amber-200">
+          <span>Choose where the next lyric line begins</span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              controls?.onCancelSplit?.()
+            }}
+            className="shrink-0 underline underline-offset-2 hover:text-[#255283] dark:hover:text-amber-400"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {!isSplitting && (
         <div className="mt-1 flex flex-wrap gap-2">
           {controls?.isOverflowing && controls.onStartSplit && (
             <button
@@ -301,36 +331,36 @@ export default function SongSheet({
   const [editingChord, setEditingChord] = useState<EditingChordTarget | null>(null)
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null)
   const [editingLabel, setEditingLabel] = useState<string>('')
-  const [splittingLine, setSplittingLine] = useState<{ sectionIndex: number; lineIndex: number } | null>(null)
+  const [splittingLine, setSplittingLine] = useState<{
+    sectionIndex: number
+    lineIndex: number
+  } | null>(null)
   const [overflowingLineKeys, setOverflowingLineKeys] = useState<Set<string>>(new Set())
-  const columnPartitions = useMemo(
-    () => partitionSections(sections, columns),
-    [sections, columns]
-  )
+  const columnPartitions = useMemo(() => partitionSections(sections, columns), [sections, columns])
   const visibleColumnPartitions = useMemo(() => {
     const nonEmptyPartitions = columnPartitions.filter((partition) => partition.length > 0)
     return nonEmptyPartitions.length > 0 ? nonEmptyPartitions : [[]]
   }, [columnPartitions])
   const columnDisplayWidths = useMemo(
     () => getColumnDisplayWidths(visibleColumnPartitions),
-    [visibleColumnPartitions]
+    [visibleColumnPartitions],
   )
   const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as 1 | 2 | 3
   const hasAdaptiveColumns = desktopColumnCount > 1 && columnDisplayWidths.length > 1
   const adaptiveGridStyle: CSSProperties | undefined = hasAdaptiveColumns
-    ? {
+    ? ({
         '--song-sheet-column-template': columnDisplayWidths
           .map((width) => `minmax(0, ${width}fr)`)
           .join(' '),
-      } as CSSProperties
+      } as CSSProperties)
     : undefined
 
   const gridClass =
     desktopColumnCount === 3
       ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
       : desktopColumnCount === 2
-      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
-      : 'song-sheet-grid grid grid-cols-1 gap-6'
+        ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
+        : 'song-sheet-grid grid grid-cols-1 gap-6'
 
   useLayoutEffect(() => {
     if (!sheetRef.current) return
@@ -359,7 +389,8 @@ export default function SongSheet({
     }
 
     measureOverflow()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureOverflow)
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureOverflow)
     observer?.observe(sheet)
     window.addEventListener('resize', measureOverflow)
     return () => {
@@ -401,7 +432,7 @@ export default function SongSheet({
     lineIndex: number,
     chordIndex: number,
     chord: string,
-    lyricContext?: string
+    lyricContext?: string,
   ) => {
     setEditingChord({ sectionIndex, lineIndex, chordIndex, currentChord: chord, lyricContext })
   }
@@ -412,7 +443,12 @@ export default function SongSheet({
     if (!trimmed) {
       onDeleteChord?.(editingChord.sectionIndex, editingChord.lineIndex, editingChord.chordIndex)
     } else {
-      onEditChord?.(editingChord.sectionIndex, editingChord.lineIndex, editingChord.chordIndex, trimmed)
+      onEditChord?.(
+        editingChord.sectionIndex,
+        editingChord.lineIndex,
+        editingChord.chordIndex,
+        trimmed,
+      )
     }
     setEditingChord(null)
   }
@@ -441,11 +477,7 @@ export default function SongSheet({
   }
 
   return (
-    <div
-      ref={sheetRef}
-      className="song-sheet select-text"
-      style={{ fontSize: `${fontSizePx}px` }}
-    >
+    <div ref={sheetRef} className="song-sheet select-text" style={{ fontSize: `${fontSizePx}px` }}>
       {isEditingChords && (
         <div className="mb-4 bg-[#C8DFDB]/40 dark:bg-amber-400/10 border border-[#66A3BF]/40 dark:border-amber-500/30 rounded-lg px-3 py-2 text-md text-[#1c436b] dark:text-amber-300 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
@@ -454,7 +486,9 @@ export default function SongSheet({
               <strong>Chord editing active:</strong>
               <ul className="list-disc pl-5">
                 <li>Click on any underlined chord below to change, shift or delete it.</li>
-                <li>You can also fix suggested lines that clash with other sections by splitting them.</li>
+                <li>
+                  You can also fix suggested lines that clash with other sections by splitting them.
+                </li>
               </ul>
             </span>
           </span>
@@ -470,6 +504,7 @@ export default function SongSheet({
             {colItems.map(({ section, originalIndex }) => {
               const isDragging = draggedIdx === originalIndex
               const isOver = dragOverIdx === originalIndex && draggedIdx !== originalIndex
+              const isSplitSection = splittingLine?.sectionIndex === originalIndex
 
               return (
                 <div
@@ -484,7 +519,11 @@ export default function SongSheet({
                     onReorderSections
                       ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100/60 dark:hover:bg-[#1a1a1a]/60'
                       : ''
-                  } ${isDragging ? 'opacity-30 scale-[0.99]' : ''}`}
+                  } ${isDragging ? 'opacity-30 scale-[0.99]' : ''} ${
+                    isSplitSection
+                      ? 'z-40 bg-white shadow-2xl ring-2 ring-[#3368A0]/70 dark:bg-[#1a1a1a] dark:ring-amber-400/70'
+                      : ''
+                  }`}
                 >
                   {/* Top insertion indicator line when dragging over this section */}
                   {isOver && (
@@ -557,12 +596,17 @@ export default function SongSheet({
                             onRenameSection
                               ? (e) => {
                                   e.stopPropagation()
-                                  handleStartRenameSection(originalIndex, section.label || 'Section')
+                                  handleStartRenameSection(
+                                    originalIndex,
+                                    section.label || 'Section',
+                                  )
                                 }
                               : undefined
                           }
                           className={`text-neutral-800 dark:text-[#d4d4d4] font-bold uppercase tracking-wider truncate ${
-                            onRenameSection ? 'cursor-pointer hover:text-[#3368A0] dark:hover:text-amber-400 hover:underline' : ''
+                            onRenameSection
+                              ? 'cursor-pointer hover:text-[#3368A0] dark:hover:text-amber-400 hover:underline'
+                              : ''
                           }`}
                           style={{ fontSize: `${fontSizePx}px` }}
                         >
@@ -609,8 +653,8 @@ export default function SongSheet({
                             ? (s, l, c) => onChordSelect(s, l, c)
                             : undefined
                           : !selectedChord && isEditingChords && (onEditChord || onDeleteChord)
-                          ? handleOpenEditChord
-                          : undefined,
+                            ? handleOpenEditChord
+                            : undefined,
                         selectedChord &&
                           selectedChord.sectionIndex === originalIndex &&
                           selectedChord.lineIndex === lIdx
@@ -621,7 +665,8 @@ export default function SongSheet({
                               measurementKey: `${originalIndex}:${lIdx}`,
                               isOverflowing: overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
                               isSplitting:
-                                splittingLine?.sectionIndex === originalIndex && splittingLine.lineIndex === lIdx,
+                                splittingLine?.sectionIndex === originalIndex &&
+                                splittingLine.lineIndex === lIdx,
                               canMergeWithPrevious:
                                 isEditingChords &&
                                 lIdx > 0 &&
@@ -629,7 +674,12 @@ export default function SongSheet({
                                 line.splitFromPrevious === true,
                               onStartSplit:
                                 isEditingChords && onSplitLine
-                                  ? () => setSplittingLine({ sectionIndex: originalIndex, lineIndex: lIdx })
+                                  ? () => {
+                                      setSplittingLine({
+                                        sectionIndex: originalIndex,
+                                        lineIndex: lIdx,
+                                      })
+                                    }
                                   : undefined,
                               onSplitAt:
                                 isEditingChords && onSplitLine
@@ -647,8 +697,8 @@ export default function SongSheet({
                                     }
                                   : undefined,
                             }
-                          : undefined
-                      )
+                          : undefined,
+                      ),
                     )}
                   </div>
                 </div>
@@ -657,6 +707,15 @@ export default function SongSheet({
           </div>
         ))}
       </div>
+
+      {splittingLine && (
+        <button
+          type="button"
+          aria-label="Cancel split-line selection"
+          onClick={() => setSplittingLine(null)}
+          className="fixed inset-0 z-[35] cursor-default bg-black/20 backdrop-blur-sm"
+        />
+      )}
 
       {/* Custom Musical Keyboard Modal for editing or deleting a chord */}
       {editingChord && (
