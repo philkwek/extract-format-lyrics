@@ -29,14 +29,14 @@ export default function DisplayControls({
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]"><Columns3 size={13} /> Columns</span>
-            <div className="ui-segmented p-[3px]">
+            <div className="ui-segmented p-[2px]">
               {([1, 2, 3, 'fit'] as const).map((column) => (
                 <button
                   key={column}
                   type="button"
                   aria-pressed={prefs.columns === column}
                   onClick={() => onChangePrefs({ ...prefs, columns: column })}
-                  className={`ui-segmented__item min-h-7 px-2 py-1 text-[11px] ${prefs.columns === column ? 'ui-segmented__item--active' : ''}`}
+                  className={`ui-segmented__item min-h-6 px-2 py-0 text-[11px] leading-5 ${prefs.columns === column ? 'ui-segmented__item--active' : ''}`}
                 >
                   {column === 'fit' ? 'Fit' : column}
                 </button>
