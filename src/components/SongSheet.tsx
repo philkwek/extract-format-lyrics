@@ -85,7 +85,7 @@ function renderLyricSegments(
         return (
           <span key={i} className="inline-flex flex-col shrink-0">
             <span
-              className="text-[#255283] dark:text-amber-400 font-bold select-none min-h-[1em] leading-none pb-0.5"
+              className="text-[#255283] dark:text-amber-400 font-bold select-none min-h-[1em] leading-none pb-[0.1px]"
               style={c ? { paddingRight: '1ch' } : undefined}
             >
               {c ? (
@@ -193,7 +193,7 @@ function renderLine(
     return (
       <div
         key={key}
-        className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-0.5 whitespace-pre overflow-x-auto"
+        className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-px whitespace-pre overflow-x-auto"
       >
         {line.raw}
       </div>
@@ -204,7 +204,7 @@ function renderLine(
     return (
       <div
         key={key}
-        className="font-mono text-[#255283] dark:text-amber-400 font-bold py-1 whitespace-pre"
+        className="font-mono text-[#255283] dark:text-amber-400 font-bold py-0.5 whitespace-pre"
       >
         {line.chords.map((chord, cIdx) => (
           <span key={cIdx}>
@@ -245,7 +245,7 @@ function renderLine(
   return (
     <div
       key={key}
-      className={`min-w-0 py-1 ${
+      className={`min-w-0 py-0.5 ${
         isSplitting ? '-mx-1 rounded bg-[#C8DFDB]/40 px-1 dark:bg-amber-400/10' : ''
       }`}
     >
