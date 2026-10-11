@@ -6,7 +6,7 @@
   --color-palette-deep-dark: #255283;
   --color-palette-mid: #66a3bf;
   --color-palette-soft: #c8dfdb;
-  --color-palette-light: #f2efe7;
+  --color-palette-light: #ffffff;
 }
 
 @variant dark (&:where(.dark, .dark *));
@@ -25,7 +25,7 @@ body {
   margin: 0;
   font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-text-size-adjust: 100%;
-  background-color: #f2efe7;
+  background-color: #ffffff;
   color: #171717;
 }
 
@@ -71,7 +71,7 @@ html.dark body {
 
 /* Application chrome: intentionally separate from the protected song-sheet styles above. */
 :root {
-  --ui-canvas: #f2efe7;
+  --ui-canvas: #ffffff;
   --ui-surface: #fffefa;
   --ui-surface-raised: #ffffff;
   --ui-surface-muted: #f8f7f2;
@@ -109,9 +109,7 @@ html.dark body {
 }
 
 .app-canvas {
-  background:
-    radial-gradient(circle at 8% -10%, rgba(102, 163, 191, 0.15), transparent 30rem),
-    var(--ui-canvas);
+  background: var(--ui-canvas);
 }
 
 .dark .app-canvas {

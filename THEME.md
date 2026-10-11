@@ -8,7 +8,7 @@ This document outlines the design system, color palettes, typography, and compon
 
 - **Performance-Oriented:** Optimized for musicians and worship leaders performing on tablets or laptops in both bright daylight rehearsals and dimly lit stages.
 - **Anti-Glare Dark Mode:** Uses low-contrast matte dark tones (`#101010`, `#1a1a1a`, soft text `#e5e5e5`) paired with a warm amber accent (`amber-400` / `amber-500`) to avoid screen glare and eye fatigue.
-- **Warm Paper Light Mode:** Uses a warm parchment/cream background (`#F2EFE7`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`) for high readability without harsh white glare.
+- **White Light Mode:** Uses a clean white primary canvas (`#FFFFFF`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`). Cream-tinted secondary surfaces remain available to separate controls and supporting content.
 - **Monospace Alignment:** Chords sit on their own line with character-exact spacing directly above lyrics, demanding strict monospace formatting (`font-sheet`).
 
 ### Application chrome
@@ -49,7 +49,7 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 | `--color-palette-deep-dark` | `#255283` | Primary hover & active states in Light Mode |
 | `--color-palette-mid` | `#66A3BF` | Secondary accents, highlights |
 | `--color-palette-soft` | `#C8DFDB` | Borders, subtle dividers, badge backgrounds |
-| `--color-palette-light` | `#F2EFE7` | Light mode page background (parchment/cream) |
+| `--color-palette-light` | `#FFFFFF` | Light mode primary page canvas |
 
 ---
 
@@ -57,7 +57,7 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 
 | Element | Light Mode | Dark Mode | Tailwind Classes |
 | :--- | :--- | :--- | :--- |
-| **Page Canvas** | `#F2EFE7` | `#101010` | `bg-[#F2EFE7] dark:bg-[#101010]` |
+| **Page Canvas** | `#FFFFFF` | `#101010` | `bg-white dark:bg-[#101010]` |
 | **Card / Surface** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
 | **Modal / Dialog** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
 | **Elevated Sub-panel** | `#FCFBFA` / `neutral-50` | `#151515` | `bg-neutral-50/60 dark:bg-[#151515]` |
