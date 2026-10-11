@@ -1,9 +1,12 @@
 import { useState, useRef } from 'react'
+import { AlertTriangle, ChevronDown, ChevronUp, FileUp, KeyRound } from 'lucide-react'
 import type { Song, Section } from '../types/song'
 import { prepareFilesForExtraction } from '../lib/fileOptimizer'
 import { extractSongsApi } from '../lib/api'
 import { getChordPos, nudgeChord, setChordPos } from '../lib/chordNudge'
 import SongSheet from './SongSheet'
+import { Button, StatusBanner } from './ui'
+import OverlayDialog from './ui/OverlayDialog'
 
 interface UploadSheetModalProps {
   isOpen: boolean
@@ -44,8 +47,6 @@ export default function UploadSheetModal({
   } | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  if (!isOpen) return null
 
   const handleApiKeyChange = (val: string) => {
     setApiKey(val)
@@ -224,47 +225,30 @@ export default function UploadSheetModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-hidden">
-      <div
-        className={`w-full max-w-4xl bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl shadow-2xl flex flex-col max-h-full ${extractedSongs ? 'h-full' : ''} overflow-hidden`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#1a1a1a] shrink-0">
-          <div>
-            <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5] flex items-center gap-2">
-              <svg className="w-5 h-5 text-[#3368A0] dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              {extractedSongs ? 'Review Extracted Songs' : 'Upload PDF/Image (EXPERIMENTAL FEATURE!)'}
-            </h2>
-            <p className="hidden sm:block text-xs text-neutral-500 dark:text-[#999999] mt-0.5">
-              {extractedSongs
-                ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review and confirm before adding to setlist.`
-                : 'Upload multi-page SongSelect PDFs or PNG/JPG sheet images. Gemini Flash extracts lyrics and chords.'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
-            title="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className={`flex-1 min-h-0 bg-neutral-50/60 dark:bg-[#151515] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'overflow-y-auto space-y-4'}`}>
+    <OverlayDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={extractedSongs ? 'Review extracted songs' : 'Upload chord charts'}
+      description={extractedSongs
+        ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review them before adding them to your setlist.`
+        : 'Import multi-page SongSelect PDFs or sheet images with Gemini-assisted extraction.'}
+      size="lg"
+      className={extractedSongs ? 'h-[92dvh]' : ''}
+      contentClassName={`bg-[var(--ui-surface-muted)] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'space-y-4'}`}
+      closeOnBackdrop={!isProcessing}
+      footer={!extractedSongs ? (
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon={<FileUp size={15} />} disabled={selectedFiles.length === 0 || isProcessing} loading={isProcessing} onClick={handleExtract}>
+            Extract with Gemini ({selectedFiles.length})
+          </Button>
+        </>
+      ) : undefined}
+    >
           {errorMessage && (
-            <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 dark:bg-red-950/60 dark:border-red-800 dark:text-red-200 text-sm flex items-start gap-3 shadow-2xs">
-              <span className="text-lg">⚠️</span>
+            <StatusBanner tone="error" icon={<AlertTriangle size={17} />} className="p-4 text-sm">
               <div className="flex-1">
-                <div className="font-semibold">Extraction Error</div>
+                <div className="font-semibold">Extraction error</div>
                 <div className="mt-0.5 text-xs opacity-90">{errorMessage}</div>
                 {errorMessage.includes('GEMINI_API_KEY') && (
                   <div className="mt-2 text-xs text-[#3368A0] dark:text-amber-300">
@@ -281,7 +265,7 @@ export default function UploadSheetModal({
                   </div>
                 )}
               </div>
-            </div>
+            </StatusBanner>
           )}
 
           {!extractedSongs ? (
@@ -294,8 +278,8 @@ export default function UploadSheetModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-[#C8DFDB] hover:border-[#3368A0] dark:border-[#282828] dark:hover:border-amber-500/70 bg-white hover:bg-neutral-50 dark:bg-[#1a1a1a]/60 dark:hover:bg-[#1a1a1a] transition rounded-xl p-4 sm:p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs"
               >
-                <div className="w-12 h-12 rounded-full bg-[#3368A0]/10 dark:bg-amber-500/10 flex items-center justify-center text-[#3368A0] dark:text-amber-400 text-2xl">
-                  📄
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-500/10 dark:text-amber-400">
+                  <FileUp size={22} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-neutral-800 dark:text-[#e5e5e5]">
@@ -375,8 +359,8 @@ export default function UploadSheetModal({
                   onClick={() => setShowKeyConfig(!showKeyConfig)}
                   className="w-full flex items-center justify-between text-xs text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] cursor-pointer"
                 >
-                  <span>🔑 Custom Gemini API Key (Optional)</span>
-                  <span>{showKeyConfig ? '▲' : '▼'}</span>
+                  <span className="flex items-center gap-1.5"><KeyRound size={14} /> Custom Gemini API key (optional)</span>
+                  {showKeyConfig ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {showKeyConfig && (
                   <div className="mt-3 pt-3 border-t border-[#C8DFDB] dark:border-[#282828] space-y-2">
@@ -604,29 +588,6 @@ export default function UploadSheetModal({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer Actions (upload step only; review actions live below the chord toolbar) */}
-        {!extractedSongs && (
-          <div className="border-t border-[#C8DFDB] dark:border-[#282828] px-4 sm:px-6 py-3 flex items-center justify-between bg-white dark:bg-[#1a1a1a] shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={selectedFiles.length === 0 || isProcessing}
-              onClick={handleExtract}
-              className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2 cursor-pointer shadow-xs"
-            >
-              {isProcessing ? 'Extracting...' : `Extract with Gemini (${selectedFiles.length})`}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+    </OverlayDialog>
   )
 }
