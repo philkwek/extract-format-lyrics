@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ExternalLink,
   FileUp,
+  Lightbulb,
   Link2,
   ListMusic,
   Pencil,
@@ -27,8 +28,20 @@ interface ImportStatus {
   message?: string
 }
 
+const HOME_TIPS = [
+  'Use Fit columns when you want the sheet to choose the clearest layout for the current screen.',
+  'Open Edit chords to nudge a chord into place, then keep its musical spacing exactly where you want it.',
+  'Import a PDF or image chart when you already have a polished source sheet to work from.',
+  'Share a setlist when your team needs the same songs, order, keys, and chord edits.',
+  'Use Arrange setlist in a session to quickly set the running order before rehearsal or service.',
+  'Search by song title or artist when you do not already have a chord-sheet link.',
+  'Transpose a song from its title area while keeping the original key visible for reference.',
+  'If a lyric line overflows, use Edit chords to choose a deliberate phrase break instead of auto-wrapping it.',
+] as const
+
 export default function HomePage() {
   const navigate = useNavigate()
+  const [homeTip] = useState(() => HOME_TIPS[Math.floor(Math.random() * HOME_TIPS.length)])
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('paste')
 
   // Paste mode state
@@ -255,13 +268,10 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-7">
       <div className="px-1 pt-2 sm:pt-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#3368A0] dark:text-amber-400">Your setlist workspace</p>
-        <h1 className="mt-2 max-w-3xl text-3xl font-bold leading-[1.08] tracking-[-0.035em] text-neutral-950 dark:text-[#f1f1ef] sm:text-4xl">
-          Put the music in order. Keep the stage calm.
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600 dark:text-[#a5a5a0]">
-          Start from a chord-sheet link, find a song online, or import a chart. Your sessions stay in this browser.
-        </p>
+        <div className="flex items-start gap-3 rounded-2xl border border-[#3368A0]/20 bg-white/70 px-4 py-3 text-sm leading-6 text-neutral-700 shadow-sm backdrop-blur-sm dark:border-amber-400/20 dark:bg-[#1a1a1a]/80 dark:text-[#d4d4d0]">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400" aria-hidden="true"><Lightbulb size={14} /></span>
+          <p><span className="mr-1 font-bold text-[#255283] dark:text-amber-300">Tip:</span>{homeTip}</p>
+        </div>
       </div>
 
       <Surface className="overflow-hidden">
