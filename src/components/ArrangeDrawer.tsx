@@ -36,6 +36,7 @@ export default function ArrangeDrawer({
   const panelRef = useRef<HTMLDivElement>(null)
   const reduceMotion = useReducedMotion()
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+  const [moveFeedback, setMoveFeedback] = useState<{ itemId: string; direction: 'up' | 'down' } | null>(null)
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 639px)')
@@ -63,6 +64,19 @@ export default function ArrangeDrawer({
       previousFocus?.focus()
     }
   }, [isOpen, onClose])
+
+  useEffect(() => {
+    if (!moveFeedback) return
+    const timeout = window.setTimeout(() => setMoveFeedback(null), 420)
+    return () => window.clearTimeout(timeout)
+  }, [moveFeedback])
+
+  const moveItem = (fromIndex: number, toIndex: number) => {
+    const item = items[fromIndex]
+    if (!item || fromIndex === toIndex) return
+    setMoveFeedback({ itemId: item.id, direction: toIndex < fromIndex ? 'up' : 'down' })
+    onMove(fromIndex, toIndex)
+  }
 
   const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab' || !panelRef.current) return
@@ -129,9 +143,12 @@ export default function ArrangeDrawer({
                   key={item.id}
                   layout="position"
                   initial={false}
+                  animate={moveFeedback?.itemId === item.id && !reduceMotion ? { scale: [1, 1.018, 1] } : { scale: 1 }}
                   transition={reduceMotion ? reducedMotionTransition : {
                     layout: { type: 'spring', stiffness: 520, damping: 38, mass: 0.65 },
+                    scale: { duration: 0.28, ease: 'easeOut' },
                   }}
+                  data-move-direction={moveFeedback?.itemId === item.id ? moveFeedback.direction : undefined}
                   className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -142,8 +159,8 @@ export default function ArrangeDrawer({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
-                    <IconButton label={`Move ${item.title} up`} variant="ghost" disabled={idx === 0} onClick={() => onMove(idx, idx - 1)}><ArrowUp size={16} /></IconButton>
-                    <IconButton label={`Move ${item.title} down`} variant="ghost" disabled={idx === items.length - 1} onClick={() => onMove(idx, idx + 1)}><ArrowDown size={16} /></IconButton>
+                    <IconButton label={`Move ${item.title} up`} variant="ghost" disabled={idx === 0} onClick={() => moveItem(idx, idx - 1)}><ArrowUp size={16} /></IconButton>
+                    <IconButton label={`Move ${item.title} down`} variant="ghost" disabled={idx === items.length - 1} onClick={() => moveItem(idx, idx + 1)}><ArrowDown size={16} /></IconButton>
                     {onDelete && items.length > 1 && <IconButton label={`Remove ${item.title}`} variant="danger" onClick={() => onDelete(idx)}><Trash2 size={16} /></IconButton>}
                   </div>
                 </motion.div>

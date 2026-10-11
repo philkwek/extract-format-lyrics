@@ -1079,7 +1079,7 @@ export default function SessionPage() {
         items={session.songs.map((item, idx) => {
           const s = songForItem(item)
           return {
-            id: `${item.url}-${idx}`,
+            id: item.entryId || `${item.url}-${idx}`,
             title: s?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 24),
             subtitle: s?.artist || item.artist,
             badge: `#${idx + 1}`,
