@@ -50,7 +50,7 @@ function App() {
             </button>
           </div>
         </header>
-        <main className="mx-auto w-[90%] pt-2.5 pb-8 sm:pt-3 sm:pb-10">
+        <main className="mx-auto w-[96%] pt-2.5 pb-8 sm:pt-3 sm:pb-10">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />
