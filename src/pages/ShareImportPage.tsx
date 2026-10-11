@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { AlertTriangle, Clock3, DownloadCloud } from 'lucide-react'
 import { getShareApi, ShareApiError } from '../lib/api'
 import { sessionStore } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { sessionSongsFromSnapshot } from '../lib/shareSnapshot'
+import { Button, Surface } from '../components/ui'
 
 export default function ShareImportPage() {
   const { shortId } = useParams<{ shortId?: string }>()
@@ -53,32 +55,38 @@ export default function ShareImportPage() {
   }, [shortId, navigate])
 
   return (
-    <div className="py-16 max-w-lg mx-auto text-center space-y-4">
+    <div className="mx-auto max-w-lg py-16 text-center">
       {loading ? (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-[#282828] rounded-xl p-8 space-y-3 shadow-xs">
-          <div className="text-3xl animate-spin inline-block">⏳</div>
-          <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]">Loading Shared Setlist</h2>
-          <p className="text-xs text-neutral-600 dark:text-[#999999]">{progressMsg}</p>
-        </div>
+        <Surface elevated className="space-y-4 p-8">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400">
+            <DownloadCloud className="animate-pulse" size={23} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">Bringing in the shared setlist</h1>
+            <p className="mt-2 text-sm text-[var(--ui-text-muted)]" role="status">{progressMsg}</p>
+          </div>
+          <div className="mx-auto h-1.5 max-w-48 overflow-hidden rounded-full bg-[#3368A0]/10 dark:bg-amber-400/10">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#3368A0] dark:bg-amber-400" />
+          </div>
+        </Surface>
       ) : expired ? (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-amber-200 dark:border-amber-900/40 rounded-xl p-8 space-y-4 shadow-xs">
-          <div className="text-3xl">⌛</div>
-          <h2 className="text-lg font-bold text-amber-700 dark:text-amber-400">Sharing Link Expired</h2>
-          <p className="text-xs text-neutral-600 dark:text-[#999999]">This sharing link has expired. Ask the sender to create a new one.</p>
-          <button onClick={() => navigate('/')} className="px-4 py-2 bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer">Return to Home</button>
-        </div>
+        <Surface elevated className="space-y-4 p-8">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400"><Clock3 size={23} /></span>
+          <div>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">This sharing link has expired</h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">Ask the sender to create a fresh link, then open it here again.</p>
+          </div>
+          <Button variant="primary" onClick={() => navigate('/')}>Return home</Button>
+        </Surface>
       ) : (
-        <div className="bg-white dark:bg-[#1a1a1a] border border-red-200 dark:border-red-900/40 rounded-xl p-8 space-y-4 shadow-xs">
-          <div className="text-3xl">⚠️</div>
-          <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Could Not Import Setlist</h2>
-          <p className="text-xs text-neutral-600 dark:text-[#999999]">{error}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-black text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-          >
-            Return to Home
-          </button>
-        </div>
+        <Surface elevated className="space-y-4 p-8">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400"><AlertTriangle size={23} /></span>
+          <div>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">Could not import the setlist</h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">{error}</p>
+          </div>
+          <Button variant="primary" onClick={() => navigate('/')}>Return home</Button>
+        </Surface>
       )}
     </div>
   )
