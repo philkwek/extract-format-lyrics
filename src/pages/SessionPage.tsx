@@ -18,7 +18,6 @@ import { scrapeApi } from '../lib/api'
 import { getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { keyOffset, formatOffset } from '../lib/keys'
-import { calculateFitLayout } from '../lib/useFitToScreen'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
@@ -245,36 +244,6 @@ export default function SessionPage() {
       positioningChord.currentPos
     )
   }, [displayedSong, positioningChord])
-
-  // Compute effective layout (handling 'fit' mode)
-  const fitResult = useMemo(() => {
-    if (prefs.columns !== 'fit') {
-      return {
-        columns: prefs.columns as 1 | 2 | 3,
-        fontSizePx: prefs.fontSizePx,
-        notice: null,
-      }
-    }
-
-    const availableHeight = window.innerHeight - 240
-    const availableWidth = window.innerWidth
-    const approxLines = activeSections.reduce((acc, s) => acc + s.lines.length * 2, 0) || 50
-    const approxHeight = approxLines * prefs.fontSizePx * 1.5
-
-    const fit = calculateFitLayout(
-      availableHeight,
-      availableWidth,
-      approxHeight,
-      1,
-      prefs.fontSizePx
-    )
-
-    return {
-      columns: fit.columns,
-      fontSizePx: fit.fontSizePx,
-      notice: fit.fitsOnScreen ? null : 'Song exceeds screen height; minimum readable size applied.',
-    }
-  }, [prefs.columns, prefs.fontSizePx, activeSections])
 
   const handleRetry = async (item: SessionSongItem) => {
     if (!session || retryingUrls.has(item.url)) return
@@ -1004,7 +973,6 @@ export default function SessionPage() {
                 <DisplayControls
                   prefs={prefs}
                   onChangePrefs={handleUpdatePrefs}
-                  fitsNotice={fitResult.notice}
                   canSimplify={canSimplify}
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
@@ -1024,8 +992,8 @@ export default function SessionPage() {
               <div className="pt-1">
                 <SongSheet
                   sections={displayedSections}
-                  fontSizePx={fitResult.fontSizePx}
-                  columns={fitResult.columns}
+                  fontSizePx={prefs.fontSizePx}
+                  columns={prefs.columns}
                   isEditingChords={isEditingChords}
                   selectedChord={
                     positioningChord

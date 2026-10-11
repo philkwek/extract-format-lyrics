@@ -5,7 +5,6 @@ import { Button, StatusBanner } from './ui'
 interface DisplayControlsProps {
   prefs: SongDisplayPrefs
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
-  fitsNotice?: string | null
   canSimplify?: boolean
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
@@ -16,7 +15,6 @@ interface DisplayControlsProps {
 export default function DisplayControls({
   prefs,
   onChangePrefs,
-  fitsNotice,
   canSimplify,
   onRestoreOriginal,
   isEditingChords,
@@ -30,7 +28,7 @@ export default function DisplayControls({
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]"><Columns3 size={13} /> Columns</span>
             <div className="ui-segmented ui-segmented--compact">
-              {([1, 2, 3, 'fit'] as const).map((column) => (
+              {([1, 2, 3] as const).map((column) => (
                 <button
                   key={column}
                   type="button"
@@ -38,7 +36,7 @@ export default function DisplayControls({
                   onClick={() => onChangePrefs({ ...prefs, columns: column })}
                   className={`ui-segmented__item ${prefs.columns === column ? 'ui-segmented__item--active' : ''}`}
                 >
-                  {column === 'fit' ? 'Fit' : column}
+                  {column}
                 </button>
               ))}
             </div>
@@ -51,7 +49,6 @@ export default function DisplayControls({
                 type="button"
                 aria-label="Decrease song font size"
                 onClick={() => onChangePrefs({ ...prefs, fontSizePx: Math.max(10, prefs.fontSizePx - 1) })}
-                disabled={prefs.columns === 'fit'}
                 className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
               >A−</button>
               <span className="w-7 text-center font-mono text-[11px] font-bold text-[var(--ui-text)]">{prefs.fontSizePx}</span>
@@ -59,7 +56,6 @@ export default function DisplayControls({
                 type="button"
                 aria-label="Increase song font size"
                 onClick={() => onChangePrefs({ ...prefs, fontSizePx: Math.min(22, prefs.fontSizePx + 1) })}
-                disabled={prefs.columns === 'fit'}
                 className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
               >A+</button>
             </div>
@@ -102,8 +98,6 @@ export default function DisplayControls({
           )}
         </div>
       </div>
-
-      {fitsNotice && <StatusBanner tone="info">{fitsNotice}</StatusBanner>}
 
       {hasLyricOverflow && (
         <StatusBanner tone="warning" icon={<AlertTriangle size={15} />}>
