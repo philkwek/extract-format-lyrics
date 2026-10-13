@@ -974,6 +974,7 @@ export default function SessionPage() {
                   prefs={prefs}
                   onChangePrefs={handleUpdatePrefs}
                   canSimplify={canSimplify}
+                  simplifiedSource={currentSong?.simplifiedSource}
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
                   hasLyricOverflow={hasLyricOverflow}

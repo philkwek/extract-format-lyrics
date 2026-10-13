@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import type { Song, Section, SectionType, Line, ChordPlacement } from './types.js'
 import { isChord } from './chords.js'
+import { inferKeyFromChords } from './normalizer.js'
 import { analyzePdfPage, parseDigitalSongSelectPage, type PdfPageAnalysis } from './pdfSheetAnalysis.js'
 
 export interface RawPositionedWord {
@@ -599,6 +600,7 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
     const songId = `upload-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`
 
     const sections = rawSectionsToAppSections(raw.sections || [])
+    const detectedKey = inferKeyFromChords(sections)
 
     return {
       id: songId,
@@ -606,7 +608,7 @@ export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], source
       artist: raw.artist?.trim() || 'Unknown Artist',
       sourceUrl: `upload://${songId}`,
       sourceSite: sourceLabel,
-      originalKey: raw.originalKey?.trim() || null,
+      originalKey: detectedKey ?? raw.originalKey?.trim() ?? null,
       sections,
     }
   })

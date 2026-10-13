@@ -1,5 +1,6 @@
 import { get, set, del, entries } from 'idb-keyval'
 import type { Song } from '../types/song'
+import { simplifySections } from './chords'
 
 const CACHE_PREFIX = 'song:'
 const FAILED_PREFIX = 'failed:'
@@ -40,7 +41,22 @@ export class SongCache {
   async getSong(url: string): Promise<Song | null> {
     const key = `${CACHE_PREFIX}${normalizeSongUrl(url)}`
     const val = await this.store.get<Song>(key)
-    return val ?? null
+    if (!val) return null
+
+    // Enrich older website songs that have no usable simplified sections
+    const isUpload = Boolean(val.sourceUrl?.startsWith('upload://') || url.startsWith('upload://'))
+    const hasUsableSimplified = Boolean(val.simplifiedSections && val.simplifiedSections.length > 0)
+
+    if (!isUpload && !hasUsableSimplified && val.sections && val.sections.length > 0) {
+      const { sections: fallbackSections, changedCount } = simplifySections(val.sections)
+      if (changedCount > 0) {
+        val.simplifiedSections = fallbackSections
+        val.simplifiedSource = 'algorithmic'
+        await this.store.set(key, val)
+      }
+    }
+
+    return val
   }
 
   async saveSong(song: Song): Promise<void> {

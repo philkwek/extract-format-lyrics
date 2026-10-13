@@ -3,6 +3,7 @@ import type { Song } from './types.js'
 import { siteForHost } from './urls.js'
 import { safeFetchHtml } from './safeFetch.js'
 import { normalizeSongText, inferKeyFromChords } from './normalizer.js'
+import { simplifySections } from './simplifyChords.js'
 import { ultimateGuitarAdapter } from './adapters/ultimateGuitar.js'
 import { pnwChordsAdapter } from './adapters/pnwChords.js'
 import { worshipChordsAdapter } from './adapters/worshipChords.js'
@@ -37,11 +38,14 @@ export async function scrapeSingleUrl(
   const rawSong = adapter.extract(html, finalUrl)
 
   const sections = normalizeSongText(rawSong.content)
-  const key = rawSong.originalKey || inferKeyFromChords(sections)
+  const key = inferKeyFromChords(sections) ?? rawSong.originalKey ?? null
 
   let simplifiedSections: typeof sections | undefined
+  let simplifiedSource: 'official' | 'algorithmic' | undefined
+
   if (rawSong.simplifiedContent) {
     simplifiedSections = normalizeSongText(rawSong.simplifiedContent)
+    simplifiedSource = 'official'
   } else if (site === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
     // Check if ?simplified=1 returns simplified version
     try {
@@ -52,10 +56,23 @@ export async function scrapeSingleUrl(
         const simpRaw = adapter.extract(simpText, simplifiedUrl.toString())
         if (simpRaw.content && simpRaw.content !== rawSong.content) {
           simplifiedSections = normalizeSongText(simpRaw.content)
+          simplifiedSource = 'official'
         }
       }
     } catch {
       // ignore if simplified fetch fails or isn't available
+    }
+  }
+
+  // If no usable official simplified chart was obtained, generate algorithmic fallback
+  if (!simplifiedSections || simplifiedSections.length === 0) {
+    const { sections: fallbackSections, changedCount } = simplifySections(sections)
+    if (changedCount > 0) {
+      simplifiedSections = fallbackSections
+      simplifiedSource = 'algorithmic'
+    } else {
+      simplifiedSections = undefined
+      simplifiedSource = undefined
     }
   }
 
@@ -69,5 +86,6 @@ export async function scrapeSingleUrl(
     capo: rawSong.capo,
     sections,
     simplifiedSections,
+    simplifiedSource,
   }
 }

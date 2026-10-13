@@ -1,0 +1,13 @@
+[
+  {"type":"Intro","label":"Intro","chords":["Am","F","C","G","Am","F","C","G"]},
+  {"type":"Verse","label":"Verse 1","chords":["Am","F","C","G","Am","F","C","G"]},
+  {"type":"Chorus","label":"Chorus","chords":["F","C","Am","G","F","C","Am","G"]},
+  {"type":"Instrumental","label":"Interlude","chords":["Am","F","C","G"]},
+  {"type":"Verse","label":"Verse 2","chords":["Am","F","C","G","Am","F","C","G"]},
+  {"type":"Chorus","label":"Chorus","chords":["F","C","Am","G","F","C","Am","G","F","C","Am","G","F","C","Am","G"]},
+  {"type":"Instrumental","label":"Interlude","chords":["F","Am","C","G","F","Am","C","G"]},
+  {"type":"Bridge","label":"Bridge","chords":["F","Am","C","G","F","Am","C","G","F","Am","C","G","F","Am","C","G"]},
+  {"type":"Chorus","label":"Chorus","chords":["F","C","Am","G","F","C","Am","G"]},
+  {"type":"Bridge","label":"Bridge","chords":["F","Am","C","G","F","Am","C","G","F","Am","C","G"]},
+  {"type":"Outro","label":"Outro","chords":["F","Am","C","G","F","Am","C","G"]}
+]
