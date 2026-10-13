@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { scrapeSingleUrl, generateSongId } from './scraper.js'
 
 describe('generateSongId', () => {
@@ -177,3 +178,46 @@ Second line
   })
 })
 
+
+
+it('infers G for Heart of a Servant chart 1905600 despite C metadata', async () => {
+  // Actual chord sequence from the linked chart, including its final IV chord.
+  // Neutral lyric placeholders preserve the per-line annotations without copying lyrics.
+  const verse = 'C D Am G D G C D Am G D G'.split(' ')
+  const chorus = 'C C Am D D G C C Am Am D D G G C'.split(' ')
+  const annotate = (chords: string[]) => chords.map((chord, i) => `[ch]${chord}[/ch]\nLyric line ${i}`).join('\n')
+  const data = { store: { page: { data: {
+    tab: { song_name: 'Heart of a Servant', artist_name: 'City Harvest Church' },
+    tab_view: { meta: { tonality: 'C' }, wiki_tab: {
+      content: 'Verse\n' + annotate(verse) + '\n[Chorus]\n' + annotate(chorus),
+    } },
+  } } } }
+  const html = `<div class="js-store" data-content="${JSON.stringify(data).replace(/"/g, '&quot;')}"></div>`
+  const url = 'https://tabs.ultimate-guitar.com/tab/city-harvest-church/heart-of-a-servant-chords-1905600'
+  const fetcher = vi.fn().mockResolvedValue({ text: html, finalUrl: url })
+  const song = await scrapeSingleUrl(url, fetcher)
+  expect(song.originalKey).toBe('G')
+  expect(song.sections.map(section => section.type)).toEqual(['Verse', 'Chorus'])
+})
+
+
+it('infers C for Fresh Fire chart 5088748 rather than its first Am chord', async () => {
+  const chart: Array<{ label: string; chords: string[] }> = JSON.parse(
+    readFileSync(new URL('./__fixtures__/fresh-fire-5088748.json', import.meta.url), 'utf8'),
+  )
+  // Neutral placeholders keep the source's line structure without storing lyrics.
+  const content = chart.map(({ label, chords }, sectionIndex) => `[${label}]\n` +
+    chords.map((chord, chordIndex) => `[ch]${chord}[/ch]\nLyric line ${sectionIndex} ${chordIndex}`).join('\n'),
+  ).join('\n')
+  const data = { store: { page: { data: {
+    tab: { song_name: 'Fresh Fire', artist_name: 'The Belonging Co' },
+    tab_view: { meta: { tonality: 'Am' }, wiki_tab: { content } },
+  } } } }
+  const html = `<div class="js-store" data-content="${JSON.stringify(data).replace(/"/g, '&quot;')}"></div>`
+  const url = 'https://tabs.ultimate-guitar.com/tab/the-belonging-co/fresh-fire-chords-5088748'
+  const fetcher = vi.fn().mockResolvedValue({ text: html, finalUrl: url })
+  const song = await scrapeSingleUrl(url, fetcher)
+  expect(song.originalKey).toBe('C')
+  expect(song.sections[0].type).toBe('Intro')
+  expect(song.sections[0].lines[0].kind).toBe('lyric')
+})

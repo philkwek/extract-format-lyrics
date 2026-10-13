@@ -301,8 +301,8 @@ export function deduplicateSections(sections: Section[]): Section[] {
 }
 
 /**
- * Deterministic key detector using diatonic set intersection,
- * IV-V whole-step pairs, and relative minor disambiguation.
+ * Deterministic key detector ranking major/minor centers jointly from
+ * harmonic compatibility, section anchors, and observed resolutions.
  */
 export function inferKeyFromChords(sections: Section[]): string | null {
   const res = detectSongKeyFromSections(sections)

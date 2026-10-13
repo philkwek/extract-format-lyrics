@@ -1,5 +1,5 @@
-import { parseChord, noteToIndex } from './chords.js'
-import { classifyChordQuality, type SimplifiedChordQuality } from './simplifyChords.js'
+import { parseChord } from './chords.js'
+import { classifyChordQuality } from './simplifyChords.js'
 import { normalizeSongText, detectSectionHeader } from './normalizer.js'
 import type { Section } from './types.js'
 
@@ -12,9 +12,9 @@ export interface KeyDetectionResult {
   relativeMinor: string
   /** Formatted relative minor name, e.g. "C# minor" */
   formattedRelativeMinor: string
-  /** Confidence score between 0.0 and 1.0 */
+  /** Heuristic confidence, not a calibrated probability (0.0 to 1.0). */
   confidence: number
-  /** Ratio of detected unique chords that fit the diatonic key (0.0 to 1.0) */
+  /** Strict major/natural-minor triad fit; borrowed/altered chords are excluded. */
   diatonicFitRatio: number
   /** Distinct chords detected in the song */
   chordsDetected: string[]
@@ -39,351 +39,204 @@ function pitchClassToNoteName(pitchClass: number, preferFlats: boolean): string 
   return preferFlats ? FLAT_NOTE_NAMES[pc] : SHARP_NOTE_NAMES[pc]
 }
 
-interface DetectedChordOccurrence {
-  rawChord: string
+type DetectionQuality = 'major' | 'minor' | 'diminished' | 'augmented' | 'thirdless'
+interface Harmony {
   root: number
-  quality: SimplifiedChordQuality
-  sectionType: string
-  isFirstInSection: boolean
-  isLastInSection: boolean
-  isFirstInSong: boolean
-  isLastInSong: boolean
+  quality: DetectionQuality
+  dominantSeventh: boolean
+}
+interface DetectedChordOccurrence extends Harmony {
+  rawChord: string
+  rootName: string
+  sectionIndex: number
+  sectionWeight: number
 }
 
-/**
- * Diatonic degree definition relative to major tonic T (0-11):
- * [semitone offset from T, quality]
- */
-const MAJOR_DIATONIC_DEGREES: Array<[number, SimplifiedChordQuality]> = [
-  [0, 'major'], // I
-  [2, 'minor'], // ii
-  [4, 'minor'], // iii
-  [5, 'major'], // IV
-  [7, 'major'], // V
-  [9, 'minor'], // vi
-  [11, 'minor'], // vii° (treated as minor in simplified triads)
-]
-
-/**
- * Checks if a given chord (root pitch class and quality) is strictly diatonic in major key T.
- */
-function isDiatonicInMajorKey(root: number, quality: SimplifiedChordQuality, majorTonic: number): boolean {
-  return MAJOR_DIATONIC_DEGREES.some(
-    ([offset, degQuality]) => (majorTonic + offset) % 12 === root && quality === degQuality
-  )
+// Keep detection vocabulary separate from the user-facing chord simplifier.
+function detectionQuality(quality: string): DetectionQuality | null {
+  if (/^(?:dim|°|ø)/i.test(quality) || /^(?:m(?!aj)|min|-).*?(?:b5|♭5)/i.test(quality)) return 'diminished'
+  if (/^(?:aug|\+)/i.test(quality)) return 'augmented'
+  if (/sus|no3/i.test(quality) || quality === '5') return 'thirdless'
+  return classifyChordQuality(quality)
 }
 
-/**
- * Extracts and normalizes chord occurrences with section and positional context from Section[].
- */
 function extractChordOccurrences(sections: Section[]): DetectedChordOccurrence[] {
   const occurrences: DetectedChordOccurrence[] = []
-
-  for (const section of sections) {
-    const sectionChords: Array<{ raw: string; root: number; quality: SimplifiedChordQuality }> = []
-
+  sections.forEach((section, sectionIndex) => {
+    const sectionChords: DetectedChordOccurrence[] = []
     for (const line of section.lines) {
-      if (line.kind === 'lyric') {
-        for (const cp of line.chords) {
-          const parsed = parseChord(cp.chord)
-          if (!parsed) continue
-          const quality = classifyChordQuality(parsed.quality)
-          if (!quality) continue
-          sectionChords.push({ raw: cp.chord, root: parsed.root, quality })
-        }
-      } else if (line.kind === 'chords-only') {
-        for (const chordToken of line.chords) {
-          const parsed = parseChord(chordToken)
-          if (!parsed) continue
-          const quality = classifyChordQuality(parsed.quality)
-          if (!quality) continue
-          sectionChords.push({ raw: chordToken, root: parsed.root, quality })
-        }
+      const tokens = line.kind === 'lyric' ? line.chords.map(cp => cp.chord)
+        : line.kind === 'chords-only' ? line.chords : []
+      for (const token of tokens) {
+        const parsed = parseChord(token)
+        if (!parsed) continue
+        const quality = detectionQuality(parsed.quality)
+        if (!quality) continue
+        sectionChords.push({
+          rawChord: token, rootName: parsed.rootName, root: parsed.root, quality,
+          dominantSeventh: quality === 'major' && /^(?:7|9|11|13)(?!\d)/.test(parsed.quality),
+          sectionIndex,
+          // Pre-choruses are not chorus anchors. Intros/interludes provide
+          // less mode evidence than sung sections, especially in Axis loops.
+          sectionWeight: /^chorus(?:\b|$)/i.test(section.type.trim()) ? 2
+            : /^(?:intro|instrumental)$/i.test(section.type.trim()) ? 0.5 : 1,
+        })
       }
     }
-
-    const count = sectionChords.length
-    for (let i = 0; i < count; i++) {
-      const c = sectionChords[i]
-      occurrences.push({
-        rawChord: c.raw,
-        root: c.root,
-        quality: c.quality,
-        sectionType: section.type,
-        isFirstInSection: i === 0,
-        isLastInSection: i === count - 1,
-        isFirstInSong: occurrences.length === 0,
-        isLastInSong: false, // will update after full traversal
-      })
+    if (sectionChords.length) {
+      occurrences.push(...sectionChords)
     }
-  }
-
-  if (occurrences.length > 0) {
-    occurrences[occurrences.length - 1].isLastInSong = true
-  }
-
+  })
   return occurrences
 }
 
-/**
- * Determines the most likely musical key given structured Section[] data.
- */
+const MAJOR_DEGREES: Array<[number, DetectionQuality]> = [
+  [0, 'major'], [2, 'minor'], [4, 'minor'], [5, 'major'],
+  [7, 'major'], [9, 'minor'], [11, 'diminished'],
+]
+const MINOR_DEGREES: Array<[number, DetectionQuality]> = [
+  [0, 'minor'], [2, 'diminished'], [3, 'major'], [5, 'minor'],
+  [7, 'minor'], [8, 'major'], [10, 'major'],
+]
+const offsetFrom = (root: number, tonic: number) => (root - tonic + 12) % 12
+
+function strictFit(h: Harmony, tonic: number, minor: boolean): boolean {
+  const offset = offsetFrom(h.root, tonic)
+  // Diatonic triad fit, with the dominant seventh's lowered seventh checked too.
+  return (minor ? MINOR_DEGREES : MAJOR_DEGREES).some(([degree, quality]) =>
+    degree === offset && quality === h.quality && (!h.dominantSeventh || degree === (minor ? 10 : 7)))
+}
+
+function harmonicSupport(h: Harmony, tonic: number, minor: boolean): number {
+  if (strictFit(h, tonic, minor)) return 1
+  const offset = offsetFrom(h.root, tonic)
+  if (h.quality === 'thirdless') {
+    return (minor ? MINOR_DEGREES : MAJOR_DEGREES).some(([degree]) => degree === offset) ? 0.5 : 0
+  }
+  // Altered/borrowed support is deliberately distinct from strict diatonic fit.
+  if (minor && ((offset === 7 && h.quality === 'major') || (offset === 11 && h.quality === 'diminished'))) return 0.9
+  if (minor && offset === 5 && h.quality === 'major') return 0.5 // Dorian IV
+  if (!minor && ((offset === 10 && h.quality === 'major') || (offset === 5 && h.quality === 'minor'))) return 0.5
+  // A secondary dominant is plausible context, never proof of a minor tonic.
+  if (!minor && [2, 4, 9].includes(offset) && h.quality === 'major') return 0.2
+  return 0
+}
+
+interface KeyCandidate {
+  tonic: number
+  minor: boolean
+  score: number
+  fitRatio: number
+  support: number
+  strongResolution: boolean
+}
+
+function scoreCandidate(occurrences: DetectedChordOccurrence[], unique: Harmony[], tonic: number, minor: boolean): KeyCandidate {
+  const isTonic = (h: Harmony) => h.root === tonic && h.quality === (minor ? 'minor' : 'major')
+  const fitRatio = unique.filter(h => strictFit(h, tonic, minor)).length / unique.length
+  const support = unique.reduce((sum, h) => sum + harmonicSupport(h, tonic, minor), 0) / unique.length
+  let sectionEvidence = 0
+  let sectionWeight = 0
+  let strongResolution = false
+  const groups = new Map<number, DetectedChordOccurrence[]>()
+  for (const occ of occurrences) {
+    const group = groups.get(occ.sectionIndex) ?? []
+    group.push(occ)
+    groups.set(occ.sectionIndex, group)
+  }
+  for (const annotatedGroup of groups.values()) {
+    // Repeating the same chord above successive lyric lines is not a new
+    // harmonic event. Without duration data, don't let annotation density
+    // dilute resolutions or inflate tonic frequency.
+    const group = annotatedGroup.filter((chord, index) => {
+      const previous = annotatedGroup[index - 1]
+      return !previous || chord.root !== previous.root || chord.quality !== previous.quality
+        || chord.dominantSeventh !== previous.dominantSeventh
+    })
+    const weight = group[0].sectionWeight
+    const tonicCount = group.filter(isTonic).length
+    let cadenceTotal = 0
+    // Only observed transitions within a section; no invented wraparound cadence.
+    for (let i = 1; i < group.length; i++) {
+      const previous = group[i - 1]
+      if (!isTonic(group[i])) continue
+      const offset = offsetFrom(previous.root, tonic)
+      if (offset === 7 && previous.quality === 'major') {
+        const strong = previous.dominantSeventh || unique.length >= 3
+        cadenceTotal += previous.dominantSeventh ? 1.2 : strong ? 1 : 0.1
+        strongResolution ||= strong
+      } else if (offset === 11 && previous.quality === 'diminished') {
+        cadenceTotal += 1
+        strongResolution = true
+      } else if (offset === 7 && previous.quality === 'minor' && minor) {
+        cadenceTotal += 0.5
+      } else if (offset === 5 && previous.quality === (minor ? 'minor' : 'major')) {
+        // Plagal arrivals support a tonal center even without a leading tone.
+        // Keep them below authentic resolutions, but on par with minor v-i.
+        cadenceTotal += unique.length < 3 ? 0 : 0.5
+      } else if (offset === 10 && previous.quality === 'major') {
+        // Equally weak contextual evidence: bVII-i or Mixolydian bVII-I.
+        cadenceTotal += 0.25
+      }
+    }
+    const evidence = 0.6 * tonicCount / group.length
+      + (isTonic(group[0]) ? 0.65 : 0)
+      + (isTonic(group[group.length - 1]) ? (unique.length < 3 ? 0.3 : 0.65) : 0)
+      + Math.min(1.2, cadenceTotal / Math.max(1, group.length - 1) * 3)
+    sectionEvidence += weight * evidence
+    sectionWeight += weight
+  }
+  // Harmonic compatibility must outweigh several coincident section anchors:
+  // starting/ending on IV does not make it I when another key fits every chord.
+  const score = 8 * support + sectionEvidence / sectionWeight
+    + (unique.some(isTonic) ? 0.25 : 0)
+    + (isTonic(occurrences[0]) ? (unique.length < 3 ? 0.2 : 0.1) : 0)
+    + (isTonic(occurrences[occurrences.length - 1]) ? (unique.length < 3 ? 0.1 : 0.35) : 0)
+  return { tonic, minor, score, fitRatio, support, strongResolution }
+}
+
+/** Jointly ranks 24 tonal centers. Modal chords receive partial compatibility;
+ * the API still reports a major/minor key rather than a separate modal label. */
 export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResult | null {
   const occurrences = extractChordOccurrences(sections)
-  if (occurrences.length === 0) {
-    return null
-  }
-
-  // Deduplicate chords detected in the song
-  const rawChordsSeen = new Set<string>()
-  const distinctChords: string[] = []
-  const uniqueHarmonies = new Map<string, { root: number; quality: SimplifiedChordQuality }>()
-
-  let flatHintCount = 0
-  let sharpHintCount = 0
-
-  for (const occ of occurrences) {
-    if (!rawChordsSeen.has(occ.rawChord)) {
-      rawChordsSeen.add(occ.rawChord)
-      distinctChords.push(occ.rawChord)
-    }
-
-    if (occ.rawChord.includes('b') || occ.rawChord.includes('♭')) flatHintCount++
-    if (occ.rawChord.includes('#') || occ.rawChord.includes('♯')) sharpHintCount++
-
-    const keySig = `${occ.root}:${occ.quality}`
-    if (!uniqueHarmonies.has(keySig)) {
-      uniqueHarmonies.set(keySig, { root: occ.root, quality: occ.quality })
-    }
-  }
-
-  const uniqueList = Array.from(uniqueHarmonies.values())
-
-  // Whole-step major pair heuristic:
-  // If two major chords are separated by 2 semitones, they are strong candidates for IV and V.
-  // Candidate tonic I = (IV - 5 + 12) % 12
-  const wholeStepPairs: number[] = []
-  const majorRoots = new Set(uniqueList.filter((c) => c.quality === 'major').map((c) => c.root))
-
-  for (const root of majorRoots) {
-    const fifthCandidate = (root + 2) % 12
-    if (majorRoots.has(fifthCandidate)) {
-      // root is IV, fifthCandidate is V
-      const tonic = (root - 5 + 12) % 12
-      wholeStepPairs.push(tonic)
-    }
-  }
-
-  // Score all 12 major parent keys
-  interface ParentKeyCandidate {
-    tonic: number
-    fitRatio: number
-    score: number
-  }
-
-  const parentCandidates: ParentKeyCandidate[] = []
-
+  if (!occurrences.length) return null
+  const distinctChords = [...new Set(occurrences.map(o => o.rawChord))]
+  const unique = [...new Map(occurrences.map(o => [`${o.root}:${o.quality}:${o.dominantSeventh}`, o])).values()]
+  const candidates: KeyCandidate[] = []
   for (let tonic = 0; tonic < 12; tonic++) {
-    let diatonicMatches = 0
-
-    for (const h of uniqueList) {
-      if (isDiatonicInMajorKey(h.root, h.quality, tonic)) {
-        diatonicMatches++
-      } else {
-        // Allow harmonic minor V chord (major V in relative minor = tonic + 4)
-        if (h.root === (tonic + 4) % 12 && h.quality === 'major') {
-          diatonicMatches += 0.8
-        }
-      }
-    }
-
-    const fitRatio = Math.min(1.0, diatonicMatches / uniqueList.length)
-    let score = fitRatio * 4.0
-
-    // Whole-step IV-V heuristic bonus (key algorithmic core for identifying parent key)
-    if (wholeStepPairs.includes(tonic)) {
-      score += 1.5
-    }
-
-    // Confirmation if the major I tonic chord itself is present
-    if (uniqueList.some((h) => h.root === tonic && h.quality === 'major')) {
-      score += 0.5
-    }
-
-    // Positional and frequency evidence for candidate tonal center (major tonic or relative minor tonic)
-    const relMinor = (tonic + 9) % 12
-    const firstOcc = occurrences[0]
-    const lastOcc = occurrences[occurrences.length - 1]
-
-    if (firstOcc) {
-      if (firstOcc.root === tonic && firstOcc.quality === 'major') score += 0.3
-      else if (firstOcc.root === relMinor && firstOcc.quality === 'minor') score += 0.3
-    }
-
-    if (lastOcc) {
-      if (lastOcc.root === tonic && lastOcc.quality === 'major') score += 0.2
-      else if (lastOcc.root === relMinor && lastOcc.quality === 'minor') score += 0.2
-    }
-
-    // Section start frequency
-    const sectionStartCount = occurrences.filter(
-      (o) => o.isFirstInSection && ((o.root === tonic && o.quality === 'major') || (o.root === relMinor && o.quality === 'minor'))
-    ).length
-    score += Math.min(0.2, sectionStartCount * 0.1)
-
-    // Chorus start frequency
-    const chorusStartCount = occurrences.filter(
-      (o) => o.isFirstInSection && o.sectionType.toLowerCase().includes('chorus') && ((o.root === tonic && o.quality === 'major') || (o.root === relMinor && o.quality === 'minor'))
-    ).length
-    score += Math.min(0.2, chorusStartCount * 0.1)
-
-    // Overall tonic frequency
-    if (occurrences.length > 0) {
-      const tonicOccCount = occurrences.filter(
-        (o) => (o.root === tonic && o.quality === 'major') || (o.root === relMinor && o.quality === 'minor')
-      ).length
-      score += 0.2 * (tonicOccCount / occurrences.length)
-    }
-
-    parentCandidates.push({ tonic, fitRatio, score })
+    for (const minor of [false, true]) candidates.push(scoreCandidate(occurrences, unique, tonic, minor))
   }
-
-  parentCandidates.sort((a, b) => b.score - a.score)
-  const bestParent = parentCandidates[0]
-  const parentTonic = bestParent.tonic
-  const relativeMinorTonic = (parentTonic + 9) % 12
-
-  // Mode Disambiguation: Major (parentTonic) vs. Relative Minor (relativeMinorTonic)
-  let majorTonicScore = 0
-  let minorTonicScore = 0
-
-  const hasMajorTonic = uniqueList.some((h) => h.root === parentTonic && h.quality === 'major')
-  const hasMinorTonic = uniqueList.some((h) => h.root === relativeMinorTonic && h.quality === 'minor')
-
-  // Check if harmonic minor V chord is present (e.g. G# major for C#m, or E major for Am)
-  const harmonicMinorV = (relativeMinorTonic + 7) % 12
-  const hasHarmonicMinorV = uniqueList.some((h) => h.root === harmonicMinorV && h.quality === 'major')
-
-  // Check if primary major triads I, IV, V are all present
-  const hasIV = uniqueList.some((h) => h.root === (parentTonic + 5) % 12 && h.quality === 'major')
-  const hasV = uniqueList.some((h) => h.root === (parentTonic + 7) % 12 && h.quality === 'major')
-  const hasAllPrimaryMajor = hasMajorTonic && hasIV && hasV
-
-  // If major tonic is absent but minor tonic is present, minor has a strong head start
-  if (!hasMajorTonic && hasMinorTonic) {
-    minorTonicScore += 5.0
-  } else if (hasMajorTonic && !hasMinorTonic) {
-    majorTonicScore += 5.0
-  } else if (hasMajorTonic && hasMinorTonic) {
-    // When both are present, count major vs minor triads in the song
-    const majorCount = uniqueList.filter((h) => h.quality === 'major').length
-    const minorCount = uniqueList.filter((h) => h.quality === 'minor').length
-    if (majorCount > minorCount) {
-      majorTonicScore += 2.0
-    } else if (minorCount > majorCount) {
-      minorTonicScore += 2.0
-    }
-
-    if (hasAllPrimaryMajor) {
-      majorTonicScore += 5.0
-    }
-  }
-
-  if (hasHarmonicMinorV) {
-    minorTonicScore += 4.0
-  }
-
-  for (let i = 0; i < occurrences.length; i++) {
-    const occ = occurrences[i]
-    let weight = 1.0
-
-    // Chorus weighting
-    const isChorus = occ.sectionType.toLowerCase().includes('chorus')
-    if (isChorus) {
-      weight = 2.0
-    }
-
-    let chordScore = weight
-    if (occ.isFirstInSong) chordScore += 1.5
-    if (occ.isLastInSong) chordScore += 2.5
-    if (occ.isFirstInSection) chordScore += isChorus ? 3.5 : 1.0
-    if (occ.isLastInSection) chordScore += 1.0
-
-    // Cadence check
-    if (i > 0) {
-      const prev = occurrences[i - 1]
-      // Authentic Cadence in Major: V (parentTonic + 7) -> I (parentTonic)
-      if (prev.root === (parentTonic + 7) % 12 && prev.quality === 'major' && occ.root === parentTonic && occ.quality === 'major') {
-        majorTonicScore += 3.5 * weight
-      }
-      // Plagal Cadence in Major: IV (parentTonic + 5) -> I (parentTonic)
-      if (prev.root === (parentTonic + 5) % 12 && prev.quality === 'major' && occ.root === parentTonic && occ.quality === 'major') {
-        majorTonicScore += 2.5 * weight
-      }
-      // Authentic Cadence in Minor: Harmonic V -> i (relativeMinorTonic)
-      if (prev.root === harmonicMinorV && prev.quality === 'major' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
-        minorTonicScore += 4.0 * weight
-      }
-      // Natural minor cadence: v (minor) -> i (relativeMinorTonic)
-      if (prev.root === (relativeMinorTonic + 7) % 12 && prev.quality === 'minor' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
-        minorTonicScore += 2.5 * weight
-      }
-      // Subtonic bVII of Minor (parentTonic + 7, major) -> i (relativeMinorTonic)
-      // When hasAllPrimaryMajor is true, this is a deceptive cadence (V -> vi) in Major.
-      // Only treat as minor resolution when primary major triads are not all present.
-      if (prev.root === (parentTonic + 7) % 12 && prev.quality === 'major' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
-        if (!hasAllPrimaryMajor) {
-          minorTonicScore += 1.5 * weight
-        }
-      }
-    }
-
-    if (occ.root === parentTonic && occ.quality === 'major') {
-      majorTonicScore += chordScore
-    } else if (occ.root === relativeMinorTonic && occ.quality === 'minor') {
-      minorTonicScore += chordScore
-    }
-  }
-
-  // Decide mode: minor wins if its weighted score exceeds major
-  const isMinor = minorTonicScore > majorTonicScore
-  const chosenTonic = isMinor ? relativeMinorTonic : parentTonic
-
-  // Accidental preference (Flats vs Sharps)
-  const preferFlats = FLAT_MAJOR_ROOTS.has(parentTonic) || flatHintCount > sharpHintCount
-
+  // Explicit tie break: prefer major, then pitch class; tie confidence stays low.
+  candidates.sort((a, b) => b.score - a.score || Number(a.minor) - Number(b.minor) || a.tonic - b.tonic)
+  const best = candidates[0]
+  const parentTonic = best.minor ? (best.tonic + 3) % 12 : best.tonic
+  const minorTonic = (parentTonic + 9) % 12
+  // Root spelling only: b5/#11 and slash basses are not key-signature hints.
+  const roots = [...new Set(occurrences.map(o => o.rootName))]
+  const flatHints = roots.filter(root => /[b♭]/.test(root)).length
+  const sharpHints = roots.filter(root => /[#♯]/.test(root)).length
+  const preferFlats = parentTonic === 6 ? flatHints > sharpHints : FLAT_MAJOR_ROOTS.has(parentTonic)
   const majorName = pitchClassToNoteName(parentTonic, preferFlats)
-  const minorRootName = pitchClassToNoteName(relativeMinorTonic, preferFlats)
-  const minorName = `${minorRootName}m`
-
-  const conciseKey = isMinor ? minorName : majorName
-  const formattedKey = isMinor
-    ? `${minorRootName} minor`
-    : `${majorName} Major`
-  const relativeMinorFormatted = `${minorRootName} minor`
-
-  // Calculate confidence
-  const runnerUpScore = parentCandidates[1]?.score ?? 0
-  const scoreMargin = Math.max(0, bestParent.score - runnerUpScore)
-  const tonicPresent = occurrences.some((o) => o.root === chosenTonic)
-  const confidence = Math.min(
-    1.0,
-    Math.max(0.2, Number((0.5 * bestParent.fitRatio + 0.3 * Math.min(1.0, scoreMargin) + (tonicPresent ? 0.2 : 0.05)).toFixed(2)))
-  )
-
-  const diatonicFitRatio = Number(bestParent.fitRatio.toFixed(2))
-
+  // Gb's relative minor is Ebm; F#'s is D#m. Other conventional pairs follow the parent.
+  const minorName = `${pitchClassToNoteName(minorTonic, preferFlats)}m`
+  const key = best.minor ? minorName : majorName
+  const formattedKey = best.minor ? `${minorName.slice(0, -1)} minor` : `${majorName} Major`
+  const formattedRelativeMinor = `${minorName.slice(0, -1)} minor`
+  const margin = Math.max(0, best.score - candidates[1].score)
+  let confidence = 0.45 * best.support + 0.35 * Math.min(1, margin) + (best.strongResolution ? 0.2 : 0.05)
+  const relative = candidates.find(c => c.minor !== best.minor && c.tonic === (best.minor ? parentTonic : minorTonic))!
+  // A shared Axis collection cannot establish mode without melody/rhythm.
+  const hasRelativeTonic = unique.some(h => h.root === relative.tonic && h.quality === (relative.minor ? 'minor' : 'major'))
+  if (hasRelativeTonic && !best.strongResolution && Math.abs(best.support - relative.support) < 0.1) confidence = Math.min(confidence, 0.6)
+  if (!unique.some(h => h.root === best.tonic && h.quality === (best.minor ? 'minor' : 'major'))) confidence = Math.min(confidence, 0.4)
+  if (unique.length < 3) confidence = Math.min(confidence, 0.55)
+  if (unique.every(h => h.quality === 'thirdless')) confidence = Math.min(confidence, 0.35)
+  confidence = Number(Math.max(0, Math.min(1, confidence)).toFixed(2))
+  const diatonicFitRatio = Number(best.fitRatio.toFixed(2))
   return {
-    key: conciseKey,
-    formattedKey,
-    relativeMinor: minorName,
-    formattedRelativeMinor: relativeMinorFormatted,
-    confidence,
-    diatonicFitRatio,
-    chordsDetected: distinctChords,
-    // snake_case aliases
-    relative_minor: relativeMinorFormatted,
-    diatonic_fit_ratio: diatonicFitRatio,
+    key, formattedKey, relativeMinor: minorName, formattedRelativeMinor,
+    confidence, diatonicFitRatio, chordsDetected: distinctChords,
+    relative_minor: formattedRelativeMinor, diatonic_fit_ratio: diatonicFitRatio,
     chords_detected: distinctChords,
   }
 }
