@@ -45,8 +45,10 @@ export interface Song {
   originalKey: string | null
   capo?: number
   sections: Section[]
-  /** Optional simplified version if supported by source (e.g. Ultimate Guitar). */
+  /** Optional simplified version if supported by source (e.g. Ultimate Guitar) or auto fallback. */
   simplifiedSections?: Section[]
+  /** Source of simplifiedSections: 'official' (source-provided) or 'algorithmic' (auto fallback). */
+  simplifiedSource?: 'official' | 'algorithmic'
 }
 
 /** A song plus all per-set state needed to reproduce a shared set exactly. */

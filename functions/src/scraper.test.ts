@@ -44,9 +44,10 @@ Second line
     expect(song.sections.length).toBe(1)
     expect(song.sections[0].type).toBe('Verse')
     expect(song.simplifiedSections).toBeUndefined()
+    expect(song.simplifiedSource).toBeUndefined()
   })
 
-  it('fetches and attaches simplifiedSections when available on ultimate-guitar', async () => {
+  it('fetches and attaches simplifiedSections with source official when available on ultimate-guitar', async () => {
     const ugHtmlNormal = `
       <div class="js-store" data-content="${JSON.stringify({
         store: {
@@ -97,5 +98,54 @@ Second line
     expect(song.simplifiedSections).toBeDefined()
     expect(song.simplifiedSections?.length).toBe(1)
     expect(song.simplifiedSections?.[0].lines[0].chords?.[0].chord).toBe('G')
+    expect(song.simplifiedSource).toBe('official')
+  })
+
+  it('generates algorithmic fallback when site has no official simplified chart and chords can be simplified', async () => {
+    const mockHtml = `
+      <html>
+        <head><title>Complex Song - Worship Band</title></head>
+        <body>
+          <h1 class="page-title">Complex Song – Worship Band</h1>
+          <pre data-key="D">
+[Verse 1]
+Dsus4   Gadd9   D/F#
+Lift up your eyes
+Bm7b5   A7      Dsus2
+To the heavens
+          </pre>
+        </body>
+      </html>
+    `
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      text: mockHtml,
+      finalUrl: 'https://pnwchords.com/complex-song',
+    })
+
+    const song = await scrapeSingleUrl('https://pnwchords.com/complex-song', mockFetch as unknown as typeof safeFetchHtml)
+
+    expect(song.simplifiedSource).toBe('algorithmic')
+    expect(song.simplifiedSections).toBeDefined()
+    expect(song.simplifiedSections?.length).toBe(1)
+
+    const line0 = song.simplifiedSections?.[0].lines[0]
+    expect(line0?.kind).toBe('lyric')
+    if (line0?.kind === 'lyric') {
+      expect(line0.chords.map((c) => c.chord)).toEqual(['D', 'G', 'D'])
+    }
+
+    const line1 = song.simplifiedSections?.[0].lines[1]
+    expect(line1?.kind).toBe('lyric')
+    if (line1?.kind === 'lyric') {
+      expect(line1.chords.map((c) => c.chord)).toEqual(['Bm', 'A', 'D'])
+    }
+
+    // Original sections remain untouched
+    const origLine0 = song.sections[0].lines[0]
+    if (origLine0.kind === 'lyric') {
+      expect(origLine0.chords.map((c) => c.chord)).toEqual(['Dsus4', 'Gadd9', 'D/F#'])
+    }
   })
 })
+
