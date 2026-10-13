@@ -152,4 +152,35 @@ That [D]saved a wretch like [G]me
     expect(res).not.toBeNull()
     expect(res?.key).toBe('G')
   })
+
+  it('correctly detects G major for songs starting on C (IV) with C D Am G chords', () => {
+    const sheet = `
+[Verse]
+C
+Standing in awe of your grace
+D
+Setting my feet in your ways
+Am                  G
+Entering into your presence
+D                   G
+To behold you face to face
+
+[Chorus]
+C
+My Jesus, my lord
+Am
+Wherever you go
+D
+No longer I
+G
+Serving you for all eternity
+C
+I'll follow you
+`
+    const res = detectSongKey(sheet)
+    expect(res).not.toBeNull()
+    expect(res?.key).toBe('G')
+    expect(res?.formattedKey).toBe('G Major')
+    expect(res?.diatonicFitRatio).toBe(1.0)
+  })
 })

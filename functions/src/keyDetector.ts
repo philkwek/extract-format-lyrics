@@ -198,16 +198,16 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
     }
 
     const fitRatio = Math.min(1.0, diatonicMatches / uniqueList.length)
-    let score = fitRatio
+    let score = fitRatio * 4.0
 
-    // Whole-step IV-V heuristic bonus
+    // Whole-step IV-V heuristic bonus (key algorithmic core for identifying parent key)
     if (wholeStepPairs.includes(tonic)) {
-      score += 0.4
+      score += 1.5
     }
 
     // Confirmation if the major I tonic chord itself is present
     if (uniqueList.some((h) => h.root === tonic && h.quality === 'major')) {
-      score += 0.2
+      score += 0.5
     }
 
     // Positional and frequency evidence for candidate tonal center (major tonic or relative minor tonic)
@@ -216,8 +216,8 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
     const lastOcc = occurrences[occurrences.length - 1]
 
     if (firstOcc) {
-      if (firstOcc.root === tonic && firstOcc.quality === 'major') score += 0.25
-      else if (firstOcc.root === relMinor && firstOcc.quality === 'minor') score += 0.25
+      if (firstOcc.root === tonic && firstOcc.quality === 'major') score += 0.3
+      else if (firstOcc.root === relMinor && firstOcc.quality === 'minor') score += 0.3
     }
 
     if (lastOcc) {
@@ -242,7 +242,7 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
       const tonicOccCount = occurrences.filter(
         (o) => (o.root === tonic && o.quality === 'major') || (o.root === relMinor && o.quality === 'minor')
       ).length
-      score += 0.15 * (tonicOccCount / occurrences.length)
+      score += 0.2 * (tonicOccCount / occurrences.length)
     }
 
     parentCandidates.push({ tonic, fitRatio, score })
