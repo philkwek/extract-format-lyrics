@@ -1,5 +1,6 @@
 import type { Section, SectionType, Line, ChordPlacement } from './types.js'
 import { isChord, isChordLine } from './chords.js'
+import { detectSongKeyFromSections } from './keyDetector.js'
 
 const SECTION_HEADER_PATTERNS: Array<{ regex: RegExp; type: SectionType }> = [
   { regex: /^\s*\[?(?:intro)(?:[\s:\]]|$)/i, type: 'Intro' },
@@ -300,64 +301,10 @@ export function deduplicateSections(sections: Section[]): Section[] {
 }
 
 /**
- * Heuristic key detector when metadata key is not present.
+ * Deterministic key detector using diatonic set intersection,
+ * IV-V whole-step pairs, and relative minor disambiguation.
  */
 export function inferKeyFromChords(sections: Section[]): string | null {
-  const chordSet: string[] = []
-  let firstChord: string | null = null
-  let lastChord: string | null = null
-
-  for (const s of sections) {
-    for (const l of s.lines) {
-      if (l.kind === 'lyric') {
-        for (const c of l.chords) {
-          if (!firstChord) firstChord = c.chord
-          lastChord = c.chord
-          chordSet.push(c.chord)
-        }
-      } else if (l.kind === 'chords-only') {
-        for (const c of l.chords) {
-          if (!firstChord) firstChord = c
-          lastChord = c
-          chordSet.push(c)
-        }
-      }
-    }
-  }
-
-  if (chordSet.length === 0) return null
-
-  // Tally root notes
-  const counts = new Map<string, number>()
-  for (const chord of chordSet) {
-    const root = chord.match(/^[A-G][#b]?/)?.[0]
-    if (root) {
-      counts.set(root, (counts.get(root) || 0) + 1)
-    }
-  }
-
-  // Bonus for first and last chords (often the tonic in pop/rock/worship music)
-  const firstRoot = firstChord?.match(/^[A-G][#b]?/)?.[0]
-  const lastRoot = lastChord?.match(/^[A-G][#b]?/)?.[0]
-
-  let bestKey: string | null = null
-  let bestScore = -1
-
-  for (const [root, count] of counts.entries()) {
-    let score = count
-    if (root === firstRoot) score += 3
-    if (root === lastRoot) score += 4
-    if (score > bestScore) {
-      bestScore = score
-      bestKey = root
-    }
-  }
-
-  // Check if root is predominantly minor
-  if (bestKey) {
-    const isMinor = chordSet.some((c) => c.startsWith(`${bestKey}m`) && !c.startsWith(`${bestKey}maj`))
-    return isMinor ? `${bestKey}m` : bestKey
-  }
-
-  return null
+  const res = detectSongKeyFromSections(sections)
+  return res ? res.key : null
 }

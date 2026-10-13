@@ -38,7 +38,7 @@ export async function scrapeSingleUrl(
   const rawSong = adapter.extract(html, finalUrl)
 
   const sections = normalizeSongText(rawSong.content)
-  const key = rawSong.originalKey || inferKeyFromChords(sections)
+  const key = inferKeyFromChords(sections) ?? rawSong.originalKey ?? null
 
   let simplifiedSections: typeof sections | undefined
   let simplifiedSource: 'official' | 'algorithmic' | undefined

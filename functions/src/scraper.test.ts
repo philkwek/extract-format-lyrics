@@ -147,5 +147,33 @@ To the heavens
       expect(origLine0.chords.map((c) => c.chord)).toEqual(['Dsus4', 'Gadd9', 'D/F#'])
     }
   })
+
+  it('determines originalKey from chords when scraped metadata key is incorrect', async () => {
+    const mockHtml = `
+      <html>
+        <head><title>Wrong Key Song - Artist</title></head>
+        <body>
+          <h1 class="page-title">Wrong Key Song – Artist</h1>
+          <pre data-key="C">
+[Verse 1]
+D       G
+Line of music
+A       D
+Second line
+          </pre>
+        </body>
+      </html>
+    `
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      text: mockHtml,
+      finalUrl: 'https://pnwchords.com/wrong-key-song',
+    })
+
+    const song = await scrapeSingleUrl('https://pnwchords.com/wrong-key-song', mockFetch as unknown as typeof safeFetchHtml)
+
+    // Even though data-key was "C", chord detection correctly infers "D"
+    expect(song.originalKey).toBe('D')
+  })
 })
 
