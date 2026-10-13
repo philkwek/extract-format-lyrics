@@ -183,4 +183,32 @@ I'll follow you
     expect(res?.formattedKey).toBe('G Major')
     expect(res?.diatonicFitRatio).toBe(1.0)
   })
+
+  it('correctly detects E major for songs with C#m A E B progression when Chorus anchors on E', () => {
+    const sheet = `
+[Verse 1]
+C#m    A    E    B
+When life is heavy and my strength is faint
+C#m    A
+There's beauty for ashes
+E    B
+There's joy in my pain
+
+[Chorus]
+E           C#m
+We are wrapped in resurrection
+B           A
+You have clothed us in Your glory
+E           C#m
+Now our hearts are no longer wandering
+B
+You've become our sanctuary
+`
+    const res = detectSongKey(sheet)
+    expect(res).not.toBeNull()
+    expect(res?.key).toBe('E')
+    expect(res?.formattedKey).toBe('E Major')
+    expect(res?.relative_minor).toBe('C# minor')
+    expect(res?.diatonicFitRatio).toBe(1.0)
+  })
 })

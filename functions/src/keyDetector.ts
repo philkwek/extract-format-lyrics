@@ -285,7 +285,7 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
     }
 
     if (hasAllPrimaryMajor) {
-      majorTonicScore += 3.0
+      majorTonicScore += 5.0
     }
   }
 
@@ -298,30 +298,43 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
     let weight = 1.0
 
     // Chorus weighting
-    if (occ.sectionType.toLowerCase().includes('chorus')) {
+    const isChorus = occ.sectionType.toLowerCase().includes('chorus')
+    if (isChorus) {
       weight = 2.0
     }
 
     let chordScore = weight
     if (occ.isFirstInSong) chordScore += 1.5
     if (occ.isLastInSong) chordScore += 2.5
-    if (occ.isFirstInSection) chordScore += 1.0
+    if (occ.isFirstInSection) chordScore += isChorus ? 3.5 : 1.0
     if (occ.isLastInSection) chordScore += 1.0
 
-    // Cadence check: V -> I authentic resolution
+    // Cadence check
     if (i > 0) {
       const prev = occurrences[i - 1]
-      // V of Major (parentTonic + 7) -> I (parentTonic)
+      // Authentic Cadence in Major: V (parentTonic + 7) -> I (parentTonic)
       if (prev.root === (parentTonic + 7) % 12 && prev.quality === 'major' && occ.root === parentTonic && occ.quality === 'major') {
-        majorTonicScore += 3.0 * weight
+        majorTonicScore += 3.5 * weight
       }
-      // V of Minor (harmonic or natural) -> i (relativeMinorTonic)
-      if (prev.root === harmonicMinorV && occ.root === relativeMinorTonic && occ.quality === 'minor') {
-        minorTonicScore += 3.5 * weight
+      // Plagal Cadence in Major: IV (parentTonic + 5) -> I (parentTonic)
+      if (prev.root === (parentTonic + 5) % 12 && prev.quality === 'major' && occ.root === parentTonic && occ.quality === 'major') {
+        majorTonicScore += 2.5 * weight
       }
-      // VII of Minor (parentTonic + 7, major) -> i (relativeMinorTonic)
-      if (prev.root === (parentTonic + 7) % 12 && occ.root === relativeMinorTonic && occ.quality === 'minor') {
-        minorTonicScore += 2.0 * weight
+      // Authentic Cadence in Minor: Harmonic V -> i (relativeMinorTonic)
+      if (prev.root === harmonicMinorV && prev.quality === 'major' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
+        minorTonicScore += 4.0 * weight
+      }
+      // Natural minor cadence: v (minor) -> i (relativeMinorTonic)
+      if (prev.root === (relativeMinorTonic + 7) % 12 && prev.quality === 'minor' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
+        minorTonicScore += 2.5 * weight
+      }
+      // Subtonic bVII of Minor (parentTonic + 7, major) -> i (relativeMinorTonic)
+      // When hasAllPrimaryMajor is true, this is a deceptive cadence (V -> vi) in Major.
+      // Only treat as minor resolution when primary major triads are not all present.
+      if (prev.root === (parentTonic + 7) % 12 && prev.quality === 'major' && occ.root === relativeMinorTonic && occ.quality === 'minor') {
+        if (!hasAllPrimaryMajor) {
+          minorTonicScore += 1.5 * weight
+        }
       }
     }
 
