@@ -31,4 +31,44 @@ describe('shared set snapshots', () => {
     }
     await expect(createSharedSetSnapshot(session, async () => sourceSong)).rejects.toThrow('limit of 15 songs')
   })
+
+  it('preserves algorithmic simplifiedSource, fallback sections, and custom edits in snapshot', async () => {
+    const algorithmicSong: Song = {
+      id: 'song-algo',
+      title: 'Algo Song',
+      artist: 'Artist',
+      sourceUrl: 'https://example.test/algo',
+      sourceSite: 'test',
+      originalKey: 'G',
+      sections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'Gmaj7' }] }] }],
+      simplifiedSections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'G' }] }] }],
+      simplifiedSource: 'algorithmic',
+    }
+
+    const session: Session = {
+      id: 'session-algo',
+      createdAt: 1,
+      name: 'Praise',
+      songs: [
+        {
+          entryId: 'entry-1',
+          url: algorithmicSong.sourceUrl,
+          status: 'ok',
+          simplified: true,
+          customSimplifiedSections: [{ type: 'Verse', label: 'Custom Simple', lines: [] }],
+        },
+      ],
+    }
+
+    const snapshot = await createSharedSetSnapshot(session, async () => algorithmicSong)
+    expect(snapshot.songs[0].song.simplifiedSource).toBe('algorithmic')
+    expect(snapshot.songs[0].song.simplifiedSections).toEqual(algorithmicSong.simplifiedSections)
+    expect(snapshot.songs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+    expect(snapshot.songs[0].simplified).toBe(true)
+
+    const restoredSongs = sessionSongsFromSnapshot(snapshot)
+    expect(restoredSongs[0].simplified).toBe(true)
+    expect(restoredSongs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+  })
 })
+

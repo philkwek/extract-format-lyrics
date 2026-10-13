@@ -6,6 +6,7 @@ interface DisplayControlsProps {
   prefs: SongDisplayPrefs
   onChangePrefs: (newPrefs: SongDisplayPrefs) => void
   canSimplify?: boolean
+  simplifiedSource?: 'official' | 'algorithmic'
   onRestoreOriginal?: () => void
   isEditingChords?: boolean
   onToggleEditChords?: () => void
@@ -16,6 +17,7 @@ export default function DisplayControls({
   prefs,
   onChangePrefs,
   canSimplify,
+  simplifiedSource,
   onRestoreOriginal,
   isEditingChords,
   onToggleEditChords,
@@ -64,14 +66,26 @@ export default function DisplayControls({
 
         <div className="grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0">
           {canSimplify && (
-            <Button
-              size="sm"
-              variant={prefs.simplified ? 'primary' : 'secondary'}
-              icon={<WandSparkles size={14} />}
-              onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
-            >
-              {prefs.simplified ? 'Simplified' : 'Simplify'}
-            </Button>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <Button
+                size="sm"
+                variant={prefs.simplified ? 'primary' : 'secondary'}
+                icon={<WandSparkles size={14} />}
+                onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
+                className="flex-1 sm:flex-initial sm:w-auto"
+              >
+                {prefs.simplified ? 'Simplified' : 'Simplify'}
+              </Button>
+              {prefs.simplified && simplifiedSource === 'algorithmic' && (
+                <span
+                  title="Extra chord notes removed. Some chords may sound different."
+                  aria-label="Extra chord notes removed. Some chords may sound different."
+                  className="inline-flex shrink-0 items-center rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-text-muted)] select-none"
+                >
+                  Auto
+                </span>
+              )}
+            </div>
           )}
           {onToggleEditChords && (
             <Button
