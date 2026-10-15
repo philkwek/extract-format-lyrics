@@ -121,6 +121,49 @@ export async function getShareApi(id: string): Promise<import('../types/song').S
   return data.snapshot
 }
 
+export interface PutSharedLyricsResult {
+  id: string
+  expiresAt: string
+}
+
+export interface GetSharedLyricsResult {
+  id: string
+  lyrics: import('../types/song').SharedLyricsPayload
+  expiresAt: string
+}
+
+export async function putSharedLyricsApi(
+  id: string,
+  secret: string,
+  payload: import('../types/song').SharedLyricsPayload
+): Promise<PutSharedLyricsResult> {
+  const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ payload }),
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as PutSharedLyricsResult
+}
+
+export async function getSharedLyricsApi(id: string): Promise<GetSharedLyricsResult> {
+  const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}`, {
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as GetSharedLyricsResult
+}
+
+
 export interface ExtractSongsResponse {
   songs: Song[]
 }
