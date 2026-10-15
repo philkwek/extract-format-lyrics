@@ -5,10 +5,10 @@ import {
   getLyricsPublicationIdentity,
   getOrCreateLyricsPublicationIdentity,
   publishLyricsForSession,
-  recordLyricsPublicationSuccess,
   withLyricsPublicationLock,
   deleteLyricsPublicationIdentity,
 } from './lyricsPublishIdentity'
+
 import type { SharedLyricsPayload } from '../types/song'
 
 const mockPayload: SharedLyricsPayload = {

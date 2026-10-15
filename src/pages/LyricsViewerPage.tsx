@@ -18,65 +18,108 @@ export default function LyricsViewerPage() {
   const activeTabRef = useRef<HTMLButtonElement | null>(null)
   const contentContainerRef = useRef<HTMLDivElement | null>(null)
 
-  const fetchLyrics = useCallback(async (isRefresh = false) => {
-    if (!shortId) {
-      setStatusKind('missing')
-      setLoading(false)
-      return
-    }
-
-    if (!isRefresh) {
-      setLoading(true)
-    }
-    setError(null)
-
-    try {
-      const result = await getSharedLyricsApi(shortId)
-      setLyricsData(result)
-      setStatusKind('ok')
-      setLoading(false)
-
-      // Ensure active song selection
-      setSelectedEntryId((prev) => {
-        if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
-          return prev
+  const refreshLyrics = useCallback(
+    async (showLoadingSpinner = false) => {
+      if (!shortId) return
+      if (showLoadingSpinner) {
+        setLoading(true)
+      }
+      setError(null)
+      try {
+        const result = await getSharedLyricsApi(shortId)
+        setLyricsData(result)
+        setStatusKind('ok')
+        setSelectedEntryId((prev) => {
+          if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
+            return prev
+          }
+          return result.lyrics.songs[0]?.entryId || null
+        })
+      } catch (err) {
+        if (err instanceof ShareApiError) {
+          if (err.code === 'EXPIRED' || err.status === 410) {
+            setStatusKind('expired')
+            return
+          }
+          if (err.code === 'NOT_FOUND' || err.status === 404) {
+            setStatusKind('missing')
+            return
+          }
         }
-        return result.lyrics.songs[0]?.entryId || null
-      })
-    } catch (err) {
-      setLoading(false)
-      if (err instanceof ShareApiError) {
-        if (err.code === 'EXPIRED' || err.status === 410) {
-          setStatusKind('expired')
-          return
-        }
-        if (err.code === 'NOT_FOUND' || err.status === 404) {
-          setStatusKind('missing')
-          return
+        setError((err as Error).message || 'Failed to load lyrics')
+        setStatusKind('error')
+      } finally {
+        if (showLoadingSpinner) {
+          setLoading(false)
         }
       }
-      setError((err as Error).message || 'Failed to load lyrics')
-      setStatusKind('error')
-    }
-  }, [shortId])
+    },
+    [shortId]
+  )
 
   // Initial load
   useEffect(() => {
-    fetchLyrics(false)
-  }, [fetchLyrics])
+    let isCancelled = false
+
+    async function load() {
+      if (!shortId) {
+        if (!isCancelled) {
+          setStatusKind('missing')
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const result = await getSharedLyricsApi(shortId)
+        if (isCancelled) return
+        setLyricsData(result)
+        setStatusKind('ok')
+        setSelectedEntryId(result.lyrics.songs[0]?.entryId || null)
+      } catch (err) {
+        if (isCancelled) return
+        if (err instanceof ShareApiError) {
+          if (err.code === 'EXPIRED' || err.status === 410) {
+            setStatusKind('expired')
+            setLoading(false)
+            return
+          }
+          if (err.code === 'NOT_FOUND' || err.status === 404) {
+            setStatusKind('missing')
+            setLoading(false)
+            return
+          }
+        }
+        setError((err as Error).message || 'Failed to load lyrics')
+        setStatusKind('error')
+      } finally {
+        if (!isCancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [shortId])
 
   // Refresh when returning to the browser tab
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchLyrics(true)
+        void refreshLyrics(false)
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [fetchLyrics])
+  }, [refreshLyrics])
+
+
 
   // Keep selected tab in view when active song changes
   useEffect(() => {
@@ -201,7 +244,7 @@ export default function LyricsViewerPage() {
             <Button variant="secondary" onClick={() => navigate('/')}>
               Home
             </Button>
-            <Button variant="primary" icon={<RefreshCw size={15} />} onClick={() => fetchLyrics(false)}>
+            <Button variant="primary" icon={<RefreshCw size={15} />} onClick={() => refreshLyrics(true)}>
               Try again
             </Button>
           </div>
@@ -229,12 +272,14 @@ export default function LyricsViewerPage() {
           size="sm"
           variant="ghost"
           icon={<RotateCcw size={14} />}
-          onClick={() => fetchLyrics(true)}
+          onClick={() => refreshLyrics(false)}
           title="Refresh lyrics"
         >
           <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
+
+
 
       {/* Sticky, Horizontally Scrollable Song Tabs */}
       {songs.length > 0 && (

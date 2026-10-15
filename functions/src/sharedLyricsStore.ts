@@ -82,10 +82,17 @@ export function isLyricsExpired(expiresAt: Date | null, now: Date): boolean {
 }
 
 export class SharedLyricsStore {
+  private readonly db: Firestore
+  private readonly now: () => Date
+
   constructor(
-    private readonly db: Firestore = database(),
-    private readonly now: () => Date = () => new Date()
-  ) {}
+    db: Firestore = database(),
+    now: () => Date = () => new Date()
+  ) {
+    this.db = db
+    this.now = now
+  }
+
 
   private generateRev(): string {
     return crypto.randomBytes(16).toString('hex')
@@ -194,13 +201,14 @@ export class SharedLyricsStore {
           entryId: String(songData.entryId || ''),
           title: String(songData.title || ''),
           sections: Array.isArray(songData.sections)
-            ? songData.sections.map((s: any) => ({
+            ? (songData.sections as Record<string, unknown>[]).map((s) => ({
                 label: String(s.label || ''),
-                lines: Array.isArray(s.lines) ? s.lines.map((l: any) => String(l)) : [],
+                lines: Array.isArray(s.lines) ? (s.lines as unknown[]).map((l) => String(l)) : [],
               }))
             : [],
         }
       })
+
 
       const lyrics: SharedLyricsPayload = {
         v: 1,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Firestore } from 'firebase-admin/firestore'
 import {
   derivePublicationId,
   isLyricsExpired,
@@ -9,11 +10,16 @@ import {
 } from './sharedLyricsStore.js'
 import type { SharedLyricsPayload } from './types.js'
 
+interface MockDocSnapshot {
+  exists: boolean
+  data: () => Record<string, unknown> | undefined
+}
+
 // In-memory Firestore mock for isolated store unit tests
 class MockDocRef {
   constructor(
     public readonly id: string,
-    private readonly store: Map<string, any>,
+    private readonly store: Map<string, Record<string, unknown>>,
     public readonly path: string
   ) {}
 
@@ -21,7 +27,7 @@ class MockDocRef {
     return new MockCollectionRef(this.store, `${this.path}/${name}`)
   }
 
-  async get() {
+  async get(): Promise<MockDocSnapshot> {
     const data = this.store.get(this.path)
     return {
       exists: data !== undefined,
@@ -32,7 +38,7 @@ class MockDocRef {
 
 class MockCollectionRef {
   constructor(
-    private readonly store: Map<string, any>,
+    private readonly store: Map<string, Record<string, unknown>>,
     public readonly path: string
   ) {}
 
@@ -41,13 +47,13 @@ class MockCollectionRef {
     return new MockDocRef(docId, this.store, `${this.path}/${docId}`)
   }
 
-  orderBy(_field: string) {
+  orderBy() {
     return this
   }
 
   async get() {
     const prefix = `${this.path}/`
-    const docs: any[] = []
+    const docs: Array<{ id: string; data: () => Record<string, unknown> }> = []
     for (const [key, value] of this.store.entries()) {
       if (key.startsWith(prefix)) {
         const subpath = key.slice(prefix.length)
@@ -59,24 +65,29 @@ class MockCollectionRef {
         }
       }
     }
-    // Sort by id or index if present
-    docs.sort((a, b) => (a.data().index ?? 0) - (b.data().index ?? 0))
+    docs.sort((a, b) => (Number(a.data().index) || 0) - (Number(b.data().index) || 0))
     return { docs }
   }
 }
 
+interface MockTransaction {
+  get: (ref: MockDocRef) => Promise<MockDocSnapshot>
+  set: (ref: MockDocRef, docData: Record<string, unknown>) => void
+  delete: (ref: MockDocRef) => void
+}
+
 class MockFirestore {
-  public readonly data = new Map<string, any>()
+  public readonly data = new Map<string, Record<string, unknown>>()
 
   collection(name: string): MockCollectionRef {
     return new MockCollectionRef(this.data, name)
   }
 
-  async runTransaction(updateFunction: (transaction: any) => Promise<any>): Promise<any> {
-    const staging = new Map<string, any>()
+  async runTransaction<T>(updateFunction: (transaction: MockTransaction) => Promise<T>): Promise<T> {
+    const staging = new Map<string, Record<string, unknown>>()
     const deletions = new Set<string>()
 
-    const transaction = {
+    const transaction: MockTransaction = {
       get: async (ref: MockDocRef) => {
         if (deletions.has(ref.path)) return { exists: false, data: () => undefined }
         const current = staging.has(ref.path) ? staging.get(ref.path) : this.data.get(ref.path)
@@ -85,7 +96,7 @@ class MockFirestore {
           data: () => current,
         }
       },
-      set: (ref: MockDocRef, docData: any) => {
+      set: (ref: MockDocRef, docData: Record<string, unknown>) => {
         deletions.delete(ref.path)
         staging.set(ref.path, docData)
       },
@@ -96,7 +107,6 @@ class MockFirestore {
     }
 
     const result = await updateFunction(transaction)
-    // Commit
     for (const path of deletions) {
       this.data.delete(path)
     }
@@ -163,7 +173,7 @@ describe('shared lyrics store and validation', () => {
   it('performs ordered retrieval and persists only chord-free whitelisted fields', async () => {
     const mockDb = new MockFirestore()
     const now = new Date('2026-10-15T10:00:00.000Z')
-    const store = new SharedLyricsStore(mockDb as any, () => now)
+    const store = new SharedLyricsStore(mockDb as unknown as Firestore, () => now)
 
     const secret = 'secret-123'
     const id = derivePublicationId(secret)
@@ -189,27 +199,31 @@ describe('shared lyrics store and validation', () => {
       ],
     }
 
-    const { id: pubId, expiresAt } = await store.publish(id, payloadWithJunk as any)
+    const { id: pubId, expiresAt } = await store.publish(
+      id,
+      payloadWithJunk as unknown as SharedLyricsPayload
+    )
     expect(pubId).toBe(id)
     expect(expiresAt.getTime()).toBe(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
     // Check stored root document
     const rootDoc = mockDb.data.get(`sharedLyrics/${id}`)
-    expect(rootDoc.v).toBe(1)
-    expect(rootDoc.name).toBe('Sunday Morning')
-    expect(rootDoc.songCount).toBe(1)
-    expect(rootDoc.extraRootField).toBeUndefined()
+    expect(rootDoc?.v).toBe(1)
+    expect(rootDoc?.name).toBe('Sunday Morning')
+    expect(rootDoc?.songCount).toBe(1)
+    expect(rootDoc?.extraRootField).toBeUndefined()
 
     // Check stored song document
     const songDoc = mockDb.data.get(`sharedLyrics/${id}/songs/00`)
-    expect(songDoc.index).toBe(0)
-    expect(songDoc.entryId).toBe('entry-1')
-    expect(songDoc.title).toBe('First Song')
-    expect(songDoc.chords).toBeUndefined()
-    expect(songDoc.key).toBeUndefined()
-    expect(songDoc.url).toBeUndefined()
-    expect(songDoc.sections[0].chordPlacements).toBeUndefined()
-    expect(songDoc.sections[0].lines).toEqual(['Line 1', 'Line 2'])
+    expect(songDoc?.index).toBe(0)
+    expect(songDoc?.entryId).toBe('entry-1')
+    expect(songDoc?.title).toBe('First Song')
+    expect(songDoc?.chords).toBeUndefined()
+    expect(songDoc?.key).toBeUndefined()
+    expect(songDoc?.url).toBeUndefined()
+    const sec0 = (songDoc?.sections as Record<string, unknown>[])[0]
+    expect(sec0.chordPlacements).toBeUndefined()
+    expect(sec0.lines).toEqual(['Line 1', 'Line 2'])
 
     // Retrieve via store
     const lookup = await store.get(id)
@@ -226,7 +240,7 @@ describe('shared lyrics store and validation', () => {
   it('handles shrinking sets by deleting obsolete song documents atomically', async () => {
     const mockDb = new MockFirestore()
     const now = new Date('2026-10-15T10:00:00.000Z')
-    const store = new SharedLyricsStore(mockDb as any, () => now)
+    const store = new SharedLyricsStore(mockDb as unknown as Firestore, () => now)
     const id = 'test-publication-shrink'
 
     // Initial publish: 2 songs
@@ -242,7 +256,7 @@ describe('shared lyrics store and validation', () => {
     }
     await store.publish(id, shrunkPayload)
 
-    expect(mockDb.data.get(`sharedLyrics/${id}`).songCount).toBe(1)
+    expect(mockDb.data.get(`sharedLyrics/${id}`)?.songCount).toBe(1)
     expect(mockDb.data.has(`sharedLyrics/${id}/songs/00`)).toBe(true)
     // Obsolete document at 01 must be deleted!
     expect(mockDb.data.has(`sharedLyrics/${id}/songs/01`)).toBe(false)
@@ -258,7 +272,7 @@ describe('shared lyrics store and validation', () => {
 
   it('handles atomic failures without persisting partial updates', async () => {
     const mockDb = new MockFirestore()
-    const store = new SharedLyricsStore(mockDb as any)
+    const store = new SharedLyricsStore(mockDb as unknown as Firestore)
     const id = 'atomic-fail-test'
 
     // Publish initial valid data
@@ -272,7 +286,7 @@ describe('shared lyrics store and validation', () => {
         throw new Error('Database transaction abort')
       },
     }
-    const failingStore = new SharedLyricsStore(failingDb as any)
+    const failingStore = new SharedLyricsStore(failingDb as unknown as Firestore)
 
     await expect(failingStore.publish(id, validPayload)).rejects.toThrow('Database transaction abort')
   })
@@ -280,7 +294,7 @@ describe('shared lyrics store and validation', () => {
   it('returns missing for non-existent IDs and expired for past expiry', async () => {
     const mockDb = new MockFirestore()
     let currentTime = new Date('2026-10-15T10:00:00.000Z')
-    const store = new SharedLyricsStore(mockDb as any, () => currentTime)
+    const store = new SharedLyricsStore(mockDb as unknown as Firestore, () => currentTime)
 
     // Non-existent ID
     const missing = await store.get('does-not-exist')

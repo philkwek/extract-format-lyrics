@@ -22,7 +22,8 @@ export function extractSongLyrics(
   isSimplified = false
 ): SharedLyricsSong {
   const entryId = item.entryId || song.id
-  const title = song.title || item.title || 'Untitled Song'
+  const title = item.title?.trim() || song.title || 'Untitled Song'
+
 
   // Determine active sections as seen by the musician (respecting custom arrangements)
   const activeSections: Section[] =

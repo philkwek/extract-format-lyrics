@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  Check,
   FileText,
   GripVertical,
   Lightbulb,
@@ -12,6 +11,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+
 import { makeEntryId, sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'

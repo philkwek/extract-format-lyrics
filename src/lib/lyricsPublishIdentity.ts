@@ -15,7 +15,7 @@ export interface LyricsPublicationRecord {
 
 export interface LyricsStorageStore {
   get: <T>(key: string) => Promise<T | undefined>
-  set: (key: string, val: any) => Promise<void>
+  set: (key: string, val: unknown) => Promise<void>
   del: (key: string) => Promise<void>
 }
 
@@ -24,16 +24,16 @@ function createDefaultStorageStore(): LyricsStorageStore {
     const customStore = createStore(LYRICS_STORE_NAME, LYRICS_STORE_TABLE)
     return {
       get: <T>(key: string) => get<T>(key, customStore),
-      set: (key: string, val: any) => set(key, val, customStore),
+      set: (key: string, val: unknown) => set(key, val, customStore),
       del: (key: string) => del(key, customStore),
     }
   }
 
   // Memory store fallback when IndexedDB is unavailable (e.g. Node test environment)
-  const memory = new Map<string, any>()
+  const memory = new Map<string, unknown>()
   return {
     get: async <T>(key: string) => memory.get(key) as T | undefined,
-    set: async (key: string, val: any) => {
+    set: async (key: string, val: unknown) => {
       memory.set(key, val)
     },
     del: async (key: string) => {
@@ -41,6 +41,7 @@ function createDefaultStorageStore(): LyricsStorageStore {
     },
   }
 }
+
 
 let activeStorageStore: LyricsStorageStore = createDefaultStorageStore()
 

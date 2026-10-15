@@ -45,7 +45,14 @@ Designed specifically for musicians and worship leaders performing on tablets or
 - **Seven-day capability links:** Anyone holding a link can import the set for seven days; no account is required. Links expire at the backend and Firestore TTL later removes the stored snapshot.
 - **Personal display stays personal:** Column layout, font size, and theme are not shared.
 
+### 🎤 Reusable Seven-Day Lyrics Sharing
+- **Dedicated lyrics storage & viewer:** Replaces raw clipboard copying with stable, reusable viewer URLs (`/lyrics/:shortId`).
+- **Clean display-ready lyrics:** Excludes all chords, tabs, and keys, persisting only display-ready lyric text, section labels, and instrumental placeholders.
+- **Stable URL per local setlist:** Each local set preserves an update secret and reusable URL. The musician explicitly publishes updates to that URL, resetting its seven-day expiry with every successful update.
+- **Single-column, responsive viewer:** Horizontally scrollable song tabs with keyboard navigation, visibility auto-refresh, and clean theme-consistent styling.
+
 ### 📱 Eye-Friendly Design & Theming
+
 - **Custom Low-Contrast Dark Mode:** Carefully tuned dark palette (`#101010` base, `#1a1a1a` cards, `#e5e5e5` soft text) designed to minimize glare and eye fatigue on dark stages or dimly lit rehearsal rooms.
 - **Clean Light Mode:** High-contrast light palette for bright environments.
 - **Instant Global Theme Toggle:** Switch themes anytime directly from the top navigation bar.
@@ -78,7 +85,7 @@ Designed specifically for musicians and worship leaders performing on tablets or
 - **Node.js:** 22+
 - **npm:** 10+
 - **Firebase CLI:** Installed globally (`npm install -g firebase-tools`)
-- **Firestore:** Create the project database in Native mode and configure a TTL policy on the `sharedSets` collection group’s `expiresAt` field. The deployed rules deny browser access; Cloud Functions use Admin credentials.
+- **Firestore:** Create the project database in Native mode and configure a TTL policy on the `sharedSets` and `sharedLyrics` collection groups’ `expiresAt` field. The deployed rules deny browser access; Cloud Functions use Admin credentials.
 
 ### Installation
 ```bash
