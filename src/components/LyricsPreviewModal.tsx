@@ -23,15 +23,15 @@ export default function LyricsPreviewModal({
       title={`(Preview) ${payload.name}`}
       description="Preview of how vocalists and musicians will see these lyrics. Chords are excluded."
       size="lg"
+      className="h-[85vh]"
+      contentClassName="!p-0"
       footer={
         <Button variant="secondary" onClick={onClose}>
           Close Preview
         </Button>
       }
     >
-      <div className="max-h-[72vh] overflow-y-auto px-1 py-2">
-        <LyricsViewerContent songs={payload.songs} />
-      </div>
+      <LyricsViewerContent songs={payload.songs} isModal />
     </OverlayDialog>
   )
 }

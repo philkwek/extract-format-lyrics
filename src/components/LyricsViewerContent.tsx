@@ -11,6 +11,7 @@ export interface LyricsViewerContentProps {
   onRefresh?: () => void
   showRefresh?: boolean
   isRefreshing?: boolean
+  isModal?: boolean
 }
 
 export default function LyricsViewerContent({
@@ -21,6 +22,7 @@ export default function LyricsViewerContent({
   onRefresh,
   showRefresh = false,
   isRefreshing = false,
+  isModal = false,
 }: LyricsViewerContentProps) {
   const [internalEntryId, setInternalEntryId] = useState<string | null>(null)
 
@@ -61,6 +63,10 @@ export default function LyricsViewerContent({
       }
       if (contentContainerRef.current) {
         contentContainerRef.current.scrollTop = 0
+        const scrollParent = contentContainerRef.current.closest('.ui-dialog__content')
+        if (scrollParent) {
+          scrollParent.scrollTop = 0
+        }
       }
       window.scrollTo({ top: 0, behavior: 'instant' })
     }
@@ -87,7 +93,7 @@ export default function LyricsViewerContent({
   const activeSong = songs.find((s) => s.entryId === activeEntryId) || songs[0]
 
   return (
-    <div className="mx-auto max-w-3xl w-full min-w-0 space-y-6">
+    <div className={isModal ? 'w-full min-w-0' : 'mx-auto max-w-3xl w-full min-w-0 space-y-6'}>
       {/* Set Header */}
       {setName && (
         <div className="flex items-center justify-between border-b border-[var(--ui-border)] pb-3">
@@ -117,7 +123,11 @@ export default function LyricsViewerContent({
       {songs.length > 0 && (
         <div
           ref={tabListRef}
-          className="no-scrollbar sticky top-[57px] z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] bg-[var(--ui-bg)]/95 py-2.5 backdrop-blur-md"
+          className={`no-scrollbar z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] py-2.5 ${
+            isModal
+              ? 'sticky top-0 bg-[var(--ui-surface-raised)] px-4 sm:px-6'
+              : 'sticky top-[57px] bg-[var(--ui-canvas)]/95 backdrop-blur-md'
+          }`}
           role="tablist"
           aria-label="Songs in setlist"
         >
@@ -149,7 +159,10 @@ export default function LyricsViewerContent({
       )}
 
       {/* Single-Column Lyrics Display */}
-      <div ref={contentContainerRef} className="space-y-6">
+      <div
+        ref={contentContainerRef}
+        className={isModal ? 'mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-6' : 'space-y-6'}
+      >
         {!activeSong ? (
           <Surface elevated className="p-8 text-center text-sm text-[var(--ui-text-muted)]">
             No songs available in this set.
