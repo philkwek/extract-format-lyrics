@@ -23,7 +23,7 @@ export default function SongHeader({
     <div className="flex flex-col justify-between gap-3 pb-1 sm:flex-row sm:items-center">
       <div className="min-w-0">
         <div>
-          <h2 className="truncate text-xl font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb] sm:text-2xl">{song.title}</h2>
+          <h2 className="break-words text-xl font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb] sm:text-2xl">{song.title}</h2>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)]">
           <span>{song.artist}</span>

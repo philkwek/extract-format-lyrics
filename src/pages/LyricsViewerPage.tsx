@@ -16,6 +16,7 @@ export default function LyricsViewerPage() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
 
   const activeTabRef = useRef<HTMLButtonElement | null>(null)
+  const tabListRef = useRef<HTMLDivElement | null>(null)
   const contentContainerRef = useRef<HTMLDivElement | null>(null)
 
   const refreshLyrics = useCallback(
@@ -121,14 +122,20 @@ export default function LyricsViewerPage() {
 
 
 
-  // Keep selected tab in view when active song changes
+  // Keep selected tab in view within horizontal tab list
   useEffect(() => {
-    if (activeTabRef.current) {
-      activeTabRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      })
+    if (activeTabRef.current && tabListRef.current) {
+      const tab = activeTabRef.current
+      const container = tabListRef.current
+      const tabLeft = tab.offsetLeft
+      const tabRight = tabLeft + tab.offsetWidth
+      const containerLeft = container.scrollLeft
+      const containerRight = containerLeft + container.clientWidth
+      if (tabLeft < containerLeft) {
+        container.scrollTo({ left: Math.max(0, tabLeft - 8), behavior: 'smooth' })
+      } else if (tabRight > containerRight) {
+        container.scrollTo({ left: tabRight - container.clientWidth + 8, behavior: 'smooth' })
+      }
     }
   }, [selectedEntryId])
 
@@ -257,11 +264,11 @@ export default function LyricsViewerPage() {
   const activeSong = songs.find((s) => s.entryId === selectedEntryId) || songs[0]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl w-full min-w-0 space-y-6">
       {/* Set Header */}
       <div className="flex items-center justify-between border-b border-[var(--ui-border)] pb-3">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">
+          <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)] break-words">
             {lyricsData?.lyrics.name || 'Shared Lyrics'}
           </h1>
           <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
@@ -284,7 +291,8 @@ export default function LyricsViewerPage() {
       {/* Sticky, Horizontally Scrollable Song Tabs */}
       {songs.length > 0 && (
         <div
-          className="no-scrollbar sticky top-[57px] z-20 flex space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] bg-[var(--ui-bg)]/95 py-2.5 backdrop-blur-md"
+          ref={tabListRef}
+          className="no-scrollbar sticky top-[57px] z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] bg-[var(--ui-bg)]/95 py-2.5 backdrop-blur-md"
           role="tablist"
           aria-label="Songs in setlist"
         >
@@ -323,7 +331,7 @@ export default function LyricsViewerPage() {
           </Surface>
         ) : activeSong.sections.length === 0 ? (
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)]">
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)] break-words whitespace-normal">
               {activeSong.title}
             </h2>
             <Surface elevated className="p-8 text-center text-sm text-[var(--ui-text-muted)]">
@@ -337,7 +345,7 @@ export default function LyricsViewerPage() {
             aria-labelledby={`lyrics-tab-${activeSong.entryId}`}
             className="space-y-6"
           >
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)]">
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)] break-words whitespace-normal">
               {activeSong.title}
             </h2>
 
