@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Check, Copy, FileText, Link2, RefreshCw } from 'lucide-react'
+import { Check, Copy, Eye, FileText, Link2, RefreshCw } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
-import type { Song } from '../types/song'
+import type { SharedLyricsPayload, Song } from '../types/song'
 import { buildSharedLyricsPayload, ShareLyricsError } from '../lib/exportLyrics'
 import {
   getLyricsPublicationIdentity,
@@ -9,6 +9,7 @@ import {
 } from '../lib/lyricsPublishIdentity'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
+import LyricsPreviewModal from './LyricsPreviewModal'
 
 export interface ShareLyricsModalProps {
   session: Session
@@ -29,6 +30,8 @@ export default function ShareLyricsModal({
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [previewPayload, setPreviewPayload] = useState<SharedLyricsPayload | null>(null)
 
   // Restore existing publication identity without performing any network publication
   useEffect(() => {
@@ -91,100 +94,131 @@ export default function ShareLyricsModal({
     }
   }
 
+  const handleOpenPreview = () => {
+    setError(null)
+    try {
+      const payload = buildSharedLyricsPayload(session, songsData)
+      setPreviewPayload(payload)
+      setIsPreviewOpen(true)
+    } catch (err) {
+      const msg =
+        err instanceof ShareLyricsError
+          ? err.message
+          : (err as Error).message || 'Failed to prepare lyrics preview'
+      setError(msg)
+    }
+  }
+
   const isPublished = Boolean(shareUrl && expiresAt)
 
   return (
-    <OverlayDialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Share lyrics for “${session.name}”`}
-      description={`Create a stable, reusable link for ${session.songs.length} song${
-        session.songs.length === 1 ? '' : 's'
-      }. Lyric text and section order are included without chords.`}
-      size="sm"
-      footer={
-        <Button variant="ghost" onClick={onClose}>
-          Done
-        </Button>
-      }
-    >
-      <div className="space-y-4">
-        <StatusBanner tone="info" icon={<Link2 size={16} />}>
-          {isPublished
-            ? 'Updates keep this link and renew expiry for seven days.'
-            : 'Anyone with the link can view lyrics for this setlist. Each publication lasts seven days.'}
-        </StatusBanner>
+    <>
+      <OverlayDialog
+        isOpen={isOpen}
+        onClose={onClose}
+        title={`Share lyrics for “${session.name}”`}
+        description={`Create a stable, reusable link for ${session.songs.length} song${
+          session.songs.length === 1 ? '' : 's'
+        }. Lyric text and section order are included without chords.`}
+        size="sm"
+        footer={
+          <Button variant="ghost" onClick={onClose}>
+            Done
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <StatusBanner tone="info" icon={<Link2 size={16} />}>
+            {isPublished
+              ? 'Updates keep this link and renew expiry for seven days.'
+              : 'Anyone with the link can view lyrics for this setlist. Each publication lasts seven days.'}
+          </StatusBanner>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="share-lyrics-url"
-            className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]"
-          >
-            Lyrics link
-          </label>
-          <input
-            id="share-lyrics-url"
-            type="text"
-            readOnly
-            value={
-              shareUrl ||
-              (isSaving
-                ? 'Publishing lyrics…'
-                : initialized
-                ? 'Generate a link when you are ready'
-                : 'Checking existing link…')
-            }
-            className="ui-field select-all px-3 py-2.5 font-mono text-xs"
-          />
+          <div className="space-y-2">
+            <label
+              htmlFor="share-lyrics-url"
+              className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]"
+            >
+              Lyrics link
+            </label>
+            <input
+              id="share-lyrics-url"
+              type="text"
+              readOnly
+              value={
+                shareUrl ||
+                (isSaving
+                  ? 'Publishing lyrics…'
+                  : initialized
+                  ? 'Generate a link when you are ready'
+                  : 'Checking existing link…')
+              }
+              className="ui-field select-all px-3 py-2.5 font-mono text-xs"
+            />
 
-          <div className="flex flex-col gap-2 pt-1">
-            {error && (
-              <span className="text-[11px] text-red-600 dark:text-red-300" role="alert">
-                {error}
-              </span>
-            )}
-            {!error && expiresAt && (
-              <span className="text-[11px] text-[var(--ui-text-muted)]">
-                Expires {new Date(expiresAt).toLocaleString()}
-              </span>
-            )}
+            <div className="flex flex-col gap-2 pt-1">
+              {error && (
+                <span className="text-[11px] text-red-600 dark:text-red-300" role="alert">
+                  {error}
+                </span>
+              )}
+              {!error && expiresAt && (
+                <span className="text-[11px] text-[var(--ui-text-muted)]">
+                  Expires {new Date(expiresAt).toLocaleString()}
+                </span>
+              )}
 
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-              {isPublished ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    icon={copied ? <Check size={15} /> : <Copy size={15} />}
-                    onClick={handleCopy}
-                    disabled={isSaving}
-                  >
-                    {copied ? 'Copied' : 'Copy link'}
-                  </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                <Button
+                  variant="secondary"
+                  icon={<Eye size={15} />}
+                  onClick={handleOpenPreview}
+                  disabled={isSaving}
+                >
+                  See Preview
+                </Button>
+                {isPublished ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      icon={copied ? <Check size={15} /> : <Copy size={15} />}
+                      onClick={handleCopy}
+                      disabled={isSaving}
+                    >
+                      {copied ? 'Copied' : 'Copy link'}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      icon={<RefreshCw size={15} className={isSaving ? 'animate-spin' : ''} />}
+                      onClick={handlePublish}
+                      loading={isSaving}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Updating…' : 'Update lyrics'}
+                    </Button>
+                  </>
+                ) : (
                   <Button
                     variant="primary"
-                    icon={<RefreshCw size={15} className={isSaving ? 'animate-spin' : ''} />}
+                    icon={<FileText size={15} />}
                     onClick={handlePublish}
                     loading={isSaving}
                     disabled={isSaving}
                   >
-                    {isSaving ? 'Updating…' : 'Update lyrics'}
+                    {isSaving ? 'Generating…' : 'Generate link'}
                   </Button>
-                </>
-              ) : (
-                <Button
-                  variant="primary"
-                  icon={<FileText size={15} />}
-                  onClick={handlePublish}
-                  loading={isSaving}
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Generating…' : 'Generate link'}
-                </Button>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </OverlayDialog>
+      </OverlayDialog>
+
+      <LyricsPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        payload={previewPayload}
+      />
+    </>
   )
 }

@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Clock3, FileText, RefreshCw, RotateCcw } from 'lucide-react'
+import { AlertTriangle, Clock3, FileText, RefreshCw } from 'lucide-react'
 import { getSharedLyricsApi, ShareApiError, type GetSharedLyricsResult } from '../lib/api'
-import type { SharedLyricsSong } from '../types/song'
+import {
+  saveRecentSharedLyrics,
+  getCachedSharedLyrics,
+  removeRecentSharedLyrics,
+} from '../lib/recentLyricsStore'
 import { Button, Surface } from '../components/ui'
+import LyricsViewerContent from '../components/LyricsViewerContent'
 
 export default function LyricsViewerPage() {
   const { shortId } = useParams<{ shortId?: string }>()
@@ -14,10 +19,6 @@ export default function LyricsViewerPage() {
   const [statusKind, setStatusKind] = useState<'loading' | 'ok' | 'expired' | 'missing' | 'error'>('loading')
   const [lyricsData, setLyricsData] = useState<GetSharedLyricsResult | null>(null)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
-
-  const activeTabRef = useRef<HTMLButtonElement | null>(null)
-  const tabListRef = useRef<HTMLDivElement | null>(null)
-  const contentContainerRef = useRef<HTMLDivElement | null>(null)
 
   const refreshLyrics = useCallback(
     async (showLoadingSpinner = false) => {
@@ -36,6 +37,7 @@ export default function LyricsViewerPage() {
           }
           return result.lyrics.songs[0]?.entryId || null
         })
+        void saveRecentSharedLyrics(shortId, result.lyrics, result.expiresAt)
       } catch (err) {
         if (err instanceof ShareApiError) {
           if (err.code === 'EXPIRED' || err.status === 410) {
@@ -43,6 +45,7 @@ export default function LyricsViewerPage() {
             return
           }
           if (err.code === 'NOT_FOUND' || err.status === 404) {
+            void removeRecentSharedLyrics(shortId)
             setStatusKind('missing')
             return
           }
@@ -71,12 +74,30 @@ export default function LyricsViewerPage() {
         return
       }
 
+      const cached = await getCachedSharedLyrics(shortId)
+      if (cached && !isCancelled) {
+        setLyricsData({
+          id: cached.id,
+          lyrics: { v: 1, name: cached.name, songs: cached.songs },
+          expiresAt: cached.expiresAt,
+        })
+        setSelectedEntryId(cached.songs[0]?.entryId || null)
+        setStatusKind('ok')
+        setLoading(false)
+      }
+
       try {
         const result = await getSharedLyricsApi(shortId)
         if (isCancelled) return
         setLyricsData(result)
         setStatusKind('ok')
-        setSelectedEntryId(result.lyrics.songs[0]?.entryId || null)
+        setSelectedEntryId((prev) => {
+          if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
+            return prev
+          }
+          return result.lyrics.songs[0]?.entryId || null
+        })
+        void saveRecentSharedLyrics(shortId, result.lyrics, result.expiresAt)
       } catch (err) {
         if (isCancelled) return
         if (err instanceof ShareApiError) {
@@ -86,13 +107,16 @@ export default function LyricsViewerPage() {
             return
           }
           if (err.code === 'NOT_FOUND' || err.status === 404) {
+            void removeRecentSharedLyrics(shortId)
             setStatusKind('missing')
             setLoading(false)
             return
           }
         }
-        setError((err as Error).message || 'Failed to load lyrics')
-        setStatusKind('error')
+        if (!cached) {
+          setError((err as Error).message || 'Failed to load lyrics')
+          setStatusKind('error')
+        }
       } finally {
         if (!isCancelled) {
           setLoading(false)
@@ -119,51 +143,6 @@ export default function LyricsViewerPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [refreshLyrics])
-
-
-
-  // Keep selected tab in view within horizontal tab list
-  useEffect(() => {
-    if (activeTabRef.current && tabListRef.current) {
-      const tab = activeTabRef.current
-      const container = tabListRef.current
-      const tabLeft = tab.offsetLeft
-      const tabRight = tabLeft + tab.offsetWidth
-      const containerLeft = container.scrollLeft
-      const containerRight = containerLeft + container.clientWidth
-      if (tabLeft < containerLeft) {
-        container.scrollTo({ left: Math.max(0, tabLeft - 8), behavior: 'smooth' })
-      } else if (tabRight > containerRight) {
-        container.scrollTo({ left: tabRight - container.clientWidth + 8, behavior: 'smooth' })
-      }
-    }
-  }, [selectedEntryId])
-
-  // Reset scroll position when switching songs
-  const handleSelectSong = (entryId: string) => {
-    if (entryId !== selectedEntryId) {
-      setSelectedEntryId(entryId)
-      if (contentContainerRef.current) {
-        contentContainerRef.current.scrollTop = 0
-      }
-      window.scrollTo({ top: 0, behavior: 'instant' })
-    }
-  }
-
-  // Keyboard navigation for song tabs (Left/Right arrow keys)
-  const handleKeyDownTab = (e: React.KeyboardEvent, index: number, songs: SharedLyricsSong[]) => {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      const nextIdx = (index + 1) % songs.length
-      const nextSong = songs[nextIdx]
-      if (nextSong) handleSelectSong(nextSong.entryId)
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      const prevIdx = (index - 1 + songs.length) % songs.length
-      const prevSong = songs[prevIdx]
-      if (prevSong) handleSelectSong(prevSong.entryId)
-    }
-  }
 
   if (loading) {
     return (
@@ -260,123 +239,14 @@ export default function LyricsViewerPage() {
     )
   }
 
-  const songs = lyricsData?.lyrics.songs || []
-  const activeSong = songs.find((s) => s.entryId === selectedEntryId) || songs[0]
-
   return (
-    <div className="mx-auto max-w-3xl w-full min-w-0 space-y-6">
-      {/* Set Header */}
-      <div className="flex items-center justify-between border-b border-[var(--ui-border)] pb-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)] break-words">
-            {lyricsData?.lyrics.name || 'Shared Lyrics'}
-          </h1>
-          <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
-            {songs.length} song{songs.length === 1 ? '' : 's'} in setlist
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<RotateCcw size={14} />}
-          onClick={() => refreshLyrics(false)}
-          title="Refresh lyrics"
-        >
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
-      </div>
-
-
-
-      {/* Sticky, Horizontally Scrollable Song Tabs */}
-      {songs.length > 0 && (
-        <div
-          ref={tabListRef}
-          className="no-scrollbar sticky top-[57px] z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] bg-[var(--ui-bg)]/95 py-2.5 backdrop-blur-md"
-          role="tablist"
-          aria-label="Songs in setlist"
-        >
-          {songs.map((song, index) => {
-            const isActive = song.entryId === activeSong?.entryId
-            return (
-              <button
-                key={song.entryId}
-                ref={isActive ? activeTabRef : null}
-                role="tab"
-                id={`lyrics-tab-${song.entryId}`}
-                aria-selected={isActive}
-                aria-controls={`lyrics-panel-${song.entryId}`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => handleSelectSong(song.entryId)}
-                onKeyDown={(e) => handleKeyDownTab(e, index, songs)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none transition ${
-                  isActive
-                    ? 'bg-[#3368A0] text-white shadow-sm dark:bg-amber-500 dark:text-[#16120a]'
-                    : 'bg-black/5 text-neutral-600 hover:bg-black/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10'
-                } focus-visible:ring-2 focus-visible:ring-[#3368A0]/40`}
-              >
-                <span className="opacity-70">{index + 1}.</span>
-                <span className="truncate max-w-[180px] sm:max-w-[240px]">{song.title}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Single-Column Lyrics Display */}
-      <div ref={contentContainerRef} className="space-y-6">
-        {!activeSong ? (
-          <Surface elevated className="p-8 text-center text-sm text-[var(--ui-text-muted)]">
-            No songs available in this set.
-          </Surface>
-        ) : activeSong.sections.length === 0 ? (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)] break-words whitespace-normal">
-              {activeSong.title}
-            </h2>
-            <Surface elevated className="p-8 text-center text-sm text-[var(--ui-text-muted)]">
-              No lyrics available for this song.
-            </Surface>
-          </div>
-        ) : (
-          <div
-            id={`lyrics-panel-${activeSong.entryId}`}
-            role="tabpanel"
-            aria-labelledby={`lyrics-tab-${activeSong.entryId}`}
-            className="space-y-6"
-          >
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--ui-text)] break-words whitespace-normal">
-              {activeSong.title}
-            </h2>
-
-            <div className="space-y-6">
-              {activeSong.sections.map((section, sIdx) => (
-                <div key={sIdx} className="space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-[var(--ui-text-muted)]">
-                    [{section.label}]
-                  </div>
-                  {section.lines.length === 0 ? (
-                    <div className="text-xs italic text-[var(--ui-text-muted)]">
-                      Instrumental
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {section.lines.map((line, lIdx) => (
-                        <p
-                          key={lIdx}
-                          className="whitespace-pre-wrap break-words text-base leading-relaxed text-[var(--ui-text)]"
-                        >
-                          {line || '\u00A0'}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <LyricsViewerContent
+      songs={lyricsData?.lyrics.songs || []}
+      setName={lyricsData?.lyrics.name || 'Shared Lyrics'}
+      selectedEntryId={selectedEntryId}
+      onSelectSong={setSelectedEntryId}
+      onRefresh={() => refreshLyrics(false)}
+      showRefresh={true}
+    />
   )
 }

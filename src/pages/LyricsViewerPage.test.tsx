@@ -194,4 +194,26 @@ describe('LyricsViewerPage', () => {
 
     expect(api.getSharedLyricsApi).toHaveBeenCalledTimes(2)
   })
+
+  it('renders instantly from local cache and saves to recent store', async () => {
+    const { saveRecentSharedLyrics, getRecentSharedLyrics, clearRecentSharedLyrics } = await import(
+      '../lib/recentLyricsStore'
+    )
+    await clearRecentSharedLyrics()
+    await saveRecentSharedLyrics('pub-cached', mockLyricsData.lyrics, mockLyricsData.expiresAt)
+
+    // Api takes long time to respond
+    vi.mocked(api.getSharedLyricsApi).mockReturnValue(new Promise(() => {}))
+
+    renderViewer('pub-cached')
+
+    // Renders cached data immediately without waiting for API
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 2, name: 'Way Maker' })).toBeTruthy()
+    })
+
+    const recents = await getRecentSharedLyrics()
+    expect(recents.some((r) => r.id === 'pub-cached')).toBe(true)
+  })
 })

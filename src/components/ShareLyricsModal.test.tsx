@@ -156,4 +156,44 @@ describe('ShareLyricsModal', () => {
     expect(input.value).toContain('/lyrics/pub-existing')
     expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
   })
+
+  it('renders See Preview button and opens preview modal with (Preview) header without generating a link', async () => {
+    vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue(null)
+
+    render(
+      <ShareLyricsModal
+        session={mockSession}
+        songsData={mockSongsData}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+
+    const previewBtn = await screen.findByRole('button', { name: /See Preview/i })
+    expect(previewBtn).toBeTruthy()
+
+    // Click See Preview
+    fireEvent.click(previewBtn)
+
+    // Modal with (Preview) header must appear
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Morning/i })).toBeTruthy()
+    })
+
+    // Lyrics content is rendered inside preview (tab and heading)
+    expect(screen.getAllByText('Test Song').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Singing a song')).toBeTruthy()
+
+    // Must NOT call publishLyricsForSession
+    expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
+
+    // Close button (X) is available in preview modal
+    const closeButtons = screen.getAllByRole('button', { name: /Close/i })
+    expect(closeButtons.length).toBeGreaterThan(0)
+    fireEvent.click(closeButtons[closeButtons.length - 1])
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: /\(Preview\) Sunday Morning/i })).toBeNull()
+    })
+  })
 })
