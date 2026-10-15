@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { RotateCcw } from 'lucide-react'
 import type { SharedLyricsSong } from '../types/song'
+import { cleanLyricLine } from '../lib/exportLyrics'
 import { Button, Surface } from './ui'
 
 export interface LyricsViewerContentProps {
@@ -199,14 +200,17 @@ export default function LyricsViewerContent({
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {section.lines.map((line, lIdx) => (
-                        <p
-                          key={lIdx}
-                          className="whitespace-pre-wrap break-words text-base leading-relaxed text-[var(--ui-text)]"
-                        >
-                          {line || '\u00A0'}
-                        </p>
-                      ))}
+                      {section.lines.map((line, lIdx) => {
+                        const displayLine = cleanLyricLine(line)
+                        return (
+                          <p
+                            key={lIdx}
+                            className="whitespace-pre-wrap break-words text-base leading-relaxed text-[var(--ui-text)]"
+                          >
+                            {displayLine || '\u00A0'}
+                          </p>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

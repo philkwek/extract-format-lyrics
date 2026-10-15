@@ -3,6 +3,7 @@ import {
   formatSetlistLyrics,
   extractSongLyrics,
   buildSharedLyricsPayload,
+  cleanLyricLine,
   ShareLyricsError,
 } from './exportLyrics'
 import type { Song, Section } from '../types/song'
@@ -473,6 +474,167 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
       { entryId: 'e-1', url: 'https://notfound.test', status: 'ok' as const },
     ]
     expect(() => buildSharedLyricsPayload({ name: 'Missing', songs: missingSong }, songsData)).toThrow(ShareLyricsError)
+  })
+
+  describe('cleanLyricLine', () => {
+    it('trims leading and trailing whitespace', () => {
+      expect(cleanLyricLine(' Better than I ever considered')).toBe('Better than I ever considered')
+      expect(cleanLyricLine('   I want You most, Lord   ')).toBe('I want You most, Lord')
+      expect(cleanLyricLine('\t\tLine with tabs\t')).toBe('Line with tabs')
+    })
+
+    it('collapses multiple consecutive internal spaces and tabs into a single space', () => {
+      expect(cleanLyricLine('No exceptions,   undeniably free')).toBe('No exceptions, undeniably free')
+      expect(cleanLyricLine('Word1    Word2\t\tWord3')).toBe('Word1 Word2 Word3')
+    })
+
+    it('returns empty string for empty or whitespace-only inputs', () => {
+      expect(cleanLyricLine('')).toBe('')
+      expect(cleanLyricLine('    ')).toBe('')
+      expect(cleanLyricLine('\t  \t')).toBe('')
+    })
+  })
+
+  describe('whitespace cleaning in extractSongLyrics', () => {
+    it('removes chord-timing leading whitespace and collapses internal whitespace runs', () => {
+      const sections: Section[] = [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [
+            {
+              kind: 'lyric',
+              text: ' Better than I ever considered',
+              chords: [{ chord: 'G', pos: 1 }],
+            },
+            {
+              kind: 'lyric',
+              text: 'Your forgiveness',
+              chords: [{ chord: 'C', pos: 0 }],
+            },
+            {
+              kind: 'lyric',
+              text: 'Heals the depths of my being',
+              chords: [{ chord: 'Em', pos: 0 }],
+            },
+            {
+              kind: 'lyric',
+              text: ' This is where I find acceptance',
+              chords: [{ chord: 'D', pos: 1 }],
+            },
+            {
+              kind: 'lyric',
+              text: 'No exceptions,   undeniably free',
+              chords: [
+                { chord: 'C', pos: 0 },
+                { chord: 'G', pos: 17 },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'Chorus',
+          label: 'Chorus',
+          lines: [
+            {
+              kind: 'lyric',
+              text: ' I want You most, Lord',
+              chords: [{ chord: 'G', pos: 1 }],
+            },
+            {
+              kind: 'lyric',
+              text: ' I want You always',
+              chords: [{ chord: 'C', pos: 1 }],
+            },
+            {
+              kind: 'lyric',
+              text: ' I want You more than ever',
+              chords: [{ chord: 'D', pos: 1 }],
+            },
+            {
+              kind: 'lyric',
+              text: 'More than ever',
+              chords: [{ chord: 'G', pos: 0 }],
+            },
+          ],
+        },
+      ]
+
+      const song = createMockSong('song-timing', 'Timing Song', 'Artist', sections)
+      const item: SessionSongItem = { entryId: 'e-1', url: song.sourceUrl, status: 'ok' }
+
+      const structured = extractSongLyrics(item, song)
+
+      expect(structured.sections[0].lines).toEqual([
+        'Better than I ever considered',
+        'Your forgiveness',
+        'Heals the depths of my being',
+        'This is where I find acceptance',
+        'No exceptions, undeniably free',
+      ])
+
+      expect(structured.sections[1].lines).toEqual([
+        'I want You most, Lord',
+        'I want You always',
+        'I want You more than ever',
+        'More than ever',
+      ])
+    })
+
+    it('collapses multiple consecutive blank lines inside a section to a single blank line', () => {
+      const sections: Section[] = [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [
+            { kind: 'lyric', text: 'Stanza 1 line 1', chords: [] },
+            { kind: 'lyric', text: '   ', chords: [] },
+            { kind: 'lyric', text: '', chords: [] },
+            { kind: 'lyric', text: '   ', chords: [] },
+            { kind: 'lyric', text: 'Stanza 2 line 1', chords: [] },
+          ],
+        },
+      ]
+
+      const song = createMockSong('song-blanks', 'Blanks Song', 'Artist', sections)
+      const item: SessionSongItem = { entryId: 'e-1', url: song.sourceUrl, status: 'ok' }
+
+      const structured = extractSongLyrics(item, song)
+      expect(structured.sections[0].lines).toEqual([
+        'Stanza 1 line 1',
+        '',
+        'Stanza 2 line 1',
+      ])
+    })
+
+    it('does NOT mutate the original Song or Section objects', () => {
+      const originalText = '   Preserve this raw text for chord alignment   '
+      const sections: Section[] = [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [
+            {
+              kind: 'lyric',
+              text: originalText,
+              chords: [{ chord: 'G', pos: 3 }],
+            },
+          ],
+        },
+      ]
+
+      const song = createMockSong('song-immutable', 'Immutability Test', 'Artist', sections)
+      const item: SessionSongItem = { entryId: 'e-1', url: song.sourceUrl, status: 'ok' }
+
+      const structured = extractSongLyrics(item, song)
+      expect(structured.sections[0].lines).toEqual(['Preserve this raw text for chord alignment'])
+
+      // The original song section line text MUST be completely untouched
+      const originalLine = song.sections[0].lines[0]
+      if (originalLine.kind === 'lyric') {
+        expect(originalLine.text).toBe(originalText)
+      }
+    })
   })
 })
 

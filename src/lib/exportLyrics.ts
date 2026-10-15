@@ -6,6 +6,17 @@ export const MAX_SHARED_LYRICS_SONGS = 15
 export class ShareLyricsError extends Error {}
 
 /**
+ * Cleans whitespace introduced by chord positioning / chord scraping:
+ * - Trims leading and trailing whitespace.
+ * - Collapses internal consecutive spaces/tabs to a single space.
+ */
+export function cleanLyricLine(line: string): string {
+  const trimmed = line.trim()
+  if (!trimmed) return ''
+  return trimmed.replace(/\s+/g, ' ')
+}
+
+/**
  * Extracts structured lyric sections from a single song item.
  *
  * Specifics:
@@ -13,6 +24,7 @@ export class ShareLyricsError extends Error {}
  * - Preserves custom text, section order, internal blank lines, and empty custom arrangements.
  * - Strips outer brackets and cleans section labels.
  * - Excludes chords-only lines, tab lines, and raw chords; extracts only lyric text lines.
+ * - Cleans leading, trailing, and internal timing whitespace introduced by chords.
  * - Deduplicates repeated lyric sections within the song using case/whitespace normalization.
  * - Filters out sections that do not contain any lyrics (e.g. instrumental, intro, or chords-only sections).
  */
@@ -37,20 +49,25 @@ export function extractSongLyrics(
   for (const section of activeSections) {
     const cleanLabel = section.label.replace(/^\[+|\]+$/g, '').trim() || section.type || 'Section'
 
-    // Extract lyric lines (excluding chord-only and tab lines)
+    // Extract lyric lines (excluding chord-only and tab lines) and clean timing whitespace
     const lyricLines: string[] = []
     for (const line of section.lines) {
       if (line.kind === 'lyric') {
-        lyricLines.push(line.text)
+        const cleaned = cleanLyricLine(line.text)
+        // Collapse consecutive blank lines within section
+        if (cleaned === '' && lyricLines.length > 0 && lyricLines[lyricLines.length - 1] === '') {
+          continue
+        }
+        lyricLines.push(cleaned)
       }
     }
 
     // Trim leading and trailing empty lines while preserving internal blank lines
     const trimmedLines = [...lyricLines]
-    while (trimmedLines.length > 0 && !trimmedLines[0].trim()) {
+    while (trimmedLines.length > 0 && trimmedLines[0] === '') {
       trimmedLines.shift()
     }
-    while (trimmedLines.length > 0 && !trimmedLines[trimmedLines.length - 1].trim()) {
+    while (trimmedLines.length > 0 && trimmedLines[trimmedLines.length - 1] === '') {
       trimmedLines.pop()
     }
 
