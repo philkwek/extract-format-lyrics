@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { LibraryBig, Moon, Search, Sun } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
@@ -10,32 +10,19 @@ import { getInitialTheme, saveTheme, applyTheme } from './lib/theme'
 
 import { IconButton } from './components/ui'
 
-function App() {
-  const [isDark, setIsDark] = useState<boolean>(getInitialTheme)
-
-  useEffect(() => {
-    applyTheme(isDark)
-    const handleThemeChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ isDark: boolean }>
-      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
-        setIsDark(customEvent.detail.isDark)
-      }
-    }
-    window.addEventListener('app_theme_changed', handleThemeChange)
-    return () => {
-      window.removeEventListener('app_theme_changed', handleThemeChange)
-    }
-  }, [isDark])
-
-  const toggleTheme = () => {
-    const next = !isDark
-    setIsDark(next)
-    saveTheme(next)
-  }
+export function AppShell({
+  isDark,
+  toggleTheme,
+}: {
+  isDark: boolean
+  toggleTheme: () => void
+}) {
+  const location = useLocation()
+  const isLyricsView = location.pathname.startsWith('/lyrics/')
 
   return (
-    <BrowserRouter>
-      <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
+    <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
+      {!isLyricsView && (
         <header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">
             <NavLink to="/" className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2 text-neutral-900 outline-none transition active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-[#3368A0]/30 dark:text-[#ededeb] dark:focus-visible:ring-amber-400/30">
@@ -65,17 +52,46 @@ function App() {
             </nav>
           </div>
         </header>
-        <main className="mx-auto w-[96%] max-w-[92rem] pb-10 pt-4 sm:pt-5">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/session/:sessionId" element={<SessionPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/s/:shortId" element={<ShareImportPage />} />
-            <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
-          </Routes>
+      )}
+      <main className={`mx-auto w-[96%] max-w-[92rem] pb-10 ${isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'}`}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/session/:sessionId" element={<SessionPage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/s/:shortId" element={<ShareImportPage />} />
+          <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
+        </Routes>
+      </main>
+    </div>
+  )
+}
 
-        </main>
-      </div>
+function App() {
+  const [isDark, setIsDark] = useState<boolean>(getInitialTheme)
+
+  useEffect(() => {
+    applyTheme(isDark)
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isDark: boolean }>
+      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
+        setIsDark(customEvent.detail.isDark)
+      }
+    }
+    window.addEventListener('app_theme_changed', handleThemeChange)
+    return () => {
+      window.removeEventListener('app_theme_changed', handleThemeChange)
+    }
+  }, [isDark])
+
+  const toggleTheme = () => {
+    const next = !isDark
+    setIsDark(next)
+    saveTheme(next)
+  }
+
+  return (
+    <BrowserRouter>
+      <AppShell isDark={isDark} toggleTheme={toggleTheme} />
     </BrowserRouter>
   )
 }

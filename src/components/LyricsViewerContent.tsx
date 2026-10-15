@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { Moon, RotateCcw, Sun } from 'lucide-react'
 import type { SharedLyricsSong } from '../types/song'
 import { cleanLyricLine } from '../lib/exportLyrics'
-import { Button, Surface } from './ui'
+import { getInitialTheme, saveTheme } from '../lib/theme'
+import { Button, IconButton, Surface } from './ui'
 
 export interface LyricsViewerContentProps {
   songs: SharedLyricsSong[]
@@ -26,6 +27,26 @@ export default function LyricsViewerContent({
   isModal = false,
 }: LyricsViewerContentProps) {
   const [internalEntryId, setInternalEntryId] = useState<string | null>(null)
+  const [isDark, setIsDark] = useState<boolean>(getInitialTheme)
+
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isDark: boolean }>
+      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
+        setIsDark(customEvent.detail.isDark)
+      }
+    }
+    window.addEventListener('app_theme_changed', handleThemeChange)
+    return () => {
+      window.removeEventListener('app_theme_changed', handleThemeChange)
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const next = !isDark
+    setIsDark(next)
+    saveTheme(next)
+  }
 
   const activeEntryId =
     controlledEntryId !== undefined
@@ -106,17 +127,28 @@ export default function LyricsViewerContent({
               {songs.length} song{songs.length === 1 ? '' : 's'} in setlist
             </p>
           </div>
-          {showRefresh && onRefresh && (
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={<RotateCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />}
-              onClick={onRefresh}
-              title="Refresh lyrics"
-            >
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {showRefresh && onRefresh && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<RotateCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />}
+                onClick={onRefresh}
+                title="Refresh lyrics"
+              >
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+            )}
+            {!isModal && (
+              <IconButton
+                onClick={toggleTheme}
+                label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+                variant="ghost"
+              >
+                {isDark ? <Sun size={15} /> : <Moon size={15} />}
+              </IconButton>
+            )}
+          </div>
         </div>
       )}
 
@@ -127,7 +159,7 @@ export default function LyricsViewerContent({
           className={`no-scrollbar z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] py-2.5 ${
             isModal
               ? 'sticky top-0 bg-[var(--ui-surface-raised)] px-4 sm:px-6'
-              : 'sticky top-[57px] bg-[var(--ui-canvas)]/95 backdrop-blur-md'
+              : 'sticky top-0 bg-[var(--ui-canvas)]/95 backdrop-blur-md'
           }`}
           role="tablist"
           aria-label="Songs in setlist"

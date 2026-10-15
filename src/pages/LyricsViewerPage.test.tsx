@@ -216,4 +216,26 @@ describe('LyricsViewerPage', () => {
     const recents = await getRecentSharedLyrics()
     expect(recents.some((r) => r.id === 'pub-cached')).toBe(true)
   })
+
+  it('renders dark mode / light mode toggle button next to refresh and toggles theme', async () => {
+    vi.mocked(api.getSharedLyricsApi).mockResolvedValue(mockLyricsData)
+    renderViewer()
+
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+
+    const refreshButton = screen.getByRole('button', { name: /refresh/i })
+    expect(refreshButton).toBeTruthy()
+
+    const themeButton = screen.getByRole('button', { name: /switch to (light|dark) mode/i })
+    expect(themeButton).toBeTruthy()
+
+    // Verify button is sibling of refresh in the same header control group
+    expect(refreshButton.parentElement).toBe(themeButton.parentElement)
+
+    const initialLabel = themeButton.getAttribute('aria-label')
+    fireEvent.click(themeButton)
+    expect(themeButton.getAttribute('aria-label')).not.toBe(initialLabel)
+  })
 })
