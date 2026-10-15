@@ -6,4 +6,8 @@ export type {
   Song,
   SharedSetSong,
   SharedSetSnapshot,
+  SharedLyricsSection,
+  SharedLyricsSong,
+  SharedLyricsPayload,
 } from '../../functions/src/types'
+

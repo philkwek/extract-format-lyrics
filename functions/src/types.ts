@@ -68,3 +68,21 @@ export interface SharedSetSnapshot {
   name: string
   songs: SharedSetSong[]
 }
+
+export interface SharedLyricsSection {
+  label: string
+  lines: string[]
+}
+
+export interface SharedLyricsSong {
+  entryId: string
+  title: string
+  sections: SharedLyricsSection[]
+}
+
+export interface SharedLyricsPayload {
+  v: 1
+  name: string
+  songs: SharedLyricsSong[]
+}
+
