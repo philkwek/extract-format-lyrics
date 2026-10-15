@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Check,
-  Clipboard,
+  FileText,
   GripVertical,
   Lightbulb,
   ListOrdered,
@@ -22,10 +22,11 @@ import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import ShareModal from '../components/ShareModal'
+import ShareLyricsModal from '../components/ShareLyricsModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import UploadSheetModal from '../components/UploadSheetModal'
 import { getInitialTheme, saveTheme } from '../lib/theme'
-import { formatSetlistLyrics, copyLyricsToClipboard } from '../lib/exportLyrics'
+
 import { getChordPos, setChordPos } from '../lib/chordNudge'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
@@ -72,8 +73,9 @@ export default function SessionPage() {
       return false
     }
   })
-  const [copiedLyrics, setCopiedLyrics] = useState(false)
+  const [isShareLyricsOpen, setIsShareLyricsOpen] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
     if (!session) return
@@ -776,21 +778,6 @@ export default function SessionPage() {
     }
   }
 
-  const handleShareLyrics = async () => {
-    if (!session) return
-    const text = formatSetlistLyrics(
-      session.songs,
-      songsData,
-      (item) => item.simplified ?? false
-    )
-    if (!text) return
-    const success = await copyLyricsToClipboard(text)
-    if (success) {
-      setCopiedLyrics(true)
-      setTimeout(() => setCopiedLyrics(false), 2000)
-    }
-  }
-
   const handleShareSet = async () => {
     try {
       setSharingSnapshot(await buildSharedSetSnapshot(session))
@@ -829,12 +816,19 @@ export default function SessionPage() {
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <Button size="sm" variant="secondary" icon={<Share2 size={14} />} onClick={handleShareSet}>Share set</Button>
-          <Button size="sm" variant="secondary" icon={copiedLyrics ? <Check size={14} /> : <Clipboard size={14} />} onClick={handleShareLyrics} title="Copy all lyrics without chords">
-            {copiedLyrics ? 'Copied' : 'Copy lyrics'}
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<FileText size={14} />}
+            onClick={() => setIsShareLyricsOpen(true)}
+            title="Share all lyrics without chords"
+          >
+            Share lyrics
           </Button>
           {session.songs.length > 1 && (
             <Button size="sm" variant="secondary" icon={<ListOrdered size={14} />} onClick={() => setIsArrangingSongs(true)}>Arrange</Button>
           )}
+
           <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => navigate(`/search?session=${session.id}`)}>Add song</Button>
           <Button size="sm" variant="secondary" icon={<Upload size={14} />} onClick={() => setIsUploadModalOpen(true)}>Upload</Button>
         </div>
@@ -1039,6 +1033,17 @@ export default function SessionPage() {
           onClose={() => setSharingSnapshot(null)}
         />
       )}
+
+      {/* Share Lyrics Modal */}
+      {isShareLyricsOpen && session && (
+        <ShareLyricsModal
+          session={session}
+          songsData={songsData}
+          isOpen={isShareLyricsOpen}
+          onClose={() => setIsShareLyricsOpen(false)}
+        />
+      )}
+
 
       {/* Arrange Songs Drawer */}
       <ArrangeDrawer
