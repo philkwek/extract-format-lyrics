@@ -284,10 +284,12 @@ describe('lyrics sharing integration suite', () => {
     expect(initialPayload.songs[0].sections[0].label).toBe('Chorus')
     expect(initialPayload.songs[0].sections[1].label).toBe('Verse 1')
 
-    // Simplification check: Song 2 used simplified arrangement including instrumental Intro
-    expect(initialPayload.songs[1].sections).toHaveLength(2)
-    expect(initialPayload.songs[1].sections[0]).toEqual({ label: 'Intro', lines: [] })
-    expect(initialPayload.songs[1].sections[1].lines).toEqual(['Amazing grace simplified'])
+    // Simplification check: Song 2 used simplified arrangement with chords-only Intro filtered out
+    expect(initialPayload.songs[1].sections).toHaveLength(1)
+    expect(initialPayload.songs[1].sections[0]).toEqual({
+      label: 'Verse 1',
+      lines: ['Amazing grace simplified'],
+    })
 
     // Separate occurrences check: Reprise is kept as distinct occurrence with its own edits
     expect(initialPayload.songs[2].title).toBe('A Mighty Fortress (Reprise)')

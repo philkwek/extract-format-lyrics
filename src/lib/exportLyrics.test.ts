@@ -161,7 +161,7 @@ describe('exportLyrics', () => {
     expect(chorusIdx).toBeLessThan(verseIdx)
   })
 
-  it('handles sections without lyric lines (like [Intro] with chords only)', () => {
+  it('filters out sections without lyric lines (like [Intro] with chords only)', () => {
     const sections: Section[] = [
       {
         type: 'Intro',
@@ -182,7 +182,7 @@ describe('exportLyrics', () => {
     ]
 
     const output = formatSetlistLyrics(setlist, songsData)
-    expect(output).toContain('[Intro]')
+    expect(output).not.toContain('[Intro]')
     expect(output).toContain('[Verse 1]\nFirst line')
   })
 
@@ -380,7 +380,7 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
     expect(structured.sections).toEqual([])
   })
 
-  it('preserves label-only instrumental sections', () => {
+  it('filters out sections that do not contain any lyrics', () => {
     const sections: Section[] = [
       {
         type: 'Intro',
@@ -397,15 +397,26 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
         label: 'Verse 1',
         lines: [{ kind: 'lyric', text: 'Words here', chords: [] }],
       },
+      {
+        type: 'Other',
+        label: 'Interlude',
+        lines: [{ kind: 'tab', raw: 'e|---0---|' }],
+      },
+      {
+        type: 'Outro',
+        label: 'Outro',
+        lines: [
+          { kind: 'lyric', text: '   ', chords: [] },
+          { kind: 'lyric', text: '', chords: [] },
+        ],
+      },
     ]
     const song = createMockSong('song-inst', 'Instrumental Song', 'Artist', sections)
     const item: SessionSongItem = { entryId: 'entry-inst', url: song.sourceUrl, status: 'ok' }
 
     const structured = extractSongLyrics(item, song)
-    expect(structured.sections).toHaveLength(3)
-    expect(structured.sections[0]).toEqual({ label: 'Intro', lines: [] })
-    expect(structured.sections[1]).toEqual({ label: 'Instrumental Break', lines: [] })
-    expect(structured.sections[2]).toEqual({ label: 'Verse 1', lines: ['Words here'] })
+    expect(structured.sections).toHaveLength(1)
+    expect(structured.sections[0]).toEqual({ label: 'Verse 1', lines: ['Words here'] })
   })
 
   it('keeps separate occurrences of the same song in a setlist', () => {

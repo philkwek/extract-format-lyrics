@@ -14,7 +14,7 @@ export class ShareLyricsError extends Error {}
  * - Strips outer brackets and cleans section labels.
  * - Excludes chords-only lines, tab lines, and raw chords; extracts only lyric text lines.
  * - Deduplicates repeated lyric sections within the song using case/whitespace normalization.
- * - Preserves label-only instrumental/intro sections without lyrics.
+ * - Filters out sections that do not contain any lyrics (e.g. instrumental, intro, or chords-only sections).
  */
 export function extractSongLyrics(
   item: SessionSongItem,
@@ -33,12 +33,9 @@ export function extractSongLyrics(
 
   const structuredSections: SharedLyricsSection[] = []
   const seenLyricSignatures = new Set<string>()
-  const seenEmptySignatures = new Set<string>()
-  const seenLabelsWithLyrics = new Set<string>()
 
   for (const section of activeSections) {
     const cleanLabel = section.label.replace(/^\[+|\]+$/g, '').trim() || section.type || 'Section'
-    const labelLower = cleanLabel.toLowerCase()
 
     // Extract lyric lines (excluding chord-only and tab lines)
     const lyricLines: string[] = []
@@ -57,36 +54,27 @@ export function extractSongLyrics(
       trimmedLines.pop()
     }
 
-    if (trimmedLines.length > 0) {
-      // Normalize lyric content for duplicate detection (lowercase, normalize whitespace)
-      const lyricSignature = trimmedLines
-        .map((l) => l.trim().toLowerCase().replace(/\s+/g, ' '))
-        .filter(Boolean)
-        .join('\n')
-
-      if (seenLyricSignatures.has(lyricSignature)) {
-        // Duplicate section lyrics within this song! Skip.
-        continue
-      }
-
-      seenLyricSignatures.add(lyricSignature)
-      seenLabelsWithLyrics.add(labelLower)
-      structuredSections.push({
-        label: cleanLabel,
-        lines: trimmedLines,
-      })
-    } else {
-      // Section with no lyrics (e.g. [Intro] or [Instrumental])
-      if (seenLabelsWithLyrics.has(labelLower) || seenEmptySignatures.has(labelLower)) {
-        continue
-      }
-
-      seenEmptySignatures.add(labelLower)
-      structuredSections.push({
-        label: cleanLabel,
-        lines: [],
-      })
+    // Filter out sections that do not contain any lyrics (e.g. instrumental, chords-only, or empty sections)
+    if (trimmedLines.length === 0) {
+      continue
     }
+
+    // Normalize lyric content for duplicate detection (lowercase, normalize whitespace)
+    const lyricSignature = trimmedLines
+      .map((l) => l.trim().toLowerCase().replace(/\s+/g, ' '))
+      .filter(Boolean)
+      .join('\n')
+
+    if (seenLyricSignatures.has(lyricSignature)) {
+      // Duplicate section lyrics within this song! Skip.
+      continue
+    }
+
+    seenLyricSignatures.add(lyricSignature)
+    structuredSections.push({
+      label: cleanLabel,
+      lines: trimmedLines,
+    })
   }
 
   return {
