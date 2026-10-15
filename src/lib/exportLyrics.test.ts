@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { formatSetlistLyrics } from './exportLyrics'
+import {
+  formatSetlistLyrics,
+  extractSongLyrics,
+  buildSharedLyricsPayload,
+  ShareLyricsError,
+} from './exportLyrics'
 import type { Song, Section } from '../types/song'
+
 import type { SessionSongItem } from './sessionStore'
 
 function createMockSong(id: string, title: string, artist: string, sections: Section[]): Song {
@@ -155,7 +161,7 @@ describe('exportLyrics', () => {
     expect(chorusIdx).toBeLessThan(verseIdx)
   })
 
-  it('handles sections without lyric lines (like [Intro] with chords only)', () => {
+  it('filters out sections without lyric lines (like [Intro] with chords only)', () => {
     const sections: Section[] = [
       {
         type: 'Intro',
@@ -176,7 +182,7 @@ describe('exportLyrics', () => {
     ]
 
     const output = formatSetlistLyrics(setlist, songsData)
-    expect(output).toContain('[Intro]')
+    expect(output).not.toContain('[Intro]')
     expect(output).toContain('[Verse 1]\nFirst line')
   })
 
@@ -268,3 +274,205 @@ describe('exportLyrics', () => {
     expect(output).toContain('[Chorus 2]\nSecond version of chorus with more words')
   })
 })
+
+describe('structured lyrics extraction and SharedLyricsPayload', () => {
+  it('extracts structured sections without chords, tabs, or metadata', () => {
+    const sections: Section[] = [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [
+          { kind: 'lyric', text: 'Amazing grace how sweet the sound', chords: [{ chord: 'G', pos: 0 }] },
+          { kind: 'chords-only', chords: ['G', 'C'] },
+          { kind: 'lyric', text: 'That saved a wretch like me', chords: [{ chord: 'D', pos: 5 }] },
+          { kind: 'tab', raw: 'e|---0---|' },
+        ],
+      },
+    ]
+
+    const song = createMockSong('song-1', 'Amazing Grace', 'John Newton', sections)
+    const item: SessionSongItem = { entryId: 'entry-1', url: song.sourceUrl, status: 'ok' }
+
+    const structured = extractSongLyrics(item, song)
+    expect(structured.entryId).toBe('entry-1')
+    expect(structured.title).toBe('Amazing Grace')
+    expect(structured.sections).toHaveLength(1)
+    expect(structured.sections[0].label).toBe('Verse 1')
+    expect(structured.sections[0].lines).toEqual([
+      'Amazing grace how sweet the sound',
+      'That saved a wretch like me',
+    ])
+  })
+
+  it('preserves internal blank lines while trimming leading/trailing blank lines', () => {
+    const sections: Section[] = [
+      {
+        type: 'Verse',
+        label: '[Verse 1]',
+        lines: [
+          { kind: 'lyric', text: '   ', chords: [] },
+          { kind: 'lyric', text: 'Line one', chords: [] },
+          { kind: 'lyric', text: '', chords: [] },
+          { kind: 'lyric', text: 'Line two after blank', chords: [] },
+          { kind: 'lyric', text: '   ', chords: [] },
+        ],
+      },
+    ]
+
+    const song = createMockSong('song-1', 'Song with Blanks', 'Artist', sections)
+    const item: SessionSongItem = { entryId: 'entry-1', url: song.sourceUrl, status: 'ok' }
+
+    const structured = extractSongLyrics(item, song)
+    expect(structured.sections[0].label).toBe('Verse 1')
+    expect(structured.sections[0].lines).toEqual(['Line one', '', 'Line two after blank'])
+  })
+
+  it('respects simplification selection and custom simplified sections', () => {
+    const normalSections: Section[] = [
+      {
+        type: 'Verse',
+        label: 'Verse',
+        lines: [{ kind: 'lyric', text: 'Standard verse lyrics', chords: [{ chord: 'F#m7b5', pos: 0 }] }],
+      },
+    ]
+    const simplifiedSections: Section[] = [
+      {
+        type: 'Verse',
+        label: 'Verse (Simple)',
+        lines: [{ kind: 'lyric', text: 'Simplified verse lyrics', chords: [{ chord: 'Am', pos: 0 }] }],
+      },
+    ]
+
+    const song: Song = {
+      ...createMockSong('song-simp', 'Simple Song', 'Artist', normalSections),
+      simplifiedSections,
+    }
+
+    const normalItem: SessionSongItem = { entryId: 'normal-1', url: song.sourceUrl, status: 'ok', simplified: false }
+    const simpleItem: SessionSongItem = { entryId: 'simple-1', url: song.sourceUrl, status: 'ok', simplified: true }
+
+    const normalResult = extractSongLyrics(normalItem, song, false)
+    expect(normalResult.sections[0].label).toBe('Verse')
+    expect(normalResult.sections[0].lines).toEqual(['Standard verse lyrics'])
+
+    const simpleResult = extractSongLyrics(simpleItem, song, true)
+    expect(simpleResult.sections[0].label).toBe('Verse (Simple)')
+    expect(simpleResult.sections[0].lines).toEqual(['Simplified verse lyrics'])
+  })
+
+  it('preserves empty custom arrangements as empty sections array', () => {
+    const sections: Section[] = [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'Some text', chords: [] }],
+      },
+    ]
+    const song = createMockSong('song-del', 'Empty Song', 'Artist', sections)
+    const item: SessionSongItem = {
+      entryId: 'entry-empty',
+      url: song.sourceUrl,
+      status: 'ok',
+      customSections: [], // Musician deleted all sections
+    }
+
+    const structured = extractSongLyrics(item, song)
+    expect(structured.sections).toEqual([])
+  })
+
+  it('filters out sections that do not contain any lyrics', () => {
+    const sections: Section[] = [
+      {
+        type: 'Intro',
+        label: '[Intro]',
+        lines: [{ kind: 'chords-only', chords: ['C', 'G'] }],
+      },
+      {
+        type: 'Instrumental',
+        label: 'Instrumental Break',
+        lines: [{ kind: 'chords-only', chords: ['Am', 'F'] }],
+      },
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'Words here', chords: [] }],
+      },
+      {
+        type: 'Other',
+        label: 'Interlude',
+        lines: [{ kind: 'tab', raw: 'e|---0---|' }],
+      },
+      {
+        type: 'Outro',
+        label: 'Outro',
+        lines: [
+          { kind: 'lyric', text: '   ', chords: [] },
+          { kind: 'lyric', text: '', chords: [] },
+        ],
+      },
+    ]
+    const song = createMockSong('song-inst', 'Instrumental Song', 'Artist', sections)
+    const item: SessionSongItem = { entryId: 'entry-inst', url: song.sourceUrl, status: 'ok' }
+
+    const structured = extractSongLyrics(item, song)
+    expect(structured.sections).toHaveLength(1)
+    expect(structured.sections[0]).toEqual({ label: 'Verse 1', lines: ['Words here'] })
+  })
+
+  it('keeps separate occurrences of the same song in a setlist', () => {
+    const sections: Section[] = [
+      {
+        type: 'Chorus',
+        label: 'Chorus',
+        lines: [{ kind: 'lyric', text: 'Praise the Lord', chords: [] }],
+      },
+    ]
+    const song = createMockSong('song-repeated', 'Praise', 'Artist', sections)
+    const session = {
+      name: 'Sunday Service',
+      songs: [
+        { entryId: 'occurrence-1', url: song.sourceUrl, title: song.title, status: 'ok' as const },
+        { entryId: 'occurrence-2', url: song.sourceUrl, title: song.title, status: 'ok' as const },
+      ],
+    }
+    const songsData = new Map<string, Song>([[song.sourceUrl, song]])
+
+    const payload = buildSharedLyricsPayload(session, songsData)
+    expect(payload.v).toBe(1)
+    expect(payload.name).toBe('Sunday Service')
+    expect(payload.songs).toHaveLength(2)
+    expect(payload.songs[0].entryId).toBe('occurrence-1')
+    expect(payload.songs[1].entryId).toBe('occurrence-2')
+    expect(payload.songs[0].sections[0].lines).toEqual(['Praise the Lord'])
+    expect(payload.songs[1].sections[0].lines).toEqual(['Praise the Lord'])
+  })
+
+  it('validates song limits and loading status', () => {
+    const song = createMockSong('s1', 'T1', 'A1', [])
+    const songsData = new Map<string, Song>([[song.sourceUrl, song]])
+
+    // Empty set
+    expect(() => buildSharedLyricsPayload({ name: 'Empty', songs: [] }, songsData)).toThrow(ShareLyricsError)
+
+    // Over 15 songs
+    const tooMany = Array.from({ length: 16 }, (_, i) => ({
+      entryId: `e-${i}`,
+      url: song.sourceUrl,
+      status: 'ok' as const,
+    }))
+    expect(() => buildSharedLyricsPayload({ name: 'Too Many', songs: tooMany }, songsData)).toThrow(ShareLyricsError)
+
+    // Song not loaded
+    const loadingSong: SessionSongItem[] = [
+      { entryId: 'e-1', url: song.sourceUrl, status: 'loading' as const },
+    ]
+    expect(() => buildSharedLyricsPayload({ name: 'Loading', songs: loadingSong }, songsData)).toThrow(ShareLyricsError)
+
+    // Missing local song data
+    const missingSong: SessionSongItem[] = [
+      { entryId: 'e-1', url: 'https://notfound.test', status: 'ok' as const },
+    ]
+    expect(() => buildSharedLyricsPayload({ name: 'Missing', songs: missingSong }, songsData)).toThrow(ShareLyricsError)
+  })
+})
+

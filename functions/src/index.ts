@@ -8,8 +8,15 @@ import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
+import {
+  sharedLyricsStore,
+  verifyPublicationSecret,
+  isSharedLyricsPayload,
+  MAX_SHARED_LYRICS_SONGS,
+} from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
-import type { Song } from './types.js'
+import type { Song, SharedLyricsPayload } from './types.js'
+
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
 setGlobalOptions({
@@ -243,6 +250,87 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     res.status(200).json({ id, snapshot: result.snapshot, expiresAt: result.expiresAt.toISOString() })
     return
   }
+
+  // Lyrics share endpoints: PUT /api/lyrics-share/:id and GET /api/lyrics-share/:id
+  const lyricsShareMatch = req.path.match(/^\/(?:api\/)?lyrics-share\/([a-zA-Z0-9_-]+)$/)
+  if (lyricsShareMatch) {
+    const id = lyricsShareMatch[1]
+
+    if (req.method === 'PUT') {
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+      const limitCheck = rateLimiter.checkIp(clientIp)
+      if (!limitCheck.allowed) {
+        res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+        sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
+        return
+      }
+
+      const contentLength = Number(req.headers['content-length'] || 0)
+      if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
+        sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Shared lyrics data is too large')
+        return
+      }
+
+      const authHeader = (req.headers['authorization'] as string) || ''
+      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      if (!secret) {
+        sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
+        return
+      }
+
+      if (!verifyPublicationSecret(secret, id)) {
+        sendJsonError(res, 403, 'FORBIDDEN', 'Invalid authorization secret for this publication')
+        return
+      }
+
+      const payload = (req.body?.payload ?? req.body) as SharedLyricsPayload
+      if (!isSharedLyricsPayload(payload)) {
+        sendJsonError(res, 400, 'BAD_REQUEST', 'Missing or invalid shared lyrics payload')
+        return
+      }
+
+      if (payload.songs.length > MAX_SHARED_LYRICS_SONGS) {
+        sendJsonError(res, 400, 'SONG_LIMIT_EXCEEDED', `Shared lyrics are limited to ${MAX_SHARED_LYRICS_SONGS} songs`)
+        return
+      }
+
+      try {
+        const result = await sharedLyricsStore.publish(id, payload)
+        res.status(200).json({ id: result.id, expiresAt: result.expiresAt.toISOString() })
+      } catch (err) {
+        sendJsonError(res, 500, 'LYRICS_SHARE_FAILED', (err as Error).message || 'Failed to save lyrics publication')
+      }
+      return
+    }
+
+    if (req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store')
+      let result
+      try {
+        result = await sharedLyricsStore.get(id)
+      } catch (err) {
+        sendJsonError(res, 500, 'LYRICS_LOOKUP_FAILED', (err as Error).message || 'Failed to retrieve shared lyrics')
+        return
+      }
+
+      if (result.kind === 'expired') {
+        sendJsonError(res, 410, 'EXPIRED', 'This lyrics share link has expired')
+        return
+      }
+
+      if (result.kind === 'missing') {
+        sendJsonError(res, 404, 'NOT_FOUND', 'Lyrics share not found')
+        return
+      }
+
+      res.status(200).json({ id, lyrics: result.lyrics, expiresAt: result.expiresAt.toISOString() })
+      return
+    }
+
+    sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only GET and PUT are allowed for /api/lyrics-share/:id')
+    return
+  }
+
 
   // Extract sheet endpoint: POST /api/extract-sheet
   if (req.path === '/api/extract-sheet' || req.path === '/extract-sheet') {

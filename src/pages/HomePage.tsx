@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   ExternalLink,
+  FileText,
   FileUp,
   Lightbulb,
   Link2,
@@ -16,6 +17,12 @@ import { splitUrls, validateUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import {
+  getRecentSharedLyrics,
+  removeRecentSharedLyrics,
+  clearRecentSharedLyrics,
+  type RecentSharedLyrics,
+} from '../lib/recentLyricsStore'
 import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
@@ -57,6 +64,8 @@ export default function HomePage() {
   const [creatingFromUrl, setCreatingFromUrl] = useState<string | null>(null)
 
   const [sessions, setSessions] = useState<Session[]>([])
+  const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
+  const [currentTime] = useState(() => Date.now())
   const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
@@ -76,6 +85,7 @@ export default function HomePage() {
 
   useEffect(() => {
     sessionStore.getAllSessions().then(setSessions)
+    getRecentSharedLyrics().then(setRecentLyrics)
   }, [])
 
   const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
@@ -85,14 +95,23 @@ export default function HomePage() {
     setSessions(updated)
   }
 
+  const handleDeleteRecentLyrics = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    await removeRecentSharedLyrics(id)
+    const updated = await getRecentSharedLyrics()
+    setRecentLyrics(updated)
+  }
+
   const handleClearLibrary = async () => {
-    if (window.confirm('Clear all cached songs and sessions?')) {
+    if (window.confirm('Clear all cached songs, sessions, and recent lyrics?')) {
       await songCache.clearAll()
       const all = await sessionStore.getAllSessions()
       for (const s of all) {
         await sessionStore.deleteSession(s.id)
       }
       setSessions([])
+      await clearRecentSharedLyrics()
+      setRecentLyrics([])
     }
   }
 
@@ -457,7 +476,7 @@ export default function HomePage() {
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
             <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Sessions are saved locally within your browser.</p>
           </div>
-          {sessions.length > 0 && (
+          {(sessions.length > 0 || recentLyrics.length > 0) && (
             <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleClearLibrary}>Clear library</Button>
           )}
         </div>
@@ -529,6 +548,78 @@ export default function HomePage() {
           </div>
         )}
       </Surface>
+
+      {/* Recent Shared Lyrics */}
+      {recentLyrics.length > 0 && (
+        <Surface className="p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">
+                Recent shared lyrics
+              </h2>
+              <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                Shared lyrics sets opened on this device.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recentLyrics.map((item) => {
+              const isExpired = new Date(item.expiresAt).getTime() < currentTime
+              return (
+                <article
+                  key={item.id}
+                  onClick={() => navigate(`/lyrics/${item.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') navigate(`/lyrics/${item.id}`)
+                  }}
+                  role="link"
+                  tabIndex={0}
+                  className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
+                >
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400">
+                        <FileText size={16} />
+                      </span>
+                      {isExpired ? (
+                        <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                          Expired
+                        </span>
+                      ) : (
+                        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                          Shared Lyrics
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="truncate text-sm font-bold text-[var(--ui-text)] transition-colors group-hover:text-[#3368A0] dark:group-hover:text-amber-400">
+                      {item.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                      {item.songCount} song{item.songCount === 1 ? '' : 's'} · Opened{' '}
+                      {new Date(item.openedAt).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-end gap-1 border-t border-[var(--ui-border)] pt-2">
+                    <IconButton
+                      label="Remove from recent lyrics"
+                      variant="danger"
+                      onClick={(e) => handleDeleteRecentLyrics(item.id, e)}
+                    >
+                      <Trash2 size={15} />
+                    </IconButton>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </Surface>
+      )}
 
       {/* Share Modal */}
       {sharingSnapshot && (
