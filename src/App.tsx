@@ -5,7 +5,9 @@ import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
 import SessionPage from './pages/SessionPage'
 import ShareImportPage from './pages/ShareImportPage'
+import LyricsViewerPage from './pages/LyricsViewerPage'
 import { getInitialTheme, saveTheme, applyTheme } from './lib/theme'
+
 import { IconButton } from './components/ui'
 
 function App() {
@@ -69,7 +71,9 @@ function App() {
             <Route path="/session/:sessionId" element={<SessionPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/s/:shortId" element={<ShareImportPage />} />
+            <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
           </Routes>
+
         </main>
       </div>
     </BrowserRouter>
