@@ -59,6 +59,8 @@ export interface SharedSetSong {
   customSections?: Section[]
   customSimplifiedSections?: Section[]
   targetKey?: string
+  padKeyMode?: 'match' | 'custom'
+  customPadKey?: string
   simplified?: boolean
 }
 

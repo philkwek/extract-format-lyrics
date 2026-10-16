@@ -13,13 +13,15 @@ describe('shared set snapshots', () => {
   it('preserves ordered duplicate entries and their independent musical state', async () => {
     const session: Session = {
       id: 'set', createdAt: 1, name: 'Sunday', songs: [
-        { entryId: 'first', url: sourceSong.sourceUrl, status: 'ok', targetKey: 'D', simplified: true },
+        { entryId: 'first', url: sourceSong.sourceUrl, status: 'ok', targetKey: 'D', padKeyMode: 'custom', customPadKey: 'E', simplified: true },
         { entryId: 'second', url: sourceSong.sourceUrl, status: 'ok', customSections: [], simplified: false },
       ],
     }
     const snapshot = await createSharedSetSnapshot(session, async () => sourceSong)
     expect(snapshot.songs.map((entry) => entry.entryId)).toEqual(['first', 'second'])
     expect(snapshot.songs[0].targetKey).toBe('D')
+    expect(snapshot.songs[0].padKeyMode).toBe('custom')
+    expect(snapshot.songs[0].customPadKey).toBe('E')
     expect(snapshot.songs[1].customSections).toEqual([])
     expect(sessionSongsFromSnapshot(snapshot)).toMatchObject(session.songs)
   })

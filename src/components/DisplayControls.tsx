@@ -1,6 +1,8 @@
 import { AlertTriangle, AudioLines, Columns3, Pencil, RotateCcw, Type, WandSparkles } from 'lucide-react'
+import { PAD_KEYS, resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
+import type { PadKeyMode } from '../lib/sessionStore'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
-import { Button, StatusBanner } from './ui'
+import { Button, SegmentedControl, StatusBanner } from './ui'
 
 interface DisplayControlsProps {
   prefs: SongDisplayPrefs
@@ -14,6 +16,10 @@ interface DisplayControlsProps {
   isPadPlaying?: boolean
   isPadLoading?: boolean
   currentKey?: string | null
+  padKeyMode?: PadKeyMode
+  customPadKey?: PadKey | null
+  onChangePadKeyMode?: (mode: PadKeyMode) => void
+  onSelectCustomPadKey?: (key: PadKey) => void
   onTogglePad?: () => void
 }
 
@@ -29,8 +35,16 @@ export default function DisplayControls({
   isPadPlaying,
   isPadLoading,
   currentKey,
+  padKeyMode = 'match',
+  customPadKey,
+  onChangePadKeyMode,
+  onSelectCustomPadKey,
   onTogglePad,
 }: DisplayControlsProps) {
+  const resolvedCustomKey: PadKey = customPadKey ?? resolvePadKey(currentKey) ?? 'C'
+  const effectivePadKey = padKeyMode === 'custom' ? resolvedCustomKey : currentKey
+  const canPlayPad = Boolean(resolvePadKey(effectivePadKey))
+
   return (
     <div className="space-y-2 pb-2 text-xs">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -73,22 +87,57 @@ export default function DisplayControls({
         </div>
 
         <div className="grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0">
-          {onTogglePad && currentKey && (
-            <Button
-              size="sm"
-              variant={isPadPlaying ? 'primary' : 'secondary'}
-              icon={<AudioLines size={14} />}
-              onClick={onTogglePad}
-              disabled={isPadLoading}
-              aria-pressed={Boolean(isPadPlaying)}
-              title={
-                isPadPlaying
-                  ? `Stop ambient pad (${currentKey})`
-                  : `Play ambient pad in ${currentKey}`
-              }
-            >
-              {isPadPlaying ? `Playing Pad (${currentKey})` : 'Play Ambient Pad'}
-            </Button>
+          {onTogglePad && (onChangePadKeyMode || canPlayPad) && (
+            <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1">
+              {onChangePadKeyMode && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">
+                    Pads Key:
+                  </span>
+                  <SegmentedControl
+                    label="Pads Key"
+                    value={padKeyMode}
+                    onChange={onChangePadKeyMode}
+                    className="ui-segmented--compact"
+                    options={[
+                      { value: 'match', label: 'Match Song Key' },
+                      { value: 'custom', label: 'Custom Key' },
+                    ]}
+                  />
+                  {padKeyMode === 'custom' && onSelectCustomPadKey && (
+                    <select
+                      aria-label="Custom pad key"
+                      value={resolvedCustomKey}
+                      onChange={(e) => onSelectCustomPadKey(e.target.value as PadKey)}
+                      className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-neutral-900 dark:text-[#e5e5e5] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono shadow-xs"
+                    >
+                      {PAD_KEYS.map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+              {effectivePadKey && canPlayPad && (
+                <Button
+                  size="sm"
+                  variant={isPadPlaying ? 'primary' : 'secondary'}
+                  icon={<AudioLines size={14} />}
+                  onClick={onTogglePad}
+                  disabled={isPadLoading}
+                  aria-pressed={Boolean(isPadPlaying)}
+                  title={
+                    isPadPlaying
+                      ? `Stop ambient pad (${effectivePadKey})`
+                      : `Play ambient pad in ${effectivePadKey}`
+                  }
+                >
+                  {isPadPlaying ? `Playing Pad (${effectivePadKey})` : 'Play Ambient Pad'}
+                </Button>
+              )}
+            </div>
           )}
           {canSimplify && (
             <div className="flex w-full items-center gap-1.5 sm:w-auto">

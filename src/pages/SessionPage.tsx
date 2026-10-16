@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { makeEntryId, sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import { makeEntryId, sessionStore, type PadKeyMode, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
 import { getDefaultSongPrefs, getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
@@ -34,7 +34,7 @@ import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
 import { Button, IconButton } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
-import { ambientPadPlayer, type AmbientPadState } from '../lib/ambientPadPlayer'
+import { ambientPadPlayer, resolvePadKey, type AmbientPadState, type PadKey } from '../lib/ambientPadPlayer'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -167,6 +167,9 @@ export default function SessionPage() {
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
   const currentSong = currentItem ? songForItem(currentItem) : null
   const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
+  const padKeyMode: PadKeyMode = currentItem?.padKeyMode ?? 'match'
+  const customPadKey: PadKey = resolvePadKey(currentItem?.customPadKey) ?? resolvePadKey(currentKey) ?? 'C'
+  const effectivePadKey = padKeyMode === 'custom' ? customPadKey : currentKey
 
   useEffect(() => {
     const unsubscribe = ambientPadPlayer.subscribe(setPadState)
@@ -177,18 +180,18 @@ export default function SessionPage() {
   }, [])
 
   useEffect(() => {
-    if (padState.isPlaying && currentKey) {
-      void ambientPadPlayer.setKey(currentKey).catch(() => {
+    if (padState.isPlaying && effectivePadKey) {
+      void ambientPadPlayer.setKey(effectivePadKey).catch(() => {
         // Ignore audio transition errors
       })
     }
-  }, [currentKey, padState.isPlaying])
+  }, [effectivePadKey, padState.isPlaying])
 
   const handleTogglePad = () => {
     if (padState.isPlaying) {
       ambientPadPlayer.stop()
-    } else if (currentKey) {
-      void ambientPadPlayer.play(currentKey).catch(() => {
+    } else if (effectivePadKey) {
+      void ambientPadPlayer.play(effectivePadKey).catch(() => {
         // Ignore audio start errors
       })
     }
@@ -235,6 +238,39 @@ export default function SessionPage() {
   const handleResetKey = async () => {
     if (!currentItem || !session) return
     const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, targetKey: undefined } : item) }
+    await sessionStore.updateSession(updated)
+    setSession(updated)
+  }
+
+  const handleChangePadKeyMode = async (mode: PadKeyMode) => {
+    if (!currentItem || !session) return
+    const nextCustomKey = currentItem.customPadKey ?? resolvePadKey(currentKey) ?? 'C'
+    const updated = {
+      ...session,
+      songs: session.songs.map((item) =>
+        item.entryId === currentItem.entryId
+          ? {
+              ...item,
+              padKeyMode: mode,
+              customPadKey: mode === 'custom' ? nextCustomKey : item.customPadKey,
+            }
+          : item
+      ),
+    }
+    await sessionStore.updateSession(updated)
+    setSession(updated)
+  }
+
+  const handleSelectCustomPadKey = async (newPadKey: PadKey) => {
+    if (!currentItem || !session) return
+    const updated = {
+      ...session,
+      songs: session.songs.map((item) =>
+        item.entryId === currentItem.entryId
+          ? { ...item, padKeyMode: 'custom' as const, customPadKey: newPadKey }
+          : item
+      ),
+    }
     await sessionStore.updateSession(updated)
     setSession(updated)
   }
@@ -1003,6 +1039,10 @@ export default function SessionPage() {
                   isPadPlaying={padState.isPlaying}
                   isPadLoading={padState.isLoading}
                   currentKey={currentKey}
+                  padKeyMode={padKeyMode}
+                  customPadKey={customPadKey}
+                  onChangePadKeyMode={handleChangePadKeyMode}
+                  onSelectCustomPadKey={handleSelectCustomPadKey}
                   onTogglePad={handleTogglePad}
                   onToggleEditChords={() => {
                     setIsEditingChords((prev) => {

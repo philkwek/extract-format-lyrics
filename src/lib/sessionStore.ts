@@ -1,6 +1,8 @@
 import { get, set, del } from 'idb-keyval'
 import type { Section } from '../types/song'
 
+export type PadKeyMode = 'match' | 'custom'
+
 export interface SessionSongItem {
   /** Stable per-occurrence ID. This permits the same source song more than once. */
   entryId?: string
@@ -13,6 +15,8 @@ export interface SessionSongItem {
   customSimplifiedSections?: Section[]
   /** Per-set musical choices; layout and typography remain personal preferences. */
   targetKey?: string
+  padKeyMode?: PadKeyMode
+  customPadKey?: string
   simplified?: boolean
 }
 

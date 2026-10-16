@@ -13,6 +13,8 @@ function snapshotEntry(item: SessionSongItem, song: Song) {
     customSections: item.customSections,
     customSimplifiedSections: item.customSimplifiedSections,
     targetKey: item.targetKey,
+    padKeyMode: item.padKeyMode,
+    customPadKey: item.customPadKey,
     simplified: item.simplified ?? false,
   }
 }
@@ -44,7 +46,7 @@ export async function buildSharedSetSnapshot(session: Session): Promise<SharedSe
 }
 
 export function sessionSongsFromSnapshot(snapshot: SharedSetSnapshot): SessionSongItem[] {
-  return snapshot.songs.map(({ entryId, song, customSections, customSimplifiedSections, targetKey, simplified }) => ({
+  return snapshot.songs.map(({ entryId, song, customSections, customSimplifiedSections, targetKey, padKeyMode, customPadKey, simplified }) => ({
     entryId,
     url: song.sourceUrl,
     title: song.title,
@@ -53,6 +55,8 @@ export function sessionSongsFromSnapshot(snapshot: SharedSetSnapshot): SessionSo
     customSections,
     customSimplifiedSections,
     targetKey,
+    padKeyMode,
+    customPadKey,
     simplified: simplified ?? false,
   }))
 }
