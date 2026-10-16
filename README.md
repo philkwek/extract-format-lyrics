@@ -1,171 +1,173 @@
-# Chord & Lyrics Sheet Extractor SPA (v1.0.0)
+# Chord Sheets
 
-A fast, clean, personal-use, mobile-first React Single Page Application with Firebase Cloud Functions for scraping, formatting, editing, transposing, and viewing chords and lyrics sheets without scrolling.
+Chords, lyrics and your setlist, all in one place.
 
-Designed specifically for musicians and worship leaders performing on tablets or laptops who need legible, scroll-free, and easily customizable chord charts without advertisements or cluttered layouts.
+Chord Sheets is a website for musicians, worship team volunteers and anyone playing guitar for their cell group. Add your songs, change the key, arrange the sections and share what everyone needs to follow along.
+
+If you're leading with just a guitar, you can also play an ambient pad and send the group a lyrics link from the same website. Less switching between apps while you're trying to lead.
+
+**[Open Chord Sheets](https://extract-format-lyrics.web.app)** · No account needed.
+
+![A song in Chord Sheets with chords above the lyrics and controls for changing key, sharing and playing a pad](docs/readme/setlist-overview.png)
+
+*The images and GIFs show the website in use. The dark mode screenshot uses demo songs.*
+
+## Get started
+
+1. **Add your songs.** Paste chord sheet links on the home page, or use **Search** to find a song. You can also use **Upload chart** for a PDF or image you already have.
+2. **Put your set together.** Give it a name, add the other songs and arrange them in the order you want.
+3. **Make it work for you.** Change the key, adjust the text size and columns, or edit the chords and sections.
+4. **Share it when you're ready.** Use **Share set** for the musicians or **Share lyrics** for everyone singing along.
+
+![Getting started: adding songs and opening a set in Chord Sheets](docs/readme/getting-started-compact.gif)
+
+Your sets and edits save in the browser you're using, so you can come back to them later.
+
+## Change the key and simplify chords
+
+Need a lower key for the singer? Choose a key from **Transpose** and the chords change with it.
+
+For easier chords, try **Simplify**. It uses a simpler chart from the source when available, or an automatic version marked **Auto**. Have a listen and check that it works for your arrangement, as some chords may sound different.
+
+![Changing the song key and switching to simplified chords](docs/readme/simplify-transpose.gif)
+
+## Edit the chords
+
+Need to change a chord for your arrangement? Turn on **Edit chords**, then tap a chord to change it, move it or delete it.
+
+![Editing a chord and adjusting its position above the lyrics](docs/readme/edit-chord.gif)
+
+## Arrange the song the way you play it
+
+Skipping an intro, or using a different section order? Change the song to match your team's arrangement.
+
+- Drag sections to change their order on a computer.
+- Use a section's edit button to rename it, or remove sections you don't need.
+- Drag the song tabs to reorder your set. On a phone or tablet, use **Arrange** and its up/down buttons.
+
+![Reordering songs and moving sections within a song](docs/readme/arrange.gif)
+
+## Share lyrics with the group
+
+For cell group worship, people can open the lyrics on their own phones while you play. They get a simple lyrics view with song tabs and no chords.
+
+Open **Share lyrics**, use **See Preview** to check it, then **Generate link** and **Copy link** to send it to your group.
+
+![Generating a lyrics link and opening the shared lyrics view](docs/readme/share-lyrics.gif)
+
+Each set keeps one reusable lyrics link. If you change the lyrics or section order, click **Update lyrics** to publish the changes to that same link. Each update renews it for another seven days.
+
+Everyone chooses which song to view on their own device. It doesn't automatically follow the song you're on.
+
+## Add an ambient pad while you play
+
+An ambient pad is a sustained background sound that can fill out the music when you're playing with just a guitar. Press **Play Ambient Pad** beside the chord controls to start it. Press it again to stop.
+
+The pad follows the selected major key, including when you transpose or switch to another song with a supported key.
+
+![Playing an ambient pad and switching songs so the pad follows the selected key](docs/readme/ambient.gif)
+
+*The GIF shows the controls; it has no audio. Pads are available for the 12 major keys.*
+
+## Send the set to your musicians
+
+**Share set** gives your team a copy of the songs, including your chord edits, section order, selected keys and simplified chord choices. They can import it and adjust it for themselves.
+
+Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns and theme.
+
+Both set and lyrics links support up to **15 songs**. Anyone with the link can open it without an account.
+
+## Read it comfortably
+
+Choose one, two or three columns and adjust the text size for your screen. Use light mode in a bright room or dark mode when you want less glare.
+
+![A demo set in dark mode](docs/readme/dark-mode.png)
+
+Longer songs may still need scrolling, depending on your screen and text size.
+
+## A few things to know
+
+- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords and Worship Together. Other websites aren't currently supported for link imports. A supported site may sometimes block an import.
+- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it to your set. Some files need AI processing and may ask for a Gemini API key if the website doesn't have one configured.
+- **Saved on this browser:** Sets aren't synced across devices. Use **Share set** to move a copy to another device. Clearing browser data can remove your saved sets and your ability to update an existing lyrics link.
+- **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
+- **Sharing stores a copy online:** Set links include chords and lyrics; lyrics links include lyrics only. Keep the content you share within the permissions you have from its owners.
+
+Found something that doesn't work, or have an idea? [Open an issue](https://github.com/philkwek/extract-format-lyrics/issues). Include what you were trying to do and, if relevant, the source link or a screenshot.
 
 ---
 
-## Features
+## Technical details
 
-### 🔍 Instant Search & Multi-URL Import
-- **Multi-URL Batch Scraping:** Paste multiple chord sheet URLs into a session at once to generate a full setlist in seconds.
-- **In-App Search:** Search songs across supported chord sites directly from the homepage or within an active setlist, and add candidates with a single click.
-- **Supported Providers:**
-  - Ultimate Guitar (`tabs.ultimate-guitar.com`)
-  - PNW Chords (`pnwchords.com`)
-  - Worship Chords (`worshipchords.com`)
-  - Worship Together (`worshiptogether.com`)
-  - Generic `<pre>` fallback for other clean chord sheet sites.
-- **Smart Deduplication:** Normalizes messy chord charts by removing contiguous duplicated lines and redundant repeated sections while strictly preserving repeated lyric phrases that have different chords attached.
+The sections below are for running or working on the project yourself. You don't need any of this to use the website.
 
-### 📜 Performance-Ready Sheet Viewer
-- **Fit to Screen Mode:** Dynamically calculates column count and scales font size (down to 11px) to fit the entire song onto your screen—eliminating the need to scroll during live performances.
-- **Multi-Column Layouts:** Seamlessly toggle between 1, 2, or 3 columns with `break-inside: avoid-column` section styling to prevent awkward mid-verse splits.
-- **Monospace Alignment:** Precision character-offset positioning (`pos`) places chords accurately above their corresponding lyrics.
-- **Key Detection & Transposition:** Detects original keys and transposes across all 12 keys with enharmonic spelling and major/minor awareness. Shows relative signed pitch offset (e.g. `Key: A (original G, +2)`).
-- **Simplify Chords:** One-tap toggle to switch between standard and simplified chords on sheets where a simplified chart is provided upstream (e.g. Ultimate Guitar).
+### Stack and storage
 
-### ✏️ Interactive Chord Editing & Deletion
-- **"Edit Chords" Mode:** Click on any chord in the sheet to change it or delete it.
-- **Custom Musical Keyboard:** Touch-friendly on-screen chord keyboard featuring:
-  - **Simple Mode:** Quick access to root notes (A–G, sharps, flats) and standard qualities (Major, Minor, 7).
-  - **Advanced Mode:** Extended chords, suspensions, additions, diminished/augmented qualities, and bass slash note options (e.g., `D/F#`, `Gsus4`, `Cmaj7`).
-- **Full Persistence:** Chord edits and deletions are saved locally and travel with shared links.
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS and React Router.
+- **Local storage:** IndexedDB through `idb-keyval` for songs and sets; browser preferences for display settings.
+- **Backend:** Firebase Cloud Functions, Node.js 22, TypeScript and Cheerio. Selectable-text PDFs use direct extraction where possible; other pages and images use Gemini.
+- **Hosting:** Firebase Hosting serves the app and routes `/api/**` to the backend. Production chart extraction calls the function directly to allow longer requests.
+- **Sharing:** Firestore stores set snapshots in `sharedSets` and reusable lyrics publications in `sharedLyrics`. Lyrics updates require a secret kept in the publishing browser. Display preferences stay local.
 
-### 🔀 Flexible Song & Section Reordering
-- **Desktop Drag-and-Drop:**
-  - Drag song tabs to rearrange setlist order.
-  - Drag sections within a sheet with a top insertion line indicator to customize song arrangements (e.g. Verse-Chorus-Verse-Chorus-Bridge-Chorus).
-- **Mobile Arrange Drawer:** Touch-friendly drawer interface with one-tap up/down step arrows to reorder songs and sections on phones and tablets where dragging is cumbersome.
-- **Section Deletion & Restore:** Delete unneeded sections (intros, instrumentals, or repeated outros) with a confirmation dialog and a quick restore banner.
+### Run locally
 
-### 🔗 Seven-Day Set Sharing
-- **Faithful server snapshots:** Share a complete immutable copy of a set, including song data, custom section/chord edits, transpose choices, simplified selections, and song order.
-- **Seven-day capability links:** Anyone holding a link can import the set for seven days; no account is required. Links expire at the backend and Firestore TTL later removes the stored snapshot.
-- **Personal display stays personal:** Column layout, font size, and theme are not shared.
+Use Node.js 22 and npm, with the Firebase CLI installed and available as `firebase`.
 
-### 🎤 Reusable Seven-Day Lyrics Sharing
-- **Dedicated lyrics storage & viewer:** Replaces raw clipboard copying with stable, reusable viewer URLs (`/lyrics/:shortId`).
-- **Clean display-ready lyrics:** Excludes all chords, tabs, and keys, persisting only display-ready lyric text, section labels, and instrumental placeholders.
-- **Stable URL per local setlist:** Each local set preserves an update secret and reusable URL. The musician explicitly publishes updates to that URL, resetting its seven-day expiry with every successful update.
-- **Single-column, responsive viewer:** Horizontally scrollable song tabs with keyboard navigation, visibility auto-refresh, and clean theme-consistent styling.
-
-### 📱 Eye-Friendly Design & Theming
-
-- **Custom Low-Contrast Dark Mode:** Carefully tuned dark palette (`#101010` base, `#1a1a1a` cards, `#e5e5e5` soft text) designed to minimize glare and eye fatigue on dark stages or dimly lit rehearsal rooms.
-- **Clean Light Mode:** High-contrast light palette for bright environments.
-- **Instant Global Theme Toggle:** Switch themes anytime directly from the top navigation bar.
-
-### 💾 Local Persistence & Caching
-- **Offline Storage:** Scraped songs, edits, and setlists are cached in the browser via IndexedDB (`idb-keyval`). Previously opened songs load instantly offline.
-- **Timestamped Setlist Titles:** New setlists automatically receive timestamped titles (e.g. `Setlist (Oct 9, 03:54 PM)`) to avoid name collisions, with full inline renaming support.
-
----
-
-## Architecture & Security Safeguards
-
-### Tech Stack
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, `idb-keyval`.
-- **Backend:** Firebase Cloud Functions (2nd Gen, Node 22, TypeScript, Express, Cheerio).
-- **Hosting:** Firebase Hosting with `/api/**` rewritten to the Cloud Function.
-
-### Cost & Security Guardrails
-- **Cloud Run Concurrency & Bounds:** `maxInstances: 3` and `minInstances: 0` to prevent runaway cloud costs. Under personal usage, costs stay safely within the free tier ($0/month).
-- **Domain Allow-List:** Scraper strictly permits outbound requests to approved chord websites.
-- **SSRF Protection:** Resolves target domain DNS and validates that IPs do not belong to private, loopback, link-local, or cloud metadata ranges.
-- **Request Caps:** 10-second timeout, 2 MB payload size limit, and strict HTML content-type checking.
-- **Rate Limiting & Circuit Breaker:** In-memory IP rate limiter (30 req/min, 300 req/day) and an automatic 10-minute circuit breaker on any host that returns 3 consecutive 403 or 429 status codes.
-
----
-
-## Local Development
-
-### Prerequisites
-- **Node.js:** 22+
-- **npm:** 10+
-- **Firebase CLI:** Installed globally (`npm install -g firebase-tools`)
-- **Firestore:** Create the project database in Native mode and configure a TTL policy on the `sharedSets` and `sharedLyrics` collection groups’ `expiresAt` field. The deployed rules deny browser access; Cloud Functions use Admin credentials.
-
-### Installation
 ```bash
-git clone https://github.com/<your-username>/extract-format-lyrics.git
+git clone https://github.com/philkwek/extract-format-lyrics.git
 cd extract-format-lyrics
-npm install
-cd functions && npm install && cd ..
-```
-
-### Running Locally
-To run both the Cloud Functions emulator and the Vite dev server with one command:
-```bash
+npm ci
+npm --prefix functions ci
 npm run dev:all
 ```
 
-Alternatively, run them in separate terminals:
-1. **Start Functions Emulator:**
-   ```bash
-   npm run dev:backend
-   ```
-2. **Start Frontend Dev Server:**
-   ```bash
-   npm run dev
-   ```
-   The frontend runs on `http://localhost:5173` and proxies `/api/**` requests to the local emulator.
+Open [localhost:5173](http://localhost:5173). Vite proxies API requests to the Functions emulator using the `demo-chords` project.
 
-### Available Scripts
-- `npm run dev` - Starts Vite dev server.
-- `npm run dev:backend` - Builds functions and starts the Firebase emulator.
-- `npm run dev:all` - Concurrently runs backend emulator and frontend dev server.
-- `npm run test` - Executes Vitest across all unit and integration test suites.
-- `npm run lint` - Runs ESLint checks.
-- `npm run format` - Runs Prettier to format source files.
-- `npm run build` - Typechecks and bundles the frontend.
-- `npm run build:functions` - Compiles TypeScript in `functions/`.
+You can also run the two parts in separate terminals:
 
----
+```bash
+npm run dev:backend
+```
 
-## Testing & Verification
+```bash
+npm run dev
+```
 
-The project includes thorough unit and integration test suites covering the scraper, normalizer, chord parser, transposer, session storage, set snapshot construction, and security guards:
+The default command starts the Functions emulator only. Sharing also needs a Firestore connection; it isn't a complete local sharing setup. For isolated sharing development, configure and run a Firestore emulator and connect the Admin SDK to it.
+
+For images or PDFs that need Gemini, configure `GEMINI_API_KEY` for the backend or provide a key through the upload dialog. Keep credentials out of Git.
+
+### Checks
 
 ```bash
 npm test
+npm run test:functions
+npm run lint
+npm run build
+npm run build:functions
 ```
-- **21 Test Suites** | **93 Passing Tests**
-- Full test coverage across backend adapters, safe fetch SSRF guards, rate limiters, chord editing, and display logic.
 
----
+Tests cover parsing, transposition, chord editing, arrangements, local storage, sharing, pad playback logic and backend request guards. Use `npm run preview` to inspect a production frontend build locally.
 
-## Deployment & CI/CD
+### Firebase and deployment
 
-### Automated Deployment (GitHub Actions)
-The repository includes a GitHub Actions CI/CD workflow (`.github/workflows/deploy.yml`) that automatically runs linter, tests, frontend build, functions typechecking, and deploys to Firebase Hosting on every commit/merge to `main`.
+For your own deployment:
 
-To enable it, simply add two secrets in your GitHub repository (**Settings > Secrets and variables > Actions**):
-- `FIREBASE_SERVICE_ACCOUNT`: Service Account JSON key with Firebase Hosting Admin permissions.
-- `FIREBASE_PROJECT_ID`: Your Firebase project ID.
+1. Configure your Firebase project in `.firebaserc` and enable Firestore in Native mode.
+2. Configure Firestore TTL policies on the `expiresAt` field for both the `sharedSets` and `sharedLyrics` collection groups. The backend checks expiry; TTL handles later cleanup.
+3. Configure the `GEMINI_API_KEY` function secret for chart extraction that needs Gemini.
+4. Build and deploy:
 
-See [`docs/deployment-and-cost.md`](docs/deployment-and-cost.md) for step-by-step instructions.
-
-### Manual Deployment
 ```bash
 npm run build
 npm run build:functions
-firebase deploy
+firebase deploy --only hosting,functions,firestore:rules
 ```
 
----
+The Firestore rules deny direct browser access. The backend uses Admin credentials to read and write shared content.
 
-## Future Roadmap
+[The GitHub Actions workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions and Firestore rules. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules.
 
-- **Algorithmic Chord Simplification Fallback:** Algorithmic engine stripping complex extensions down to root triads for websites that lack an official simplified chart.
-- **Full PWA Offline Support:** Service worker (`vite-plugin-pwa`) to cache the complete app shell for full offline usage.
-- **PDF & Print Export:** 1-page printable chord sheets formatted specifically for stage binders and paper music stands.
+### Backend safeguards
 
----
-
-## Legal & Terms of Service Notice
-
-This tool is created strictly for **personal study, private rehearsal, and live performance reference**. Chord sheets and lyrics are the intellectual property and copyright of their respective songwriters and publishers. 
-
-Scraped results and chord edits are stored only inside the individual user's browser (IndexedDB or URL hash) and are not republished, redistributed, or sold. Please support artists and songwriters by purchasing authorized sheet music and licensing your public performances through applicable licensing organizations (e.g. CCLI, ASCAP, BMI).
+Link imports use a domain allow-list, DNS/IP checks against private addresses, fetch limits, rate limiting and host circuit breakers. Function instances are capped and can scale down to zero. These controls help limit usage; hosting and AI costs still depend on your traffic and provider settings.
