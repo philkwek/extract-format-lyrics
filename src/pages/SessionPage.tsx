@@ -15,7 +15,7 @@ import {
 import { makeEntryId, sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi } from '../lib/api'
-import { getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
+import { getDefaultSongPrefs, getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
@@ -169,7 +169,7 @@ export default function SessionPage() {
   // render immediately after persisting the new values.
   void prefsRevision
   const prefs = !currentSong
-    ? { columns: 1 as const, fontSizePx: 14, darkMode: themeDark, simplified: false }
+    ? { ...getDefaultSongPrefs(), darkMode: themeDark }
     : {
         ...getSongPrefs(currentSong.id),
         darkMode: themeDark,
