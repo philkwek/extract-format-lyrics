@@ -63,9 +63,11 @@ Everyone chooses which song to view on their own device. It doesn't automaticall
 
 An ambient pad is a sustained background sound that can fill out the music when you're playing with just a guitar. Press **Play Ambient Pad** beside the chord controls to start it. Press it again to stop.
 
-The pad follows the selected major key, including when you transpose or switch to another song with a supported key.
+**Match Song Key** makes the pad follow the song's selected major key, including when you transpose or switch songs.
 
-![Playing an ambient pad and switching songs so the pad follows the selected key](docs/readme/ambient.gif)
+Using a capo? Choose **Custom Key** under **Pads Key** and select the key your guitar actually sounds in. For example, if you're playing G shapes with a capo on fret 2, choose **A** for the pad. Your chord sheet can stay in G while the pad plays in A.
+
+![Playing an ambient pad and choosing a custom pad key for use with a capo](docs/readme/ambient.gif)
 
 *The GIF shows the controls; it has no audio. Pads are available for the 12 major keys.*
 

@@ -16,7 +16,7 @@ Converted from the user's MP4 recordings at 1100px wide and 18 fps, keeping the 
 - `simplify-transpose.gif`: changing key and simplifying chords.
 - `edit-chord.gif`: editing a chord and adjusting its position.
 - `arrange.gif`: reordering songs and sections.
-- `ambient.gif`: starting an ambient pad and switching songs.
+- `ambient.gif`: updated recording showing ambient pad playback and the Custom Key selector for guitarists using a capo.
 - `share-lyrics.gif`: generating a lyrics link and opening the shared viewer.
 
 The recordings show existing songs in the actual app; they are not the original demo songs used in the screenshots.
