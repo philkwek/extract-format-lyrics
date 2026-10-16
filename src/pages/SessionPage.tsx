@@ -34,6 +34,7 @@ import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
 import { Button, IconButton } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
+import { ambientPadPlayer, type AmbientPadState } from '../lib/ambientPadPlayer'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -75,6 +76,7 @@ export default function SessionPage() {
   })
   const [isShareLyricsOpen, setIsShareLyricsOpen] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
 
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -164,6 +166,33 @@ export default function SessionPage() {
   const currentItem = session?.songs[activeIndex]
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
   const currentSong = currentItem ? songForItem(currentItem) : null
+  const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
+
+  useEffect(() => {
+    const unsubscribe = ambientPadPlayer.subscribe(setPadState)
+    return () => {
+      unsubscribe()
+      ambientPadPlayer.stop()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (padState.isPlaying && currentKey) {
+      void ambientPadPlayer.setKey(currentKey).catch(() => {
+        // Ignore audio transition errors
+      })
+    }
+  }, [currentKey, padState.isPlaying])
+
+  const handleTogglePad = () => {
+    if (padState.isPlaying) {
+      ambientPadPlayer.stop()
+    } else if (currentKey) {
+      void ambientPadPlayer.play(currentKey).catch(() => {
+        // Ignore audio start errors
+      })
+    }
+  }
 
   // Preference storage is not reactive, so prefsRevision makes a control click
   // render immediately after persisting the new values.
@@ -747,7 +776,6 @@ export default function SessionPage() {
     )
   }
 
-  const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
   const offset = currentSong && currentSong.originalKey && currentKey
     ? keyOffset(currentSong.originalKey, currentKey)
     : 0
@@ -972,6 +1000,10 @@ export default function SessionPage() {
                   onRestoreOriginal={handleRestoreOriginal}
                   isEditingChords={isEditingChords}
                   hasLyricOverflow={hasLyricOverflow}
+                  isPadPlaying={padState.isPlaying}
+                  isPadLoading={padState.isLoading}
+                  currentKey={currentKey}
+                  onTogglePad={handleTogglePad}
                   onToggleEditChords={() => {
                     setIsEditingChords((prev) => {
                       if (prev) {
