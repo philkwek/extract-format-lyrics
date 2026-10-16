@@ -3,6 +3,7 @@ import type { Song } from './types.js'
 import { siteForHost } from './urls.js'
 import { safeFetchHtml } from './safeFetch.js'
 import { normalizeSongText, inferKeyFromChords } from './normalizer.js'
+import { normalizeSongKey } from './keyDetector.js'
 import { simplifySections } from './simplifyChords.js'
 import { ultimateGuitarAdapter } from './adapters/ultimateGuitar.js'
 import { pnwChordsAdapter } from './adapters/pnwChords.js'
@@ -38,7 +39,7 @@ export async function scrapeSingleUrl(
   const rawSong = adapter.extract(html, finalUrl)
 
   const sections = normalizeSongText(rawSong.content)
-  const key = inferKeyFromChords(sections) ?? rawSong.originalKey ?? null
+  const key = inferKeyFromChords(sections) ?? normalizeSongKey(rawSong.originalKey)
 
   let simplifiedSections: typeof sections | undefined
   let simplifiedSource: 'official' | 'algorithmic' | undefined

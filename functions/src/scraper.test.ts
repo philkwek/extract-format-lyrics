@@ -221,3 +221,33 @@ it('infers C for Fresh Fire chart 5088748 rather than its first Am chord', async
   expect(song.sections[0].type).toBe('Intro')
   expect(song.sections[0].lines[0].kind).toBe('lyric')
 })
+
+describe('scraping major-family output policy', () => {
+  const fetchSong = (metadata: string | null, content: string) => {
+    const html = `<h1>Test Song – Artist</h1><pre${metadata === null ? '' : ` data-key="${metadata}"`}>${content}</pre>`
+    const url = 'https://pnwchords.com/key-policy'
+    return scrapeSingleUrl(url, vi.fn().mockResolvedValue({ text: html, finalUrl: url }))
+  }
+
+  it.each([
+    ['Am', 'C'], ['C#m', 'E'], ['Dm', 'F'], ['F#m', 'A'], ['Bbm', 'Db'], ['G#m', 'B'],
+    ['Eb minor', 'Gb'], ['F#', 'F#'], ['Gb', 'Gb'], ['A#', 'A#'],
+  ])('normalizes metadata fallback %s to %s for a chordless chart', async (metadata, expected) => {
+    expect((await fetchSong(metadata, 'Only lyrics here')).originalKey).toBe(expected)
+  })
+
+  it.each([
+    ['Am Dm E7 Am', 'C'], ['C#m F#m G#7 C#m', 'E'], ['Dm Gm A7 Dm', 'F'],
+    ['F#m Bm C#7 F#m', 'A'], ['Bbm Ebm F7 Bbm', 'Db'], ['G#m C#m D#7 G#m', 'B'],
+  ])('normalizes detected minor chart %s before falling back to metadata', async (chords, expected) => {
+    expect((await fetchSong('D', `[Verse]\n${chords}`)).originalKey).toBe(expected)
+  })
+
+  it('keeps detected major ahead of minor metadata', async () => {
+    expect((await fetchSong('Am', '[Verse]\nD G A7 D')).originalKey).toBe('D')
+  })
+
+  it.each([null, '', 'H#m', 'not a key'])('keeps missing or invalid fallback %s null', async metadata => {
+    expect((await fetchSong(metadata, 'Only lyrics here')).originalKey).toBeNull()
+  })
+})

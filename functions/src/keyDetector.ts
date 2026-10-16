@@ -1,13 +1,18 @@
-import { parseChord } from './chords.js'
+import { noteToIndex, parseChord } from './chords.js'
 import { classifyChordQuality } from './simplifyChords.js'
 import { normalizeSongText, detectSectionHeader } from './normalizer.js'
 import type { Section } from './types.js'
 
+export const SONG_KEY_PRESETS = [
+  'Ab', 'A', 'A#', 'Bb', 'B', 'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#',
+] as const
+export type SongKeyPreset = typeof SONG_KEY_PRESETS[number]
+
 export interface KeyDetectionResult {
-  /** Standard concise key symbol used in the app, e.g. "E" or "C#m" */
-  key: string
-  /** Formatted key name, e.g. "E Major" or "C# minor" */
-  formattedKey: string
+  /** Output major-key family, including when internal analysis favors minor. */
+  key: SongKeyPreset
+  /** Formatted output major-key family, e.g. "E Major". */
+  formattedKey: `${SongKeyPreset} Major`
   /** Concise relative minor symbol, e.g. "C#m" */
   relativeMinor: string
   /** Formatted relative minor name, e.g. "C# minor" */
@@ -37,6 +42,23 @@ const FLAT_MAJOR_ROOTS = new Set([5, 10, 3, 8, 1])
 function pitchClassToNoteName(pitchClass: number, preferFlats: boolean): string {
   const pc = ((pitchClass % 12) + 12) % 12
   return preferFlats ? FLAT_NOTE_NAMES[pc] : SHARP_NOTE_NAMES[pc]
+}
+
+/** Constrains output labels, not tonal inference. Invalid/missing keys stay null. */
+export function normalizeSongKey(key: string | null | undefined, preferFlats?: boolean): SongKeyPreset | null {
+  const match = /^([A-G][#b♯♭]?)(m|\s*[Mm]inor|\s*[Mm]ajor)?$/.exec(key?.trim() ?? '')
+  if (!match) return null
+  const rootName = match[1].replace('♯', '#').replace('♭', 'b')
+  const tonic = noteToIndex(rootName)
+  if (tonic === null) return null
+  const minor = match[2] === 'm' || match[2]?.trim().toLowerCase() === 'minor'
+  const majorTonic = minor ? (tonic + 3) % 12 : tonic
+  // Keep valid major spellings; otherwise use the detector's signature convention.
+  const spelling = !minor && SONG_KEY_PRESETS.some(preset => preset === rootName)
+    ? rootName
+    : pitchClassToNoteName(majorTonic, preferFlats ??
+      (majorTonic === 6 ? rootName.includes('b') : FLAT_MAJOR_ROOTS.has(majorTonic)))
+  return SONG_KEY_PRESETS.find(preset => preset === spelling) ?? null
 }
 
 type DetectionQuality = 'major' | 'minor' | 'diminished' | 'augmented' | 'thirdless'
@@ -195,8 +217,8 @@ function scoreCandidate(occurrences: DetectedChordOccurrence[], unique: Harmony[
   return { tonic, minor, score, fitRatio, support, strongResolution }
 }
 
-/** Jointly ranks 24 tonal centers. Modal chords receive partial compatibility;
- * the API still reports a major/minor key rather than a separate modal label. */
+/** Jointly ranks 24 tonal centers, then labels the winning major-key family.
+ * Modal chords receive partial compatibility; output groups relative modes. */
 export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResult | null {
   const occurrences = extractChordOccurrences(sections)
   if (!occurrences.length) return null
@@ -211,17 +233,6 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
   const best = candidates[0]
   const parentTonic = best.minor ? (best.tonic + 3) % 12 : best.tonic
   const minorTonic = (parentTonic + 9) % 12
-  // Root spelling only: b5/#11 and slash basses are not key-signature hints.
-  const roots = [...new Set(occurrences.map(o => o.rootName))]
-  const flatHints = roots.filter(root => /[b♭]/.test(root)).length
-  const sharpHints = roots.filter(root => /[#♯]/.test(root)).length
-  const preferFlats = parentTonic === 6 ? flatHints > sharpHints : FLAT_MAJOR_ROOTS.has(parentTonic)
-  const majorName = pitchClassToNoteName(parentTonic, preferFlats)
-  // Gb's relative minor is Ebm; F#'s is D#m. Other conventional pairs follow the parent.
-  const minorName = `${pitchClassToNoteName(minorTonic, preferFlats)}m`
-  const key = best.minor ? minorName : majorName
-  const formattedKey = best.minor ? `${minorName.slice(0, -1)} minor` : `${majorName} Major`
-  const formattedRelativeMinor = `${minorName.slice(0, -1)} minor`
   const margin = Math.max(0, best.score - candidates[1].score)
   let confidence = 0.45 * best.support + 0.35 * Math.min(1, margin) + (best.strongResolution ? 0.2 : 0.05)
   const relative = candidates.find(c => c.minor !== best.minor && c.tonic === (best.minor ? parentTonic : minorTonic))!
@@ -233,6 +244,19 @@ export function detectSongKeyFromSections(sections: Section[]): KeyDetectionResu
   if (unique.every(h => h.quality === 'thirdless')) confidence = Math.min(confidence, 0.35)
   confidence = Number(Math.max(0, Math.min(1, confidence)).toFixed(2))
   const diatonicFitRatio = Number(best.fitRatio.toFixed(2))
+  // Apply output policy only after ranking, mode, confidence, and fit are final.
+  // Root spelling only: b5/#11 and slash basses are not key-signature hints.
+  const roots = [...new Set(occurrences.map(o => o.rootName))]
+  const flatHints = roots.filter(root => /[b♭]/.test(root)).length
+  const sharpHints = roots.filter(root => /[#♯]/.test(root)).length
+  const preferFlats = parentTonic === 6 ? flatHints > sharpHints : FLAT_MAJOR_ROOTS.has(parentTonic)
+  const internalKey = pitchClassToNoteName(best.tonic, preferFlats) + (best.minor ? 'm' : '')
+  // Generated note names are valid; normalization cannot return null here.
+  const key = normalizeSongKey(internalKey, preferFlats)!
+  const formattedKey = `${key} Major` as const
+  // Gb's relative minor is Ebm; F#'s is D#m. Other pairs follow the family.
+  const minorName = `${pitchClassToNoteName(minorTonic, preferFlats)}m`
+  const formattedRelativeMinor = `${minorName.slice(0, -1)} minor`
   return {
     key, formattedKey, relativeMinor: minorName, formattedRelativeMinor,
     confidence, diatonicFitRatio, chordsDetected: distinctChords,

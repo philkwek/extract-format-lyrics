@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { Section } from './types.js'
-import { detectSongKey, detect_song_key, detectSongKeyFromSections } from './keyDetector.js'
-import { normalizeSongText } from './normalizer.js'
+import { detectSongKey, detect_song_key, detectSongKeyFromSections, normalizeSongKey, SONG_KEY_PRESETS } from './keyDetector.js'
+import { inferKeyFromChords, normalizeSongText } from './normalizer.js'
 import { noteToIndex } from './chords.js'
 
 describe('detectSongKey', () => {
@@ -39,8 +39,8 @@ Hallelujah, my soul sings
 `
     const res = detect_song_key(sheet)
     expect(res).not.toBeNull()
-    expect(res?.key).toBe('C#m')
-    expect(res?.formattedKey).toBe('C# minor')
+    expect(res?.key).toBe('E')
+    expect(res?.formattedKey).toBe('E Major')
     expect(res?.confidence).toBeLessThanOrEqual(0.6)
     expect(res?.relative_minor).toBe('C# minor')
     expect(res?.chords_detected).toEqual(expect.arrayContaining(['C#m', 'A', 'E', 'B']))
@@ -64,7 +64,7 @@ C
     expect(res?.formattedKey).toBe('C Major')
   })
 
-  it('disambiguates relative minor when song is centered on minor tonic (Am)', () => {
+  it('labels an internally favored A minor center as the C major family', () => {
     const sheet = `
 [Verse 1]
 Am       Dm
@@ -77,8 +77,8 @@ Am
 `
     const res = detectSongKey(sheet)
     expect(res).not.toBeNull()
-    expect(res?.key).toBe('Am')
-    expect(res?.formattedKey).toBe('A minor')
+    expect(res?.key).toBe('C')
+    expect(res?.formattedKey).toBe('C Major')
     expect(res?.relativeMinor).toBe('Am')
   })
 
@@ -92,8 +92,8 @@ Waiting for the end
 `
     const res = detectSongKey(sheet)
     expect(res).not.toBeNull()
-    expect(res?.key).toBe('Am')
-    expect(res?.formattedKey).toBe('A minor')
+    expect(res?.key).toBe('C')
+    expect(res?.formattedKey).toBe('C Major')
   })
 
   it('weights Chorus sections more heavily to determine tonal center', () => {
@@ -220,18 +220,18 @@ You've become our sanctuary
 // These expectations specify the chart heuristic, not certainty about an unheard melody.
 describe('tonal-center regressions', () => {
   const cases = [
-    ['Aeolian with explicit minor ending', '[Chorus]\nAm F C G Am F C G Am', 'Am'],
+    ['Aeolian with explicit minor ending', '[Chorus]\nAm F C G Am F C G Am', 'C'],
     ['major Axis with major ending', '[Chorus]\nC G Am F C', 'C'],
     ['Mixolydian tonic anchor', '[Chorus]\nE D A E', 'E'],
-    ['Dorian minor anchor', '[Chorus]\nAm D Am G Am', 'Am'],
-    ['harmonic minor ii half-diminished V7 i', '[Verse]\nAm Bm7b5 E7 Am', 'Am'],
+    ['Dorian minor anchor', '[Chorus]\nAm D Am G Am', 'C'],
+    ['harmonic minor ii half-diminished V7 i', '[Verse]\nAm Bm7b5 E7 Am', 'C'],
     ['leading-tone diminished in major', '[Verse]\nC F Bdim C G7 C', 'C'],
     ['secondary dominant does not force relative minor', '[Chorus]\nC F G C Am E7 Am G7 C', 'C'],
-    ['minor chorus after a major verse', '[Verse]\nC F G C\n[Chorus]\nAm Dm E7 Am', 'Am'],
+    ['minor chorus after a major verse', '[Verse]\nC F G C\n[Chorus]\nAm Dm E7 Am', 'C'],
     ['major chorus after a minor verse', '[Verse]\nAm Dm E7 Am\n[Chorus]\nC F G7 C', 'C'],
     ['flat tonic with matching relative spelling', '[Verse]\nGb Cb Db Gb', 'Gb'],
     ['sharp tonic with matching relative spelling', '[Verse]\nF# B C# F#', 'F#'],
-    ['C sharp minor despite altered fifth flat hint', '[Verse]\nC#m D#m7b5 G#7 C#m', 'C#m'],
+    ['C sharp minor despite altered fifth flat hint', '[Verse]\nC#m D#m7b5 G#7 C#m', 'E'],
     ['D flat major uses conventional spelling', '[Verse]\nDb Gb Ab7 Db', 'Db'],
     ['suspended dominant resolution', '[Verse]\nG C Dsus4 D7 G', 'G'],
   ]
@@ -257,7 +257,7 @@ describe('tonal-center regressions', () => {
   it('does not turn annotation duplication into confidence 1.0', () => {
     for (const repeats of [1, 2, 8, 32]) {
       const text = '[Chorus]\n' + Array(repeats).fill('Am F C G').join(' ')
-      expect(detectSongKey(text)?.key).toBe('Am')
+      expect(detectSongKey(text)?.key).toBe('C')
       expect(detectSongKey(text)?.confidence).toBeLessThanOrEqual(0.6)
     }
   })
@@ -291,8 +291,9 @@ describe('transposition invariance', () => {
     ] as const) {
       const chords = offsets.map(offset => names[(offset + shift) % 12] + (minor && offset === 0 ? 'm' : ''))
       const result = detectSongKeyFromSections([{ type: 'Chorus', label: 'Chorus', lines: [{ kind: 'chords-only', chords }] }])!
-      expect(noteToIndex(result.key.replace(/m$/, ''))).toBe(shift)
-      expect(result.key.endsWith('m')).toBe(minor)
+      expect(noteToIndex(result.key)).toBe((shift + (minor ? 3 : 0)) % 12)
+      expect(SONG_KEY_PRESETS).toContain(result.key)
+      expect(result.formattedKey).toBe(`${result.key} Major`)
     }
   })
 })
@@ -364,6 +365,79 @@ describe('Fresh Fire UG chart 5088748', () => {
         ) }],
       }))
       expect(noteToIndex(detectSongKeyFromSections(shifted)!.key)).toBe(shift)
+    }
+  })
+})
+
+describe('final major-family output policy', () => {
+  const minorCases = [
+    ['Cm', 'Eb', 'Cm'], ['C#m', 'E', 'C#m'], ['Dm', 'F', 'Dm'],
+    ['D#m', 'F#', 'D#m'], ['Em', 'G', 'Em'], ['Fm', 'Ab', 'Fm'],
+    ['F#m', 'A', 'F#m'], ['Gm', 'Bb', 'Gm'], ['G#m', 'B', 'G#m'],
+    ['Am', 'C', 'Am'], ['Bbm', 'Db', 'Bbm'], ['Bm', 'D', 'Bm'],
+  ] as const
+  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+  it.each(minorCases)('maps %s to %s after internal minor analysis', (minor, major, relativeMinor) => {
+    const tonic = noteToIndex(minor.slice(0, -1))!
+    const chords = [minor, `${notes[(tonic + 2) % 12]}m7b5`, `${notes[(tonic + 7) % 12]}7`, minor]
+    const text = '[Verse]\n' + chords.join(' ')
+    const sections = normalizeSongText(text)
+    const result = detectSongKeyFromSections(sections)!
+    expect(normalizeSongKey(minor)).toBe(major)
+    expect(result.key).toBe(major)
+    expect(SONG_KEY_PRESETS).toContain(result.key)
+    expect(result.formattedKey).toBe(`${major} Major`)
+    expect(result.relativeMinor).toBe(relativeMinor)
+    expect(result.formattedRelativeMinor).toBe(`${relativeMinor.slice(0, -1)} minor`)
+    expect(result.relative_minor).toBe(result.formattedRelativeMinor)
+    // Baselines from the internal minor winner: its altered V7 is not strictly
+    // diatonic. Rescoring the displayed major would change these values.
+    expect(result.confidence).toBe(0.98)
+    expect(result.diatonicFitRatio).toBe(0.67)
+    expect(result.diatonic_fit_ratio).toBe(result.diatonicFitRatio)
+    expect(result.chords_detected).toEqual(result.chordsDetected)
+    expect(result.chordsDetected).toEqual([...new Set(chords)])
+    expect(detectSongKey(text)).toEqual(result)
+    expect(detect_song_key(text)).toEqual(result)
+    expect(detectSongKey('[Verse]\n' + chords.map(chord => `[${chord}]sing`).join(' '))).toEqual(result)
+    expect(inferKeyFromChords(sections)).toBe(major)
+  })
+
+  it.each(SONG_KEY_PRESETS)('preserves the major preset spelling %s', key => {
+    expect(normalizeSongKey(key)).toBe(key)
+    expect(normalizeSongKey(`${key} Major`)).toBe(key)
+  })
+
+  it.each([
+    ['Ebm', 'Gb'], ['A#m', 'Db'], ['Dbm', 'E'], ['Abm', 'B'],
+    ['G♯ minor', 'B'], ['B♭m', 'Db'], ['G♭', 'Gb'], ['B#', 'C'], ['Cb', 'B'],
+  ])('resolves enharmonic spelling %s to %s', (key, expected) => {
+    expect(normalizeSongKey(key)).toBe(expected)
+  })
+
+  it('uses chord root hints for the Gb/Ebm family', () => {
+    const result = detectSongKey('[Verse]\nEbm Fm7b5 Bb7 Ebm')!
+    expect(result.key).toBe('Gb')
+    expect(result.relativeMinor).toBe('Ebm')
+    expect(result.relative_minor).toBe('Eb minor')
+    expect(result.formattedKey).toBe('Gb Major')
+    expect(result.confidence).toBe(0.98)
+    expect(result.diatonicFitRatio).toBe(0.67)
+  })
+
+  it.each([null, undefined, '', '  ', 'H', 'H#m', 'Am7', 'C/G', 'not a key'])('keeps invalid metadata %s null', key => {
+    expect(normalizeSongKey(key)).toBeNull()
+  })
+
+  it('keeps all public entry points null for empty, chordless, or invalid charts', () => {
+    expect(detectSongKeyFromSections([])).toBeNull()
+    for (const text of ['', '   ', 'Only lyrics here', '[Verse]\n[H#m]sing [Cgarbage]sing']) {
+      expect(detectSongKey(text)).toBeNull()
+      expect(detect_song_key(text)).toBeNull()
+      const sections = normalizeSongText(text)
+      expect(detectSongKeyFromSections(sections)).toBeNull()
+      expect(inferKeyFromChords(sections)).toBeNull()
     }
   })
 })
