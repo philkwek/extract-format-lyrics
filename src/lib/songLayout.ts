@@ -69,6 +69,65 @@ export function getColumnDisplayWidths(columns: ColumnSectionItem[][]): number[]
 }
 
 /**
+ * Allocates column widths using a smallest-first (water-filling) fair-share
+ * strategy so narrower columns fit in full first and only columns that exceed
+ * their fair share plus donated surplus get constrained.
+ */
+export function allocateColumnWidths(
+  intrinsicWidths: number[],
+  availableWidthCh?: number,
+): number[] {
+  const count = intrinsicWidths.length
+  if (count === 0) return []
+  const sanitized = intrinsicWidths.map((width) => Math.max(width, 1))
+  if (count === 1) return sanitized
+
+  const totalNeeded = sanitized.reduce((sum, width) => sum + width, 0)
+  // When container width is not yet measured, fall back to a standard 114ch multi-column budget
+  const budget =
+    availableWidthCh !== undefined && Number.isFinite(availableWidthCh) && availableWidthCh > 0
+      ? availableWidthCh
+      : 114
+
+  if (totalNeeded <= budget) {
+    const extraPerColumn = (budget - totalNeeded) / count
+    return sanitized.map((width) => Number((width + extraPerColumn).toFixed(2)))
+  }
+
+  const allocated = new Array<number>(count).fill(0)
+  const locked = new Array<boolean>(count).fill(false)
+  let remainingBudget = budget
+  let remainingCount = count
+
+  while (remainingCount > 0) {
+    const equalShare = remainingBudget / remainingCount
+    let lockedAny = false
+
+    for (let index = 0; index < count; index++) {
+      if (!locked[index] && sanitized[index] <= equalShare) {
+        locked[index] = true
+        allocated[index] = sanitized[index]
+        remainingBudget -= sanitized[index]
+        remainingCount -= 1
+        lockedAny = true
+      }
+    }
+
+    if (!lockedAny) {
+      const cappedShare = Math.max(remainingBudget / remainingCount, 1)
+      for (let index = 0; index < count; index++) {
+        if (!locked[index]) {
+          allocated[index] = Number(cappedShare.toFixed(2))
+        }
+      }
+      break
+    }
+  }
+
+  return allocated
+}
+
+/**
  * Computes an estimated vertical weight (visual height in line units) for a section.
  * Includes section header and spacing overhead plus line weights.
  */

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
-import { getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
+import { allocateColumnWidths, getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
 import { getLyricSplitPositions } from '../lib/lineSplit'
 
 interface SongSheetProps {
@@ -326,6 +326,8 @@ export default function SongSheet({
   onLyricOverflowChange,
 }: SongSheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const chProbeRef = useRef<HTMLSpanElement | null>(null)
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [editingChord, setEditingChord] = useState<EditingChordTarget | null>(null)
@@ -335,6 +337,7 @@ export default function SongSheet({
     sectionIndex: number
     lineIndex: number
   } | null>(null)
+  const [availableWidthCh, setAvailableWidthCh] = useState<number | undefined>(undefined)
   const [overflowingLineKeys, setOverflowingLineKeys] = useState<Set<string>>(new Set())
   const columnPartitions = useMemo(() => partitionSections(sections, columns), [sections, columns])
   const visibleColumnPartitions = useMemo(() => {
@@ -345,11 +348,15 @@ export default function SongSheet({
     () => getColumnDisplayWidths(visibleColumnPartitions),
     [visibleColumnPartitions],
   )
+  const allocatedColumnWidths = useMemo(
+    () => allocateColumnWidths(columnDisplayWidths, availableWidthCh),
+    [columnDisplayWidths, availableWidthCh],
+  )
   const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as 1 | 2 | 3
-  const hasAdaptiveColumns = desktopColumnCount > 1 && columnDisplayWidths.length > 1
+  const hasAdaptiveColumns = desktopColumnCount > 1 && allocatedColumnWidths.length > 1
   const adaptiveGridStyle: CSSProperties | undefined = hasAdaptiveColumns
     ? ({
-        '--song-sheet-column-template': columnDisplayWidths
+        '--song-sheet-column-template': allocatedColumnWidths
           .map((width) => `minmax(0, ${width}fr)`)
           .join(' '),
       } as CSSProperties)
@@ -367,6 +374,33 @@ export default function SongSheet({
 
     const sheet = sheetRef.current
     const measureOverflow = () => {
+      if (hasAdaptiveColumns && gridRef.current) {
+        const gridWidthPx = gridRef.current.clientWidth
+        const probeWidthPx = chProbeRef.current?.getBoundingClientRect().width ?? 0
+        const chWidthPx = probeWidthPx > 0 ? probeWidthPx / 10 : fontSizePx * 0.6
+        const computedGap =
+          typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+            ? parseFloat(window.getComputedStyle(gridRef.current).columnGap)
+            : NaN
+        const gapPx = Number.isFinite(computedGap) ? computedGap : 32
+        const usableWidthPx = gridWidthPx - gapPx * (desktopColumnCount - 1)
+
+        if (usableWidthPx > 0 && chWidthPx > 0) {
+          const nextAvailableCh = Math.max(
+            desktopColumnCount,
+            Math.floor(usableWidthPx / chWidthPx - 1),
+          )
+          const nextWidths = allocateColumnWidths(columnDisplayWidths, nextAvailableCh)
+          gridRef.current.style.setProperty(
+            '--song-sheet-column-template',
+            nextWidths.map((width) => `minmax(0, ${width}fr)`).join(' '),
+          )
+          setAvailableWidthCh((current) =>
+            current === nextAvailableCh ? current : nextAvailableCh,
+          )
+        }
+      }
+
       const nextOverflowingLines = new Set<string>()
       sheet.querySelectorAll<HTMLElement>('[data-lyric-line-key]').forEach((element) => {
         const key = element.dataset.lyricLineKey
@@ -397,7 +431,16 @@ export default function SongSheet({
       observer?.disconnect()
       window.removeEventListener('resize', measureOverflow)
     }
-  }, [columns, fontSizePx, isEditingChords, onLyricOverflowChange, sections])
+  }, [
+    columnDisplayWidths,
+    columns,
+    desktopColumnCount,
+    fontSizePx,
+    hasAdaptiveColumns,
+    isEditingChords,
+    onLyricOverflowChange,
+    sections,
+  ])
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     e.dataTransfer.effectAllowed = 'move'
@@ -478,6 +521,13 @@ export default function SongSheet({
 
   return (
     <div ref={sheetRef} className="song-sheet select-text" style={{ fontSize: `${fontSizePx}px` }}>
+      <span
+        ref={chProbeRef}
+        aria-hidden="true"
+        className="font-mono pointer-events-none fixed -left-[9999px] top-0 opacity-0 select-none whitespace-pre"
+      >
+        0000000000
+      </span>
       {isEditingChords && (
         <div className="mb-4 bg-[#C8DFDB]/40 dark:bg-amber-400/10 border border-[#66A3BF]/40 dark:border-amber-500/30 rounded-lg px-3 py-2 text-md text-[#1c436b] dark:text-amber-300 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
@@ -496,6 +546,7 @@ export default function SongSheet({
       )}
 
       <div
+        ref={gridRef}
         className={`${gridClass}${hasAdaptiveColumns ? ' song-sheet-grid--adaptive' : ''}`}
         style={adaptiveGridStyle}
       >

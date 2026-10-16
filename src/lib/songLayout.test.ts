@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  allocateColumnWidths,
   getColumnDisplayWidths,
   getLineDisplayWidth,
   getSectionDisplayWidth,
@@ -53,6 +54,26 @@ describe('songLayout - partitionSections', () => {
         [],
       ])
     ).toEqual(['Line text 1'.length, 'A much longer lyric line'.length])
+  })
+
+  it('allocates narrower columns in full first and caps only the overflowing wide column', () => {
+    // Col 1 (30ch) <= 114/3 (38ch) -> locked at 30ch.
+    // Remaining 84ch across Col 2 & 3 -> fair share 42ch.
+    // Col 2 (42ch) <= 42ch -> locked at 42ch.
+    // Col 3 (60ch) gets the remaining 42ch so only Col 3 overflows.
+    expect(allocateColumnWidths([30, 42, 60], 114)).toEqual([30, 42, 42])
+  })
+
+  it('splits remaining width evenly between multiple overflowing columns after fitting narrow column', () => {
+    expect(allocateColumnWidths([24, 55, 60], 104)).toEqual([24, 40, 40])
+  })
+
+  it('allocates equal shares when every column exceeds its fair share', () => {
+    expect(allocateColumnWidths([50, 60, 70], 120)).toEqual([40, 40, 40])
+  })
+
+  it('gives every column its full needed width plus even surplus when all columns fit', () => {
+    expect(allocateColumnWidths([25, 35, 40], 130)).toEqual([35, 45, 50])
   })
 
   it('returns single column when numColumns is 1', () => {
