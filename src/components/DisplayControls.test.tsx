@@ -75,8 +75,8 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     )
 
     expect(screen.getByText('Pads Key:')).toBeTruthy()
-    const matchTab = screen.getByRole('tab', { name: 'Match Song Key' })
-    const customTab = screen.getByRole('tab', { name: 'Custom Key' })
+    const matchTab = screen.getByRole('tab', { name: 'Match Song' })
+    const customTab = screen.getByRole('tab', { name: 'Custom' })
     expect(matchTab.getAttribute('aria-selected')).toBe('true')
     expect(customTab.getAttribute('aria-selected')).toBe('false')
     expect(screen.queryByLabelText('Custom pad key')).toBeNull()
@@ -101,7 +101,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
-    const customTab = screen.getByRole('tab', { name: 'Custom Key' })
+    const customTab = screen.getByRole('tab', { name: 'Custom' })
     const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
     expect(dropdown.value).toBe('A')
 
