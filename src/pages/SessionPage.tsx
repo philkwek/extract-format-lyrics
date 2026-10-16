@@ -168,7 +168,10 @@ export default function SessionPage() {
   const currentSong = currentItem ? songForItem(currentItem) : null
   const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
   const padKeyMode: PadKeyMode = currentItem?.padKeyMode ?? 'match'
-  const customPadKey: PadKey = resolvePadKey(currentItem?.customPadKey) ?? resolvePadKey(currentKey) ?? 'C'
+  const customPadKey: PadKey =
+    padKeyMode === 'custom'
+      ? resolvePadKey(currentItem?.customPadKey) ?? resolvePadKey(currentKey) ?? 'C'
+      : resolvePadKey(currentKey) ?? 'C'
   const effectivePadKey = padKeyMode === 'custom' ? customPadKey : currentKey
 
   useEffect(() => {
@@ -244,7 +247,11 @@ export default function SessionPage() {
 
   const handleChangePadKeyMode = async (mode: PadKeyMode) => {
     if (!currentItem || !session) return
-    const nextCustomKey = currentItem.customPadKey ?? resolvePadKey(currentKey) ?? 'C'
+    if ((currentItem.padKeyMode ?? 'match') === mode) return
+    const nextCustomKey =
+      mode === 'custom'
+        ? resolvePadKey(currentKey) ?? resolvePadKey(currentItem.customPadKey) ?? 'C'
+        : undefined
     const updated = {
       ...session,
       songs: session.songs.map((item) =>
@@ -252,7 +259,7 @@ export default function SessionPage() {
           ? {
               ...item,
               padKeyMode: mode,
-              customPadKey: mode === 'custom' ? nextCustomKey : item.customPadKey,
+              customPadKey: nextCustomKey,
             }
           : item
       ),

@@ -100,8 +100,8 @@ export default function DisplayControls({
                     onChange={onChangePadKeyMode}
                     className="ui-segmented--compact"
                     options={[
-                      { value: 'match', label: 'Match Song Key' },
-                      { value: 'custom', label: 'Custom Key' },
+                      { value: 'match', label: 'Match Song' },
+                      { value: 'custom', label: 'Custom' },
                     ]}
                   />
                   {padKeyMode === 'custom' && onSelectCustomPadKey && (

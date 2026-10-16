@@ -115,4 +115,21 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     fireEvent.change(dropdown, { target: { value: 'Bb' } })
     expect(onSelectCustomPadKey).toHaveBeenCalledWith('Bb')
   })
+
+  it('defaults the Custom Key dropdown to the current song key when switching from Match Song Key', () => {
+    render(
+      <DisplayControls
+        prefs={defaultPrefs}
+        onChangePrefs={vi.fn()}
+        currentKey="D"
+        padKeyMode="custom"
+        onChangePadKeyMode={vi.fn()}
+        onSelectCustomPadKey={vi.fn()}
+        onTogglePad={vi.fn()}
+      />
+    )
+
+    const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
+    expect(dropdown.value).toBe('D')
+  })
 })
