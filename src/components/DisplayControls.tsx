@@ -1,4 +1,4 @@
-import { AlertTriangle, Columns3, Pencil, RotateCcw, Type, WandSparkles } from 'lucide-react'
+import { AlertTriangle, AudioLines, Columns3, Pencil, RotateCcw, Type, WandSparkles } from 'lucide-react'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
 import { Button, StatusBanner } from './ui'
 
@@ -11,6 +11,10 @@ interface DisplayControlsProps {
   isEditingChords?: boolean
   onToggleEditChords?: () => void
   hasLyricOverflow?: boolean
+  isPadPlaying?: boolean
+  isPadLoading?: boolean
+  currentKey?: string | null
+  onTogglePad?: () => void
 }
 
 export default function DisplayControls({
@@ -22,6 +26,10 @@ export default function DisplayControls({
   isEditingChords,
   onToggleEditChords,
   hasLyricOverflow,
+  isPadPlaying,
+  isPadLoading,
+  currentKey,
+  onTogglePad,
 }: DisplayControlsProps) {
   return (
     <div className="space-y-2 pb-2 text-xs">
@@ -65,6 +73,23 @@ export default function DisplayControls({
         </div>
 
         <div className="grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0">
+          {onTogglePad && currentKey && (
+            <Button
+              size="sm"
+              variant={isPadPlaying ? 'primary' : 'secondary'}
+              icon={<AudioLines size={14} />}
+              onClick={onTogglePad}
+              disabled={isPadLoading}
+              aria-pressed={Boolean(isPadPlaying)}
+              title={
+                isPadPlaying
+                  ? `Stop ambient pad (${currentKey})`
+                  : `Play ambient pad in ${currentKey}`
+              }
+            >
+              {isPadPlaying ? `Playing Pad (${currentKey})` : 'Play Ambient Pad'}
+            </Button>
+          )}
           {canSimplify && (
             <div className="flex w-full items-center gap-1.5 sm:w-auto">
               <Button
