@@ -1,3 +1,4 @@
+import { trackSongImport } from '../lib/analytics'
 import { useState, useRef } from 'react'
 import { AlertTriangle, ChevronDown, ChevronUp, FileUp, KeyRound } from 'lucide-react'
 import type { Song, Section } from '../types/song'
@@ -11,7 +12,7 @@ import OverlayDialog from './ui/OverlayDialog'
 interface UploadSheetModalProps {
   isOpen: boolean
   onClose: () => void
-  onImport: (songs: Song[]) => void
+  onImport: (songs: Song[]) => void | Promise<void>
 }
 
 export default function UploadSheetModal({
@@ -119,6 +120,7 @@ export default function UploadSheetModal({
       setStatusMessage('')
       setExtractionProgress(null)
     } catch (err) {
+      trackSongImport('upload', 0, 1)
       setErrorMessage((err as Error).message || 'Extraction failed')
     } finally {
       setIsProcessing(false)
@@ -148,9 +150,19 @@ export default function UploadSheetModal({
     }
   }
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
+    if (isProcessing) return
     if (extractedSongs && extractedSongs.length > 0) {
-      onImport(extractedSongs)
+      setIsProcessing(true)
+      try {
+        await onImport(extractedSongs)
+      } catch {
+        trackSongImport('upload', 0, extractedSongs.length)
+        setErrorMessage('Could not save imported songs. Please try again.')
+        return
+      } finally {
+        setIsProcessing(false)
+      }
       onClose()
       // Reset state
       setSelectedFiles([])

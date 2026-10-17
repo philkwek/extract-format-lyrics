@@ -1,3 +1,4 @@
+import { trackEvent } from '../lib/analytics'
 import { useState } from 'react'
 import { Check, Copy, Link2 } from 'lucide-react'
 import { createShareApi } from '../lib/api'
@@ -48,6 +49,7 @@ export default function ShareModal({ snapshot, isOpen, onClose }: ShareModalProp
       const { id, expiresAt: expiry } = await createShareApi(snapshot)
       setShareUrl(`${window.location.origin}/s/${id}`)
       setExpiresAt(expiry)
+      trackEvent('set_shared', { song_count: snapshot.songs.length })
     } catch (err) {
       setError((err as Error).message || 'Failed to create sharing link')
     } finally {

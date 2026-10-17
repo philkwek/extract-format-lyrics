@@ -1,3 +1,4 @@
+import { trackEvent } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { Check, Copy, Eye, FileText, Link2, RefreshCw } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
@@ -83,7 +84,9 @@ export default function ShareLyricsModal({
       const result = await publishLyricsForSession(session.id, payload)
       setShareUrl(result.shareUrl)
       setExpiresAt(result.expiresAt)
+      trackEvent('lyrics_published', { operation: isPublished ? 'update' : 'create', outcome: 'success', song_count: payload.songs.length })
     } catch (err) {
+      trackEvent('lyrics_published', { operation: isPublished ? 'update' : 'create', outcome: 'error', song_count: session.songs.length })
       const msg =
         err instanceof ShareLyricsError
           ? err.message

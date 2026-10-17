@@ -1,3 +1,4 @@
+import { trackSongImport } from '../lib/analytics'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
@@ -80,7 +81,7 @@ export default function SessionPage() {
 
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
-    if (!session) return
+    if (!session) throw new Error('Setlist is unavailable')
     for (const song of songs) {
       await songCache.saveSong(song)
     }
@@ -105,6 +106,7 @@ export default function SessionPage() {
       newItems.forEach((item, index) => next.set(item.entryId!, songs[index]))
       return next
     })
+    trackSongImport('upload', songs.length, songs.length)
     selectSong(session.songs.length)
   }
 

@@ -2,6 +2,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import ShareLyricsModal from './ShareLyricsModal'
+import { trackEvent } from '../lib/analytics'
+vi.mock('../lib/analytics', () => ({ trackEvent: vi.fn() }))
 import * as lyricsIdentity from '../lib/lyricsPublishIdentity'
 import type { Session } from '../lib/sessionStore'
 import type { Song } from '../types/song'
@@ -81,6 +83,7 @@ describe('ShareLyricsModal', () => {
     })
 
     expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
+    expect(trackEvent).not.toHaveBeenCalled()
   })
 
   it('publishes and shows stable link, expiry, Copy link, and Update lyrics after generation', async () => {
@@ -110,6 +113,7 @@ describe('ShareLyricsModal', () => {
     })
 
     const input = screen.getByRole('textbox') as HTMLInputElement
+    expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'create', outcome: 'success', song_count: 1 })
     expect(input.value).toBe('http://localhost/lyrics/pub-test-id')
     expect(screen.getByText(/Updates keep this link and renew expiry for seven days/i)).toBeTruthy()
   })
@@ -152,6 +156,8 @@ describe('ShareLyricsModal', () => {
       expect(screen.getByText(/Failed to reach server/i)).toBeTruthy()
     })
 
+    expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'update', outcome: 'error', song_count: 1 })
+
     // URL and buttons are retained despite the failure
     expect(input.value).toContain('/lyrics/pub-existing')
     expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
@@ -186,6 +192,7 @@ describe('ShareLyricsModal', () => {
 
     // Must NOT call publishLyricsForSession
     expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
+    expect(trackEvent).not.toHaveBeenCalled()
 
     // Close button (X) is available in preview modal
     const closeButtons = screen.getAllByRole('button', { name: /Close/i })

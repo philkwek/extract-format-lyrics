@@ -1,3 +1,4 @@
+import { trackEvent } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock3, DownloadCloud } from 'lucide-react'
@@ -36,10 +37,14 @@ export default function ShareImportPage() {
         // Create new session in local IndexedDB
         const newSession = await sessionStore.createSession(sessionSongs, snapshot.name)
 
+        if (isCancelled) return
+        trackEvent('shared_set_imported', { outcome: 'success', imported_count: sessionSongs.length })
+
         // Navigate to imported session
         navigate(`/session/${newSession.id}`, { replace: true })
       } catch (err) {
         if (!isCancelled) {
+          trackEvent('shared_set_imported', { outcome: 'error', imported_count: 0 })
           if (err instanceof ShareApiError && err.code === 'EXPIRED') setExpired(true)
           setError((err as Error).message || 'Failed to load shared setlist')
           setLoading(false)

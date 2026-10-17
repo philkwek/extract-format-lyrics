@@ -39,6 +39,13 @@ jobs:
         run: npm test
 
       - name: Build frontend
+        env:
+          VITE_ANALYTICS_ENABLED: ${{ vars.VITE_ANALYTICS_ENABLED }}
+          VITE_ANALYTICS_HOSTNAMES: ${{ vars.VITE_ANALYTICS_HOSTNAMES }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_PROJECT_ID: extract-format-lyrics
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
         run: npm run build
 
       - name: Build functions (typecheck)

@@ -8,6 +8,9 @@ import ShareImportPage from './pages/ShareImportPage'
 import LyricsViewerPage from './pages/LyricsViewerPage'
 import { getInitialTheme, saveTheme, applyTheme } from './lib/theme'
 
+import PrivacyPage from './pages/PrivacyPage'
+import { trackPage, setTrackingEnabled } from './lib/analytics'
+
 import { IconButton } from './components/ui'
 
 export function AppShell({
@@ -18,6 +21,16 @@ export function AppShell({
   toggleTheme: () => void
 }) {
   const location = useLocation()
+  useEffect(() => { trackPage(location.pathname) }, [location.pathname])
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key === 'usage-tracking-disabled' || event.key === null) {
+        setTrackingEnabled(event.newValue !== 'true')
+      }
+    }
+    window.addEventListener('storage', sync)
+    return () => window.removeEventListener('storage', sync)
+  }, [])
   const isLyricsView = location.pathname.startsWith('/lyrics/')
 
   return (
@@ -57,11 +70,16 @@ export function AppShell({
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/session/:sessionId" element={<SessionPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/s/:shortId" element={<ShareImportPage />} />
           <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
         </Routes>
       </main>
+      <footer className="mx-auto max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
+        <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>
+        {!isLyricsView && <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>}
+      </footer>
     </div>
   )
 }
