@@ -8,33 +8,31 @@ This document describes the search/import pipeline, its caches and budgets, and 
 2. The backend checks an instance-local and Firestore-backed search cache.
 3. On a miss, Ultimate Guitar, PNW Chords and Worship Together start concurrently.
 4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen. Each source is initially capped at three results (`ceil(8 / 3)`), reserving slots for slower sources.
-5. The backend applies the deterministic selection rule to the full candidate set and emits a final `complete` event. The browser adopts that balanced composition while preserving the position of cards already shown.
+5. The backend emits a final `complete` event using Ultimate Guitar’s native first three results plus the balanced selection for other sources. The browser adopts that composition while preserving the position of cards already shown.
 
 The ordinary `GET /api/search?q=...` JSON response remains available for cached/simple clients.
 
 ### Result selection
 
+Ultimate Guitar’s first three accessible results are used directly in payload order.
+
+For PNW Chords and Worship Together:
+
 1. Candidates that match no query token are dropped when at least one relevant candidate exists.
 2. Canonical URLs are de-duplicated (tracking parameters and fragments removed, meaningful parameters such as `version` and `simplified` kept).
 3. Candidates are ordered within their own source by relevance and then source-local rating. Ratings from different sites are never compared.
-4. Sources take turns, so one long, highly rated Ultimate Guitar list cannot hide every other source. Unused capacity is filled from remaining candidates.
+4. The remaining sources take turns for the leftover capacity.
 
-The default limit remains eight.
+The default total limit remains eight.
 
-### Experimental Ultimate Guitar ordering
+### Ultimate Guitar ordering
 
-Set the function environment variable `SEARCH_RESULT_MODE=ug-native` to compare Ultimate Guitar’s own ordering with the balanced policy:
+Ultimate Guitar’s own result order is treated as authoritative for that source:
 
-- The adapter still filters inaccessible Official/Pro and non-chord rows, then keeps its first ten accessible results.
-- The first three of those ten are preserved in payload order.
-- Other sources continue through the balanced selector and fill the remaining five slots.
-- The search cache key includes the mode, and responses include `selectionMode` plus an `X-Search-Selection` header.
-
-The default is `balanced`; the existing balanced selector is unchanged and remains available. Unset or set any other value to use it. For a local emulator comparison:
-
-```sh
-SEARCH_RESULT_MODE=ug-native npm run dev:backend
-```
+- The adapter filters inaccessible Official/Pro and non-chord rows, then keeps the **first three accessible results** in payload order.
+- The backend does not apply relevance/rating re-sorting to those UG results.
+- PNW Chords and Worship Together still use the balanced/relevance selector and fill the remaining capacity.
+- Search cache entries are versioned as `search-v2` so older sorted results are not reused.
 
 ### Source outcomes
 
@@ -54,7 +52,7 @@ A failure never hides another source’s results. Three consecutive 403/429 resp
 | Shared | Firestore `searchCache` | 5 min | Complete results only; document id is a hash of the versioned key |
 | In-flight | Function process | Request lifetime | Identical concurrent work coalesces within one instance |
 
-Keys use `search-v1:<selection mode>:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
+Keys use `search-v2:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
 
 Partial results and failed-site results are intentionally short-lived and are not written to Firestore. A failed site is never persisted as a long-lived legitimate empty result. Cache-store failures degrade to a normal upstream search.
 

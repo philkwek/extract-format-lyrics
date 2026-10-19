@@ -1,3 +1,6 @@
+/** Ultimate Guitar's own ordering is used directly for this many results. */
+export const UG_SEARCH_RESULT_LIMIT = 3
+
 export interface SearchCandidate {
   site: string
   title: string

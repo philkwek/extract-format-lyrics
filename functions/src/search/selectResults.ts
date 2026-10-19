@@ -1,4 +1,5 @@
 import type { SearchCandidate } from './types.js'
+import { UG_SEARCH_RESULT_LIMIT } from './types.js'
 
 export const DEFAULT_SEARCH_RESULT_LIMIT = 8
 export const SUPPORTED_SEARCH_SOURCE_COUNT = 3
@@ -6,18 +7,14 @@ export const SUPPORTED_SEARCH_SOURCE_COUNT = 3
 export const PARTIAL_SOURCE_RESULT_LIMIT = Math.ceil(
   DEFAULT_SEARCH_RESULT_LIMIT / SUPPORTED_SEARCH_SOURCE_COUNT
 )
-export const UG_NATIVE_RESULT_LIMIT = 3
-
-export type SearchSelectionMode = 'balanced' | 'ug-native'
-
 /**
- * Experimental Ultimate Guitar ordering: keep the source's own payload order
- * and take the first accessible candidates. This is deliberately separate from
- * the balanced algorithm so the old policy can still be compared or restored.
+ * Ultimate Guitar ordering: keep the source's own payload order and take the
+ * first accessible candidates. The adapter already limits this to the desired
+ * output count; this helper only de-duplicates canonical URLs.
  */
 export function selectNativeSourceResults(
   candidates: SearchCandidate[],
-  limit = UG_NATIVE_RESULT_LIMIT
+  limit = UG_SEARCH_RESULT_LIMIT
 ): SearchCandidate[] {
   const selected: SearchCandidate[] = []
   const seen = new Set<string>()
@@ -32,21 +29,17 @@ export function selectNativeSourceResults(
 }
 
 /**
- * Selection entry point used by the API. `balanced` keeps the existing policy;
- * `ug-native` preserves the first three UG results and balances the remaining
- * sources into the leftover capacity.
+ * API selection: Ultimate Guitar keeps its own order; other sources use the
+ * balanced/relevance policy and fill the remaining capacity.
  */
-export function selectSearchResultsForMode(
+export function selectCombinedSearchResults(
   candidates: SearchCandidate[],
   query: string,
-  limit = DEFAULT_SEARCH_RESULT_LIMIT,
-  mode: SearchSelectionMode = 'balanced'
+  limit = DEFAULT_SEARCH_RESULT_LIMIT
 ): SearchCandidate[] {
-  if (mode === 'balanced') return selectSearchResults(candidates, query, limit)
-
   const ultimateGuitar = selectNativeSourceResults(
     candidates.filter((candidate) => candidate.site === 'ultimate-guitar'),
-    Math.min(UG_NATIVE_RESULT_LIMIT, limit)
+    Math.min(UG_SEARCH_RESULT_LIMIT, limit)
   )
   const otherSources = selectSearchResults(
     candidates.filter((candidate) => candidate.site !== 'ultimate-guitar'),

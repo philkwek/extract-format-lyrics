@@ -13,12 +13,11 @@ import { searchCache } from './search/searchCache.js'
 import {
   DEFAULT_SEARCH_RESULT_LIMIT,
   PARTIAL_SOURCE_RESULT_LIMIT,
-  UG_NATIVE_RESULT_LIMIT,
+  selectCombinedSearchResults,
   selectNativeSourceResults,
   selectSearchResults,
-  selectSearchResultsForMode,
-  type SearchSelectionMode,
 } from './search/selectResults.js'
+import { UG_SEARCH_RESULT_LIMIT } from './search/types.js'
 import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
@@ -44,14 +43,6 @@ setGlobalOptions({
   timeoutSeconds: 300,
   concurrency: 5,
 })
-
-/**
- * Temporary experiment switch. `search-v1`/balanced remains the default.
- * Set SEARCH_RESULT_MODE=ug-native to use Ultimate Guitar's own first three
- * accessible results while keeping the balanced selector available.
- */
-const SEARCH_RESULT_MODE: SearchSelectionMode =
-  process.env.SEARCH_RESULT_MODE === 'ug-native' ? 'ug-native' : 'balanced'
 
 export interface ScrapeResponse {
   results: ScrapeResult[]
@@ -162,7 +153,6 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       res.status(200)
       res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
       res.setHeader('Cache-Control', 'no-cache, no-transform')
-      res.setHeader('X-Search-Selection', SEARCH_RESULT_MODE)
       res.flushHeaders()
 
       let closed = false
@@ -189,8 +179,8 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
               // Completed sources become usable immediately, even when another
               // source is still pending.
               const partialCandidates =
-                SEARCH_RESULT_MODE === 'ug-native' && outcome.site === 'ultimate-guitar'
-                  ? selectNativeSourceResults(outcome.candidates, UG_NATIVE_RESULT_LIMIT)
+                outcome.site === 'ultimate-guitar'
+                  ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
                   : selectSearchResults(
                       outcome.candidates,
                       upstreamQuery,
@@ -204,11 +194,10 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
             }
           )
           return {
-            results: selectSearchResultsForMode(
+            results: selectCombinedSearchResults(
               combined,
               upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT,
-              SEARCH_RESULT_MODE
+              DEFAULT_SEARCH_RESULT_LIMIT
             ),
             sources: outcomes.map(toSourceStatus),
             partial: outcomes.some((outcome) => outcome.status === 'failed'),
@@ -228,7 +217,6 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
           sources,
           partial,
           cacheStatus: lookup.cacheStatus,
-          selectionMode: SEARCH_RESULT_MODE,
         })
         if (!closed) res.end()
       } catch (err) {
@@ -251,11 +239,10 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       const lookup = await searchCache.search(query, async (upstreamQuery) => {
         const { candidates: combined, outcomes } = await searchSites(adapters, upstreamQuery)
         return {
-          results: selectSearchResultsForMode(
+          results: selectCombinedSearchResults(
               combined,
               upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT,
-              SEARCH_RESULT_MODE
+              DEFAULT_SEARCH_RESULT_LIMIT
             ),
           sources: outcomes.map(toSourceStatus),
           partial: outcomes.some((outcome) => outcome.status === 'failed'),
@@ -279,13 +266,11 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
         res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`)
       }
       res.setHeader('X-Search-Cache', lookup.cacheStatus)
-      res.setHeader('X-Search-Selection', SEARCH_RESULT_MODE)
       res.status(200).json({
         query,
         results,
         sources,
         partial,
-        selectionMode: SEARCH_RESULT_MODE,
       })
       return
     } catch (err) {

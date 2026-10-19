@@ -67,7 +67,6 @@ export interface ApiSearchResponse {
   results: SearchCandidate[]
   sources?: SearchSourceStatus[]
   partial?: boolean
-  selectionMode?: 'balanced' | 'ug-native'
 }
 
 export async function searchApi(query: string): Promise<SearchCandidate[]> {

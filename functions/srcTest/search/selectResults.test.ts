@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   PARTIAL_SOURCE_RESULT_LIMIT,
-  UG_NATIVE_RESULT_LIMIT,
   canonicalCandidateUrl,
+  selectCombinedSearchResults,
   selectNativeSourceResults,
   selectSearchResults,
-  selectSearchResultsForMode,
 } from '../../src/search/selectResults.js'
+import { UG_SEARCH_RESULT_LIMIT } from '../../src/search/types.js'
 import type { SearchCandidate } from '../../src/search/types.js'
 
 function result(
@@ -123,7 +123,7 @@ describe('selectSearchResults', () => {
   })
 })
 
-describe('experimental ug-native selection', () => {
+describe('combined Ultimate Guitar selection', () => {
   it('takes the first three accessible UG candidates in payload order', () => {
     const input = Array.from({ length: 10 }, (_, index) =>
       result(
@@ -136,7 +136,7 @@ describe('experimental ug-native selection', () => {
     )
 
     const selected = selectNativeSourceResults(input)
-    expect(selected).toHaveLength(UG_NATIVE_RESULT_LIMIT)
+    expect(selected).toHaveLength(UG_SEARCH_RESULT_LIMIT)
     expect(selected.map((candidate) => candidate.url)).toEqual([
       'https://ug.com/song-0',
       'https://ug.com/song-1',
@@ -166,7 +166,7 @@ describe('experimental ug-native selection', () => {
       result('worshiptogether', 'Song', 'https://wt.com/a'),
     ]
 
-    const selected = selectSearchResultsForMode(candidates, 'song', 8, 'ug-native')
+    const selected = selectCombinedSearchResults(candidates, 'song', 8)
     expect(selected.slice(0, 3).map((candidate) => candidate.url)).toEqual([
       'https://ug.com/first',
       'https://ug.com/second',
@@ -178,13 +178,13 @@ describe('experimental ug-native selection', () => {
     ])
   })
 
-  it('keeps the existing balanced policy available unchanged', () => {
+  it('still applies the balanced policy to non-Ultimate-Guitar sources', () => {
     const input = [
-      result('ultimate-guitar', 'Song', 'https://ug.com/a', 1),
-      result('ultimate-guitar', 'Song', 'https://ug.com/b', 5),
-      result('pnwchords', 'Song', 'https://pnw.com/a'),
+      result('pnwchords', 'Song', 'https://pnw.com/b', 1),
+      result('pnwchords', 'Song', 'https://pnw.com/a', 5),
+      result('worshiptogether', 'Song', 'https://wt.com/a'),
     ]
-    expect(selectSearchResultsForMode(input, 'song', 8, 'balanced')).toEqual(
+    expect(selectCombinedSearchResults(input, 'song', 8)).toEqual(
       selectSearchResults(input, 'song', 8)
     )
   })

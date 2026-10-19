@@ -23,6 +23,35 @@ describe('parseUgSearchHtml', () => {
     expect(candidates.every((candidate) => candidate.type === 'Chords')).toBe(true)
   })
 
+  it('returns only the first three accessible chord results in payload order', () => {
+    const results: Array<Record<string, unknown>> = Array.from({ length: 6 }, (_, index) => ({
+      id: 300 + index,
+      song_name: 'Song',
+      artist_name: 'Artist',
+      tab_url: `https://tabs.ultimate-guitar.com/tab/artist/song-chords-${300 + index}`,
+      type: 'Chords',
+      version: index + 1,
+      rating: 5 - index / 10,
+    }))
+    results.splice(1, 0, {
+      id: 999,
+      song_name: 'Song',
+      artist_name: 'Artist',
+      tab_url: 'https://www.ultimate-guitar.com/pro/?tab_id=999',
+      marketing_type: 'official',
+    })
+
+    const html = `<div class="js-store" data-content="${JSON.stringify({
+      store: { page: { data: { results } } },
+    }).replace(/"/g, '&quot;')}"></div>`
+
+    expect(parseUgSearchHtml(html).map((candidate) => candidate.url)).toEqual([
+      'https://tabs.ultimate-guitar.com/tab/artist/song-chords-300',
+      'https://tabs.ultimate-guitar.com/tab/artist/song-chords-301',
+      'https://tabs.ultimate-guitar.com/tab/artist/song-chords-302',
+    ])
+  })
+
   it('returns an empty list for a valid page with no results', () => {
     const html = `<div class="js-store" data-content="${JSON.stringify({
       store: { page: { data: { results: [] } } },

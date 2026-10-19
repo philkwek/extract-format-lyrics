@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
-import { SearchParseError } from './types.js'
+import { SearchParseError, UG_SEARCH_RESULT_LIMIT } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
 
 interface UgSearchResultItem {
@@ -85,7 +85,8 @@ export function parseUgSearchHtml(html: string): SearchCandidate[] {
 
   return results
     .filter(isAccessibleUgChordResult)
-    .slice(0, 10)
+    // UG's own ordering is the desired output; no later UG re-sorting is needed.
+    .slice(0, UG_SEARCH_RESULT_LIMIT)
     .map((r) => ({
       site: 'ultimate-guitar',
       title: r.song_name || 'Unknown',
