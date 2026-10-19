@@ -83,6 +83,33 @@ describe('SessionStore', () => {
     expect(reorderedAgain?.songs.map((s) => s.title)).toEqual(['Song 2', 'Song 1', 'Song 3'])
   })
 
+  it('appends multiple songs in one write and reports the first new index', async () => {
+    let storedData: unknown = null
+    const fakeStore = {
+      get: vi.fn(async () => storedData),
+      set: vi.fn(async (_: unknown, val: unknown) => {
+        storedData = val
+      }),
+      del: vi.fn(async () => {
+        storedData = null
+      }),
+    }
+
+    const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
+    const session = await store.createSession([
+      { url: 'https://pnwchords.com/song-1', status: 'ok', title: 'Song 1' },
+    ])
+
+    const result = await store.addSongsToSession(session.id, [
+      { url: 'https://pnwchords.com/song-2', status: 'ok', title: 'Song 2' },
+      { url: 'https://pnwchords.com/song-3', status: 'ok', title: 'Song 3' },
+    ])
+
+    expect(result?.firstNewIndex).toBe(1)
+    expect(result?.session.songs.map((song) => song.title)).toEqual(['Song 1', 'Song 2', 'Song 3'])
+    expect(fakeStore.set).toHaveBeenCalledTimes(2)
+  })
+
   it('formats default session name according to Day Month Time(12hrs) Set format', async () => {
     const { formatDefaultSessionName } = await import('./sessionStore')
     // 9 October 2026, 21:30 (9:30pm)
