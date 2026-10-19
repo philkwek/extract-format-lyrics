@@ -217,7 +217,7 @@ export class ChartCache {
     if (direct) return direct
 
     // Follow a previously validated redirect alias.
-    let alias: ChartAliasEntry | null = null
+    let alias: ChartAliasEntry | null
     try {
       alias = await this.persistentStore().getAlias(requested)
     } catch {

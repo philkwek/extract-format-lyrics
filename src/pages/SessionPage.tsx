@@ -185,8 +185,9 @@ export default function SessionPage() {
     if (currentItem.customSimplifiedSections?.length) return
 
     const key = currentItem.entryId || currentItem.url
-    if (simplificationAttempts.current.has(key)) return
-    simplificationAttempts.current.add(key)
+    const attempts = simplificationAttempts.current
+    if (attempts.has(key)) return
+    attempts.add(key)
 
     const controller = new AbortController()
     void (async () => {
@@ -215,7 +216,7 @@ export default function SessionPage() {
 
     return () => {
       controller.abort()
-      simplificationAttempts.current.delete(key)
+      attempts.delete(key)
     }
   }, [currentItem, currentSong, originalSongs])
   const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null

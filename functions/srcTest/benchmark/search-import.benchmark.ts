@@ -13,6 +13,13 @@ import { readFileSync } from 'node:fs'
 import { parseUgSearchHtml } from '../../src/search/ultimateGuitarSearch.js'
 import { parsePnwSearchHtml } from '../../src/search/pnwChordsSearch.js'
 import { parseWorshipTogetherSearchHtml } from '../../src/search/worshipTogetherSearch.js'
+import { searchSite, searchSites } from '../../src/search/searchSites.js'
+import { scrapeUrls } from '../../src/scrapePool.js'
+import { HostConcurrencyGate, RateLimiterAndCircuitBreaker } from '../../src/rateLimit.js'
+import type { SearchAdapter } from '../../src/search/types.js'
+import type { Song } from '../../src/types.js'
+
+process.env.PERF_METRICS = '0'
 
 const SAMPLES = 40
 const SITE_DELAYS_MS = [30, 45, 60]
@@ -27,10 +34,28 @@ const fixtures = {
   worshiptogether: `<a href="/songs/holy-forever-chris-tomlin/">Holy Forever</a>`,
 }
 
-const parsers = [
-  () => parseUgSearchHtml(fixtures['ultimate-guitar']),
-  () => parsePnwSearchHtml(fixtures.pnwchords),
-  () => parseWorshipTogetherSearchHtml(fixtures.worshiptogether),
+const adapters: SearchAdapter[] = [
+  {
+    site: 'ultimate-guitar',
+    search: async () => {
+      await delay(SITE_DELAYS_MS[0])
+      return parseUgSearchHtml(fixtures['ultimate-guitar'])
+    },
+  },
+  {
+    site: 'pnwchords',
+    search: async () => {
+      await delay(SITE_DELAYS_MS[1])
+      return parsePnwSearchHtml(fixtures.pnwchords)
+    },
+  },
+  {
+    site: 'worshiptogether',
+    search: async () => {
+      await delay(SITE_DELAYS_MS[2])
+      return parseWorshipTogetherSearchHtml(fixtures.worshiptogether)
+    },
+  },
 ]
 
 function delay(ms: number): Promise<void> {
@@ -38,22 +63,20 @@ function delay(ms: number): Promise<void> {
 }
 
 async function runSequential(): Promise<number> {
-  const counts: number[] = []
-  for (let i = 0; i < parsers.length; i += 1) {
-    await delay(SITE_DELAYS_MS[i])
-    counts.push(parsers[i]().length)
+  let count = 0
+  const limiter = new RateLimiterAndCircuitBreaker()
+  for (const adapter of adapters) {
+    const outcome = await searchSite(adapter, 'good grace', { limiter })
+    count += outcome.candidates.length
   }
-  return counts.reduce((sum, count) => sum + count, 0)
+  return count
 }
 
 async function runConcurrent(): Promise<number> {
-  const results = await Promise.all(
-    parsers.map(async (parse, index) => {
-      await delay(SITE_DELAYS_MS[index])
-      return parse().length
-    })
-  )
-  return results.reduce((sum, count) => sum + count, 0)
+  const { candidates } = await searchSites(adapters, 'good grace', {
+    limiter: new RateLimiterAndCircuitBreaker(),
+  })
+  return candidates.length
 }
 
 const IMPORT_SCALE = 0.1
@@ -65,15 +88,31 @@ async function fixedBatches(durations: number[], concurrency: number): Promise<v
   }
 }
 
-async function workerPool(durations: number[], concurrency: number): Promise<void> {
-  const queue = [...durations]
-  const worker = async () => {
-    while (queue.length > 0) {
-      const durationMs = queue.shift()!
-      await delay(durationMs * IMPORT_SCALE)
-    }
+function benchmarkSong(url: string): Song {
+  return {
+    id: url,
+    title: 'Benchmark Song',
+    artist: 'Artist',
+    sourceUrl: url,
+    sourceSite: 'pnwchords',
+    originalKey: 'G',
+    sections: [],
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker))
+}
+
+async function workerPool(durations: number[], concurrency: number): Promise<void> {
+  const urls = durations.map((_, index) => `https://pnwchords.com/${index}`)
+  await scrapeUrls(urls, {
+    concurrency,
+    hostLimit: concurrency,
+    gate: new HostConcurrencyGate(),
+    limiter: new RateLimiterAndCircuitBreaker(),
+    scrape: async (url) => {
+      const index = Number(new URL(url).pathname.split('/').pop())
+      await delay(durations[index] * IMPORT_SCALE)
+      return benchmarkSong(url)
+    },
+  })
 }
 
 function percentile(values: number[], p: number): number {

@@ -45,11 +45,13 @@ export interface TimingMetric {
   retryOutcome?: 'not_retried' | 'succeeded' | 'failed'
 }
 
-const DISABLED = process.env.PERF_METRICS === '0'
+function metricsDisabled(): boolean {
+  return process.env.PERF_METRICS === '0'
+}
 
 /** Rounds and bounds numeric fields so log payloads stay small and predictable. */
 export function recordTiming(metric: TimingMetric): void {
-  if (DISABLED) return
+  if (metricsDisabled()) return
   const event: Record<string, string | number> = {
     type: 'perf',
     operation: metric.operation,
