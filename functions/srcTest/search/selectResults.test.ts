@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalCandidateUrl, selectSearchResults } from '../../src/search/selectResults.js'
+import {
+  PARTIAL_SOURCE_RESULT_LIMIT,
+  canonicalCandidateUrl,
+  selectSearchResults,
+} from '../../src/search/selectResults.js'
 import type { SearchCandidate } from '../../src/search/types.js'
 
 function result(
@@ -82,6 +86,17 @@ describe('selectSearchResults', () => {
       'good grace'
     )
     expect(fallback).toHaveLength(1)
+  })
+
+  it('caps a single streamed source so other sources still have room', () => {
+    const results = selectSearchResults(
+      Array.from({ length: 10 }, (_, index) =>
+        result('ultimate-guitar', 'Song', `https://ug.com/${index}`, 5 - index / 100)
+      ),
+      'song',
+      PARTIAL_SOURCE_RESULT_LIMIT
+    )
+    expect(results).toHaveLength(3)
   })
 
   it('fills all capacity from one available source', () => {

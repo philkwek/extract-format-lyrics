@@ -15,7 +15,11 @@ import {
 import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
-import { mergeSearchCandidates, upsertSearchSource } from '../lib/searchResults'
+import {
+  mergeFinalSearchCandidates,
+  mergePartialSearchCandidates,
+  upsertSearchSource,
+} from '../lib/searchResults'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import {
   importSources,
@@ -186,14 +190,14 @@ export default function HomePage() {
         onSource: (source) => {
           if (generation !== searchGenerationRef.current) return
           setSearchSources((prev) => upsertSearchSource(prev, source))
-          setSearchResults((prev) => mergeSearchCandidates(prev, source.candidates))
+          setSearchResults((prev) => mergePartialSearchCandidates(prev, source.candidates))
         },
       })
       if (generation !== searchGenerationRef.current) return
 
-      // Keep cards that are already visible in place and append any final
-      // entries the incremental events did not include.
-      setSearchResults((prev) => mergeSearchCandidates(prev, response.results))
+      // Apply the backend's balanced final selection while keeping visible
+      // cards in place where possible.
+      setSearchResults((prev) => mergeFinalSearchCandidates(prev, response.results))
       setSearchSources(response.sources ?? [])
       setSearchPartial(Boolean(response.partial))
       trackEvent('song_search', {

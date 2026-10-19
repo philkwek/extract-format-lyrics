@@ -10,7 +10,10 @@ import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
 import { searchCache } from './search/searchCache.js'
-import { selectSearchResults } from './search/selectResults.js'
+import {
+  PARTIAL_SOURCE_RESULT_LIMIT,
+  selectSearchResults,
+} from './search/selectResults.js'
 import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
@@ -174,7 +177,11 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
               write({
                 type: 'source',
                 source: toSourceStatus(outcome),
-                candidates: selectSearchResults(outcome.candidates, upstreamQuery),
+                candidates: selectSearchResults(
+                  outcome.candidates,
+                  upstreamQuery,
+                  PARTIAL_SOURCE_RESULT_LIMIT
+                ),
               })
             }
           )

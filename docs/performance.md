@@ -7,8 +7,8 @@ This document describes the search/import pipeline, its caches and budgets, and 
 1. The browser calls `GET /api/search?q=...&stream=1` with `Accept: application/x-ndjson`.
 2. The backend checks an instance-local and Firestore-backed search cache.
 3. On a miss, Ultimate Guitar, PNW Chords and Worship Together start concurrently.
-4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen.
-5. The backend applies the deterministic selection rule and emits a final `complete` event.
+4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen. Each source is initially capped at three results (`ceil(8 / 3)`), reserving slots for slower sources.
+5. The backend applies the deterministic selection rule to the full candidate set and emits a final `complete` event. The browser adopts that balanced composition while preserving the position of cards already shown.
 
 The ordinary `GET /api/search?q=...` JSON response remains available for cached/simple clients.
 

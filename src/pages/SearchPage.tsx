@@ -3,7 +3,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Link2, Search } from 'lucide-react'
 import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
-import { mergeSearchCandidates, upsertSearchSource } from '../lib/searchResults'
+import {
+  mergeFinalSearchCandidates,
+  mergePartialSearchCandidates,
+  upsertSearchSource,
+} from '../lib/searchResults'
 import { sessionStore, type Session } from '../lib/sessionStore'
 import {
   importSources,
@@ -75,12 +79,12 @@ export default function SearchPage() {
         onSource: (source) => {
           if (generation !== searchGenerationRef.current) return
           setSources((prev) => upsertSearchSource(prev, source))
-          setResults((prev) => mergeSearchCandidates(prev, source.candidates))
+          setResults((prev) => mergePartialSearchCandidates(prev, source.candidates))
         },
       })
       if (generation !== searchGenerationRef.current) return
 
-      setResults((prev) => mergeSearchCandidates(prev, response.results))
+      setResults((prev) => mergeFinalSearchCandidates(prev, response.results))
       setSources(response.sources ?? [])
       setPartial(Boolean(response.partial))
       trackEvent('song_search', {
