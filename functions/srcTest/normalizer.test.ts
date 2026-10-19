@@ -5,7 +5,7 @@ import {
   normalizeSongText,
   inferKeyFromChords,
   isTabLine,
-} from './normalizer.js'
+} from '../src/normalizer.js'
 
 describe('detectSectionHeader', () => {
   it('detects bracketed section headers', () => {

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   constructed: vi.fn(),
 }))
 
-vi.mock('./pdfSheetAnalysis.js', () => ({
+vi.mock('../src/pdfSheetAnalysis.js', () => ({
   analyzePdfPage: mocks.analyzePdfPage,
   parseDigitalSongSelectPage: mocks.parseDigitalSongSelectPage,
 }))
@@ -20,7 +20,7 @@ vi.mock('@google/genai', () => ({
   },
 }))
 
-import { extractSongsWithGemini } from './extractSheet.js'
+import { extractSongsWithGemini } from '../src/extractSheet.js'
 
 const rawSong = {
   title: 'Digital Song',

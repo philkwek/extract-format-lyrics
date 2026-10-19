@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isChord, isChordLine, noteToIndex, parseChord } from './chords'
+import { isChord, isChordLine, noteToIndex, parseChord } from '../src/chords'
 
 describe('noteToIndex', () => {
   it('maps natural, sharp and flat notes', () => {

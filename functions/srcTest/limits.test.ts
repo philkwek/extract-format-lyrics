@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { Request, Response } from 'express'
-import { handleCors, sendJsonError } from './limits.js'
+import { handleCors, sendJsonError } from '../src/limits.js'
 
 describe('handleCors', () => {
   it('handles OPTIONS preflight and sets status 204', () => {

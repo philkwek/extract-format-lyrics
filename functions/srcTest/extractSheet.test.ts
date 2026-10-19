@@ -9,7 +9,7 @@ import {
   needsSongCountRetry,
   mergeConsecutiveSongs,
   type RawExtractedSong,
-} from './extractSheet.js'
+} from '../src/extractSheet.js'
 
 describe('expected song count helpers', () => {
   it('accepts only positive whole-number counts', () => {

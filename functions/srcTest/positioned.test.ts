@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { positionedLineToModelLine } from './extractSheet.js'
+import { positionedLineToModelLine } from '../src/extractSheet.js'
 
 const w = (text: string, x0: number, x1: number) => ({ text, x0, x1 })
 

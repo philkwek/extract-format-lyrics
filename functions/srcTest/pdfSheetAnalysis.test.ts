@@ -5,7 +5,7 @@ import {
   normalizeRows,
   parseDigitalSongSelectPage,
   type PositionedPdfText,
-} from './pdfSheetAnalysis.js'
+} from '../src/pdfSheetAnalysis.js'
 
 const item = (text: string, x0: number, y: number, width = 80): PositionedPdfText => ({
   text,
