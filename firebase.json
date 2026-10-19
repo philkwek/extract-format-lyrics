@@ -28,7 +28,8 @@
         "node_modules",
         ".git",
         "firebase-debug.log",
-        "*.local"
+        "*.local",
+        "srcTest"
       ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run build"

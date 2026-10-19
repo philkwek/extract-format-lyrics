@@ -14,6 +14,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['srcTest/**/*.test.{ts,tsx}', 'functions/src/**/*.test.ts'],
+    include: [
+      'srcTest/**/*.test.{ts,tsx}',
+      'functions/src/**/*.test.ts',
+      'functions/srcTest/**/*.test.ts',
+    ],
   },
 })
