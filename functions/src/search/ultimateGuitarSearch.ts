@@ -8,9 +8,50 @@ interface UgSearchResultItem {
   song_name?: string
   artist_name?: string
   tab_url?: string
+  /** Legacy search payload field. */
   type_name?: string
+  /** Current search payload field, e.g. "Chords" or "Tabs". */
+  type?: string
+  typeLabel?: string
+  /** "official" and "TabPro" entries link to inaccessible paid content. */
+  marketing_type?: string
+  tab_access_type?: string
   version?: number
   rating?: number
+}
+
+const INACCESSIBLE_TYPES = new Set(['official', 'pro', 'tabpro'])
+
+/**
+ * Official and Pro search rows are marketing links, not public chord sheets.
+ * They often omit `type` entirely, so every marker must be checked.
+ */
+export function isAccessibleUgChordResult(result: UgSearchResultItem): boolean {
+  if (!result.tab_url) return false
+
+  const markers = [result.type, result.type_name, result.typeLabel, result.marketing_type]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim().toLowerCase())
+  if (markers.some((value) => INACCESSIBLE_TYPES.has(value))) {
+    return false
+  }
+
+  if (
+    typeof result.tab_access_type === 'string' &&
+    INACCESSIBLE_TYPES.has(result.tab_access_type.trim().toLowerCase())
+  ) {
+    return false
+  }
+
+  try {
+    const url = new URL(result.tab_url)
+    if (url.pathname === '/pro' || url.pathname.startsWith('/pro/')) return false
+  } catch {
+    return false
+  }
+
+  const type = (result.type ?? result.type_name ?? '').trim().toLowerCase()
+  return type === '' || type === 'chords'
 }
 
 interface UgSearchStore {
@@ -43,7 +84,7 @@ export function parseUgSearchHtml(html: string): SearchCandidate[] {
   }
 
   return results
-    .filter((r) => r.tab_url && (r.type_name === 'Chords' || !r.type_name))
+    .filter(isAccessibleUgChordResult)
     .slice(0, 10)
     .map((r) => ({
       site: 'ultimate-guitar',
@@ -52,7 +93,7 @@ export function parseUgSearchHtml(html: string): SearchCandidate[] {
       url: r.tab_url!,
       versionLabel: r.version ? `Ver ${r.version}` : undefined,
       rating: r.rating,
-      type: r.type_name || 'Chords',
+      type: r.type ?? r.type_name ?? 'Chords',
     }))
 }
 
