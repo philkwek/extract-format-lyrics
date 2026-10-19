@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { pnwChordsAdapter } from './pnwChords.js'
-import { normalizeSongText } from '../normalizer.js'
+import { pnwChordsAdapter } from '../../src/adapters/pnwChords.js'
+import { normalizeSongText } from '../../src/normalizer.js'
 
 describe('pnwChordsAdapter', () => {
   it('matches pnwchords URLs', () => {

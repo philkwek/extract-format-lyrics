@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { genericFallbackAdapter } from './genericFallback.js'
-import { normalizeSongText } from '../normalizer.js'
+import { genericFallbackAdapter } from '../../src/adapters/genericFallback.js'
+import { normalizeSongText } from '../../src/normalizer.js'
 
 describe('genericFallbackAdapter', () => {
   it('extracts chords and lyrics from pre tag', () => {
