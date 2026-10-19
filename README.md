@@ -149,7 +149,7 @@ npm run build
 npm run build:functions
 ```
 
-Frontend tests live in `srcTest/` and mirror the `src/` folder structure. Tests cover parsing, transposition, chord editing, arrangements, local storage, sharing, pad playback logic and backend request guards. Use `npm run preview` to inspect a production frontend build locally.
+Frontend tests live in `srcTest/` and mirror the `src/` folder structure. Backend tests live in `functions/srcTest/` and mirror `functions/src/`. Tests cover parsing, transposition, chord editing, arrangements, local storage, sharing, pad playback logic and backend request guards. Use `npm run preview` to inspect a production frontend build locally.
 
 ### Firebase and deployment
 
