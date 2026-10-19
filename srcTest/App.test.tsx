@@ -2,25 +2,25 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { AppShell } from './App'
+import { AppShell } from '../src/App'
 
 afterEach(() => {
   cleanup()
 })
 
-vi.mock('./pages/HomePage', () => ({
+vi.mock('../src/pages/HomePage', () => ({
   default: () => <div>Home Page Content</div>,
 }))
-vi.mock('./pages/SearchPage', () => ({
+vi.mock('../src/pages/SearchPage', () => ({
   default: () => <div>Search Page Content</div>,
 }))
-vi.mock('./pages/SessionPage', () => ({
+vi.mock('../src/pages/SessionPage', () => ({
   default: () => <div>Session Page Content</div>,
 }))
-vi.mock('./pages/ShareImportPage', () => ({
+vi.mock('../src/pages/ShareImportPage', () => ({
   default: () => <div>Share Import Page Content</div>,
 }))
-vi.mock('./pages/LyricsViewerPage', () => ({
+vi.mock('../src/pages/LyricsViewerPage', () => ({
   default: () => <div>Lyrics Viewer Page Content</div>,
 }))
 
