@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getInitialTheme, applyTheme, saveTheme } from './theme'
+import { getInitialTheme, applyTheme, saveTheme } from '../../src/lib/theme'
 
 describe('theme', () => {
   let mockStorage: Record<string, string>

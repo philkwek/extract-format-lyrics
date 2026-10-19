@@ -6,8 +6,8 @@ import {
   getSectionDisplayWidth,
   getSectionWeight,
   partitionSections,
-} from './songLayout'
-import type { Section } from '../types/song'
+} from '../../src/lib/songLayout'
+import type { Section } from '../../src/types/song'
 
 function makeMockSection(label: string, lineCount: number): Section {
   return {

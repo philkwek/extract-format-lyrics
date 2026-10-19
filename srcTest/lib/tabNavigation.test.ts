@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getNextTabIndex } from './tabNavigation'
+import { getNextTabIndex } from '../../src/lib/tabNavigation'
 
 describe('getNextTabIndex', () => {
   it('moves in either direction and wraps at the ends', () => {

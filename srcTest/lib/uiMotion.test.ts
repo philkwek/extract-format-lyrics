@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getDialogMotion, reducedMotionTransition, uiSpring } from './uiMotion'
+import { getDialogMotion, reducedMotionTransition, uiSpring } from '../../src/lib/uiMotion'
 
 describe('getDialogMotion', () => {
   it('removes spatial movement and blur for reduced-motion users', () => {

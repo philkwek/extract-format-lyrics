@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { keyUsesFlats, parseKey, transposeChord, transposeSong } from './transpose'
-import type { Song } from '../types/song'
+import { keyUsesFlats, parseKey, transposeChord, transposeSong } from '../../src/lib/transpose'
+import type { Song } from '../../src/types/song'
 
 describe('transposeChord', () => {
   it('shifts simple chords', () => {

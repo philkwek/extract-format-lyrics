@@ -5,7 +5,7 @@ import {
   getDefaultSongPrefs,
   getSongPrefs,
   IPAD_BREAKPOINT_PX,
-} from './songPrefs'
+} from '../../src/lib/songPrefs'
 
 afterEach(() => localStorage.clear())
 
