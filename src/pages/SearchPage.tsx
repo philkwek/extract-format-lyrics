@@ -11,6 +11,7 @@ import {
   type ImportProgress,
 } from '../lib/setlistImport'
 import { splitUrls } from '../../functions/src/urls'
+import ImportProgressList from '../components/import/ImportProgressList'
 import { Button, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 
 export default function SearchPage() {
@@ -234,33 +235,10 @@ export default function SearchPage() {
               </Button>
             </div>
 
-            {pasteStatuses.length > 0 && (
-              <div className="mt-5 space-y-2 border-t border-[var(--ui-border)] pt-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
-                  Import Progress
-                </h3>
-                {pasteStatuses.map((s, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ui-surface-muted)] px-3 py-2 text-xs">
-                    <span className="max-w-[70%] truncate font-mono text-[var(--ui-text)]">{s.url}</span>
-                    <span
-                      className={
-                        s.status === 'done' || s.status === 'cached'
-                          ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                          : s.status === 'error'
-                            ? 'text-red-600 dark:text-red-400 font-medium'
-                            : 'text-[#255283] dark:text-amber-400 animate-pulse'
-                      }
-                    >
-                      {s.status === 'cached' && 'Cached ✓'}
-                      {s.status === 'done' && 'Extracted ✓'}
-                      {s.status === 'fetching' && 'Fetching...'}
-                      {s.status === 'pending' && 'Waiting...'}
-                      {s.status === 'error' && (s.message || 'Failed')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ImportProgressList
+              statuses={pasteStatuses}
+              className="mt-5 border-t border-[var(--ui-border)] pt-4"
+            />
           </div>
         )}
         </div>
