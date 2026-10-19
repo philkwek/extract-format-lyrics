@@ -7,7 +7,8 @@ import type { SearchCandidate, SearchSourceStatus } from './types.js'
  * Search cache version. Bump when the selection policy or response shape
  * changes so old documents can never be mistaken for current results.
  */
-export const SEARCH_CACHE_VERSION = 'search-v1'
+const SELECTION_MODE = process.env.SEARCH_RESULT_MODE === 'ug-native' ? 'ug-native' : 'balanced'
+export const SEARCH_CACHE_VERSION = `search-v1:${SELECTION_MODE}`
 export const SEARCH_CACHE_TTL_MS = 5 * 60_000
 export const PARTIAL_SEARCH_CACHE_TTL_MS = 30_000
 export const SEARCH_CACHE_MAX_ENTRIES = 100

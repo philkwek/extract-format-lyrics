@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   PARTIAL_SOURCE_RESULT_LIMIT,
+  UG_NATIVE_RESULT_LIMIT,
   canonicalCandidateUrl,
+  selectNativeSourceResults,
   selectSearchResults,
+  selectSearchResultsForMode,
 } from '../../src/search/selectResults.js'
 import type { SearchCandidate } from '../../src/search/types.js'
 
@@ -117,5 +120,72 @@ describe('selectSearchResults', () => {
       result('pnwchords', 'Song', 'https://pnw.com/a'),
     ]
     expect(selectSearchResults(input, 'song')).toEqual(selectSearchResults(input, 'song'))
+  })
+})
+
+describe('experimental ug-native selection', () => {
+  it('takes the first three accessible UG candidates in payload order', () => {
+    const input = Array.from({ length: 10 }, (_, index) =>
+      result(
+        'ultimate-guitar',
+        'Song',
+        `https://ug.com/song-${index}`,
+        5 - index / 10,
+        `Ver ${index + 1}`
+      )
+    )
+
+    const selected = selectNativeSourceResults(input)
+    expect(selected).toHaveLength(UG_NATIVE_RESULT_LIMIT)
+    expect(selected.map((candidate) => candidate.url)).toEqual([
+      'https://ug.com/song-0',
+      'https://ug.com/song-1',
+      'https://ug.com/song-2',
+    ])
+  })
+
+  it('deduplicates canonical URLs without reordering', () => {
+    const selected = selectNativeSourceResults([
+      result('ultimate-guitar', 'Song', 'https://ug.com/a?utm_source=x'),
+      result('ultimate-guitar', 'Song', 'https://ug.com/a/'),
+      result('ultimate-guitar', 'Song', 'https://ug.com/b'),
+    ])
+    expect(selected.map((candidate) => candidate.url)).toEqual([
+      'https://ug.com/a',
+      'https://ug.com/b',
+    ])
+  })
+
+  it('keeps native UG order ahead of the balanced other sources', () => {
+    const candidates = [
+      result('ultimate-guitar', 'Song', 'https://ug.com/first', 1),
+      result('ultimate-guitar', 'Song', 'https://ug.com/second', 5),
+      result('ultimate-guitar', 'Song', 'https://ug.com/third', 2),
+      result('ultimate-guitar', 'Song', 'https://ug.com/fourth', 4),
+      result('pnwchords', 'Song', 'https://pnw.com/a'),
+      result('worshiptogether', 'Song', 'https://wt.com/a'),
+    ]
+
+    const selected = selectSearchResultsForMode(candidates, 'song', 8, 'ug-native')
+    expect(selected.slice(0, 3).map((candidate) => candidate.url)).toEqual([
+      'https://ug.com/first',
+      'https://ug.com/second',
+      'https://ug.com/third',
+    ])
+    expect(selected.slice(3).map((candidate) => candidate.site)).toEqual([
+      'pnwchords',
+      'worshiptogether',
+    ])
+  })
+
+  it('keeps the existing balanced policy available unchanged', () => {
+    const input = [
+      result('ultimate-guitar', 'Song', 'https://ug.com/a', 1),
+      result('ultimate-guitar', 'Song', 'https://ug.com/b', 5),
+      result('pnwchords', 'Song', 'https://pnw.com/a'),
+    ]
+    expect(selectSearchResultsForMode(input, 'song', 8, 'balanced')).toEqual(
+      selectSearchResults(input, 'song', 8)
+    )
   })
 })

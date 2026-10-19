@@ -21,6 +21,21 @@ The ordinary `GET /api/search?q=...` JSON response remains available for cached/
 
 The default limit remains eight.
 
+### Experimental Ultimate Guitar ordering
+
+Set the function environment variable `SEARCH_RESULT_MODE=ug-native` to compare Ultimate Guitar’s own ordering with the balanced policy:
+
+- The adapter still filters inaccessible Official/Pro and non-chord rows, then keeps its first ten accessible results.
+- The first three of those ten are preserved in payload order.
+- Other sources continue through the balanced selector and fill the remaining five slots.
+- The search cache key includes the mode, and responses include `selectionMode` plus an `X-Search-Selection` header.
+
+The default is `balanced`; the existing balanced selector is unchanged and remains available. Unset or set any other value to use it. For a local emulator comparison:
+
+```sh
+SEARCH_RESULT_MODE=ug-native npm run dev:backend
+```
+
 ### Source outcomes
 
 A source reports one of:
@@ -39,7 +54,7 @@ A failure never hides another source’s results. Three consecutive 403/429 resp
 | Shared | Firestore `searchCache` | 5 min | Complete results only; document id is a hash of the versioned key |
 | In-flight | Function process | Request lifetime | Identical concurrent work coalesces within one instance |
 
-Keys use `search-v1:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
+Keys use `search-v1:<selection mode>:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
 
 Partial results and failed-site results are intentionally short-lived and are not written to Firestore. A failed site is never persisted as a long-lived legitimate empty result. Cache-store failures degrade to a normal upstream search.
 

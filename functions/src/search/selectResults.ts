@@ -6,6 +6,55 @@ export const SUPPORTED_SEARCH_SOURCE_COUNT = 3
 export const PARTIAL_SOURCE_RESULT_LIMIT = Math.ceil(
   DEFAULT_SEARCH_RESULT_LIMIT / SUPPORTED_SEARCH_SOURCE_COUNT
 )
+export const UG_NATIVE_RESULT_LIMIT = 3
+
+export type SearchSelectionMode = 'balanced' | 'ug-native'
+
+/**
+ * Experimental Ultimate Guitar ordering: keep the source's own payload order
+ * and take the first accessible candidates. This is deliberately separate from
+ * the balanced algorithm so the old policy can still be compared or restored.
+ */
+export function selectNativeSourceResults(
+  candidates: SearchCandidate[],
+  limit = UG_NATIVE_RESULT_LIMIT
+): SearchCandidate[] {
+  const selected: SearchCandidate[] = []
+  const seen = new Set<string>()
+  for (const candidate of candidates) {
+    const key = canonicalCandidateUrl(candidate.url)
+    if (seen.has(key)) continue
+    seen.add(key)
+    selected.push({ ...candidate, url: key })
+    if (selected.length >= limit) break
+  }
+  return selected
+}
+
+/**
+ * Selection entry point used by the API. `balanced` keeps the existing policy;
+ * `ug-native` preserves the first three UG results and balances the remaining
+ * sources into the leftover capacity.
+ */
+export function selectSearchResultsForMode(
+  candidates: SearchCandidate[],
+  query: string,
+  limit = DEFAULT_SEARCH_RESULT_LIMIT,
+  mode: SearchSelectionMode = 'balanced'
+): SearchCandidate[] {
+  if (mode === 'balanced') return selectSearchResults(candidates, query, limit)
+
+  const ultimateGuitar = selectNativeSourceResults(
+    candidates.filter((candidate) => candidate.site === 'ultimate-guitar'),
+    Math.min(UG_NATIVE_RESULT_LIMIT, limit)
+  )
+  const otherSources = selectSearchResults(
+    candidates.filter((candidate) => candidate.site !== 'ultimate-guitar'),
+    query,
+    Math.max(0, limit - ultimateGuitar.length)
+  )
+  return [...ultimateGuitar, ...otherSources].slice(0, limit)
+}
 
 const TRACKING_PARAMS = new Set([
   'utm_source',
