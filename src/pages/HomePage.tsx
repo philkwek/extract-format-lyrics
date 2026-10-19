@@ -2,7 +2,6 @@ import { trackEvent, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AlertCircle,
   ExternalLink,
   FileText,
   FileUp,
@@ -34,9 +33,10 @@ import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
+import SearchForm from '../components/import/SearchForm'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
-import { Button, IconButton, SegmentedControl, StatusBanner, Surface } from '../components/ui'
+import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
 
 const HOME_TIPS = [
   'Use Edit chords to move, change, or delete chords.',
@@ -238,32 +238,15 @@ export default function HomePage() {
           />
         ) : (
           <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together.
-            </p>
-            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
-                className="ui-field flex-1 px-3.5 py-2.5 text-sm"
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<Search size={15} />}
-                disabled={isSearching || !searchQuery.trim()}
-                loading={isSearching}
-              >
-                Search
-              </Button>
-            </form>
-            {searchError && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {searchError}
-              </StatusBanner>
-            )}
+            <SearchForm
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onSubmit={handleSearch}
+              isSearching={isSearching}
+              error={searchError}
+              description="Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together."
+              placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+            />
             {isSearching ? (
               <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--ui-text-muted)]" role="status">
                 <span className="ui-spinner" /> Searching supported chord sites

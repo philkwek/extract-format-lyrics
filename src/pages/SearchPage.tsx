@@ -1,7 +1,7 @@
 import { trackEvent, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, ExternalLink, Link2, Search } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Link2, Search } from 'lucide-react'
 import { searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session } from '../lib/sessionStore'
 import {
@@ -13,7 +13,8 @@ import {
 import { splitUrls } from '../../functions/src/urls'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
-import { Button, SegmentedControl, StatusBanner, Surface } from '../components/ui'
+import SearchForm from '../components/import/SearchForm'
+import { Button, SegmentedControl, Surface } from '../components/ui'
 
 export default function SearchPage() {
   const navigate = useNavigate()
@@ -171,36 +172,15 @@ export default function SearchPage() {
 
         <div className="p-4 sm:p-5">
         {mode === 'search' ? (
-          <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Find chord sheets across Ultimate Guitar, PNW Chords, and Worship Together.
-            </p>
-
-            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
-                className="ui-field flex-1 px-3.5 py-2.5 text-sm"
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<Search size={15} />}
-                disabled={isSearching || !query.trim()}
-                loading={isSearching}
-              >
-                Search
-              </Button>
-            </form>
-
-            {error && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {error}
-              </StatusBanner>
-            )}
-          </div>
+          <SearchForm
+            query={query}
+            onQueryChange={setQuery}
+            onSubmit={handleSearch}
+            isSearching={isSearching}
+            error={error}
+            description="Find chord sheets across Ultimate Guitar, PNW Chords, and Worship Together."
+            placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
+          />
         ) : (
           <>
             <PasteUrlForm
