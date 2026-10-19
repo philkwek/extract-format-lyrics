@@ -48,7 +48,7 @@ Second line
     expect(song.simplifiedSource).toBeUndefined()
   })
 
-  it('fetches and attaches simplifiedSections with source official when available on ultimate-guitar', async () => {
+  it('returns the original chart immediately and marks official simplification pending', async () => {
     const ugHtmlNormal = `
       <div class="js-store" data-content="${JSON.stringify({
         store: {
@@ -66,28 +66,9 @@ Second line
       }).replace(/"/g, '&quot;')}"></div>
     `
 
-    const ugHtmlSimplified = `
-      <div class="js-store" data-content="${JSON.stringify({
-        store: {
-          page: {
-            data: {
-              tab: { song_name: 'UG Song', artist_name: 'UG Artist' },
-              tab_view: {
-                meta: { tonality: 'G' },
-                is_simplify_available: true,
-                wiki_tab: { content: '[Verse 1]\nG       C\nSome simplified chords' },
-              },
-            },
-          },
-        },
-      }).replace(/"/g, '&quot;')}"></div>
-    `
-
-    const mockFetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes('simplified=1')) {
-        return Promise.resolve({ text: ugHtmlSimplified, finalUrl: url })
-      }
-      return Promise.resolve({ text: ugHtmlNormal, finalUrl: url })
+    const mockFetch = vi.fn().mockResolvedValue({
+      text: ugHtmlNormal,
+      finalUrl: 'https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123',
     })
 
     const song = await scrapeSingleUrl('https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123', mockFetch as unknown as typeof safeFetchHtml)
@@ -96,10 +77,12 @@ Second line
     expect(song.artist).toBe('UG Artist')
     expect(song.originalKey).toBe('G')
     expect(song.sections).toBeDefined()
+    // The generated fallback is available immediately; the official chart is
+    // fetched later through /api/simplify.
     expect(song.simplifiedSections).toBeDefined()
-    expect(song.simplifiedSections?.length).toBe(1)
-    expect(song.simplifiedSections?.[0].lines[0].chords?.[0].chord).toBe('G')
-    expect(song.simplifiedSource).toBe('official')
+    expect(song.simplifiedSource).toBe('algorithmic')
+    expect(song.simplificationPending).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
   it('generates algorithmic fallback when site has no official simplified chart and chords can be simplified', async () => {

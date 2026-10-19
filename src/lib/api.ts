@@ -1,4 +1,4 @@
-import type { Song } from '../types/song'
+import type { Section, Song } from '../types/song'
 
 export type ScrapeStatus = 'ok' | 'error'
 
@@ -83,6 +83,40 @@ export async function searchApi(query: string): Promise<SearchCandidate[]> {
   }
   const data = (await res.json()) as ApiSearchResponse
   return data.results
+}
+
+export type SimplifyResponse =
+  | {
+      status: 'ok'
+      simplifiedSections: Section[]
+      simplifiedSource: 'official'
+      cached?: boolean
+    }
+  | {
+      status: 'unavailable'
+      code?: string
+      message?: string
+      cached?: boolean
+    }
+
+export async function simplifyApi(url: string, signal?: AbortSignal): Promise<SimplifyResponse> {
+  const res = await fetch('/api/simplify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+    signal,
+  })
+  if (!res.ok) {
+    let message = `Simplification failed (${res.status})`
+    try {
+      const data = await res.json()
+      if (data?.error?.message) message = data.error.message
+    } catch {
+      // Preserve the HTTP fallback.
+    }
+    throw new Error(message)
+  }
+  return (await res.json()) as SimplifyResponse
 }
 
 export class ShareApiError extends Error {

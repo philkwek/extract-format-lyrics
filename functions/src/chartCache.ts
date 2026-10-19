@@ -140,6 +140,7 @@ export function toSourceSong(song: Song): Song {
     sections: song.sections,
     ...(song.simplifiedSections ? { simplifiedSections: song.simplifiedSections } : {}),
     ...(song.simplifiedSource ? { simplifiedSource: song.simplifiedSource } : {}),
+    ...(song.simplificationPending ? { simplificationPending: song.simplificationPending } : {}),
   }
 }
 

@@ -1,8 +1,9 @@
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
-import { validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
+import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { loadSourceChart } from './chartLoader.js'
+import { loadOfficialSimplification } from './chartSimplification.js'
 import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
@@ -215,6 +216,51 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
         outcome: 'error',
       })
       sendJsonError(res, 500, 'SEARCH_FAILED', (err as Error).message || 'Failed to search songs')
+      return
+    }
+  }
+
+  // Optional official simplification: POST /api/simplify
+  // Kept separate so the original chart is never delayed by this request.
+  if (req.path === '/api/simplify' || req.path === '/simplify') {
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/simplify')
+      return
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
+      return
+    }
+
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
+    const checked = checkUrl(url)
+    if (!url || !checked.ok) {
+      sendJsonError(res, 400, 'INVALID_URL', checked.ok ? 'Missing "url" body field' : checked.reason)
+      return
+    }
+
+    try {
+      const result = await loadOfficialSimplification(checked.url)
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(200).json(result)
+      return
+    } catch (err) {
+      const code = (err as { code?: string })?.code
+      if (code === 'INVALID_URL') {
+        sendJsonError(res, 400, 'INVALID_URL', (err as Error).message)
+        return
+      }
+      // Enrichment is optional: the original chart remains usable.
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(200).json({
+        status: 'unavailable',
+        code: code ?? 'SIMPLIFICATION_FAILED',
+        message: (err as Error).message || 'Could not load the official simplified chart',
+      })
       return
     }
   }

@@ -25,6 +25,10 @@ export function generateSongId(normalizedUrl: string): string {
   return createHash('sha256').update(normalizedUrl).digest('hex').slice(0, 16)
 }
 
+export function adapterForUrl(url: string): SiteAdapter {
+  return ADAPTERS.find((adapter) => adapter.matches(url)) || genericFallbackAdapter
+}
+
 export async function scrapeSingleUrl(
   url: string,
   fetchFn?: typeof safeFetchHtml
@@ -52,7 +56,7 @@ export async function scrapeSingleUrl(
   const sourceSite = siteForHost(parsedUrl.hostname) || 'generic'
 
   // Pick adapter
-  const adapter = ADAPTERS.find((a) => a.matches(finalUrl)) || genericFallbackAdapter
+  const adapter = adapterForUrl(finalUrl)
   const parseStartedAt = Date.now()
   let rawSong: ReturnType<SiteAdapter['extract']>
   let sections: ReturnType<typeof normalizeSongText>
@@ -79,39 +83,15 @@ export async function scrapeSingleUrl(
 
   let simplifiedSections: typeof sections | undefined
   let simplifiedSource: 'official' | 'algorithmic' | undefined
+  let simplificationPending = false
 
   if (rawSong.simplifiedContent) {
     simplifiedSections = normalizeSongText(rawSong.simplifiedContent)
     simplifiedSource = 'official'
   } else if (sourceSite === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
-    // Check if ?simplified=1 returns simplified version
-    const simplifyStartedAt = Date.now()
-    try {
-      const simplifiedUrl = new URL(finalUrl)
-      if (!simplifiedUrl.searchParams.has('simplified')) {
-        simplifiedUrl.searchParams.set('simplified', '1')
-        const { text: simpText } = await fetcher(simplifiedUrl.toString())
-        const simpRaw = adapter.extract(simpText, simplifiedUrl.toString())
-        if (simpRaw.content && simpRaw.content !== rawSong.content) {
-          simplifiedSections = normalizeSongText(simpRaw.content)
-          simplifiedSource = 'official'
-        }
-      }
-      recordTiming({
-        operation: 'chart.simplify',
-        site: sourceSite,
-        durationMs: elapsedMs(simplifyStartedAt),
-        outcome: simplifiedSections ? 'ok' : 'empty',
-      })
-    } catch {
-      // ignore if simplified fetch fails or isn't available
-      recordTiming({
-        operation: 'chart.simplify',
-        site: sourceSite,
-        durationMs: elapsedMs(simplifyStartedAt),
-        outcome: 'error',
-      })
-    }
+    // Do not delay the original chart for the optional official simplification.
+    // The client requests it lazily through /api/simplify.
+    simplificationPending = true
   }
 
   // If no usable official simplified chart was obtained, generate algorithmic fallback
@@ -137,5 +117,6 @@ export async function scrapeSingleUrl(
     sections,
     simplifiedSections,
     simplifiedSource,
+    simplificationPending: simplificationPending || undefined,
   }
 }

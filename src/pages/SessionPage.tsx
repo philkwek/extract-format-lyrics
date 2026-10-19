@@ -1,5 +1,5 @@
 import { trackSongImport } from '../lib/analytics'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   FileText,
@@ -15,7 +15,8 @@ import {
 
 import { makeEntryId, sessionStore, type PadKeyMode, type Session, type SessionSongItem } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
-import { scrapeApi } from '../lib/api'
+import { scrapeApi, simplifyApi } from '../lib/api'
+import { mergeOfficialSimplification } from '../lib/simplification'
 import { getDefaultSongPrefs, getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { keyOffset, formatOffset } from '../lib/keys'
@@ -58,6 +59,8 @@ export default function SessionPage() {
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [prefsRevision, setPrefsRevision] = useState(0)
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
+  const simplificationAttempts = useRef<Set<string>>(new Set())
+  const sessionRef = useRef<Session | null>(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
@@ -168,6 +171,53 @@ export default function SessionPage() {
   const currentItem = session?.songs[activeIndex]
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
   const currentSong = currentItem ? songForItem(currentItem) : null
+
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
+
+  // Official simplification is optional enrichment. The original chart is
+  // already displayed, and only the simplified fields are merged on success.
+  useEffect(() => {
+    if (!currentItem || !currentSong) return
+    if (!currentSong.simplificationPending || currentSong.simplifiedSource === 'official') return
+    // Preserve explicit edits to a simplified chart instead of replacing them.
+    if (currentItem.customSimplifiedSections?.length) return
+
+    const key = currentItem.entryId || currentItem.url
+    if (simplificationAttempts.current.has(key)) return
+    simplificationAttempts.current.add(key)
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const response = await simplifyApi(currentSong.sourceUrl, controller.signal)
+        if (controller.signal.aborted || response.status !== 'ok') return
+
+        const currentSessionItem = sessionRef.current?.songs.find(
+          (item) => (item.entryId || item.url) === key
+        )
+        if (currentSessionItem?.customSimplifiedSections?.length) return
+
+        const sourceSong = originalSongs.get(key) ?? currentSong
+        const mergedSource = mergeOfficialSimplification(sourceSong, response)
+        setOriginalSongs((prev) => new Map(prev).set(key, mergedSource))
+        setSongsData((prev) => {
+          const latest = prev.get(key)
+          if (!latest) return prev
+          return new Map(prev).set(key, mergeOfficialSimplification(latest, response))
+        })
+        await songCache.saveSong(mergedSource, currentItem.url)
+      } catch {
+        // Enrichment failures leave the original/generated chart usable.
+      }
+    })()
+
+    return () => {
+      controller.abort()
+      simplificationAttempts.current.delete(key)
+    }
+  }, [currentItem, currentSong, originalSongs])
   const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
   const padKeyMode: PadKeyMode = currentItem?.padKeyMode ?? 'match'
   const customPadKey: PadKey =
