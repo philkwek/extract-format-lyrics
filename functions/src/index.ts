@@ -149,7 +149,8 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       res.flushHeaders()
 
       let closed = false
-      req.on('close', () => {
+      // `res` close fires on client disconnect as well as after our own end().
+      res.on('close', () => {
         closed = true
       })
       const write = (event: unknown) => {
