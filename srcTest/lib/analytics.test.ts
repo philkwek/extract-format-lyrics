@@ -186,6 +186,25 @@ describe('optional Analytics', () => {
     expect(mock.logEvent).not.toHaveBeenCalled()
   })
 
+  it('reports bounded search timing without query content', async () => {
+    const analytics = await module()
+    analytics.trackSearchTiming('search', 12_345.6, 'success', 4)
+    analytics.trackSearchTiming('home', 999_999, 'error', 0)
+    await vi.waitFor(() => expect(mock.logEvent).toHaveBeenCalledTimes(2))
+    expect(mock.logEvent.mock.calls[0][2]).toEqual(
+      expect.objectContaining({
+        entry_page: 'search',
+        duration_ms: 12_346,
+        outcome: 'success',
+        result_count: 4,
+      }),
+    )
+    expect(mock.logEvent.mock.calls[1][2]).toEqual(
+      expect.objectContaining({ entry_page: 'home', duration_ms: 300_000, outcome: 'error' }),
+    )
+    expect(mock.logEvent.mock.calls[0][2]).not.toHaveProperty('query')
+  })
+
   it('reports cached successes, mixed batch imports, and complete failures', async () => {
     const analytics = await module()
     analytics.trackSongImport('pasted_link', 2, 3)

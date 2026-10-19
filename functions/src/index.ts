@@ -16,6 +16,7 @@ import {
 } from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
 import type { Song, SharedLyricsPayload } from './types.js'
+import { elapsedMs, recordTiming } from './metrics.js'
 
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -165,6 +166,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
+    const searchStartedAt = Date.now()
     try {
       const ugResults = await ultimateGuitarSearchAdapter.search(query)
       const pnwResults = await pnwChordsSearchAdapter.search(query)
@@ -174,11 +176,21 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       // Rank by rating (if present) and limit to top 8 candidates
       combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
       const candidates = combined.slice(0, 8)
+      recordTiming({
+        operation: 'search.total',
+        durationMs: elapsedMs(searchStartedAt),
+        outcome: candidates.length > 0 ? 'ok' : 'empty',
+      })
 
       res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
       res.status(200).json({ query, results: candidates })
       return
     } catch (err) {
+      recordTiming({
+        operation: 'search.total',
+        durationMs: elapsedMs(searchStartedAt),
+        outcome: 'error',
+      })
       sendJsonError(res, 500, 'SEARCH_FAILED', (err as Error).message || 'Failed to search songs')
       return
     }

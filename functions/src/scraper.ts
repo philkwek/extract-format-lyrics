@@ -11,6 +11,7 @@ import { worshipChordsAdapter } from './adapters/worshipChords.js'
 import { worshipTogetherAdapter } from './adapters/worshipTogether.js'
 import { genericFallbackAdapter } from './adapters/genericFallback.js'
 import type { SiteAdapter } from './adapters/types.js'
+import { elapsedMs, recordTiming } from './metrics.js'
 
 const ADAPTERS: SiteAdapter[] = [
   ultimateGuitarAdapter,
@@ -29,17 +30,52 @@ export async function scrapeSingleUrl(
   fetchFn?: typeof safeFetchHtml
 ): Promise<Song> {
   const fetcher = fetchFn ?? safeFetchHtml
-  const { text: html, finalUrl } = await fetcher(url)
+  const site = siteForHost(new URL(url).hostname) || 'generic'
+  const fetchStartedAt = Date.now()
+  let html: string
+  let finalUrl: string
+  try {
+    ;({ text: html, finalUrl } = await fetcher(url))
+    recordTiming({ operation: 'chart.fetch', site, durationMs: elapsedMs(fetchStartedAt), outcome: 'ok' })
+  } catch (err) {
+    const code = (err as { code?: string })?.code
+    recordTiming({
+      operation: 'chart.fetch',
+      site,
+      durationMs: elapsedMs(fetchStartedAt),
+      outcome: code === 'TIMEOUT' ? 'timeout' : code === 'BLOCKED' ? 'blocked' : 'error',
+    })
+    throw err
+  }
 
   const parsedUrl = new URL(finalUrl)
-  const site = siteForHost(parsedUrl.hostname) || 'generic'
+  const sourceSite = siteForHost(parsedUrl.hostname) || 'generic'
 
   // Pick adapter
   const adapter = ADAPTERS.find((a) => a.matches(finalUrl)) || genericFallbackAdapter
-  const rawSong = adapter.extract(html, finalUrl)
-
-  const sections = normalizeSongText(rawSong.content)
-  const key = inferKeyFromChords(sections) ?? normalizeSongKey(rawSong.originalKey)
+  const parseStartedAt = Date.now()
+  let rawSong: ReturnType<SiteAdapter['extract']>
+  let sections: ReturnType<typeof normalizeSongText>
+  let key: string | null
+  try {
+    rawSong = adapter.extract(html, finalUrl)
+    sections = normalizeSongText(rawSong.content)
+    key = inferKeyFromChords(sections) ?? normalizeSongKey(rawSong.originalKey)
+    recordTiming({
+      operation: 'chart.parse',
+      site: sourceSite,
+      durationMs: elapsedMs(parseStartedAt),
+      outcome: 'ok',
+    })
+  } catch (err) {
+    recordTiming({
+      operation: 'chart.parse',
+      site: sourceSite,
+      durationMs: elapsedMs(parseStartedAt),
+      outcome: 'error',
+    })
+    throw err
+  }
 
   let simplifiedSections: typeof sections | undefined
   let simplifiedSource: 'official' | 'algorithmic' | undefined
@@ -47,8 +83,9 @@ export async function scrapeSingleUrl(
   if (rawSong.simplifiedContent) {
     simplifiedSections = normalizeSongText(rawSong.simplifiedContent)
     simplifiedSource = 'official'
-  } else if (site === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
+  } else if (sourceSite === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
     // Check if ?simplified=1 returns simplified version
+    const simplifyStartedAt = Date.now()
     try {
       const simplifiedUrl = new URL(finalUrl)
       if (!simplifiedUrl.searchParams.has('simplified')) {
@@ -60,8 +97,20 @@ export async function scrapeSingleUrl(
           simplifiedSource = 'official'
         }
       }
+      recordTiming({
+        operation: 'chart.simplify',
+        site: sourceSite,
+        durationMs: elapsedMs(simplifyStartedAt),
+        outcome: simplifiedSections ? 'ok' : 'empty',
+      })
     } catch {
       // ignore if simplified fetch fails or isn't available
+      recordTiming({
+        operation: 'chart.simplify',
+        site: sourceSite,
+        durationMs: elapsedMs(simplifyStartedAt),
+        outcome: 'error',
+      })
     }
   }
 
@@ -82,7 +131,7 @@ export async function scrapeSingleUrl(
     title: rawSong.title,
     artist: rawSong.artist,
     sourceUrl: finalUrl,
-    sourceSite: site,
+    sourceSite: sourceSite,
     originalKey: key,
     capo: rawSong.capo,
     sections,

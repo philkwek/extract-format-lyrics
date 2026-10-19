@@ -1,4 +1,4 @@
-import { trackEvent, trackSongImport } from '../lib/analytics'
+import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -161,6 +161,7 @@ export default function HomePage() {
     if (e) e.preventDefault()
     if (!searchQuery.trim()) return
 
+    const startedAt = Date.now()
     setIsSearching(true)
     setSearchError(null)
     setHasSearched(true)
@@ -169,10 +170,12 @@ export default function HomePage() {
       const candidates = await searchApi(searchQuery.trim())
       setSearchResults(candidates)
       trackEvent('song_search', { entry_page: 'home', outcome: 'success', result_count: candidates.length })
+      trackSearchTiming('home', Date.now() - startedAt, 'success', candidates.length)
     } catch (err) {
       setSearchError((err as Error).message || 'Failed to search songs')
       setSearchResults([])
       trackEvent('song_search', { entry_page: 'home', outcome: 'error', result_count: 0 })
+      trackSearchTiming('home', Date.now() - startedAt, 'error', 0)
     } finally {
       setIsSearching(false)
     }

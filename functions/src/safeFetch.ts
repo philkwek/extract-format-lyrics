@@ -1,5 +1,6 @@
 import { lookup as dnsLookup } from 'node:dns/promises'
-import { checkUrl } from './urls.js'
+import { checkUrl, siteForHost } from './urls.js'
+import { elapsedMs, recordTiming } from './metrics.js'
 
 export class FetchError extends Error {
   constructor(
@@ -219,12 +220,35 @@ async function fetchWithLimits(
 /**
  * Fetches an HTML page with safety checks, SSRF guards, timeouts, and 1 retry on 5xx/timeout.
  */
+function fetchOutcome(code: string | undefined): 'timeout' | 'blocked' | 'error' {
+  if (code === 'TIMEOUT') return 'timeout'
+  if (code === 'SSRF_BLOCKED' || code === 'INVALID_URL') return 'blocked'
+  return 'error'
+}
+
 export async function safeFetchHtml(
   url: string,
   options: SafeFetchOptions = {}
 ): Promise<{ text: string; finalUrl: string }> {
+  const startedAt = Date.now()
+  let site = 'unknown'
   try {
-    return await fetchWithLimits(url, options)
+    site = siteForHost(new URL(url).hostname) ?? 'unknown'
+  } catch {
+    // checkUrl will report the malformed URL.
+  }
+
+  try {
+    const result = await fetchWithLimits(url, options)
+    recordTiming({
+      operation: 'fetch.attempts',
+      site,
+      durationMs: elapsedMs(startedAt),
+      outcome: 'ok',
+      attempts: 1,
+      retryOutcome: 'not_retried',
+    })
+    return result
   } catch (err) {
     const fetchErr = err as FetchError
     const isRetryable =
@@ -232,11 +256,41 @@ export async function safeFetchHtml(
       (fetchErr.code === 'HTTP_ERROR' && fetchErr.status !== undefined && fetchErr.status >= 500)
 
     if (!isRetryable) {
+      recordTiming({
+        operation: 'fetch.attempts',
+        site,
+        durationMs: elapsedMs(startedAt),
+        outcome: fetchOutcome(fetchErr.code),
+        attempts: 1,
+        retryOutcome: 'not_retried',
+      })
       throw err
     }
 
     // Single retry with a brief backoff
     await new Promise((resolve) => setTimeout(resolve, 300))
-    return await fetchWithLimits(url, options)
+    try {
+      const result = await fetchWithLimits(url, options)
+      recordTiming({
+        operation: 'fetch.attempts',
+        site,
+        durationMs: elapsedMs(startedAt),
+        outcome: 'ok',
+        attempts: 2,
+        retryOutcome: 'succeeded',
+      })
+      return result
+    } catch (retryErr) {
+      const retryFetchErr = retryErr as FetchError
+      recordTiming({
+        operation: 'fetch.attempts',
+        site,
+        durationMs: elapsedMs(startedAt),
+        outcome: fetchOutcome(retryFetchErr.code),
+        attempts: 2,
+        retryOutcome: 'failed',
+      })
+      throw retryErr
+    }
   }
 }

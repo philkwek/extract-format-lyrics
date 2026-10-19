@@ -1,4 +1,4 @@
-import { trackEvent, trackSongImport } from '../lib/analytics'
+import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Link2, Search } from 'lucide-react'
@@ -50,6 +50,7 @@ export default function SearchPage() {
     if (e) e.preventDefault()
     if (!query.trim()) return
 
+    const startedAt = Date.now()
     setIsSearching(true)
     setError(null)
     setHasSearched(true)
@@ -58,10 +59,12 @@ export default function SearchPage() {
       const candidates = await searchApi(query.trim())
       setResults(candidates)
       trackEvent('song_search', { entry_page: 'search', outcome: 'success', result_count: candidates.length })
+      trackSearchTiming('search', Date.now() - startedAt, 'success', candidates.length)
     } catch (err) {
       setError((err as Error).message || 'Failed to search songs')
       setResults([])
       trackEvent('song_search', { entry_page: 'search', outcome: 'error', result_count: 0 })
+      trackSearchTiming('search', Date.now() - startedAt, 'error', 0)
     } finally {
       setIsSearching(false)
     }

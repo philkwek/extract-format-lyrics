@@ -10,7 +10,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,hosting",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "bench": "vitest run --config vitest.benchmark.config.ts"
   },
   "dependencies": {
     "@google/genai": "^2.28.0",

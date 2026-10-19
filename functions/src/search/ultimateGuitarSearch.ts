@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
+import { elapsedMs, recordTiming } from '../metrics.js'
 
 interface UgSearchResultItem {
   id?: number
@@ -53,12 +54,26 @@ export const ultimateGuitarSearchAdapter: SearchAdapter = {
   site: 'ultimate-guitar',
 
   async search(query: string): Promise<SearchCandidate[]> {
+    const startedAt = Date.now()
     const encoded = encodeURIComponent(query)
     const url = `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encoded}`
     try {
       const { text: html } = await safeFetchHtml(url)
-      return parseUgSearchHtml(html)
+      const results = parseUgSearchHtml(html)
+      recordTiming({
+        operation: 'search.site',
+        site: 'ultimate-guitar',
+        durationMs: elapsedMs(startedAt),
+        outcome: results.length > 0 ? 'ok' : 'empty',
+      })
+      return results
     } catch {
+      recordTiming({
+        operation: 'search.site',
+        site: 'ultimate-guitar',
+        durationMs: elapsedMs(startedAt),
+        outcome: 'error',
+      })
       return []
     }
   },

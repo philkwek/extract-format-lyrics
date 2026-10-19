@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
+import { elapsedMs, recordTiming } from '../metrics.js'
 
 export function parseWorshipTogetherSearchHtml(html: string): SearchCandidate[] {
   const $ = cheerio.load(html)
@@ -30,11 +31,25 @@ export const worshipTogetherSearchAdapter: SearchAdapter = {
   site: 'worshiptogether',
 
   async search(query: string): Promise<SearchCandidate[]> {
+    const startedAt = Date.now()
     const url = `https://www.worshiptogether.com/songs/?nav=1&q=${encodeURIComponent(query)}`
     try {
       const { text: html } = await safeFetchHtml(url)
-      return parseWorshipTogetherSearchHtml(html)
+      const results = parseWorshipTogetherSearchHtml(html)
+      recordTiming({
+        operation: 'search.site',
+        site: 'worshiptogether',
+        durationMs: elapsedMs(startedAt),
+        outcome: results.length > 0 ? 'ok' : 'empty',
+      })
+      return results
     } catch {
+      recordTiming({
+        operation: 'search.site',
+        site: 'worshiptogether',
+        durationMs: elapsedMs(startedAt),
+        outcome: 'error',
+      })
       return []
     }
   },
