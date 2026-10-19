@@ -8,6 +8,7 @@ import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
+import { selectSearchResults } from './search/selectResults.js'
 import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
@@ -174,9 +175,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
         [ultimateGuitarSearchAdapter, pnwChordsSearchAdapter, worshipTogetherSearchAdapter],
         query
       )
-      // Rank by rating (if present) and limit to top 8 candidates
-      combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-      const candidates = combined.slice(0, 8)
+      const candidates = selectSearchResults(combined, query)
       const partial = outcomes.some((outcome) => outcome.status === 'failed')
       recordTiming({
         operation: 'search.total',

@@ -53,9 +53,20 @@ export interface SearchCandidate {
   type?: string
 }
 
+export interface SearchSourceStatus {
+  site: string
+  status: 'ok' | 'empty' | 'failed'
+  count: number
+  durationMs: number
+  failure?: 'timeout' | 'blocked' | 'fetch' | 'parser'
+  message?: string
+}
+
 export interface ApiSearchResponse {
   query: string
   results: SearchCandidate[]
+  sources?: SearchSourceStatus[]
+  partial?: boolean
 }
 
 export async function searchApi(query: string): Promise<SearchCandidate[]> {
