@@ -6,6 +6,7 @@ import {
   type ImportProgress,
   type ImportSourceDeps,
 } from './setlistImport'
+import type { ApiScrapeResponse } from './api'
 import type { Session, SessionSongItem } from './sessionStore'
 import type { Song } from '../types/song'
 
@@ -27,9 +28,9 @@ function makeSession(songs: SessionSongItem[] = []): Session {
 
 function makeDeps() {
   const cache = {
-    getSong: vi.fn(async (): Promise<Song | null> => null),
-    saveSong: vi.fn(async () => {}),
-    recordFailed: vi.fn(async () => {}),
+    getSong: vi.fn<(url: string) => Promise<Song | null>>(async () => null),
+    saveSong: vi.fn<(song: Song) => Promise<void>>(async () => {}),
+    recordFailed: vi.fn<(url: string, reason: string) => Promise<void>>(async () => {}),
   }
   const sessions = {
     createSession: vi.fn(async (songs: SessionSongItem[]) => makeSession(songs)),
@@ -38,7 +39,10 @@ function makeDeps() {
       firstNewIndex: 0,
     })),
   }
-  const scrape = vi.fn(async () => ({ results: [], invalid: [] }))
+  const scrape = vi.fn<(urls: string[]) => Promise<ApiScrapeResponse>>(async () => ({
+    results: [],
+    invalid: [],
+  }))
   return { cache, sessions, scrape }
 }
 
