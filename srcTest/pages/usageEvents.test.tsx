@@ -3,29 +3,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import HomePage from './HomePage'
-import SearchPage from './SearchPage'
-import PrivacyPage from './PrivacyPage'
-import ShareImportPage from './ShareImportPage'
-import ShareModal from '../components/ShareModal'
-import { trackEvent, trackSongImport } from '../lib/analytics'
-import { songCache } from '../lib/songCache'
-import { sessionStore } from '../lib/sessionStore'
-import { scrapeApi, searchApi, createShareApi, getShareApi } from '../lib/api'
-import type { Song } from '../types/song'
+import HomePage from '../../src/pages/HomePage'
+import SearchPage from '../../src/pages/SearchPage'
+import PrivacyPage from '../../src/pages/PrivacyPage'
+import ShareImportPage from '../../src/pages/ShareImportPage'
+import ShareModal from '../../src/components/ShareModal'
+import { trackEvent, trackSongImport } from '../../src/lib/analytics'
+import { songCache } from '../../src/lib/songCache'
+import { sessionStore } from '../../src/lib/sessionStore'
+import { scrapeApi, searchApi, createShareApi, getShareApi } from '../../src/lib/api'
+import type { Song } from '../../src/types/song'
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual('react-router-dom')),
   useNavigate: () => navigate,
 }))
-vi.mock('../lib/analytics', async () => ({
-  ...(await vi.importActual('../lib/analytics')),
+vi.mock('../../src/lib/analytics', async () => ({
+  ...(await vi.importActual('../../src/lib/analytics')),
   trackEvent: vi.fn(),
   trackSongImport: vi.fn(),
 }))
-vi.mock('../lib/api', async () => ({
-  ...(await vi.importActual('../lib/api')),
+vi.mock('../../src/lib/api', async () => ({
+  ...(await vi.importActual('../../src/lib/api')),
   searchApi: vi.fn(),
   scrapeApi: vi.fn(),
   createShareApi: vi.fn(),

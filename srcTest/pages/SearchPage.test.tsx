@@ -2,26 +2,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import SearchPage from './SearchPage'
-import { searchApi } from '../lib/api'
-import { importSources } from '../lib/setlistImport'
-import { sessionStore } from '../lib/sessionStore'
+import SearchPage from '../../src/pages/SearchPage'
+import { searchApi } from '../../src/lib/api'
+import { importSources } from '../../src/lib/setlistImport'
+import { sessionStore } from '../../src/lib/sessionStore'
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual('react-router-dom')),
   useNavigate: () => navigate,
 }))
-vi.mock('../lib/setlistImport', async () => ({
-  ...(await vi.importActual('../lib/setlistImport')),
+vi.mock('../../src/lib/setlistImport', async () => ({
+  ...(await vi.importActual('../../src/lib/setlistImport')),
   importSources: vi.fn(),
 }))
-vi.mock('../lib/api', async () => ({
-  ...(await vi.importActual('../lib/api')),
+vi.mock('../../src/lib/api', async () => ({
+  ...(await vi.importActual('../../src/lib/api')),
   searchApi: vi.fn(),
 }))
-vi.mock('../lib/analytics', async () => ({
-  ...(await vi.importActual('../lib/analytics')),
+vi.mock('../../src/lib/analytics', async () => ({
+  ...(await vi.importActual('../../src/lib/analytics')),
   trackEvent: vi.fn(),
   trackSongImport: vi.fn(),
 }))

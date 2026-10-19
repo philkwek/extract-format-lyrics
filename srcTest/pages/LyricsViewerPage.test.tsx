@@ -2,12 +2,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import LyricsViewerPage from './LyricsViewerPage'
-import * as api from '../lib/api'
-import type { GetSharedLyricsResult } from '../lib/api'
+import LyricsViewerPage from '../../src/pages/LyricsViewerPage'
+import * as api from '../../src/lib/api'
+import type { GetSharedLyricsResult } from '../../src/lib/api'
 
-vi.mock('../lib/api', async () => {
-  const actual = await vi.importActual('../lib/api')
+vi.mock('../../src/lib/api', async () => {
+  const actual = await vi.importActual('../../src/lib/api')
   return {
     ...actual,
     getSharedLyricsApi: vi.fn(),
@@ -197,7 +197,7 @@ describe('LyricsViewerPage', () => {
 
   it('renders instantly from local cache and saves to recent store', async () => {
     const { saveRecentSharedLyrics, getRecentSharedLyrics, clearRecentSharedLyrics } = await import(
-      '../lib/recentLyricsStore'
+      '../../src/lib/recentLyricsStore'
     )
     await clearRecentSharedLyrics()
     await saveRecentSharedLyrics('pub-cached', mockLyricsData.lyrics, mockLyricsData.expiresAt)

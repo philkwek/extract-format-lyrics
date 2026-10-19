@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import HomePage from './HomePage'
-import * as recentLyricsStore from '../lib/recentLyricsStore'
-import * as sessionStoreModule from '../lib/sessionStore'
+import HomePage from '../../src/pages/HomePage'
+import * as recentLyricsStore from '../../src/lib/recentLyricsStore'
+import * as sessionStoreModule from '../../src/lib/sessionStore'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
