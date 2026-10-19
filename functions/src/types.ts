@@ -49,6 +49,8 @@ export interface Song {
   simplifiedSections?: Section[]
   /** Source of simplifiedSections: 'official' (source-provided) or 'algorithmic' (auto fallback). */
   simplifiedSource?: 'official' | 'algorithmic'
+  /** True when the site advertises an official simplified chart that is not loaded yet. */
+  simplificationPending?: boolean
 }
 
 /** A song plus all per-set state needed to reproduce a shared set exactly. */

@@ -38,11 +38,7 @@ export const pnwChordsSearchAdapter: SearchAdapter = {
 
   async search(query: string): Promise<SearchCandidate[]> {
     const url = `https://pnwchords.com/?s=${encodeURIComponent(query)}`
-    try {
-      const { text: html } = await safeFetchHtml(url)
-      return parsePnwSearchHtml(html)
-    } catch {
-      return []
-    }
+    const { text: html } = await safeFetchHtml(url)
+    return parsePnwSearchHtml(html)
   },
 }

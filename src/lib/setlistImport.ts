@@ -31,7 +31,7 @@ export interface ParsedPastedSources {
 }
 
 export interface ImportSourceDeps {
-  cache: Pick<SongCache, 'getSong' | 'saveSong' | 'recordFailed'>
+  cache: Pick<SongCache, 'getSong' | 'saveSong' | 'recordFailed' | 'getFailed'>
   sessions: Pick<SessionStore, 'createSession' | 'addSongsToSession'>
   scrape: typeof scrapeApi
 }
@@ -41,6 +41,8 @@ export interface ImportSourcesOptions {
   invalidInputs?: InvalidImportInput[]
   requireAll?: boolean
   chunkSize?: number
+  /** Explicit retries bypass the short-lived local failure marker. */
+  ignoreFailureCache?: boolean
   onProgress?: (statuses: ImportProgress[]) => void
   deps?: Partial<ImportSourceDeps>
 }
@@ -124,9 +126,28 @@ export async function importSources(
       outcomes[index] = { song: cached }
       updateStatus(source.url, { status: 'cached', message: 'Loaded from cache' })
       emitProgress()
-    } else {
-      uncached.push({ source, index })
+      continue
     }
+
+    // A marker is deliberately short-lived. Once it expires the normal retry
+    // path runs; a manual retry can bypass it with ignoreFailureCache.
+    let recentFailure: string | null = null
+    if (!options.ignoreFailureCache) {
+      try {
+        recentFailure = (await deps.cache.getFailed?.(source.url)) ?? null
+      } catch {
+        // Failure markers are best-effort.
+      }
+    }
+    if (recentFailure) {
+      const reason = `Recent attempt failed: ${recentFailure}. Retry to try again.`
+      outcomes[index] = { reason }
+      updateStatus(source.url, { status: 'error', message: reason })
+      emitProgress()
+      continue
+    }
+
+    uncached.push({ source, index })
   }
 
   const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE)
@@ -145,7 +166,7 @@ export async function importSources(
         const result = resultByUrl.get(source.url)
         if (result?.status === 'ok' && result.song) {
           try {
-            await deps.cache.saveSong(result.song)
+            await deps.cache.saveSong(result.song, source.url)
             outcomes[index] = { song: result.song }
             updateStatus(source.url, { status: 'done', message: undefined })
           } catch (err) {

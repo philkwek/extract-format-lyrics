@@ -29,8 +29,9 @@ function makeSession(songs: SessionSongItem[] = []): Session {
 function makeDeps() {
   const cache = {
     getSong: vi.fn<(url: string) => Promise<Song | null>>(async () => null),
-    saveSong: vi.fn<(song: Song) => Promise<void>>(async () => {}),
+    saveSong: vi.fn<(song: Song, requestedUrl?: string) => Promise<void>>(async () => {}),
     recordFailed: vi.fn<(url: string, reason: string) => Promise<void>>(async () => {}),
+    getFailed: vi.fn<(url: string) => Promise<string | null>>(async () => null),
   }
   const sessions = {
     createSession: vi.fn(async (songs: SessionSongItem[]) => makeSession(songs)),
@@ -210,6 +211,31 @@ describe('importSources', () => {
     ).rejects.toThrow('Could not extract chords')
     expect(deps.sessions.createSession).not.toHaveBeenCalled()
     expect(deps.sessions.addSongsToSession).not.toHaveBeenCalled()
+  })
+
+  it('skips a recently failed source but allows an explicit retry', async () => {
+    const deps = makeDeps()
+    deps.cache.getFailed.mockResolvedValue('HTTP error 503')
+    const song = makeSong('https://pnwchords.com/song/')
+
+    const skipped = await importSources([{ url: 'https://pnwchords.com/song' }], {
+      deps: asDeps(deps),
+    })
+    expect(deps.scrape).not.toHaveBeenCalled()
+    expect(skipped.imported).toBe(0)
+    expect(skipped.items[0].errorMessage).toMatch(/Recent attempt failed/)
+
+    deps.scrape.mockResolvedValue({
+      results: [{ url: 'https://pnwchords.com/song', status: 'ok', song }],
+      invalid: [],
+    })
+    const retried = await importSources([{ url: 'https://pnwchords.com/song' }], {
+      deps: asDeps(deps),
+      ignoreFailureCache: true,
+    })
+    expect(retried.imported).toBe(1)
+    expect(deps.scrape).toHaveBeenCalledTimes(1)
+    expect(deps.cache.saveSong).toHaveBeenCalledWith(song, 'https://pnwchords.com/song')
   })
 
   it('appends to an existing session and reports the first new index', async () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { extractSongsApi } from '../../src/lib/api'
+import { extractSongsApi, searchApiStream } from '../../src/lib/api'
 
 const song = {
   id: 'song-1',
@@ -35,6 +35,75 @@ describe('extractSongsApi', () => {
       total: undefined,
     })
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ expectedSongCount: 4 })
+  })
+
+  it('streams out-of-order source events before the complete result', async () => {
+    const source = {
+      site: 'pnwchords',
+      status: 'ok',
+      count: 1,
+      durationMs: 12,
+      candidates: [
+        {
+          site: 'pnwchords',
+          title: 'Good Grace',
+          artist: 'Hillsong Worship',
+          url: 'https://pnwchords.com/good-grace',
+        },
+      ],
+    }
+    const complete = {
+      type: 'complete',
+      query: 'good grace',
+      results: source.candidates,
+      sources: [source],
+      partial: false,
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(`${JSON.stringify({ type: 'source', source, candidates: source.candidates })}\n${JSON.stringify(complete)}\n`, {
+          status: 200,
+          headers: { 'content-type': 'application/x-ndjson; charset=utf-8' },
+        })
+      )
+    )
+    const onSource = vi.fn()
+
+    await expect(searchApiStream('good grace', { onSource })).resolves.toMatchObject({
+      query: 'good grace',
+      results: source.candidates,
+      partial: false,
+    })
+    expect(onSource).toHaveBeenCalledWith(source)
+  })
+
+  it('falls back to JSON and reports malformed streams cleanly', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ query: 'song', results: [], sources: [], partial: false }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response('{not-json}\n', {
+          status: 200,
+          headers: { 'content-type': 'application/x-ndjson' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(`${JSON.stringify({ type: 'source', source: {}, candidates: [] })}\n`, {
+          status: 200,
+          headers: { 'content-type': 'application/x-ndjson' },
+        })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(searchApiStream('song')).resolves.toMatchObject({ query: 'song', results: [] })
+    await expect(searchApiStream('broken')).rejects.toThrow()
+    await expect(searchApiStream('incomplete')).rejects.toThrow(/without a complete result/)
   })
 
   it('surfaces a streamed extraction error', async () => {

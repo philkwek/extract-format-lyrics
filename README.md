@@ -174,6 +174,8 @@ The Firestore rules deny direct browser access. The backend uses Admin credentia
 
 Link imports use a domain allow-list, DNS/IP checks against private addresses, fetch limits, rate limiting and host circuit breakers. Function instances are capped and can scale down to zero. These controls help limit usage; hosting and AI costs still depend on your traffic and provider settings.
 
+Search/import caching, deadlines, concurrency limits and benchmark reproduction are documented in [the performance guide](docs/performance.md).
+
 ### Usage analytics
 
 Google Analytics tracks visits and key actions when enabled for production. Visitors can turn it off under **Privacy and usage tracking**. See the [setup and verification guide](docs/analytics.md) for the existing Firebase stream, Actions variables, event definitions, and reporting steps.

@@ -4,6 +4,7 @@ import { simplifySections } from './chords'
 
 const CACHE_PREFIX = 'song:'
 const FAILED_PREFIX = 'failed:'
+const ALIAS_PREFIX = 'alias:'
 const FAILED_TTL_MS = 60_000 // 60 seconds TTL for failed URLs
 
 export interface StorageStore {
@@ -39,8 +40,8 @@ export class SongCache {
   }
 
   async getSong(url: string): Promise<Song | null> {
-    const key = `${CACHE_PREFIX}${normalizeSongUrl(url)}`
-    const val = await this.store.get<Song>(key)
+    const normalized = normalizeSongUrl(url)
+    const val = await this.readSong(normalized)
     if (!val) return null
 
     // Enrich older website songs that have no usable simplified sections
@@ -52,18 +53,51 @@ export class SongCache {
       if (changedCount > 0) {
         val.simplifiedSections = fallbackSections
         val.simplifiedSource = 'algorithmic'
-        await this.store.set(key, val)
+        await this.store.set(`${CACHE_PREFIX}${normalizeSongUrl(val.sourceUrl)}`, val)
       }
     }
 
     return val
   }
 
-  async saveSong(song: Song): Promise<void> {
-    const key = `${CACHE_PREFIX}${normalizeSongUrl(song.sourceUrl)}`
+  private async readSong(normalizedUrl: string): Promise<Song | null> {
+    const direct = await this.store.get<Song>(`${CACHE_PREFIX}${normalizedUrl}`)
+    if (direct) return direct
+
+    // Older entries are keyed by their final URL. A validated redirect alias
+    // lets lookups through the original URL still find them.
+    const target = await this.store.get<string>(`${ALIAS_PREFIX}${normalizedUrl}`)
+    if (typeof target !== 'string') return null
+    const finalUrl = normalizeSongUrl(target)
+    if (finalUrl === normalizedUrl) return null
+    return (await this.store.get<Song>(`${CACHE_PREFIX}${finalUrl}`)) ?? null
+  }
+
+  async saveSong(song: Song, requestedUrl?: string): Promise<void> {
+    const finalUrl = normalizeSongUrl(song.sourceUrl)
+    const key = `${CACHE_PREFIX}${finalUrl}`
     await this.store.set(key, song)
     // Clear any temporary failed marker
-    await this.store.del(`${FAILED_PREFIX}${normalizeSongUrl(song.sourceUrl)}`)
+    await this.store.del(`${FAILED_PREFIX}${finalUrl}`)
+
+    if (requestedUrl) {
+      const originalUrl = normalizeSongUrl(requestedUrl)
+      if (originalUrl !== finalUrl) {
+        await this.store.set(`${ALIAS_PREFIX}${originalUrl}`, finalUrl)
+        await this.store.del(`${FAILED_PREFIX}${originalUrl}`)
+      }
+    }
+  }
+
+  async saveAlias(requestedUrl: string, finalUrl: string): Promise<void> {
+    const from = normalizeSongUrl(requestedUrl)
+    const to = normalizeSongUrl(finalUrl)
+    if (from !== to) await this.store.set(`${ALIAS_PREFIX}${from}`, to)
+  }
+
+  async getAlias(url: string): Promise<string | null> {
+    const target = await this.store.get<string>(`${ALIAS_PREFIX}${normalizeSongUrl(url)}`)
+    return typeof target === 'string' ? target : null
   }
 
   async recordFailed(url: string, reason: string): Promise<void> {
@@ -90,7 +124,12 @@ export class SongCache {
   async clearAll(): Promise<void> {
     const all = await this.store.entries()
     for (const [key] of all) {
-      if (typeof key === 'string' && (key.startsWith(CACHE_PREFIX) || key.startsWith(FAILED_PREFIX))) {
+      if (
+        typeof key === 'string' &&
+        (key.startsWith(CACHE_PREFIX) ||
+          key.startsWith(FAILED_PREFIX) ||
+          key.startsWith(ALIAS_PREFIX))
+      ) {
         await this.store.del(key)
       }
     }

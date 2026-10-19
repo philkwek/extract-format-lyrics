@@ -31,11 +31,7 @@ export const worshipTogetherSearchAdapter: SearchAdapter = {
 
   async search(query: string): Promise<SearchCandidate[]> {
     const url = `https://www.worshiptogether.com/songs/?nav=1&q=${encodeURIComponent(query)}`
-    try {
-      const { text: html } = await safeFetchHtml(url)
-      return parseWorshipTogetherSearchHtml(html)
-    } catch {
-      return []
-    }
+    const { text: html } = await safeFetchHtml(url)
+    return parseWorshipTogetherSearchHtml(html)
   },
 }

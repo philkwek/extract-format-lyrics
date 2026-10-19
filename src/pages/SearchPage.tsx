@@ -1,8 +1,13 @@
-import { trackEvent, trackSongImport } from '../lib/analytics'
-import { useState, useEffect } from 'react'
+import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Link2, Search } from 'lucide-react'
-import { searchApi, type SearchCandidate } from '../lib/api'
+import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
+import {
+  mergeFinalSearchCandidates,
+  mergePartialSearchCandidates,
+  upsertSearchSource,
+} from '../lib/searchResults'
 import { sessionStore, type Session } from '../lib/sessionStore'
 import {
   importSources,
@@ -29,10 +34,14 @@ export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [results, setResults] = useState<SearchCandidate[]>([])
+  const [sources, setSources] = useState<SearchSourceStatus[]>([])
+  const [partial, setPartial] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [addedUrls, setAddedUrls] = useState<Set<string>>(new Set())
   const [addingUrls, setAddingUrls] = useState<Set<string>>(new Set())
+  const searchAbortRef = useRef<AbortController | null>(null)
+  const searchGenerationRef = useRef(0)
 
   // Paste mode state
   const [pasteText, setPasteText] = useState('')
@@ -46,24 +55,53 @@ export default function SearchPage() {
     }
   }, [targetSessionId])
 
+  useEffect(() => () => searchAbortRef.current?.abort(), [])
+
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!query.trim()) return
 
+    const startedAt = Date.now()
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    const generation = ++searchGenerationRef.current
     setIsSearching(true)
     setError(null)
     setHasSearched(true)
+    setResults([])
+    setSources([])
+    setPartial(false)
 
     try {
-      const candidates = await searchApi(query.trim())
-      setResults(candidates)
-      trackEvent('song_search', { entry_page: 'search', outcome: 'success', result_count: candidates.length })
+      const response = await searchApiStream(query.trim(), {
+        signal: controller.signal,
+        onSource: (source) => {
+          if (generation !== searchGenerationRef.current) return
+          setSources((prev) => upsertSearchSource(prev, source))
+          setResults((prev) => mergePartialSearchCandidates(prev, source.candidates))
+        },
+      })
+      if (generation !== searchGenerationRef.current) return
+
+      setResults((prev) => mergeFinalSearchCandidates(prev, response.results))
+      setSources(response.sources ?? [])
+      setPartial(Boolean(response.partial))
+      trackEvent('song_search', {
+        entry_page: 'search',
+        outcome: 'success',
+        result_count: response.results.length,
+      })
+      trackSearchTiming('search', Date.now() - startedAt, 'success', response.results.length)
     } catch (err) {
+      if (generation !== searchGenerationRef.current || controller.signal.aborted) return
       setError((err as Error).message || 'Failed to search songs')
       setResults([])
+      setSources([])
       trackEvent('song_search', { entry_page: 'search', outcome: 'error', result_count: 0 })
+      trackSearchTiming('search', Date.now() - startedAt, 'error', 0)
     } finally {
-      setIsSearching(false)
+      if (generation === searchGenerationRef.current) setIsSearching(false)
     }
   }
 
@@ -209,6 +247,8 @@ export default function SearchPage() {
           isSearching={isSearching}
           hasSearched={hasSearched}
           hasError={Boolean(error)}
+          sources={sources}
+          partial={partial}
           emptyMessage="No matching songs found. Try a different query or paste links above."
           onSelect={handleAddCandidate}
           getActionState={(candidate) => ({

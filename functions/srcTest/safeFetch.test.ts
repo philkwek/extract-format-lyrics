@@ -153,4 +153,157 @@ describe('safeFetchHtml', () => {
       })
     ).rejects.toThrow(/not supported/)
   })
+
+  it('times out stalled response headers within the overall budget', async () => {
+    const mockFetch = vi.fn(() => new Promise<Response>(() => {}))
+    const startedAt = Date.now()
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 40,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+
+    expect(Date.now() - startedAt).toBeLessThan(500)
+  })
+
+  it('times out a stalled response body and cancels the reader', async () => {
+    const cancel = vi.fn()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('<html><body>partial'))
+      },
+      cancel,
+    })
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 40,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+    expect(cancel).toHaveBeenCalled()
+  })
+
+  it('stops awaiting delayed DNS at the deadline without an unhandled rejection', async () => {
+    let resolveDns!: (value: Array<{ address: string; family: number }>) => void
+    const slowLookup = vi.fn(
+      () =>
+        new Promise<Array<{ address: string; family: number }>>((resolve) => {
+          resolveDns = resolve
+        })
+    )
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 30,
+        lookupFn: slowLookup as unknown as DnsLookupFn,
+        fetchFn: vi.fn() as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+
+    // Late DNS settlement is handled safely.
+    resolveDns([{ address: '93.184.216.34', family: 4 }])
+    await Promise.resolve()
+  })
+
+  it('applies one deadline across redirect chains', async () => {
+    let calls = 0
+    const mockFetch = vi.fn(async () => {
+      calls += 1
+      if (calls === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'https://pnwchords.com/final' },
+        })
+      }
+      return new Promise<Response>(() => {})
+    })
+    const startedAt = Date.now()
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 200,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+
+    expect(calls).toBe(2)
+    // A per-request timer would take ~300ms; one overall budget takes ~200ms.
+    expect(Date.now() - startedAt).toBeLessThan(275)
+  })
+
+  it('retries a 5xx once and reports retry exhaustion', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' })
+    )
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 2_000,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 503 })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not start a retry that cannot fit in the remaining budget', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' })
+    )
+    const startedAt = Date.now()
+
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        timeoutMs: 80,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'HTTP_ERROR' })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(Date.now() - startedAt).toBeLessThan(250)
+  })
+
+  it('does not retry invalid content types or oversized bodies', async () => {
+    const invalidTypeFetch = vi.fn().mockResolvedValue(
+      new Response('{"data":1}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: invalidTypeFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_CONTENT_TYPE' })
+    expect(invalidTypeFetch).toHaveBeenCalledTimes(1)
+
+    const oversizedFetch = vi.fn().mockResolvedValue(
+      new Response('a'.repeat(200), {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+    await expect(
+      safeFetchHtml('https://pnwchords.com/song', {
+        maxBytes: 100,
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: oversizedFetch as unknown as typeof fetch,
+      })
+    ).rejects.toMatchObject({ code: 'PAYLOAD_TOO_LARGE' })
+    expect(oversizedFetch).toHaveBeenCalledTimes(1)
+  })
 })

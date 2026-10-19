@@ -4,6 +4,7 @@ type Outcome = 'success' | 'partial' | 'error'
 type ImportMethod = 'search' | 'pasted_link' | 'upload'
 interface Events {
   song_search: { entry_page: 'home' | 'search'; outcome: 'success' | 'error'; result_count: number }
+  search_timing: { entry_page: 'home' | 'search'; outcome: 'success' | 'error'; result_count: number; duration_ms: number }
   song_import: { method: ImportMethod; outcome: Outcome; imported_count: number }
   set_shared: { song_count: number }
   shared_set_imported: { outcome: 'success' | 'error'; imported_count: number }
@@ -172,6 +173,7 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
   }
   const fields: Record<keyof Events, string[]> = {
     song_search: ['entry_page', 'outcome', 'result_count'],
+    search_timing: ['entry_page', 'outcome', 'result_count', 'duration_ms'],
     song_import: ['method', 'outcome', 'imported_count'],
     set_shared: ['song_count'],
     shared_set_imported: ['outcome', 'imported_count'],
@@ -244,5 +246,23 @@ export function trackSongImport(method: ImportMethod, imported: number, attempte
     method,
     outcome: importOutcome(imported, attempted),
     imported_count: imported,
+  })
+}
+
+/**
+ * Reports completed search latency with bounded, non-content fields only.
+ * `durationMs` is clamped so an anomalous timer cannot create an unbounded value.
+ */
+export function trackSearchTiming(
+  entryPage: 'home' | 'search',
+  durationMs: number,
+  outcome: 'success' | 'error',
+  resultCount: number
+): void {
+  trackEvent('search_timing', {
+    entry_page: entryPage,
+    duration_ms: Math.max(0, Math.min(300_000, Math.round(durationMs))),
+    outcome,
+    result_count: Math.max(0, Math.min(1_000, Math.round(resultCount))),
   })
 }

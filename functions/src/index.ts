@@ -1,12 +1,24 @@
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
-import { validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
-import { scrapeSingleUrl } from './scraper.js'
+import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
+import { scrapeUrls, type ScrapeResult } from './scrapePool.js'
+import { loadOfficialSimplification } from './chartSimplification.js'
 import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
+import { searchSites } from './search/searchSites.js'
+import { searchCache } from './search/searchCache.js'
+import {
+  DEFAULT_SEARCH_RESULT_LIMIT,
+  PARTIAL_SOURCE_RESULT_LIMIT,
+  selectCombinedSearchResults,
+  selectNativeSourceResults,
+  selectSearchResults,
+} from './search/selectResults.js'
+import { UG_SEARCH_RESULT_LIMIT } from './search/types.js'
+import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
   sharedLyricsStore,
@@ -15,7 +27,8 @@ import {
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
-import type { Song, SharedLyricsPayload } from './types.js'
+import type { SharedLyricsPayload } from './types.js'
+import { elapsedMs, recordTiming } from './metrics.js'
 
 
 // Cost safeguard: cap concurrent instances (see plan §4.2).
@@ -30,10 +43,6 @@ setGlobalOptions({
   timeoutSeconds: 300,
   concurrency: 5,
 })
-
-export type ScrapeResult =
-  | { url: string; status: 'ok'; song: Song }
-  | { url: string; status: 'error'; code: string; message: string }
 
 export interface ScrapeResponse {
   results: ScrapeResult[]
@@ -90,44 +99,9 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     const { valid, invalid } = validateUrls(urls)
-    const results: ScrapeResult[] = []
-
-    // Concurrency limit of 2 parallel scrapes
-    const concurrency = 2
-    for (let i = 0; i < valid.length; i += concurrency) {
-      const chunk = valid.slice(i, i + concurrency)
-      const chunkPromises = chunk.map(async ({ url }): Promise<ScrapeResult> => {
-        const host = new URL(url).hostname
-        const pausedCheck = rateLimiter.isHostPaused(host)
-        if (pausedCheck.paused) {
-          return {
-            url,
-            status: 'error',
-            code: 'HOST_PAUSED',
-            message: `Requests to ${host} temporarily paused due to repeated upstream errors. Try again later.`,
-          }
-        }
-
-        try {
-          const song = await scrapeSingleUrl(url)
-          rateLimiter.recordHostSuccess(host)
-          return { url, status: 'ok', song }
-        } catch (err) {
-          const status = (err as { status?: number })?.status
-          rateLimiter.recordHostFailure(host, status)
-          const errorCode = (err as { code?: string })?.code || 'SCRAPE_FAILED'
-          return {
-            url,
-            status: 'error',
-            code: errorCode,
-            message: (err as Error).message || 'Failed to extract chords',
-          }
-        }
-      })
-
-      const chunkResults = await Promise.all(chunkPromises)
-      results.push(...chunkResults)
-    }
+    // A continuously filled queue keeps both workers busy instead of waiting
+    // for the slowest song in each fixed pair.
+    const results: ScrapeResult[] = await scrapeUrls(valid.map((item) => item.url))
 
     // Set short cache header for scrape responses
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120')
@@ -165,21 +139,192 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
+    const searchStartedAt = Date.now()
+    const adapters = [
+      ultimateGuitarSearchAdapter,
+      pnwChordsSearchAdapter,
+      worshipTogetherSearchAdapter,
+    ]
+    const wantsStream =
+      req.query.stream === '1' ||
+      String(req.headers.accept || '').includes('application/x-ndjson')
+
+    if (wantsStream) {
+      res.status(200)
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+      res.setHeader('Cache-Control', 'no-cache, no-transform')
+      res.flushHeaders()
+
+      let closed = false
+      // `res` close fires on client disconnect as well as after our own end().
+      res.on('close', () => {
+        closed = true
+      })
+      const write = (event: unknown) => {
+        if (closed) return
+        try {
+          res.write(`${JSON.stringify(event)}\n`)
+        } catch {
+          closed = true
+        }
+      }
+
+      try {
+        const lookup = await searchCache.search(query, async (upstreamQuery) => {
+          const { candidates: combined, outcomes } = await searchSites(
+            adapters,
+            upstreamQuery,
+            {},
+            (outcome) => {
+              // Completed sources become usable immediately, even when another
+              // source is still pending.
+              const partialCandidates =
+                outcome.site === 'ultimate-guitar'
+                  ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
+                  : selectSearchResults(
+                      outcome.candidates,
+                      upstreamQuery,
+                      PARTIAL_SOURCE_RESULT_LIMIT
+                    )
+              write({
+                type: 'source',
+                source: toSourceStatus(outcome),
+                candidates: partialCandidates,
+              })
+            }
+          )
+          return {
+            results: selectCombinedSearchResults(
+              combined,
+              upstreamQuery,
+              DEFAULT_SEARCH_RESULT_LIMIT
+            ),
+            sources: outcomes.map(toSourceStatus),
+            partial: outcomes.some((outcome) => outcome.status === 'failed'),
+          }
+        })
+        const { results, sources, partial } = lookup.data
+        recordTiming({
+          operation: 'search.total',
+          durationMs: elapsedMs(searchStartedAt),
+          outcome: partial ? 'partial' : results.length > 0 ? 'ok' : 'empty',
+          cacheStatus: lookup.cacheStatus === 'hit' ? 'hit' : 'miss',
+        })
+        write({
+          type: 'complete',
+          query,
+          results,
+          sources,
+          partial,
+          cacheStatus: lookup.cacheStatus,
+        })
+        if (!closed) res.end()
+      } catch (err) {
+        recordTiming({
+          operation: 'search.total',
+          durationMs: elapsedMs(searchStartedAt),
+          outcome: 'error',
+        })
+        write({
+          type: 'error',
+          code: 'SEARCH_FAILED',
+          message: (err as Error).message || 'Failed to search songs',
+        })
+        if (!closed) res.end()
+      }
+      return
+    }
+
     try {
-      const ugResults = await ultimateGuitarSearchAdapter.search(query)
-      const pnwResults = await pnwChordsSearchAdapter.search(query)
-      const wtResults = await worshipTogetherSearchAdapter.search(query)
+      const lookup = await searchCache.search(query, async (upstreamQuery) => {
+        const { candidates: combined, outcomes } = await searchSites(adapters, upstreamQuery)
+        return {
+          results: selectCombinedSearchResults(
+              combined,
+              upstreamQuery,
+              DEFAULT_SEARCH_RESULT_LIMIT
+            ),
+          sources: outcomes.map(toSourceStatus),
+          partial: outcomes.some((outcome) => outcome.status === 'failed'),
+        }
+      })
+      const { results, sources, partial } = lookup.data
+      recordTiming({
+        operation: 'search.total',
+        durationMs: elapsedMs(searchStartedAt),
+        outcome: partial ? 'partial' : results.length > 0 ? 'ok' : 'empty',
+        cacheStatus: lookup.cacheStatus === 'hit' ? 'hit' : 'miss',
+      })
 
-      const combined = [...ugResults, ...pnwResults, ...wtResults]
-      // Rank by rating (if present) and limit to top 8 candidates
-      combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-      const candidates = combined.slice(0, 8)
-
-      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
-      res.status(200).json({ query, results: candidates })
+      // A partial response may change when a failed site recovers; do not let a
+      // shared HTTP cache keep it for the full complete-response TTL. Complete
+      // hits advertise only the freshness that actually remains.
+      if (partial) {
+        res.setHeader('Cache-Control', 'private, no-store')
+      } else {
+        const ttlSeconds = Math.max(1, Math.floor((lookup.expiresAt - Date.now()) / 1000))
+        res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`)
+      }
+      res.setHeader('X-Search-Cache', lookup.cacheStatus)
+      res.status(200).json({
+        query,
+        results,
+        sources,
+        partial,
+      })
       return
     } catch (err) {
+      recordTiming({
+        operation: 'search.total',
+        durationMs: elapsedMs(searchStartedAt),
+        outcome: 'error',
+      })
       sendJsonError(res, 500, 'SEARCH_FAILED', (err as Error).message || 'Failed to search songs')
+      return
+    }
+  }
+
+  // Optional official simplification: POST /api/simplify
+  // Kept separate so the original chart is never delayed by this request.
+  if (req.path === '/api/simplify' || req.path === '/simplify') {
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/simplify')
+      return
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const limitCheck = rateLimiter.checkIp(clientIp)
+    if (!limitCheck.allowed) {
+      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
+      return
+    }
+
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
+    const checked = checkUrl(url)
+    if (!url || !checked.ok) {
+      sendJsonError(res, 400, 'INVALID_URL', checked.ok ? 'Missing "url" body field' : checked.reason)
+      return
+    }
+
+    try {
+      const result = await loadOfficialSimplification(checked.url)
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(200).json(result)
+      return
+    } catch (err) {
+      const code = (err as { code?: string })?.code
+      if (code === 'INVALID_URL') {
+        sendJsonError(res, 400, 'INVALID_URL', (err as Error).message)
+        return
+      }
+      // Enrichment is optional: the original chart remains usable.
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(200).json({
+        status: 'unavailable',
+        code: code ?? 'SIMPLIFICATION_FAILED',
+        message: (err as Error).message || 'Could not load the official simplified chart',
+      })
       return
     }
   }

@@ -1,4 +1,4 @@
-import type { Song } from '../types/song'
+import type { Section, Song } from '../types/song'
 
 export type ScrapeStatus = 'ok' | 'error'
 
@@ -53,9 +53,20 @@ export interface SearchCandidate {
   type?: string
 }
 
+export interface SearchSourceStatus {
+  site: string
+  status: 'ok' | 'empty' | 'failed'
+  count: number
+  durationMs: number
+  failure?: 'timeout' | 'blocked' | 'fetch' | 'parser'
+  message?: string
+}
+
 export interface ApiSearchResponse {
   query: string
   results: SearchCandidate[]
+  sources?: SearchSourceStatus[]
+  partial?: boolean
 }
 
 export async function searchApi(query: string): Promise<SearchCandidate[]> {
@@ -72,6 +83,121 @@ export async function searchApi(query: string): Promise<SearchCandidate[]> {
   }
   const data = (await res.json()) as ApiSearchResponse
   return data.results
+}
+
+export interface PartialSearchSource extends SearchSourceStatus {
+  candidates: SearchCandidate[]
+}
+
+export interface SearchStreamOptions {
+  signal?: AbortSignal
+  onSource?: (source: PartialSearchSource) => void
+}
+
+async function searchError(res: Response): Promise<Error> {
+  let message = `Search failed (${res.status})`
+  try {
+    const data = await res.json()
+    if (data?.error?.message) message = data.error.message
+  } catch {
+    // Preserve the HTTP fallback.
+  }
+  return new Error(message)
+}
+
+/**
+ * Streams source results as they complete. Falls back to ordinary JSON when a
+ * server/proxy does not return NDJSON, so cached responses stay simple.
+ */
+export async function searchApiStream(
+  query: string,
+  options: SearchStreamOptions = {}
+): Promise<ApiSearchResponse> {
+  const res = await fetch(
+    `/api/search?q=${encodeURIComponent(query)}&stream=1`,
+    { signal: options.signal, headers: { Accept: 'application/x-ndjson' } }
+  )
+  if (!res.ok) throw await searchError(res)
+
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.includes('application/x-ndjson') || !res.body) {
+    return (await res.json()) as ApiSearchResponse
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let complete: ApiSearchResponse | null = null
+
+  const handleLine = (line: string) => {
+    if (!line.trim()) return
+    const event = JSON.parse(line) as
+      | { type: 'source'; source: SearchSourceStatus; candidates: SearchCandidate[] }
+      | { type: 'complete'; query: string; results: SearchCandidate[]; sources?: SearchSourceStatus[]; partial?: boolean }
+      | { type: 'error'; message?: string }
+
+    if (event.type === 'source') {
+      options.onSource?.({ ...event.source, candidates: event.candidates ?? [] })
+      return
+    }
+    if (event.type === 'error') {
+      throw new Error(event.message || 'Failed to search songs')
+    }
+    if (event.type === 'complete') {
+      complete = {
+        query: event.query,
+        results: event.results ?? [],
+        sources: event.sources,
+        partial: event.partial,
+      }
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) handleLine(line)
+    if (done) break
+  }
+  if (buffer.trim()) handleLine(buffer)
+  if (!complete) throw new Error('Search stream ended without a complete result')
+  return complete
+}
+
+export type SimplifyResponse =
+  | {
+      status: 'ok'
+      simplifiedSections: Section[]
+      simplifiedSource: 'official'
+      cached?: boolean
+    }
+  | {
+      status: 'unavailable'
+      code?: string
+      message?: string
+      cached?: boolean
+    }
+
+export async function simplifyApi(url: string, signal?: AbortSignal): Promise<SimplifyResponse> {
+  const res = await fetch('/api/simplify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+    signal,
+  })
+  if (!res.ok) {
+    let message = `Simplification failed (${res.status})`
+    try {
+      const data = await res.json()
+      if (data?.error?.message) message = data.error.message
+    } catch {
+      // Preserve the HTTP fallback.
+    }
+    throw new Error(message)
+  }
+  return (await res.json()) as SimplifyResponse
 }
 
 export class ShareApiError extends Error {

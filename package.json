@@ -16,6 +16,7 @@
     "format": "prettier --write src srcTest functions/srcTest",
     "test": "vitest run --passWithNoTests",
     "test:functions": "npm run test --prefix functions",
+    "bench": "npm run bench --prefix functions",
     "preview": "vite preview"
   },
   "dependencies": {

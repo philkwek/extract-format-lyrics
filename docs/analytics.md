@@ -27,7 +27,7 @@ These browser identifiers are public configuration. Never substitute a service a
 1. Open [Firebase integrations](https://console.firebase.google.com/project/extract-format-lyrics/settings/integrations), then open the linked Google Analytics property. Confirm the web stream uses `G-RG5JNFFQVW`.
 2. In **Admin → Data streams → web stream**, turn **Enhanced Measurement off entirely**. The app sends page views manually and excludes raw URLs. Setting `send_page_view: false` in code alone does not disable history-based Enhanced Measurement. Keep other tags and connected destinations from sending duplicate or unsanitized events.
 3. Leave Google Signals and advertising links/personalization off. Check the property's data retention and access settings against your needs.
-4. Under **Admin → Custom definitions**, add event-scoped dimensions for `entry_page`, `outcome`, `method`, and `operation`. Add event-scoped custom metrics for `result_count`, `imported_count`, and `song_count`, using Standard units.
+4. Under **Admin → Custom definitions**, add event-scoped dimensions for `entry_page`, `outcome`, `method`, and `operation`. Add event-scoped custom metrics for `result_count`, `imported_count`, `song_count`, and `duration_ms`, using Standard units (milliseconds for `duration_ms`).
 5. Under the repository's **Settings → Secrets and variables → Actions → Variables**, set the variables below. Set `VITE_ANALYTICS_ENABLED=true` only after the console checks are complete.
 
 | Variable | Value |
@@ -48,6 +48,7 @@ For local configuration, copy `.env.example` to `.env.local`; keep tracking disa
 | --- | --- |
 | `page_view` | Initial page and changes between grouped page types; fixed title and sanitized URL/referrer |
 | `song_search` | Completed search: `entry_page=home|search`, `outcome=success|error`, `result_count` |
+| `search_timing` | Completed search latency: `entry_page`, `outcome`, `result_count`, bounded `duration_ms`; never includes the query |
 | `song_import` | Completed import/save, or failed extraction/save: `method=search|pasted_link|upload`, `outcome=success|partial|error`, `imported_count` |
 | `set_shared` | Share link created successfully: `song_count` |
 | `shared_set_imported` | Shared-set import completed or failed: `outcome=success|error`, `imported_count` |
