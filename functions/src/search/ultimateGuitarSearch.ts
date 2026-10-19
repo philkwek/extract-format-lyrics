@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
+import { SearchParseError } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
-import { elapsedMs, recordTiming } from '../metrics.js'
 
 interface UgSearchResultItem {
   id?: number
@@ -27,54 +27,42 @@ export function parseUgSearchHtml(html: string): SearchCandidate[] {
   const $ = cheerio.load(html)
   const storeEl = $('div.js-store')
   const rawData = storeEl.attr('data-content')
-  if (!rawData) return []
-
-  try {
-    const parsed = JSON.parse(rawData) as UgSearchStore
-    const results = parsed?.store?.page?.data?.results || []
-
-    return results
-      .filter((r) => r.tab_url && (r.type_name === 'Chords' || !r.type_name))
-      .slice(0, 10)
-      .map((r) => ({
-        site: 'ultimate-guitar',
-        title: r.song_name || 'Unknown',
-        artist: r.artist_name || 'Unknown',
-        url: r.tab_url!,
-        versionLabel: r.version ? `Ver ${r.version}` : undefined,
-        rating: r.rating,
-        type: r.type_name || 'Chords',
-      }))
-  } catch {
-    return []
+  if (!rawData) {
+    throw new SearchParseError('Ultimate Guitar search data container is missing')
   }
+
+  let parsed: UgSearchStore
+  try {
+    parsed = JSON.parse(rawData) as UgSearchStore
+  } catch (err) {
+    throw new SearchParseError(`Ultimate Guitar search data is invalid: ${(err as Error).message}`)
+  }
+  const results = parsed?.store?.page?.data?.results
+  if (!Array.isArray(results)) {
+    throw new SearchParseError('Ultimate Guitar search result shape changed')
+  }
+
+  return results
+    .filter((r) => r.tab_url && (r.type_name === 'Chords' || !r.type_name))
+    .slice(0, 10)
+    .map((r) => ({
+      site: 'ultimate-guitar',
+      title: r.song_name || 'Unknown',
+      artist: r.artist_name || 'Unknown',
+      url: r.tab_url!,
+      versionLabel: r.version ? `Ver ${r.version}` : undefined,
+      rating: r.rating,
+      type: r.type_name || 'Chords',
+    }))
 }
 
 export const ultimateGuitarSearchAdapter: SearchAdapter = {
   site: 'ultimate-guitar',
 
   async search(query: string): Promise<SearchCandidate[]> {
-    const startedAt = Date.now()
     const encoded = encodeURIComponent(query)
     const url = `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encoded}`
-    try {
-      const { text: html } = await safeFetchHtml(url)
-      const results = parseUgSearchHtml(html)
-      recordTiming({
-        operation: 'search.site',
-        site: 'ultimate-guitar',
-        durationMs: elapsedMs(startedAt),
-        outcome: results.length > 0 ? 'ok' : 'empty',
-      })
-      return results
-    } catch {
-      recordTiming({
-        operation: 'search.site',
-        site: 'ultimate-guitar',
-        durationMs: elapsedMs(startedAt),
-        outcome: 'error',
-      })
-      return []
-    }
+    const { text: html } = await safeFetchHtml(url)
+    return parseUgSearchHtml(html)
   },
 }

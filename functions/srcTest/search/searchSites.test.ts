@@ -1,0 +1,126 @@
+import { describe, expect, it, vi } from 'vitest'
+import { FetchError } from '../../src/safeFetch.js'
+import { RateLimiterAndCircuitBreaker } from '../../src/rateLimit.js'
+import { classifySearchError, searchSite, searchSites } from '../../src/search/searchSites.js'
+import { SearchParseError, type SearchAdapter, type SearchCandidate } from '../../src/search/types.js'
+
+function candidate(site: string, url = `https://${site}.example/song`): SearchCandidate {
+  return { site, title: 'Song', artist: 'Artist', url }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+describe('searchSites', () => {
+  it('starts every adapter before any request settles', async () => {
+    const started: string[] = []
+    const pending = new Map<string, ReturnType<typeof deferred<SearchCandidate[]>>>()
+    const adapters: SearchAdapter[] = ['ultimate-guitar', 'pnwchords', 'worshiptogether'].map((site) => ({
+      site,
+      search: vi.fn(() => {
+        started.push(site)
+        const request = deferred<SearchCandidate[]>()
+        pending.set(site, request)
+        return request.promise
+      }),
+    }))
+
+    const running = searchSites(adapters, 'good grace')
+    await Promise.resolve()
+    expect(started).toEqual(['ultimate-guitar', 'pnwchords', 'worshiptogether'])
+
+    pending.get('ultimate-guitar')!.resolve([candidate('ultimate-guitar')])
+    pending.get('pnwchords')!.resolve([candidate('pnwchords')])
+    pending.get('worshiptogether')!.resolve([])
+
+    const result = await running
+    expect(result.candidates).toHaveLength(2)
+    expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['ok', 'ok', 'empty'])
+  })
+
+  it('keeps successful results when another site fails', async () => {
+    const adapters: SearchAdapter[] = [
+      { site: 'ultimate-guitar', search: async () => [candidate('ultimate-guitar')] },
+      {
+        site: 'pnwchords',
+        search: async () => {
+          throw new FetchError('upstream timed out', 'TIMEOUT')
+        },
+      },
+      { site: 'worshiptogether', search: async () => [] },
+    ]
+
+    const result = await searchSites(adapters, 'song', {
+      limiter: new RateLimiterAndCircuitBreaker(),
+    })
+
+    expect(result.candidates).toHaveLength(1)
+    expect(result.outcomes[1]).toMatchObject({
+      status: 'failed',
+      failure: 'timeout',
+    })
+    expect(result.outcomes[2].status).toBe('empty')
+  })
+
+  it('distinguishes parser failure from a valid empty result', async () => {
+    const adapters: SearchAdapter[] = [
+      {
+        site: 'ultimate-guitar',
+        search: async () => {
+          throw new SearchParseError('search data shape changed')
+        },
+      },
+      { site: 'pnwchords', search: async () => [] },
+    ]
+
+    const result = await searchSites(adapters, 'song', {
+      limiter: new RateLimiterAndCircuitBreaker(),
+    })
+    expect(result.outcomes[0]).toMatchObject({ status: 'failed', failure: 'parser' })
+    expect(result.outcomes[1]).toMatchObject({ status: 'empty', candidates: [] })
+  })
+
+  it('opens the existing host pause after repeated blocked responses', async () => {
+    const limiter = new RateLimiterAndCircuitBreaker()
+    const blocked = vi.fn(async () => {
+      throw new FetchError('HTTP error 429', 'HTTP_ERROR', 429)
+    })
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const outcome = await searchSite(
+        { site: 'ultimate-guitar', search: blocked },
+        'song',
+        { limiter }
+      )
+      expect(outcome).toMatchObject({ status: 'failed', failure: 'blocked' })
+    }
+
+    const paused = await searchSite(
+      { site: 'ultimate-guitar', search: blocked },
+      'song',
+      { limiter }
+    )
+    expect(paused).toMatchObject({ status: 'failed', failure: 'blocked' })
+    expect(paused.message).toMatch(/paused/i)
+    expect(blocked).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('classifySearchError', () => {
+  it.each([
+    [new FetchError('slow', 'TIMEOUT'), 'timeout'],
+    [new FetchError('forbidden', 'HTTP_ERROR', 403), 'blocked'],
+    [new FetchError('missing', 'HTTP_ERROR', 404), 'fetch'],
+    [new SearchParseError('bad schema'), 'parser'],
+    [new Error('socket closed'), 'fetch'],
+  ])('classifies %s as %s', (error, expected) => {
+    expect(classifySearchError(error).failure).toBe(expected)
+  })
+})

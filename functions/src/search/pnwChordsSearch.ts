@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
-import { elapsedMs, recordTiming } from '../metrics.js'
 
 export function parsePnwSearchHtml(html: string): SearchCandidate[] {
   const $ = cheerio.load(html)
@@ -38,26 +37,8 @@ export const pnwChordsSearchAdapter: SearchAdapter = {
   site: 'pnwchords',
 
   async search(query: string): Promise<SearchCandidate[]> {
-    const startedAt = Date.now()
     const url = `https://pnwchords.com/?s=${encodeURIComponent(query)}`
-    try {
-      const { text: html } = await safeFetchHtml(url)
-      const results = parsePnwSearchHtml(html)
-      recordTiming({
-        operation: 'search.site',
-        site: 'pnwchords',
-        durationMs: elapsedMs(startedAt),
-        outcome: results.length > 0 ? 'ok' : 'empty',
-      })
-      return results
-    } catch {
-      recordTiming({
-        operation: 'search.site',
-        site: 'pnwchords',
-        durationMs: elapsedMs(startedAt),
-        outcome: 'error',
-      })
-      return []
-    }
+    const { text: html } = await safeFetchHtml(url)
+    return parsePnwSearchHtml(html)
   },
 }

@@ -7,6 +7,8 @@ import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
+import { searchSites } from './search/searchSites.js'
+import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
   sharedLyricsStore,
@@ -168,22 +170,32 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
 
     const searchStartedAt = Date.now()
     try {
-      const ugResults = await ultimateGuitarSearchAdapter.search(query)
-      const pnwResults = await pnwChordsSearchAdapter.search(query)
-      const wtResults = await worshipTogetherSearchAdapter.search(query)
-
-      const combined = [...ugResults, ...pnwResults, ...wtResults]
+      const { candidates: combined, outcomes } = await searchSites(
+        [ultimateGuitarSearchAdapter, pnwChordsSearchAdapter, worshipTogetherSearchAdapter],
+        query
+      )
       // Rank by rating (if present) and limit to top 8 candidates
       combined.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
       const candidates = combined.slice(0, 8)
+      const partial = outcomes.some((outcome) => outcome.status === 'failed')
       recordTiming({
         operation: 'search.total',
         durationMs: elapsedMs(searchStartedAt),
-        outcome: candidates.length > 0 ? 'ok' : 'empty',
+        outcome: partial ? 'partial' : candidates.length > 0 ? 'ok' : 'empty',
       })
 
-      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
-      res.status(200).json({ query, results: candidates })
+      // A partial response may change when a failed site recovers; do not let a
+      // shared HTTP cache keep it for the full complete-response TTL.
+      res.setHeader(
+        'Cache-Control',
+        partial ? 'private, no-store' : 'public, max-age=300, s-maxage=600'
+      )
+      res.status(200).json({
+        query,
+        results: candidates,
+        sources: outcomes.map(toSourceStatus),
+        partial,
+      })
       return
     } catch (err) {
       recordTiming({
