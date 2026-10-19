@@ -12,6 +12,7 @@ import {
 } from '../lib/setlistImport'
 import { splitUrls } from '../../functions/src/urls'
 import ImportProgressList from '../components/import/ImportProgressList'
+import PasteUrlForm from '../components/import/PasteUrlForm'
 import { Button, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 
 export default function SearchPage() {
@@ -201,45 +202,21 @@ export default function SearchPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords, Worship Together).
-            </p>
-
-            <textarea
+          <>
+            <PasteUrlForm
               value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              disabled={isProcessingPaste}
-              placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
-              rows={4}
-              className="ui-field min-h-32 resize-y p-3.5 font-mono text-sm leading-6"
+              onChange={setPasteText}
+              onSubmit={handlePasteExtract}
+              isProcessing={isProcessingPaste}
+              error={pasteError}
+              submitLabel={targetSessionId ? 'Add to setlist' : 'Extract and open'}
+              linkCount={splitUrls(pasteText).length}
             />
-
-            {pasteError && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {pasteError}
-              </StatusBanner>
-            )}
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
-                {splitUrls(pasteText).length} link(s) entered
-              </span>
-              <Button
-                variant="primary"
-                onClick={handlePasteExtract}
-                disabled={isProcessingPaste || !pasteText.trim()}
-                loading={isProcessingPaste}
-              >
-                {targetSessionId ? 'Add to setlist' : 'Extract and open'}
-              </Button>
-            </div>
-
             <ImportProgressList
               statuses={pasteStatuses}
               className="mt-5 border-t border-[var(--ui-border)] pt-4"
             />
-          </div>
+          </>
         )}
         </div>
       </Surface>

@@ -33,6 +33,7 @@ import {
 import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
 import ImportProgressList from '../components/import/ImportProgressList'
+import PasteUrlForm from '../components/import/PasteUrlForm'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, StatusBanner, Surface } from '../components/ui'
@@ -225,37 +226,16 @@ export default function HomePage() {
         <div className="p-4 sm:p-5">
 
         {createMode === 'paste' ? (
-          <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords, Worship Together).
-            </p>
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              disabled={isProcessing}
-              placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
-              rows={5}
-              className="ui-field min-h-36 resize-y p-3.5 font-mono text-sm leading-6"
-            />
-            {generalError && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {generalError}
-              </StatusBanner>
-            )}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
-                {splitUrls(inputText).length} link(s) entered
-              </span>
-              <Button
-                variant="primary"
-                onClick={handleExtract}
-                disabled={isProcessing || !inputText.trim()}
-                loading={isProcessing}
-              >
-                {isProcessing ? 'Extracting songs' : 'Extract and open session'}
-              </Button>
-            </div>
-          </div>
+          <PasteUrlForm
+            value={inputText}
+            onChange={setInputText}
+            onSubmit={handleExtract}
+            isProcessing={isProcessing}
+            error={generalError}
+            submitLabel="Extract and open session"
+            processingLabel="Extracting songs"
+            linkCount={splitUrls(inputText).length}
+          />
         ) : (
           <div className="space-y-4">
             <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
