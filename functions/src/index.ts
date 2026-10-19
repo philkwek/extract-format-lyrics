@@ -2,7 +2,7 @@ import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
 import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
-import { loadSourceChart } from './chartLoader.js'
+import { scrapeUrls, type ScrapeResult } from './scrapePool.js'
 import { loadOfficialSimplification } from './chartSimplification.js'
 import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
@@ -20,7 +20,7 @@ import {
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
-import type { Song, SharedLyricsPayload } from './types.js'
+import type { SharedLyricsPayload } from './types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
 
@@ -36,10 +36,6 @@ setGlobalOptions({
   timeoutSeconds: 300,
   concurrency: 5,
 })
-
-export type ScrapeResult =
-  | { url: string; status: 'ok'; song: Song }
-  | { url: string; status: 'error'; code: string; message: string }
 
 export interface ScrapeResponse {
   results: ScrapeResult[]
@@ -96,44 +92,9 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     const { valid, invalid } = validateUrls(urls)
-    const results: ScrapeResult[] = []
-
-    // Concurrency limit of 2 parallel scrapes
-    const concurrency = 2
-    for (let i = 0; i < valid.length; i += concurrency) {
-      const chunk = valid.slice(i, i + concurrency)
-      const chunkPromises = chunk.map(async ({ url }): Promise<ScrapeResult> => {
-        const host = new URL(url).hostname
-        const pausedCheck = rateLimiter.isHostPaused(host)
-        if (pausedCheck.paused) {
-          return {
-            url,
-            status: 'error',
-            code: 'HOST_PAUSED',
-            message: `Requests to ${host} temporarily paused due to repeated upstream errors. Try again later.`,
-          }
-        }
-
-        try {
-          const song = await loadSourceChart(url)
-          rateLimiter.recordHostSuccess(host)
-          return { url, status: 'ok', song }
-        } catch (err) {
-          const status = (err as { status?: number })?.status
-          rateLimiter.recordHostFailure(host, status)
-          const errorCode = (err as { code?: string })?.code || 'SCRAPE_FAILED'
-          return {
-            url,
-            status: 'error',
-            code: errorCode,
-            message: (err as Error).message || 'Failed to extract chords',
-          }
-        }
-      })
-
-      const chunkResults = await Promise.all(chunkPromises)
-      results.push(...chunkResults)
-    }
+    // A continuously filled queue keeps both workers busy instead of waiting
+    // for the slowest song in each fixed pair.
+    const results: ScrapeResult[] = await scrapeUrls(valid.map((item) => item.url))
 
     // Set short cache header for scrape responses
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120')

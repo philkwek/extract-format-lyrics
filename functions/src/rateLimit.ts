@@ -108,3 +108,52 @@ export class RateLimiterAndCircuitBreaker {
 }
 
 export const rateLimiter = new RateLimiterAndCircuitBreaker()
+
+/**
+ * Instance-wide per-host concurrency gate. A per-request limit alone is not a
+ * global limit when several API requests run concurrently in one instance.
+ */
+export class HostConcurrencyGate {
+  private active = new Map<string, number>()
+  private waiters = new Map<string, Array<() => void>>()
+
+  async acquire(hostname: string, limit = 2): Promise<() => void> {
+    const host = hostname.toLowerCase()
+    const current = this.active.get(host) ?? 0
+    if (current < Math.max(1, limit)) {
+      this.active.set(host, current + 1)
+      return this.releaseFn(host)
+    }
+
+    return new Promise((resolve) => {
+      const queue = this.waiters.get(host) ?? []
+      queue.push(() => {
+        this.active.set(host, (this.active.get(host) ?? 0) + 1)
+        resolve(this.releaseFn(host))
+      })
+      this.waiters.set(host, queue)
+    })
+  }
+
+  private releaseFn(host: string): () => void {
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      const current = this.active.get(host) ?? 1
+      this.active.set(host, Math.max(0, current - 1))
+      const queue = this.waiters.get(host)
+      if (queue?.length) {
+        const next = queue.shift()!
+        if (queue.length === 0) this.waiters.delete(host)
+        next()
+      }
+    }
+  }
+
+  activeCount(hostname: string): number {
+    return this.active.get(hostname.toLowerCase()) ?? 0
+  }
+}
+
+export const hostGate = new HostConcurrencyGate()
