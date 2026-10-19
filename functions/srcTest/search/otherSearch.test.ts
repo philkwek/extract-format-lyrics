@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parsePnwSearchHtml } from './pnwChordsSearch.js'
-import { parseWorshipTogetherSearchHtml } from './worshipTogetherSearch.js'
+import { parsePnwSearchHtml } from '../../src/search/pnwChordsSearch.js'
+import { parseWorshipTogetherSearchHtml } from '../../src/search/worshipTogetherSearch.js'
 
 describe('parsePnwSearchHtml', () => {
   it('parses wordpress search result posts', () => {
