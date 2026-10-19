@@ -8,6 +8,7 @@ import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
+import { searchCache } from './search/searchCache.js'
 import { selectSearchResults } from './search/selectResults.js'
 import { toSourceStatus } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
@@ -171,28 +172,39 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
 
     const searchStartedAt = Date.now()
     try {
-      const { candidates: combined, outcomes } = await searchSites(
-        [ultimateGuitarSearchAdapter, pnwChordsSearchAdapter, worshipTogetherSearchAdapter],
-        query
-      )
-      const candidates = selectSearchResults(combined, query)
-      const partial = outcomes.some((outcome) => outcome.status === 'failed')
+      const lookup = await searchCache.search(query, async (upstreamQuery) => {
+        const { candidates: combined, outcomes } = await searchSites(
+          [ultimateGuitarSearchAdapter, pnwChordsSearchAdapter, worshipTogetherSearchAdapter],
+          upstreamQuery
+        )
+        return {
+          results: selectSearchResults(combined, upstreamQuery),
+          sources: outcomes.map(toSourceStatus),
+          partial: outcomes.some((outcome) => outcome.status === 'failed'),
+        }
+      })
+      const { results, sources, partial } = lookup.data
       recordTiming({
         operation: 'search.total',
         durationMs: elapsedMs(searchStartedAt),
-        outcome: partial ? 'partial' : candidates.length > 0 ? 'ok' : 'empty',
+        outcome: partial ? 'partial' : results.length > 0 ? 'ok' : 'empty',
+        cacheStatus: lookup.cacheStatus === 'hit' ? 'hit' : 'miss',
       })
 
       // A partial response may change when a failed site recovers; do not let a
-      // shared HTTP cache keep it for the full complete-response TTL.
-      res.setHeader(
-        'Cache-Control',
-        partial ? 'private, no-store' : 'public, max-age=300, s-maxage=600'
-      )
+      // shared HTTP cache keep it for the full complete-response TTL. Complete
+      // hits advertise only the freshness that actually remains.
+      if (partial) {
+        res.setHeader('Cache-Control', 'private, no-store')
+      } else {
+        const ttlSeconds = Math.max(1, Math.floor((lookup.expiresAt - Date.now()) / 1000))
+        res.setHeader('Cache-Control', `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`)
+      }
+      res.setHeader('X-Search-Cache', lookup.cacheStatus)
       res.status(200).json({
         query,
-        results: candidates,
-        sources: outcomes.map(toSourceStatus),
+        results,
+        sources,
         partial,
       })
       return
