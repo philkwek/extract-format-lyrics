@@ -143,6 +143,7 @@ The workflow was exercised locally with Vite and a temporary mock `/api` server 
 - first import, then a repeat import from IndexedDB with no additional scrape request;
 - a multi-song import with a slow second song preserved order;
 - original chart displayed before the delayed official simplification, then official content after clicking Simplify;
+- a section rename made while enrichment was in flight survived both the enrichment and the simplified/original toggle;
 - transient failure followed by a successful Retry extraction.
 
 Browser checks used fixtures only. They do not prove live upstream availability or Firestore behaviour across deployed instances.
