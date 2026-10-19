@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ArrangeDrawer from './ArrangeDrawer'
+import ArrangeDrawer from '../../src/components/ArrangeDrawer'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {

@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
-import ShareLyricsModal from './ShareLyricsModal'
-import { trackEvent } from '../lib/analytics'
-vi.mock('../lib/analytics', () => ({ trackEvent: vi.fn() }))
-import * as lyricsIdentity from '../lib/lyricsPublishIdentity'
-import type { Session } from '../lib/sessionStore'
-import type { Song } from '../types/song'
+import ShareLyricsModal from '../../src/components/ShareLyricsModal'
+import { trackEvent } from '../../src/lib/analytics'
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
+import * as lyricsIdentity from '../../src/lib/lyricsPublishIdentity'
+import type { Session } from '../../src/lib/sessionStore'
+import type { Song } from '../../src/types/song'
 
-vi.mock('../lib/lyricsPublishIdentity', async () => {
-  const actual = await vi.importActual('../lib/lyricsPublishIdentity')
+vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
+  const actual = await vi.importActual('../../src/lib/lyricsPublishIdentity')
   return {
     ...actual,
     getLyricsPublicationIdentity: vi.fn(),

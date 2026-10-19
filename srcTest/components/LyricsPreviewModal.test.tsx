@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import LyricsPreviewModal from './LyricsPreviewModal'
-import type { SharedLyricsPayload } from '../types/song'
+import LyricsPreviewModal from '../../src/components/LyricsPreviewModal'
+import type { SharedLyricsPayload } from '../../src/types/song'
 
 afterEach(() => {
   cleanup()
