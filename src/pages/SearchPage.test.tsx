@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SearchPage from './SearchPage'
+import { searchApi } from '../lib/api'
 import { importSources } from '../lib/setlistImport'
 import { sessionStore } from '../lib/sessionStore'
 
@@ -14,6 +15,10 @@ vi.mock('react-router-dom', async () => ({
 vi.mock('../lib/setlistImport', async () => ({
   ...(await vi.importActual('../lib/setlistImport')),
   importSources: vi.fn(),
+}))
+vi.mock('../lib/api', async () => ({
+  ...(await vi.importActual('../lib/api')),
+  searchApi: vi.fn(),
 }))
 vi.mock('../lib/analytics', async () => ({
   ...(await vi.importActual('../lib/analytics')),
@@ -66,6 +71,23 @@ describe('SearchPage import wiring', () => {
       )
     )
     expect(navigate).toHaveBeenCalledWith('/session/session-1?song=3')
+  })
+
+  it('does not show the empty state underneath a search error', async () => {
+    vi.mocked(searchApi).mockRejectedValue(new Error('Search unavailable'))
+
+    render(
+      <MemoryRouter initialEntries={['/search']}>
+        <SearchPage />
+      </MemoryRouter>
+    )
+
+    const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
+    fireEvent.change(input, { target: { value: 'Good Grace' } })
+    fireEvent.submit(input.closest('form')!)
+
+    await waitFor(() => expect(screen.getByText('Search unavailable')).toBeTruthy())
+    expect(screen.queryByText(/No matching songs found/)).toBeNull()
   })
 
   it('creates a new session when no target session is supplied', async () => {
