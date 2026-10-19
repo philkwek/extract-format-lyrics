@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import SearchResults from './SearchResults'
-import type { SearchCandidate } from '../../lib/api'
+import SearchResults from '../../../src/components/import/SearchResults'
+import type { SearchCandidate } from '../../../src/lib/api'
 
 afterEach(cleanup)
 

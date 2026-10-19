@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import ImportProgressList from './ImportProgressList'
-import type { ImportProgress } from '../../lib/setlistImport'
+import ImportProgressList from '../../../src/components/import/ImportProgressList'
+import type { ImportProgress } from '../../../src/lib/setlistImport'
 
 afterEach(cleanup)
 

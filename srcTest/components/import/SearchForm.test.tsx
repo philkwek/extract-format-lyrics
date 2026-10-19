@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import SearchForm from './SearchForm'
+import SearchForm from '../../../src/components/import/SearchForm'
 
 afterEach(cleanup)
 
