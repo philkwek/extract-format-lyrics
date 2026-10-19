@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { extractSongsApi } from './api'
+import { extractSongsApi } from '../../src/lib/api'
 
 const song = {
   id: 'song-1',

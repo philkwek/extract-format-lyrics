@@ -5,7 +5,7 @@ import {
   applyAccidental,
   applyQuality,
   applySlash,
-} from './chordEdit'
+} from '../../src/lib/chordEdit'
 
 describe('chordEdit', () => {
   it('parses chord components correctly', () => {

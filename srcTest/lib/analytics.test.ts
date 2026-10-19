@@ -22,7 +22,7 @@ async function flush() {
   await vi.waitFor(() => expect(mock.initialize).toHaveBeenCalledTimes(1))
 }
 async function module() {
-  return import('./analytics')
+  return import('../../src/lib/analytics')
 }
 
 beforeEach(() => {

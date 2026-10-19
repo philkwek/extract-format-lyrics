@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatOffset, keyOffset, keyOptions, matchKeyOption } from './keys'
+import { formatOffset, keyOffset, keyOptions, matchKeyOption } from '../../src/lib/keys'
 
 describe('keyOffset', () => {
   it('computes the shortest signed offset', () => {

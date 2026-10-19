@@ -6,7 +6,7 @@ import {
   type AudioContextLike,
   type AudioBufferSourceNodeLike,
   type GainNodeLike,
-} from './ambientPadPlayer'
+} from '../../src/lib/ambientPadPlayer'
 
 interface MockVoiceNodes {
   source: AudioBufferSourceNodeLike & {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { isMobileOrTablet } from './device'
+import { isMobileOrTablet } from '../../src/lib/device'
 
 describe('isMobileOrTablet', () => {
   const originalWindow = globalThis.window

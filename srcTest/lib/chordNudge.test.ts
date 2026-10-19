@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { nudgeChord, setChordPos } from './chordNudge'
-import type { Section } from '../types/song'
+import { nudgeChord, setChordPos } from '../../src/lib/chordNudge'
+import type { Section } from '../../src/types/song'
 
 const sections = (): Section[] => [
   {

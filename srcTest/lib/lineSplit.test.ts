@@ -5,8 +5,8 @@ import {
   mergeSectionLyricLineWithPrevious,
   splitLyricLine,
   splitSectionLyricLine,
-} from './lineSplit'
-import type { Line, Section } from '../types/song'
+} from '../../src/lib/lineSplit'
+import type { Line, Section } from '../../src/types/song'
 
 const lyricLine: Line = {
   kind: 'lyric',

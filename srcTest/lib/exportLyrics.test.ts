@@ -5,10 +5,10 @@ import {
   buildSharedLyricsPayload,
   cleanLyricLine,
   ShareLyricsError,
-} from './exportLyrics'
-import type { Song, Section } from '../types/song'
+} from '../../src/lib/exportLyrics'
+import type { Song, Section } from '../../src/types/song'
 
-import type { SessionSongItem } from './sessionStore'
+import type { SessionSongItem } from '../../src/lib/sessionStore'
 
 function createMockSong(id: string, title: string, artist: string, sections: Section[]): Song {
   return {
