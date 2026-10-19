@@ -14,10 +14,16 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import { splitUrls, validateUrls } from '../../functions/src/urls'
+import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
-import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
+import { searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import {
+  importSources,
+  parsePastedSources,
+  sourceFromCandidate,
+  type ImportProgress,
+} from '../lib/setlistImport'
 import {
   getRecentSharedLyrics,
   removeRecentSharedLyrics,
@@ -29,12 +35,6 @@ import UploadSheetModal from '../components/UploadSheetModal'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, StatusBanner, Surface } from '../components/ui'
-
-interface ImportStatus {
-  url: string
-  status: 'pending' | 'cached' | 'fetching' | 'done' | 'error'
-  message?: string
-}
 
 const HOME_TIPS = [
   'Use Edit chords to move, change, or delete chords.',
@@ -53,7 +53,7 @@ export default function HomePage() {
   // Paste mode state
   const [inputText, setInputText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [statuses, setStatuses] = useState<ImportStatus[]>([])
+  const [statuses, setStatuses] = useState<ImportProgress[]>([])
   const [generalError, setGeneralError] = useState<string | null>(null)
 
   // Search mode state
@@ -128,115 +128,27 @@ export default function HomePage() {
 
   const handleExtract = async () => {
     setGeneralError(null)
-    const rawTokens = splitUrls(inputText)
-    if (rawTokens.length === 0) {
+    const { sources, invalid, tokenCount } = parsePastedSources(inputText)
+    if (tokenCount === 0) {
       setGeneralError('Please paste at least one chord sheet URL.')
       return
     }
 
-    const { valid, invalid } = validateUrls(rawTokens)
-    if (valid.length === 0 && invalid.length > 0) {
+    if (sources.length === 0 && invalid.length > 0) {
       setGeneralError(`No valid URLs found: ${invalid.map((i) => `${i.input} (${i.reason})`).join(', ')}`)
       return
     }
 
     setIsProcessing(true)
-    let savedCount = 0
     try {
-      const initialStatuses: ImportStatus[] = [
-        ...valid.map((v) => ({ url: v.url, status: 'pending' as const })),
-        ...invalid.map((i) => ({ url: i.input, status: 'error' as const, message: i.reason })),
-      ]
-      setStatuses(initialStatuses)
-
-      const sessionSongs: SessionSongItem[] = []
-      const uncachedUrls: string[] = []
-
-      // 1. Check client-side IndexedDB cache first
-      for (const { url } of valid) {
-        const cached = await songCache.getSong(url)
-        if (cached) {
-          sessionSongs.push({
-            url,
-            title: cached.title,
-            artist: cached.artist,
-            status: 'ok',
-          })
-          setStatuses((prev) =>
-            prev.map((s) => (s.url === url ? { ...s, status: 'cached', message: 'Loaded from cache' } : s))
-          )
-        } else {
-          uncachedUrls.push(url)
-        }
-      }
-
-      // 2. Fetch uncached URLs in chunks of <= 5
-      const CHUNK_SIZE = 5
-      for (let i = 0; i < uncachedUrls.length; i += CHUNK_SIZE) {
-        const chunk = uncachedUrls.slice(i, i + CHUNK_SIZE)
-        setStatuses((prev) =>
-          prev.map((s) => (chunk.includes(s.url) ? { ...s, status: 'fetching' } : s))
-        )
-
-        try {
-          const response = await scrapeApi(chunk)
-          for (const res of response.results) {
-            if (res.status === 'ok' && res.song) {
-              await songCache.saveSong(res.song)
-              sessionSongs.push({
-                url: res.url,
-                title: res.song.title,
-                artist: res.song.artist,
-                status: 'ok',
-              })
-              setStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'done' } : s))
-              )
-            } else {
-              const reason = res.message || 'Scrape failed'
-              await songCache.recordFailed(res.url, reason)
-              sessionSongs.push({
-                url: res.url,
-                status: 'error',
-                errorMessage: reason,
-              })
-              setStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'error', message: reason } : s))
-              )
-            }
-          }
-        } catch (err) {
-          const msg = (err as Error).message || 'Network error'
-          for (const u of chunk) {
-            sessionSongs.push({
-              url: u,
-              status: 'error',
-              errorMessage: msg,
-            })
-            setStatuses((prev) =>
-              prev.map((s) => (s.url === u ? { ...s, status: 'error', message: msg } : s))
-            )
-          }
-        }
-      }
-
-      // Include invalid inputs in the session as error items so user can see and fix them
-      for (const inv of invalid) {
-        sessionSongs.push({
-          url: inv.input,
-          status: 'error',
-          errorMessage: inv.reason,
-        })
-      }
-
-      // 3. Create session and navigate
-      const newSession = await sessionStore.createSession(sessionSongs)
-      savedCount = sessionSongs.filter((song) => song.status === 'ok').length
-      trackSongImport('pasted_link', sessionSongs.filter((song) => song.status === 'ok').length, rawTokens.length)
-      setIsProcessing(false)
-      navigate(`/session/${newSession.id}`)
+      const result = await importSources(sources, {
+        invalidInputs: invalid,
+        onProgress: setStatuses,
+      })
+      trackSongImport('pasted_link', result.imported, tokenCount)
+      navigate(`/session/${result.session.id}`)
     } catch {
-      trackSongImport('pasted_link', savedCount, rawTokens.length)
+      trackSongImport('pasted_link', 0, tokenCount)
       setGeneralError('Could not save all imported songs. Please try again.')
     } finally {
       setIsProcessing(false)
@@ -269,30 +181,9 @@ export default function HomePage() {
     setCreatingFromUrl(candidate.url)
 
     try {
-      // 1. Check local cache or scrape
-      let song = await songCache.getSong(candidate.url)
-      if (!song) {
-        const scrapeRes = await scrapeApi([candidate.url])
-        const first = scrapeRes.results[0]
-        if (first && first.status === 'ok' && first.song) {
-          song = first.song
-          await songCache.saveSong(song)
-        }
-      }
-
-      if (!song) throw new Error('Could not load song')
-
-      const songItem: SessionSongItem = {
-        url: candidate.url,
-        title: candidate.title,
-        artist: candidate.artist,
-        status: 'ok',
-      }
-
-      // 2. Create new session with this song
-      const newSession = await sessionStore.createSession([songItem])
-      trackSongImport('search', 1, 1)
-      navigate(`/session/${newSession.id}`)
+      const result = await importSources([sourceFromCandidate(candidate)], { requireAll: true })
+      trackSongImport('search', result.imported, 1)
+      navigate(`/session/${result.session.id}`)
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not create setlist: ${(err as Error).message}`)
