@@ -118,12 +118,21 @@ export class SessionStore {
     await this.store.set(SESSIONS_STORAGE_KEY, filtered)
   }
 
-  async addSongToSession(sessionId: string, song: SessionSongItem): Promise<Session | null> {
+  async addSongsToSession(
+    sessionId: string,
+    songs: SessionSongItem[]
+  ): Promise<{ session: Session; firstNewIndex: number } | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
-    session.songs.push({ ...song, entryId: song.entryId || makeEntryId() })
+    const firstNewIndex = session.songs.length
+    session.songs.push(...songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })))
     await this.updateSession(session)
-    return session
+    return { session, firstNewIndex }
+  }
+
+  async addSongToSession(sessionId: string, song: SessionSongItem): Promise<Session | null> {
+    const result = await this.addSongsToSession(sessionId, [song])
+    return result?.session ?? null
   }
 
   async removeSongFromSession(sessionId: string, entryId: string): Promise<Session | null> {

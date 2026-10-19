@@ -2,8 +2,6 @@ import { trackEvent, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AlertCircle,
-  ExternalLink,
   FileText,
   FileUp,
   Lightbulb,
@@ -14,10 +12,16 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import { splitUrls, validateUrls } from '../../functions/src/urls'
+import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
-import { scrapeApi, searchApi, type SearchCandidate } from '../lib/api'
+import { searchApi, type SearchCandidate } from '../lib/api'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import {
+  importSources,
+  parsePastedSources,
+  sourceFromCandidate,
+  type ImportProgress,
+} from '../lib/setlistImport'
 import {
   getRecentSharedLyrics,
   removeRecentSharedLyrics,
@@ -26,15 +30,13 @@ import {
 } from '../lib/recentLyricsStore'
 import ShareModal from '../components/ShareModal'
 import UploadSheetModal from '../components/UploadSheetModal'
+import ImportProgressList from '../components/import/ImportProgressList'
+import PasteUrlForm from '../components/import/PasteUrlForm'
+import SearchForm from '../components/import/SearchForm'
+import SearchResults from '../components/import/SearchResults'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
-import { Button, IconButton, SegmentedControl, StatusBanner, Surface } from '../components/ui'
-
-interface ImportStatus {
-  url: string
-  status: 'pending' | 'cached' | 'fetching' | 'done' | 'error'
-  message?: string
-}
+import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
 
 const HOME_TIPS = [
   'Use Edit chords to move, change, or delete chords.',
@@ -53,7 +55,7 @@ export default function HomePage() {
   // Paste mode state
   const [inputText, setInputText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [statuses, setStatuses] = useState<ImportStatus[]>([])
+  const [statuses, setStatuses] = useState<ImportProgress[]>([])
   const [generalError, setGeneralError] = useState<string | null>(null)
 
   // Search mode state
@@ -128,115 +130,27 @@ export default function HomePage() {
 
   const handleExtract = async () => {
     setGeneralError(null)
-    const rawTokens = splitUrls(inputText)
-    if (rawTokens.length === 0) {
+    const { sources, invalid, tokenCount } = parsePastedSources(inputText)
+    if (tokenCount === 0) {
       setGeneralError('Please paste at least one chord sheet URL.')
       return
     }
 
-    const { valid, invalid } = validateUrls(rawTokens)
-    if (valid.length === 0 && invalid.length > 0) {
+    if (sources.length === 0 && invalid.length > 0) {
       setGeneralError(`No valid URLs found: ${invalid.map((i) => `${i.input} (${i.reason})`).join(', ')}`)
       return
     }
 
     setIsProcessing(true)
-    let savedCount = 0
     try {
-      const initialStatuses: ImportStatus[] = [
-        ...valid.map((v) => ({ url: v.url, status: 'pending' as const })),
-        ...invalid.map((i) => ({ url: i.input, status: 'error' as const, message: i.reason })),
-      ]
-      setStatuses(initialStatuses)
-
-      const sessionSongs: SessionSongItem[] = []
-      const uncachedUrls: string[] = []
-
-      // 1. Check client-side IndexedDB cache first
-      for (const { url } of valid) {
-        const cached = await songCache.getSong(url)
-        if (cached) {
-          sessionSongs.push({
-            url,
-            title: cached.title,
-            artist: cached.artist,
-            status: 'ok',
-          })
-          setStatuses((prev) =>
-            prev.map((s) => (s.url === url ? { ...s, status: 'cached', message: 'Loaded from cache' } : s))
-          )
-        } else {
-          uncachedUrls.push(url)
-        }
-      }
-
-      // 2. Fetch uncached URLs in chunks of <= 5
-      const CHUNK_SIZE = 5
-      for (let i = 0; i < uncachedUrls.length; i += CHUNK_SIZE) {
-        const chunk = uncachedUrls.slice(i, i + CHUNK_SIZE)
-        setStatuses((prev) =>
-          prev.map((s) => (chunk.includes(s.url) ? { ...s, status: 'fetching' } : s))
-        )
-
-        try {
-          const response = await scrapeApi(chunk)
-          for (const res of response.results) {
-            if (res.status === 'ok' && res.song) {
-              await songCache.saveSong(res.song)
-              sessionSongs.push({
-                url: res.url,
-                title: res.song.title,
-                artist: res.song.artist,
-                status: 'ok',
-              })
-              setStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'done' } : s))
-              )
-            } else {
-              const reason = res.message || 'Scrape failed'
-              await songCache.recordFailed(res.url, reason)
-              sessionSongs.push({
-                url: res.url,
-                status: 'error',
-                errorMessage: reason,
-              })
-              setStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'error', message: reason } : s))
-              )
-            }
-          }
-        } catch (err) {
-          const msg = (err as Error).message || 'Network error'
-          for (const u of chunk) {
-            sessionSongs.push({
-              url: u,
-              status: 'error',
-              errorMessage: msg,
-            })
-            setStatuses((prev) =>
-              prev.map((s) => (s.url === u ? { ...s, status: 'error', message: msg } : s))
-            )
-          }
-        }
-      }
-
-      // Include invalid inputs in the session as error items so user can see and fix them
-      for (const inv of invalid) {
-        sessionSongs.push({
-          url: inv.input,
-          status: 'error',
-          errorMessage: inv.reason,
-        })
-      }
-
-      // 3. Create session and navigate
-      const newSession = await sessionStore.createSession(sessionSongs)
-      savedCount = sessionSongs.filter((song) => song.status === 'ok').length
-      trackSongImport('pasted_link', sessionSongs.filter((song) => song.status === 'ok').length, rawTokens.length)
-      setIsProcessing(false)
-      navigate(`/session/${newSession.id}`)
+      const result = await importSources(sources, {
+        invalidInputs: invalid,
+        onProgress: setStatuses,
+      })
+      trackSongImport('pasted_link', result.imported, tokenCount)
+      navigate(`/session/${result.session.id}`)
     } catch {
-      trackSongImport('pasted_link', savedCount, rawTokens.length)
+      trackSongImport('pasted_link', 0, tokenCount)
       setGeneralError('Could not save all imported songs. Please try again.')
     } finally {
       setIsProcessing(false)
@@ -269,30 +183,9 @@ export default function HomePage() {
     setCreatingFromUrl(candidate.url)
 
     try {
-      // 1. Check local cache or scrape
-      let song = await songCache.getSong(candidate.url)
-      if (!song) {
-        const scrapeRes = await scrapeApi([candidate.url])
-        const first = scrapeRes.results[0]
-        if (first && first.status === 'ok' && first.song) {
-          song = first.song
-          await songCache.saveSong(song)
-        }
-      }
-
-      if (!song) throw new Error('Could not load song')
-
-      const songItem: SessionSongItem = {
-        url: candidate.url,
-        title: candidate.title,
-        artist: candidate.artist,
-        status: 'ok',
-      }
-
-      // 2. Create new session with this song
-      const newSession = await sessionStore.createSession([songItem])
-      trackSongImport('search', 1, 1)
-      navigate(`/session/${newSession.id}`)
+      const result = await importSources([sourceFromCandidate(candidate)], { requireAll: true })
+      trackSongImport('search', result.imported, 1)
+      navigate(`/session/${result.session.id}`)
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not create setlist: ${(err as Error).message}`)
@@ -333,158 +226,47 @@ export default function HomePage() {
         <div className="p-4 sm:p-5">
 
         {createMode === 'paste' ? (
-          <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords, Worship Together).
-            </p>
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              disabled={isProcessing}
-              placeholder="https://tabs.ultimate-guitar.com/...&#10;https://pnwchords.com/..."
-              rows={5}
-              className="ui-field min-h-36 resize-y p-3.5 font-mono text-sm leading-6"
-            />
-            {generalError && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {generalError}
-              </StatusBanner>
-            )}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
-                {splitUrls(inputText).length} link(s) entered
-              </span>
-              <Button
-                variant="primary"
-                onClick={handleExtract}
-                disabled={isProcessing || !inputText.trim()}
-                loading={isProcessing}
-              >
-                {isProcessing ? 'Extracting songs' : 'Extract and open session'}
-              </Button>
-            </div>
-          </div>
+          <PasteUrlForm
+            value={inputText}
+            onChange={setInputText}
+            onSubmit={handleExtract}
+            isProcessing={isProcessing}
+            error={generalError}
+            submitLabel="Extract and open session"
+            processingLabel="Extracting songs"
+            linkCount={splitUrls(inputText).length}
+          />
         ) : (
           <div className="space-y-4">
-            <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-              Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together.
-            </p>
-            <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
-                className="ui-field flex-1 px-3.5 py-2.5 text-sm"
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<Search size={15} />}
-                disabled={isSearching || !searchQuery.trim()}
-                loading={isSearching}
-              >
-                Search
-              </Button>
-            </form>
-            {searchError && (
-              <StatusBanner tone="error" icon={<AlertCircle size={16} />}>
-                {searchError}
-              </StatusBanner>
-            )}
-            {isSearching ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--ui-text-muted)]" role="status">
-                <span className="ui-spinner" /> Searching supported chord sites
-              </div>
-            ) : searchResults.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
-                  Search results · {searchResults.length}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {searchResults.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex min-h-40 flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 transition hover:border-[var(--ui-border-strong)]"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="text-sm font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">
-                            {item.title}
-                          </h4>
-                          <span className="shrink-0 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
-                            {item.site}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                          {item.artist}
-                        </p>
-
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--ui-text-muted)]">
-                          {item.versionLabel && <span>{item.versionLabel}</span>}
-                          {item.rating && <span>★ {item.rating.toFixed(1)}</span>}
-                          {item.type && <span>• {item.type}</span>}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between border-t border-[var(--ui-border)] pt-3">
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
-                        >
-                          View source <ExternalLink size={12} />
-                        </a>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleCreateFromSearch(item)}
-                          disabled={creatingFromUrl === item.url}
-                          loading={creatingFromUrl === item.url}
-                        >
-                          Start setlist
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : hasSearched ? (
-              <div className="py-8 text-center text-xs text-[var(--ui-text-muted)]">
-                No matching chord sheets found. Try a different title or artist name.
-              </div>
-            ) : null}
+            <SearchForm
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              onSubmit={handleSearch}
+              isSearching={isSearching}
+              error={searchError}
+              description="Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together."
+              placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+            />
+            <SearchResults
+              results={searchResults}
+              isSearching={isSearching}
+              hasSearched={hasSearched}
+              hasError={Boolean(searchError)}
+              emptyMessage="No matching chord sheets found. Try a different title or artist name."
+              onSelect={handleCreateFromSearch}
+              getActionState={(candidate) => ({
+                label: 'Start setlist',
+                disabled: creatingFromUrl === candidate.url,
+                loading: creatingFromUrl === candidate.url,
+              })}
+            />
           </div>
         )}
 
-        {statuses.length > 0 && (
-          <div className="mt-6 space-y-2 border-t border-[var(--ui-border)] pt-4">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
-              Import Progress
-            </h3>
-            {statuses.map((s, idx) => (
-              <div key={idx} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--ui-surface-muted)] px-3 py-2 text-xs">
-                <span className="max-w-[70%] truncate font-mono text-[var(--ui-text)]">{s.url}</span>
-                <span
-                  className={
-                    s.status === 'done' || s.status === 'cached'
-                      ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                      : s.status === 'error'
-                        ? 'text-red-600 dark:text-red-400 font-medium'
-                        : 'text-[#255283] dark:text-amber-400 animate-pulse font-medium'
-                  }
-                >
-                  {s.status === 'cached' && 'Cached ✓'}
-                  {s.status === 'done' && 'Extracted ✓'}
-                  {s.status === 'fetching' && 'Fetching...'}
-                  {s.status === 'pending' && 'Waiting...'}
-                  {s.status === 'error' && (s.message || 'Failed')}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <ImportProgressList
+          statuses={statuses}
+          className="mt-6 border-t border-[var(--ui-border)] pt-4"
+        />
         </div>
       </Surface>
 
