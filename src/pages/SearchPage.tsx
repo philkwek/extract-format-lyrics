@@ -2,17 +2,16 @@ import { trackEvent, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, ArrowLeft, ExternalLink, Link2, Search } from 'lucide-react'
-import { searchApi, type SearchCandidate, scrapeApi } from '../lib/api'
-import { songCache } from '../lib/songCache'
-import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
-import { splitUrls, validateUrls } from '../../functions/src/urls'
+import { searchApi, type SearchCandidate } from '../lib/api'
+import { sessionStore, type Session } from '../lib/sessionStore'
+import {
+  importSources,
+  parsePastedSources,
+  sourceFromCandidate,
+  type ImportProgress,
+} from '../lib/setlistImport'
+import { splitUrls } from '../../functions/src/urls'
 import { Button, SegmentedControl, StatusBanner, Surface } from '../components/ui'
-
-interface ImportStatus {
-  url: string
-  status: 'pending' | 'cached' | 'fetching' | 'done' | 'error'
-  message?: string
-}
 
 export default function SearchPage() {
   const navigate = useNavigate()
@@ -34,7 +33,7 @@ export default function SearchPage() {
   // Paste mode state
   const [pasteText, setPasteText] = useState('')
   const [isProcessingPaste, setIsProcessingPaste] = useState(false)
-  const [pasteStatuses, setPasteStatuses] = useState<ImportStatus[]>([])
+  const [pasteStatuses, setPasteStatuses] = useState<ImportProgress[]>([])
   const [pasteError, setPasteError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -70,42 +69,17 @@ export default function SearchPage() {
     setAddingUrls((prev) => new Set(prev).add(candidate.url))
 
     try {
-      // 1. Check or scrape the song
-      let song = await songCache.getSong(candidate.url)
-      if (!song) {
-        const scrapeRes = await scrapeApi([candidate.url])
-        const first = scrapeRes.results[0]
-        if (first && first.status === 'ok' && first.song) {
-          song = first.song
-          await songCache.saveSong(song)
-        }
-      }
-
-      // 2. Add to target session or create a new one
-      if (!song) throw new Error('Could not load song')
-
-      const songItem: SessionSongItem = {
-        url: candidate.url,
-        title: candidate.title,
-        artist: candidate.artist,
-        status: 'ok',
-      }
-
-      let activeSessionId = targetSessionId
-      if (activeSessionId) {
-        const updated = await sessionStore.addSongToSession(activeSessionId, songItem)
-        if (!updated) throw new Error('Setlist is unavailable')
-        trackSongImport('search', 1, 1)
-        const newIndex = updated.songs.length - 1
-        setAddedUrls((prev) => new Set(prev).add(candidate.url))
-        navigate(`/session/${activeSessionId}?song=${newIndex}`)
-      } else {
-        const newSession = await sessionStore.createSession([songItem])
-        trackSongImport('search', 1, 1)
-        activeSessionId = newSession.id
-        setAddedUrls((prev) => new Set(prev).add(candidate.url))
-        navigate(`/session/${activeSessionId}`)
-      }
+      const result = await importSources([sourceFromCandidate(candidate)], {
+        targetSessionId: targetSessionId ?? undefined,
+        requireAll: true,
+      })
+      trackSongImport('search', result.imported, 1)
+      setAddedUrls((prev) => new Set(prev).add(candidate.url))
+      navigate(
+        targetSessionId
+          ? `/session/${result.session.id}?song=${result.firstNewIndex}`
+          : `/session/${result.session.id}`
+      )
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not add song: ${(err as Error).message}`)
@@ -120,128 +94,32 @@ export default function SearchPage() {
 
   const handlePasteExtract = async () => {
     setPasteError(null)
-    const rawTokens = splitUrls(pasteText)
-    if (rawTokens.length === 0) {
+    const { sources, invalid, tokenCount } = parsePastedSources(pasteText)
+    if (tokenCount === 0) {
       setPasteError('Please paste at least one chord sheet URL.')
       return
     }
 
-    const { valid, invalid } = validateUrls(rawTokens)
-    if (valid.length === 0 && invalid.length > 0) {
+    if (sources.length === 0 && invalid.length > 0) {
       setPasteError(`No valid URLs found: ${invalid.map((i) => `${i.input} (${i.reason})`).join(', ')}`)
       return
     }
 
     setIsProcessingPaste(true)
-    let savedCount = 0
     try {
-      const initialStatuses: ImportStatus[] = [
-        ...valid.map((v) => ({ url: v.url, status: 'pending' as const })),
-        ...invalid.map((i) => ({ url: i.input, status: 'error' as const, message: i.reason })),
-      ]
-      setPasteStatuses(initialStatuses)
-
-      const sessionSongs: SessionSongItem[] = []
-      const uncachedUrls: string[] = []
-
-      // 1. Check IndexedDB cache first
-      for (const { url } of valid) {
-        const cached = await songCache.getSong(url)
-        if (cached) {
-          sessionSongs.push({
-            url,
-            title: cached.title,
-            artist: cached.artist,
-            status: 'ok',
-          })
-          setPasteStatuses((prev) =>
-            prev.map((s) => (s.url === url ? { ...s, status: 'cached', message: 'Loaded from cache' } : s))
-          )
-        } else {
-          uncachedUrls.push(url)
-        }
-      }
-
-      // 2. Fetch uncached URLs in chunks
-      const CHUNK_SIZE = 5
-      for (let i = 0; i < uncachedUrls.length; i += CHUNK_SIZE) {
-        const chunk = uncachedUrls.slice(i, i + CHUNK_SIZE)
-        setPasteStatuses((prev) =>
-          prev.map((s) => (chunk.includes(s.url) ? { ...s, status: 'fetching' } : s))
-        )
-
-        try {
-          const response = await scrapeApi(chunk)
-          for (const res of response.results) {
-            if (res.status === 'ok' && res.song) {
-              await songCache.saveSong(res.song)
-              sessionSongs.push({
-                url: res.url,
-                title: res.song.title,
-                artist: res.song.artist,
-                status: 'ok',
-              })
-              setPasteStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'done' } : s))
-              )
-            } else {
-              const reason = res.message || 'Scrape failed'
-              await songCache.recordFailed(res.url, reason)
-              sessionSongs.push({
-                url: res.url,
-                status: 'error',
-                errorMessage: reason,
-              })
-              setPasteStatuses((prev) =>
-                prev.map((s) => (s.url === res.url ? { ...s, status: 'error', message: reason } : s))
-              )
-            }
-          }
-        } catch (err) {
-          const msg = (err as Error).message || 'Network error'
-          for (const u of chunk) {
-            sessionSongs.push({
-              url: u,
-              status: 'error',
-              errorMessage: msg,
-            })
-            setPasteStatuses((prev) =>
-              prev.map((s) => (s.url === u ? { ...s, status: 'error', message: msg } : s))
-            )
-          }
-        }
-      }
-
-      // Include invalid inputs
-      for (const inv of invalid) {
-        sessionSongs.push({
-          url: inv.input,
-          status: 'error',
-          errorMessage: inv.reason,
-        })
-      }
-
-      // 3. Add to target session or create a new session
-      if (targetSessionId) {
-        let updated: Session | null = null
-        for (const song of sessionSongs) {
-          updated = await sessionStore.addSongToSession(targetSessionId, song)
-          if (!updated) throw new Error('Setlist is unavailable')
-          if (song.status === 'ok') savedCount++
-        }
-        trackSongImport('pasted_link', savedCount, rawTokens.length)
-        setIsProcessingPaste(false)
-        const targetIndex = updated ? updated.songs.length - sessionSongs.length : 0
-        navigate(`/session/${targetSessionId}?song=${Math.max(0, targetIndex)}`)
-      } else {
-        const newSession = await sessionStore.createSession(sessionSongs)
-        savedCount = sessionSongs.filter((song) => song.status === 'ok').length
-        trackSongImport('pasted_link', sessionSongs.filter((song) => song.status === 'ok').length, rawTokens.length)
-        setIsProcessingPaste(false)
-        navigate(`/session/${newSession.id}`)
-      }
+      const result = await importSources(sources, {
+        targetSessionId: targetSessionId ?? undefined,
+        invalidInputs: invalid,
+        onProgress: setPasteStatuses,
+      })
+      trackSongImport('pasted_link', result.imported, tokenCount)
+      navigate(
+        targetSessionId
+          ? `/session/${result.session.id}?song=${result.firstNewIndex}`
+          : `/session/${result.session.id}`
+      )
     } catch {
-      trackSongImport('pasted_link', savedCount, rawTokens.length)
+      trackSongImport('pasted_link', 0, tokenCount)
       setPasteError('Could not save all imported songs. Please try again.')
     } finally {
       setIsProcessingPaste(false)
