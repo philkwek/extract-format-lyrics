@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Button, SegmentedControl } from './index'
-import OverlayDialog from './OverlayDialog'
+import { Button, SegmentedControl } from '../../../src/components/ui/index'
+import OverlayDialog from '../../../src/components/ui/OverlayDialog'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
