@@ -45,6 +45,71 @@ describe('SongCache', () => {
     expect(await cache.getSong(sampleSong.sourceUrl)).toBeNull()
   })
 
+  it('resolves a song saved under a redirect URL through its original URL alias', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    const finalSong = { ...sampleSong, sourceUrl: 'https://pnwchords.com/amazing-grace-final' }
+
+    await cache.saveSong(finalSong, 'https://pnwchords.com/amazing-grace')
+
+    expect(await cache.getSong('https://pnwchords.com/amazing-grace')).toMatchObject({
+      sourceUrl: finalSong.sourceUrl,
+    })
+    expect(await cache.getAlias('https://pnwchords.com/amazing-grace')).toBe(
+      finalSong.sourceUrl
+    )
+  })
+
+  it('still reads older entries stored only under their final URL', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    await cache.saveSong(sampleSong)
+
+    expect((await cache.getSong(sampleSong.sourceUrl))?.title).toBe('Amazing Grace')
+  })
+
+  it('expires local failure markers so the normal retry path resumes', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+    await cache.recordFailed('https://pnwchords.com/song', 'temporary error')
+    expect(await cache.getFailed('https://pnwchords.com/song')).toBe('temporary error')
+
+    now.mockReturnValue(61_001)
+    expect(await cache.getFailed('https://pnwchords.com/song')).toBeNull()
+    now.mockRestore()
+  })
+
   it('enriches older website songs without simplifiedSections on read and persists to store', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {

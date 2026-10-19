@@ -2,7 +2,7 @@ import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
 import { validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
-import { scrapeSingleUrl } from './scraper.js'
+import { loadSourceChart } from './chartLoader.js'
 import { rateLimiter } from './rateLimit.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
@@ -114,7 +114,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
         }
 
         try {
-          const song = await scrapeSingleUrl(url)
+          const song = await loadSourceChart(url)
           rateLimiter.recordHostSuccess(host)
           return { url, status: 'ok', song }
         } catch (err) {
