@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { lookup as dnsLookup } from 'node:dns/promises'
-import { isPrivateOrReservedIp, safeFetchHtml, assertSafeDns } from './safeFetch.js'
+import { isPrivateOrReservedIp, safeFetchHtml, assertSafeDns } from '../src/safeFetch.js'
 
 type DnsLookupFn = typeof dnsLookup
 

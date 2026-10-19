@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { RateLimiterAndCircuitBreaker } from './rateLimit.js'
+import { RateLimiterAndCircuitBreaker } from '../src/rateLimit.js'
 
 describe('RateLimiterAndCircuitBreaker', () => {
   it('enforces per-minute IP limit and returns retryAfter', () => {

@@ -7,8 +7,8 @@ import {
   MAX_SHARED_LYRICS_SONGS,
   SharedLyricsStore,
   verifyPublicationSecret,
-} from './sharedLyricsStore.js'
-import type { SharedLyricsPayload } from './types.js'
+} from '../src/sharedLyricsStore.js'
+import type { SharedLyricsPayload } from '../src/types.js'
 
 interface MockDocSnapshot {
   exists: boolean

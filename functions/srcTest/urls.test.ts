@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkUrl, isAllowedHost, splitUrls, validateUrls } from './urls'
+import { checkUrl, isAllowedHost, splitUrls, validateUrls } from '../src/urls'
 
 describe('splitUrls', () => {
   it('splits on newlines, spaces and commas', () => {

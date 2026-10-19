@@ -3,8 +3,8 @@ import {
   classifyChordQuality,
   simplifyChord,
   simplifySections,
-} from './simplifyChords.js'
-import type { Section } from './types.js'
+} from '../src/simplifyChords.js'
+import type { Section } from '../src/types.js'
 
 describe('classifyChordQuality', () => {
   it('classifies empty string as major', () => {

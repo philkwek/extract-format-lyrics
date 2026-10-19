@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isExpired, isSharedSetSnapshot, MAX_SHARED_SET_SONGS } from './shareStore.js'
+import { isExpired, isSharedSetSnapshot, MAX_SHARED_SET_SONGS } from '../src/shareStore.js'
 
 const snapshot = {
   v: 2,
