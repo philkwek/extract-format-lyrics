@@ -2,7 +2,6 @@ import { trackEvent, trackSongImport } from '../lib/analytics'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ExternalLink,
   FileText,
   FileUp,
   Lightbulb,
@@ -34,6 +33,7 @@ import UploadSheetModal from '../components/UploadSheetModal'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
+import SearchResults from '../components/import/SearchResults'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
@@ -247,69 +247,19 @@ export default function HomePage() {
               description="Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together."
               placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
             />
-            {isSearching ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--ui-text-muted)]" role="status">
-                <span className="ui-spinner" /> Searching supported chord sites
-              </div>
-            ) : searchResults.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
-                  Search results · {searchResults.length}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {searchResults.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex min-h-40 flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 transition hover:border-[var(--ui-border-strong)]"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="text-sm font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">
-                            {item.title}
-                          </h4>
-                          <span className="shrink-0 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
-                            {item.site}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                          {item.artist}
-                        </p>
-
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--ui-text-muted)]">
-                          {item.versionLabel && <span>{item.versionLabel}</span>}
-                          {item.rating && <span>★ {item.rating.toFixed(1)}</span>}
-                          {item.type && <span>• {item.type}</span>}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between border-t border-[var(--ui-border)] pt-3">
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
-                        >
-                          View source <ExternalLink size={12} />
-                        </a>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleCreateFromSearch(item)}
-                          disabled={creatingFromUrl === item.url}
-                          loading={creatingFromUrl === item.url}
-                        >
-                          Start setlist
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : hasSearched ? (
-              <div className="py-8 text-center text-xs text-[var(--ui-text-muted)]">
-                No matching chord sheets found. Try a different title or artist name.
-              </div>
-            ) : null}
+            <SearchResults
+              results={searchResults}
+              isSearching={isSearching}
+              hasSearched={hasSearched}
+              hasError={Boolean(searchError)}
+              emptyMessage="No matching chord sheets found. Try a different title or artist name."
+              onSelect={handleCreateFromSearch}
+              getActionState={(candidate) => ({
+                label: 'Start setlist',
+                disabled: creatingFromUrl === candidate.url,
+                loading: creatingFromUrl === candidate.url,
+              })}
+            />
           </div>
         )}
 
