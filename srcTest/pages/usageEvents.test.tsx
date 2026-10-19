@@ -11,7 +11,7 @@ import ShareModal from '../../src/components/ShareModal'
 import { trackEvent, trackSongImport } from '../../src/lib/analytics'
 import { songCache } from '../../src/lib/songCache'
 import { sessionStore } from '../../src/lib/sessionStore'
-import { scrapeApi, searchApi, createShareApi, getShareApi } from '../../src/lib/api'
+import { scrapeApi, searchApiStream, createShareApi, getShareApi } from '../../src/lib/api'
 import type { Song } from '../../src/types/song'
 
 const navigate = vi.hoisted(() => vi.fn())
@@ -26,7 +26,7 @@ vi.mock('../../src/lib/analytics', async () => ({
 }))
 vi.mock('../../src/lib/api', async () => ({
   ...(await vi.importActual('../../src/lib/api')),
-  searchApi: vi.fn(),
+  searchApiStream: vi.fn(),
   scrapeApi: vi.fn(),
   createShareApi: vi.fn(),
   getShareApi: vi.fn(),
@@ -99,7 +99,7 @@ describe('usage events at action boundaries', () => {
   it.each(['home', 'search'] as const)(
     'records failed searches from %s without the query or raw error',
     async (entry) => {
-      vi.mocked(searchApi).mockRejectedValue(new Error('private error'))
+      vi.mocked(searchApiStream).mockRejectedValue(new Error('private error'))
       render(<MemoryRouter>{entry === 'home' ? <HomePage /> : <SearchPage />}</MemoryRouter>)
       if (entry === 'home') fireEvent.click(screen.getByRole('tab', { name: 'Search' }))
       const input = screen.getByPlaceholderText(/e.g. Goodness/)
@@ -116,9 +116,14 @@ describe('usage events at action boundaries', () => {
   )
 
   it('records successful search and cached import only after persistence', async () => {
-    vi.mocked(searchApi).mockResolvedValue([
-      { url: song.sourceUrl, title: song.title, artist: song.artist, site: 'PNW' },
-    ])
+    vi.mocked(searchApiStream).mockResolvedValue({
+      query: 'Private title',
+      results: [
+        { url: song.sourceUrl, title: song.title, artist: song.artist, site: 'PNW' },
+      ],
+      sources: [],
+      partial: false,
+    })
     home()
     fireEvent.click(screen.getByRole('tab', { name: 'Search' }))
     const input = screen.getByPlaceholderText(/e.g. Goodness/)

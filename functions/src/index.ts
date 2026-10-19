@@ -133,12 +133,84 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     const searchStartedAt = Date.now()
+    const adapters = [
+      ultimateGuitarSearchAdapter,
+      pnwChordsSearchAdapter,
+      worshipTogetherSearchAdapter,
+    ]
+    const wantsStream =
+      req.query.stream === '1' ||
+      String(req.headers.accept || '').includes('application/x-ndjson')
+
+    if (wantsStream) {
+      res.status(200)
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+      res.setHeader('Cache-Control', 'no-cache, no-transform')
+      res.flushHeaders()
+
+      let closed = false
+      req.on('close', () => {
+        closed = true
+      })
+      const write = (event: unknown) => {
+        if (closed) return
+        try {
+          res.write(`${JSON.stringify(event)}\n`)
+        } catch {
+          closed = true
+        }
+      }
+
+      try {
+        const lookup = await searchCache.search(query, async (upstreamQuery) => {
+          const { candidates: combined, outcomes } = await searchSites(
+            adapters,
+            upstreamQuery,
+            {},
+            (outcome) => {
+              // Completed sources become usable immediately, even when another
+              // source is still pending.
+              write({
+                type: 'source',
+                source: toSourceStatus(outcome),
+                candidates: selectSearchResults(outcome.candidates, upstreamQuery),
+              })
+            }
+          )
+          return {
+            results: selectSearchResults(combined, upstreamQuery),
+            sources: outcomes.map(toSourceStatus),
+            partial: outcomes.some((outcome) => outcome.status === 'failed'),
+          }
+        })
+        const { results, sources, partial } = lookup.data
+        recordTiming({
+          operation: 'search.total',
+          durationMs: elapsedMs(searchStartedAt),
+          outcome: partial ? 'partial' : results.length > 0 ? 'ok' : 'empty',
+          cacheStatus: lookup.cacheStatus === 'hit' ? 'hit' : 'miss',
+        })
+        write({ type: 'complete', query, results, sources, partial, cacheStatus: lookup.cacheStatus })
+        if (!closed) res.end()
+      } catch (err) {
+        recordTiming({
+          operation: 'search.total',
+          durationMs: elapsedMs(searchStartedAt),
+          outcome: 'error',
+        })
+        write({
+          type: 'error',
+          code: 'SEARCH_FAILED',
+          message: (err as Error).message || 'Failed to search songs',
+        })
+        if (!closed) res.end()
+      }
+      return
+    }
+
     try {
       const lookup = await searchCache.search(query, async (upstreamQuery) => {
-        const { candidates: combined, outcomes } = await searchSites(
-          [ultimateGuitarSearchAdapter, pnwChordsSearchAdapter, worshipTogetherSearchAdapter],
-          upstreamQuery
-        )
+        const { candidates: combined, outcomes } = await searchSites(adapters, upstreamQuery)
         return {
           results: selectSearchResults(combined, upstreamQuery),
           sources: outcomes.map(toSourceStatus),

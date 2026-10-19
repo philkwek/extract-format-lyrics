@@ -1,5 +1,5 @@
 import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText,
@@ -14,7 +14,8 @@ import {
 } from 'lucide-react'
 import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
-import { searchApi, type SearchCandidate } from '../lib/api'
+import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
+import { mergeSearchCandidates, upsertSearchSource } from '../lib/searchResults'
 import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
 import {
   importSources,
@@ -62,9 +63,13 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchCandidate[]>([])
+  const [searchSources, setSearchSources] = useState<SearchSourceStatus[]>([])
+  const [searchPartial, setSearchPartial] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [creatingFromUrl, setCreatingFromUrl] = useState<string | null>(null)
+  const searchAbortRef = useRef<AbortController | null>(null)
+  const searchGenerationRef = useRef(0)
 
   const [sessions, setSessions] = useState<Session[]>([])
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
@@ -91,6 +96,8 @@ export default function HomePage() {
     sessionStore.getAllSessions().then(setSessions)
     getRecentSharedLyrics().then(setRecentLyrics)
   }, [])
+
+  useEffect(() => () => searchAbortRef.current?.abort(), [])
 
   const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -162,22 +169,48 @@ export default function HomePage() {
     if (!searchQuery.trim()) return
 
     const startedAt = Date.now()
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    const generation = ++searchGenerationRef.current
     setIsSearching(true)
     setSearchError(null)
     setHasSearched(true)
+    setSearchResults([])
+    setSearchSources([])
+    setSearchPartial(false)
 
     try {
-      const candidates = await searchApi(searchQuery.trim())
-      setSearchResults(candidates)
-      trackEvent('song_search', { entry_page: 'home', outcome: 'success', result_count: candidates.length })
-      trackSearchTiming('home', Date.now() - startedAt, 'success', candidates.length)
+      const response = await searchApiStream(searchQuery.trim(), {
+        signal: controller.signal,
+        onSource: (source) => {
+          if (generation !== searchGenerationRef.current) return
+          setSearchSources((prev) => upsertSearchSource(prev, source))
+          setSearchResults((prev) => mergeSearchCandidates(prev, source.candidates))
+        },
+      })
+      if (generation !== searchGenerationRef.current) return
+
+      // Keep cards that are already visible in place and append any final
+      // entries the incremental events did not include.
+      setSearchResults((prev) => mergeSearchCandidates(prev, response.results))
+      setSearchSources(response.sources ?? [])
+      setSearchPartial(Boolean(response.partial))
+      trackEvent('song_search', {
+        entry_page: 'home',
+        outcome: 'success',
+        result_count: response.results.length,
+      })
+      trackSearchTiming('home', Date.now() - startedAt, 'success', response.results.length)
     } catch (err) {
+      if (generation !== searchGenerationRef.current || controller.signal.aborted) return
       setSearchError((err as Error).message || 'Failed to search songs')
       setSearchResults([])
+      setSearchSources([])
       trackEvent('song_search', { entry_page: 'home', outcome: 'error', result_count: 0 })
       trackSearchTiming('home', Date.now() - startedAt, 'error', 0)
     } finally {
-      setIsSearching(false)
+      if (generation === searchGenerationRef.current) setIsSearching(false)
     }
   }
 
@@ -255,6 +288,8 @@ export default function HomePage() {
               isSearching={isSearching}
               hasSearched={hasSearched}
               hasError={Boolean(searchError)}
+              sources={searchSources}
+              partial={searchPartial}
               emptyMessage="No matching chord sheets found. Try a different title or artist name."
               onSelect={handleCreateFromSearch}
               getActionState={(candidate) => ({

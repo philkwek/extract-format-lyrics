@@ -104,9 +104,16 @@ export interface SearchSitesResult {
 export async function searchSites(
   adapters: SearchAdapter[],
   query: string,
-  deps: SearchSiteDeps = {}
+  deps: SearchSiteDeps = {},
+  onOutcome?: (outcome: SearchSiteOutcome) => void
 ): Promise<SearchSitesResult> {
-  const outcomes = await Promise.all(adapters.map((adapter) => searchSite(adapter, query, deps)))
+  const outcomes = await Promise.all(
+    adapters.map(async (adapter) => {
+      const outcome = await searchSite(adapter, query, deps)
+      onOutcome?.(outcome)
+      return outcome
+    })
+  )
   const candidates = outcomes.flatMap((outcome) => outcome.candidates)
   return { candidates, outcomes }
 }

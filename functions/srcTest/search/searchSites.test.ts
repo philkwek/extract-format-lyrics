@@ -45,6 +45,26 @@ describe('searchSites', () => {
     expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['ok', 'ok', 'empty'])
   })
 
+  it('reports each outcome as it settles, independent of source order', async () => {
+    const requests = {
+      'ultimate-guitar': deferred<SearchCandidate[]>(),
+      pnwchords: deferred<SearchCandidate[]>(),
+    }
+    const adapters: SearchAdapter[] = Object.entries(requests).map(([site, request]) => ({
+      site,
+      search: () => request.promise,
+    }))
+    const seen: string[] = []
+
+    const running = searchSites(adapters, 'song', {}, (outcome) => seen.push(outcome.site))
+    requests.pnwchords.resolve([candidate('pnwchords')])
+    await vi.waitFor(() => expect(seen).toEqual(['pnwchords']))
+
+    requests['ultimate-guitar'].resolve([])
+    await running
+    expect(seen).toEqual(['pnwchords', 'ultimate-guitar'])
+  })
+
   it('keeps successful results when another site fails', async () => {
     const adapters: SearchAdapter[] = [
       { site: 'ultimate-guitar', search: async () => [candidate('ultimate-guitar')] },

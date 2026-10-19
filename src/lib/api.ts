@@ -85,6 +85,87 @@ export async function searchApi(query: string): Promise<SearchCandidate[]> {
   return data.results
 }
 
+export interface PartialSearchSource extends SearchSourceStatus {
+  candidates: SearchCandidate[]
+}
+
+export interface SearchStreamOptions {
+  signal?: AbortSignal
+  onSource?: (source: PartialSearchSource) => void
+}
+
+async function searchError(res: Response): Promise<Error> {
+  let message = `Search failed (${res.status})`
+  try {
+    const data = await res.json()
+    if (data?.error?.message) message = data.error.message
+  } catch {
+    // Preserve the HTTP fallback.
+  }
+  return new Error(message)
+}
+
+/**
+ * Streams source results as they complete. Falls back to ordinary JSON when a
+ * server/proxy does not return NDJSON, so cached responses stay simple.
+ */
+export async function searchApiStream(
+  query: string,
+  options: SearchStreamOptions = {}
+): Promise<ApiSearchResponse> {
+  const res = await fetch(
+    `/api/search?q=${encodeURIComponent(query)}&stream=1`,
+    { signal: options.signal, headers: { Accept: 'application/x-ndjson' } }
+  )
+  if (!res.ok) throw await searchError(res)
+
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.includes('application/x-ndjson') || !res.body) {
+    return (await res.json()) as ApiSearchResponse
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let complete: ApiSearchResponse | null = null
+
+  const handleLine = (line: string) => {
+    if (!line.trim()) return
+    const event = JSON.parse(line) as
+      | { type: 'source'; source: SearchSourceStatus; candidates: SearchCandidate[] }
+      | { type: 'complete'; query: string; results: SearchCandidate[]; sources?: SearchSourceStatus[]; partial?: boolean }
+      | { type: 'error'; message?: string }
+
+    if (event.type === 'source') {
+      options.onSource?.({ ...event.source, candidates: event.candidates ?? [] })
+      return
+    }
+    if (event.type === 'error') {
+      throw new Error(event.message || 'Failed to search songs')
+    }
+    if (event.type === 'complete') {
+      complete = {
+        query: event.query,
+        results: event.results ?? [],
+        sources: event.sources,
+        partial: event.partial,
+      }
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) handleLine(line)
+    if (done) break
+  }
+  if (buffer.trim()) handleLine(buffer)
+  if (!complete) throw new Error('Search stream ended without a complete result')
+  return complete
+}
+
 export type SimplifyResponse =
   | {
       status: 'ok'
