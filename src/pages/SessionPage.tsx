@@ -380,7 +380,7 @@ export default function SessionPage() {
       const response = await scrapeApi([item.url])
       const res = response.results[0]
       if (res && res.status === 'ok' && res.song) {
-        await songCache.saveSong(res.song)
+        await songCache.saveSong(res.song, item.url)
         const updatedSongs = session.songs.map((s) =>
           s.entryId === item.entryId
             ? { ...s, status: 'ok' as const, title: res.song?.title, artist: res.song?.artist, errorMessage: undefined }

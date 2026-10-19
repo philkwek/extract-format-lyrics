@@ -140,8 +140,13 @@ export default function SearchResults({
       )
     }
     return (
-      <div className={classes('py-10 text-center text-sm text-[var(--ui-text-muted)]', className)}>
-        {emptyMessage}
+      <div className={classes('space-y-2 py-10 text-center text-sm text-[var(--ui-text-muted)]', className)}>
+        <p>{emptyMessage}</p>
+        {partial && failed.length > 0 && (
+          <p className="text-xs">
+            Unavailable: {failed.map((source) => sourceLabel(source.site)).join(', ')}
+          </p>
+        )}
       </div>
     )
   }
