@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import type { Section } from './types.js'
-import { detectSongKey, detect_song_key, detectSongKeyFromSections, normalizeSongKey, SONG_KEY_PRESETS } from './keyDetector.js'
-import { inferKeyFromChords, normalizeSongText } from './normalizer.js'
-import { noteToIndex } from './chords.js'
+import type { Section } from '../src/types.js'
+import { detectSongKey, detect_song_key, detectSongKeyFromSections, normalizeSongKey, SONG_KEY_PRESETS } from '../src/keyDetector.js'
+import { inferKeyFromChords, normalizeSongText } from '../src/normalizer.js'
+import { noteToIndex } from '../src/chords.js'
 
 describe('detectSongKey', () => {
   it('returns null for empty or chordless text', () => {

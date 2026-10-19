@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { scrapeSingleUrl, generateSongId } from './scraper.js'
+import { scrapeSingleUrl, generateSongId } from '../src/scraper.js'
 
 describe('generateSongId', () => {
   it('generates a stable 16-char hex hash', () => {
