@@ -5,10 +5,10 @@ import {
   sourceFromCandidate,
   type ImportProgress,
   type ImportSourceDeps,
-} from './setlistImport'
-import type { ApiScrapeResponse } from './api'
-import type { Session, SessionSongItem } from './sessionStore'
-import type { Song } from '../types/song'
+} from '../../src/lib/setlistImport'
+import type { ApiScrapeResponse } from '../../src/lib/api'
+import type { Session, SessionSongItem } from '../../src/lib/sessionStore'
+import type { Song } from '../../src/types/song'
 
 function makeSong(sourceUrl: string, title = 'Song'): Song {
   return {

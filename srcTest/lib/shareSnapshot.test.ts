@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createSharedSetSnapshot, MAX_SHARED_SET_SONGS, sessionSongsFromSnapshot } from './shareSnapshot'
-import type { Session } from './sessionStore'
-import type { Song } from '../types/song'
+import { createSharedSetSnapshot, MAX_SHARED_SET_SONGS, sessionSongsFromSnapshot } from '../../src/lib/shareSnapshot'
+import type { Session } from '../../src/lib/sessionStore'
+import type { Song } from '../../src/types/song'
 
 const sourceSong: Song = {
   id: 'song-1', title: 'Song', artist: 'Artist', sourceUrl: 'https://example.test/song', sourceSite: 'test', originalKey: 'C',

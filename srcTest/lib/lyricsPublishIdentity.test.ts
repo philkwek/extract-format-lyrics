@@ -7,9 +7,9 @@ import {
   publishLyricsForSession,
   withLyricsPublicationLock,
   deleteLyricsPublicationIdentity,
-} from './lyricsPublishIdentity'
+} from '../../src/lib/lyricsPublishIdentity'
 
-import type { SharedLyricsPayload } from '../types/song'
+import type { SharedLyricsPayload } from '../../src/types/song'
 
 const mockPayload: SharedLyricsPayload = {
   v: 1,

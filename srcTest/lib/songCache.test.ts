@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SongCache, normalizeSongUrl, type StorageStore } from './songCache'
-import type { Song } from '../types/song'
+import { SongCache, normalizeSongUrl, type StorageStore } from '../../src/lib/songCache'
+import type { Song } from '../../src/types/song'
 
 describe('normalizeSongUrl', () => {
   it('strips tracking params and fragment', () => {

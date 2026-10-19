@@ -6,8 +6,8 @@ import {
   removeRecentSharedLyrics,
   clearRecentSharedLyrics,
   resetRecentLyricsStore,
-} from './recentLyricsStore'
-import type { SharedLyricsPayload } from '../types/song'
+} from '../../src/lib/recentLyricsStore'
+import type { SharedLyricsPayload } from '../../src/types/song'
 
 describe('recentLyricsStore', () => {
   beforeEach(async () => {

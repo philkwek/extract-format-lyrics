@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SessionStore, type SessionStorageStore } from './sessionStore'
+import { SessionStore, type SessionStorageStore } from '../../src/lib/sessionStore'
 
 describe('SessionStore', () => {
   it('creates, lists, and deletes sessions', async () => {
@@ -111,7 +111,7 @@ describe('SessionStore', () => {
   })
 
   it('formats default session name according to Day Month Time(12hrs) Set format', async () => {
-    const { formatDefaultSessionName } = await import('./sessionStore')
+    const { formatDefaultSessionName } = await import('../../src/lib/sessionStore')
     // 9 October 2026, 21:30 (9:30pm)
     const d1 = new Date(2026, 9, 9, 21, 30)
     expect(formatDefaultSessionName(d1)).toBe('9 October 930pm Set')

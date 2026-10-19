@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { Song, Section, SharedLyricsPayload } from '../types/song'
-import type { Session } from './sessionStore'
-import { buildSharedLyricsPayload } from './exportLyrics'
+import type { Song, Section, SharedLyricsPayload } from '../../src/types/song'
+import type { Session } from '../../src/lib/sessionStore'
+import { buildSharedLyricsPayload } from '../../src/lib/exportLyrics'
 import {
   getLyricsPublicationIdentity,
   publishLyricsForSession,
   deleteLyricsPublicationIdentity,
-} from './lyricsPublishIdentity'
+} from '../../src/lib/lyricsPublishIdentity'
 import {
   SharedLyricsStore,
   verifyPublicationSecret,
 } from '../../functions/src/sharedLyricsStore'
-import { createSharedSetSnapshot, sessionSongsFromSnapshot } from './shareSnapshot'
+import { createSharedSetSnapshot, sessionSongsFromSnapshot } from '../../src/lib/shareSnapshot'
 
 
 interface MockDocSnap {
