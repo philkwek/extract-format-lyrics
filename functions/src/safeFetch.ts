@@ -73,8 +73,78 @@ export interface SafeFetchOptions {
 const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 const DEFAULT_MAX_REDIRECTS = 3
+const RETRY_DELAY_MS = 300
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+
+interface FetchDeadline {
+  signal: AbortSignal
+  controller: AbortController
+  remainingMs(): number
+  dispose(): void
+}
+
+function timeoutError(timeoutMs: number): FetchError {
+  return new FetchError(`Request timed out after ${timeoutMs}ms`, 'TIMEOUT')
+}
+
+function createDeadline(timeoutMs: number): FetchDeadline {
+  const controller = new AbortController()
+  const budgetMs = Number.isFinite(timeoutMs) ? Math.max(1, timeoutMs) : DEFAULT_TIMEOUT_MS
+  const timer = setTimeout(() => controller.abort(timeoutError(budgetMs)), budgetMs)
+  // Never keep a serverless process alive solely for a timeout timer.
+  timer.unref?.()
+  const expiresAt = Date.now() + budgetMs
+  return {
+    controller,
+    signal: controller.signal,
+    remainingMs: () => Math.max(0, expiresAt - Date.now()),
+    dispose: () => clearTimeout(timer),
+  }
+}
+
+function throwIfExpired(deadline: FetchDeadline, timeoutMs: number): void {
+  if (deadline.signal.aborted || deadline.remainingMs() <= 0) {
+    throw timeoutError(timeoutMs)
+  }
+}
+
+/**
+ * Stops awaiting work at the overall deadline. The source promise keeps its
+ * own rejection handler attached, so a late DNS/fetch/body settlement cannot
+ * surface as an unhandled rejection.
+ */
+function withinDeadline<T>(promise: Promise<T>, deadline: FetchDeadline, timeoutMs: number): Promise<T> {
+  if (deadline.signal.aborted) {
+    promise.catch(() => {})
+    return Promise.reject(timeoutError(timeoutMs))
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup()
+      reject(timeoutError(timeoutMs))
+    }
+    const cleanup = () => deadline.signal.removeEventListener('abort', onAbort)
+    deadline.signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        cleanup()
+        resolve(value)
+      },
+      (err) => {
+        cleanup()
+        reject(err)
+      }
+    )
+  })
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, Math.max(0, ms))
+    timer.unref?.()
+  })
+}
 
 /**
  * Validates the hostname via DNS and checks for SSRF targets.
@@ -105,15 +175,18 @@ export async function assertSafeDns(
 async function fetchWithLimits(
   url: string,
   options: SafeFetchOptions,
+  deadline: FetchDeadline,
+  timeoutMs: number,
   redirectCount = 0
 ): Promise<{ text: string; finalUrl: string }> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS
   const lookup = options.lookupFn ?? dnsLookup
   const customFetch = options.fetchFn ?? fetch
 
-  // 1. Validate URL and allow-list
+  throwIfExpired(deadline, timeoutMs)
+
+  // 1. Validate URL and allow-list. These failures are never retried.
   const check = checkUrl(url)
   if (!check.ok) {
     throw new FetchError(`Invalid or disallowed URL: ${check.reason}`, 'INVALID_URL')
@@ -121,38 +194,43 @@ async function fetchWithLimits(
 
   const parsed = new URL(check.url)
 
-  // 2. SSRF check on DNS
-  await assertSafeDns(parsed.hostname, lookup)
+  // 2. SSRF check on DNS. Node's resolver cannot be cancelled, so stop awaiting
+  // at the deadline while leaving a rejection handler on the eventual result.
+  await withinDeadline(assertSafeDns(parsed.hostname, lookup), deadline, timeoutMs)
+  throwIfExpired(deadline, timeoutMs)
 
-  // 3. Perform fetch with manual redirect and abort timeout
-  const controller = new AbortController()
-  const timeoutTimer = setTimeout(() => {
-    controller.abort(new FetchError(`Request timed out after ${timeoutMs}ms`, 'TIMEOUT'))
-  }, timeoutMs)
-
+  // 3. Perform fetch with manual redirects. One signal covers the whole request,
+  // including redirects and body streaming.
   let res: Response
   try {
-    res = await customFetch(check.url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': options.userAgent ?? DEFAULT_USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      redirect: 'manual',
-      signal: controller.signal,
-    })
+    res = await withinDeadline(
+      customFetch(check.url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': options.userAgent ?? DEFAULT_USER_AGENT,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'manual',
+        signal: deadline.signal,
+      }),
+      deadline,
+      timeoutMs
+    )
   } catch (err: unknown) {
-    if ((err as Error)?.name === 'AbortError' || (err as FetchError)?.code === 'TIMEOUT') {
-      throw new FetchError(`Request timed out after ${timeoutMs}ms`, 'TIMEOUT')
+    if (deadline.signal.aborted || (err as Error)?.name === 'AbortError' || (err as FetchError)?.code === 'TIMEOUT') {
+      throw timeoutError(timeoutMs)
     }
     throw new FetchError(`Network error: ${(err as Error).message}`, 'NETWORK_ERROR')
-  } finally {
-    clearTimeout(timeoutTimer)
   }
 
-  // 4. Handle redirects
+  // 4. Handle redirects, re-validating every destination.
   if ([301, 302, 303, 307, 308].includes(res.status)) {
+    try {
+      await res.body?.cancel()
+    } catch {
+      // The redirect body is not needed.
+    }
     if (redirectCount >= maxRedirects) {
       throw new FetchError(`Too many redirects (max ${maxRedirects})`, 'HTTP_ERROR', res.status)
     }
@@ -161,21 +239,22 @@ async function fetchWithLimits(
       throw new FetchError('Redirect without Location header', 'HTTP_ERROR', res.status)
     }
     const resolvedRedirect = new URL(location, check.url).toString()
-    return fetchWithLimits(resolvedRedirect, options, redirectCount + 1)
+    return fetchWithLimits(resolvedRedirect, options, deadline, timeoutMs, redirectCount + 1)
   }
 
-  // 5. Handle HTTP status
+  // 5. Handle HTTP status. Only 5xx is retryable; this rejects 403/429 and
+  // invalid destinations without spending the retry budget.
   if (!res.ok) {
     throw new FetchError(`HTTP error ${res.status}: ${res.statusText}`, 'HTTP_ERROR', res.status)
   }
 
-  // 6. Check content-type
+  // 6. Check content-type. Invalid content is never retried.
   const contentType = res.headers.get('content-type') || ''
   if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
     throw new FetchError(`Unexpected content-type "${contentType}", expected HTML`, 'INVALID_CONTENT_TYPE')
   }
 
-  // 7. Stream and enforce size limit
+  // 7. Stream and enforce size and deadline limits.
   if (!res.body) {
     return { text: '', finalUrl: check.url }
   }
@@ -186,7 +265,8 @@ async function fetchWithLimits(
 
   try {
     while (true) {
-      const { done, value } = await reader.read()
+      throwIfExpired(deadline, timeoutMs)
+      const { done, value } = await withinDeadline(reader.read(), deadline, timeoutMs)
       if (done) break
       if (value) {
         totalBytes += value.length
@@ -203,7 +283,21 @@ async function fetchWithLimits(
     }
   } catch (err) {
     if (err instanceof FetchError) throw err
+    if (deadline.signal.aborted) throw timeoutError(timeoutMs)
     throw new FetchError(`Stream reading error: ${(err as Error).message}`, 'NETWORK_ERROR')
+  } finally {
+    if (deadline.signal.aborted) {
+      try {
+        await reader.cancel()
+      } catch {
+        // Best effort cancellation on timeout.
+      }
+    }
+    try {
+      reader.releaseLock()
+    } catch {
+      // The stream may already be closed or cancelled.
+    }
   }
 
   const totalBuffer = new Uint8Array(totalBytes)
@@ -231,6 +325,8 @@ export async function safeFetchHtml(
   options: SafeFetchOptions = {}
 ): Promise<{ text: string; finalUrl: string }> {
   const startedAt = Date.now()
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const deadline = createDeadline(timeoutMs)
   let site = 'unknown'
   try {
     site = siteForHost(new URL(url).hostname) ?? 'unknown'
@@ -239,7 +335,7 @@ export async function safeFetchHtml(
   }
 
   try {
-    const result = await fetchWithLimits(url, options)
+    const result = await fetchWithLimits(url, options, deadline, timeoutMs)
     recordTiming({
       operation: 'fetch.attempts',
       site,
@@ -255,7 +351,27 @@ export async function safeFetchHtml(
       fetchErr.code === 'TIMEOUT' ||
       (fetchErr.code === 'HTTP_ERROR' && fetchErr.status !== undefined && fetchErr.status >= 500)
 
-    if (!isRetryable) {
+    // URL validation, blocked destinations, content-type and payload errors are
+    // never retried. Retry work must fit inside the one overall deadline.
+    const remaining = deadline.remainingMs()
+    if (!isRetryable || remaining <= 0 || deadline.signal.aborted) {
+      const outcome = deadline.signal.aborted ? 'timeout' : fetchOutcome(fetchErr.code)
+      recordTiming({
+        operation: 'fetch.attempts',
+        site,
+        durationMs: elapsedMs(startedAt),
+        outcome,
+        attempts: 1,
+        retryOutcome: 'not_retried',
+      })
+      if (deadline.signal.aborted) throw timeoutError(timeoutMs)
+      throw err
+    }
+
+    // Keep the backoff bounded by the remaining budget. If the whole budget
+    // cannot cover the delay plus another attempt, fail predictably instead.
+    const backoffMs = Math.min(RETRY_DELAY_MS, remaining)
+    if (remaining <= backoffMs + 1) {
       recordTiming({
         operation: 'fetch.attempts',
         site,
@@ -267,10 +383,22 @@ export async function safeFetchHtml(
       throw err
     }
 
-    // Single retry with a brief backoff
-    await new Promise((resolve) => setTimeout(resolve, 300))
     try {
-      const result = await fetchWithLimits(url, options)
+      await withinDeadline(delay(backoffMs), deadline, timeoutMs)
+    } catch {
+      recordTiming({
+        operation: 'fetch.attempts',
+        site,
+        durationMs: elapsedMs(startedAt),
+        outcome: 'timeout',
+        attempts: 1,
+        retryOutcome: 'failed',
+      })
+      throw timeoutError(timeoutMs)
+    }
+
+    try {
+      const result = await fetchWithLimits(url, options, deadline, timeoutMs)
       recordTiming({
         operation: 'fetch.attempts',
         site,
@@ -282,15 +410,19 @@ export async function safeFetchHtml(
       return result
     } catch (retryErr) {
       const retryFetchErr = retryErr as FetchError
+      const timedOut = deadline.signal.aborted || retryFetchErr.code === 'TIMEOUT'
       recordTiming({
         operation: 'fetch.attempts',
         site,
         durationMs: elapsedMs(startedAt),
-        outcome: fetchOutcome(retryFetchErr.code),
+        outcome: timedOut ? 'timeout' : fetchOutcome(retryFetchErr.code),
         attempts: 2,
         retryOutcome: 'failed',
       })
+      if (timedOut) throw timeoutError(timeoutMs)
       throw retryErr
     }
+  } finally {
+    deadline.dispose()
   }
 }
