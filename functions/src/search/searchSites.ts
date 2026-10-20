@@ -51,7 +51,10 @@ export async function searchSite(
   const paused = limiter.isHostPaused(host)
   if (paused.paused) {
     const durationMs = elapsedMs(startedAt)
-    recordTiming({ operation: 'search.site', site: adapter.site, durationMs, outcome: 'blocked' })
+    recordTiming({
+      operation: 'search.site', site: adapter.site, durationMs, outcome: 'blocked',
+      blockReason: 'host_paused', cooldownRemainingSeconds: paused.retryAfterSeconds,
+    })
     return {
       site: adapter.site,
       status: 'failed',
@@ -90,6 +93,9 @@ export async function searchSite(
       site: adapter.site,
       durationMs,
       outcome: failure === 'timeout' ? 'timeout' : failure === 'blocked' ? 'blocked' : 'error',
+      blockReason: failure === 'blocked' ? 'upstream_rejected' : undefined,
+      upstreamStatus: status,
+      retryAfterSeconds: err instanceof FetchError ? err.retryAfterSeconds : undefined,
     })
     return { site: adapter.site, status: 'failed', candidates: [], durationMs, failure, message }
   }

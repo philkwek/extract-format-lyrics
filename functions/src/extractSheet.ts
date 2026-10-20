@@ -732,7 +732,6 @@ export async function extractSongsWithGemini(
     } catch {
       throw new Error(`Failed to parse structured JSON from Gemini: ${text.slice(0, 200)}`)
     }
-    console.log('[extract-sheet] Gemini response payload:', JSON.stringify(parsed))
     if (!parsed.songs || !Array.isArray(parsed.songs)) {
       throw new Error('Gemini returned an invalid songs payload')
     }

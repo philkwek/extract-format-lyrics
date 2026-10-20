@@ -5,6 +5,7 @@ import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { scrapeUrls, type ScrapeResult } from './scrapePool.js'
 import { loadOfficialSimplification } from './chartSimplification.js'
 import { rateLimiter } from './rateLimit.js'
+import { clientIpFromRequest } from './clientIp.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
@@ -27,6 +28,7 @@ import {
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
+import { resolveExtractionModel } from './extractionModel.js'
 import type { SharedLyricsPayload } from './types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
@@ -69,7 +71,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     // IP Rate limit check
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const clientIp = clientIpFromRequest(req)
     const limitCheck = rateLimiter.checkIp(clientIp)
     if (!limitCheck.allowed) {
       res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -126,7 +128,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     // IP Rate limit check
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const clientIp = clientIpFromRequest(req)
     const limitCheck = rateLimiter.checkIp(clientIp)
     if (!limitCheck.allowed) {
       res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -292,7 +294,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const clientIp = clientIpFromRequest(req)
     const limitCheck = rateLimiter.checkIp(clientIp)
     if (!limitCheck.allowed) {
       res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -336,7 +338,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const clientIp = clientIpFromRequest(req)
     const limitCheck = rateLimiter.checkIp(clientIp)
     if (!limitCheck.allowed) {
       res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -402,7 +404,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     const id = lyricsShareMatch[1]
 
     if (req.method === 'PUT') {
-      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+      const clientIp = clientIpFromRequest(req)
       const limitCheck = rateLimiter.checkIp(clientIp)
       if (!limitCheck.allowed) {
         res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -485,7 +487,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     // IP Rate limit check
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown'
+    const clientIp = clientIpFromRequest(req)
     const limitCheck = rateLimiter.checkIp(clientIp)
     if (!limitCheck.allowed) {
       res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
@@ -542,7 +544,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
           total: files.length,
         })}\n`
       )
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
+      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
         expectedSongCount,
         onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
           const message = type === 'analyzing'

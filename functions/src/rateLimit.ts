@@ -15,9 +15,13 @@ interface HostRecord {
   pausedUntil: number
 }
 
+const IP_SWEEP_INTERVAL_MS = 60_000
+export const MAX_IP_RECORDS = 10_000
+
 export class RateLimiterAndCircuitBreaker {
   private ipRecords = new Map<string, IpRecord>()
   private hostRecords = new Map<string, HostRecord>()
+  private lastIpSweepAt = 0
 
   constructor(
     private readonly limits = {
@@ -31,6 +35,7 @@ export class RateLimiterAndCircuitBreaker {
 
   checkIp(ip: string): RateLimitStatus {
     const now = this.nowFn()
+    this.evictExpiredIpRecords(now)
     let rec = this.ipRecords.get(ip)
 
     if (!rec) {
@@ -41,6 +46,7 @@ export class RateLimiterAndCircuitBreaker {
         dayResetAt: now + 24 * 60 * 60_000,
       }
       this.ipRecords.set(ip, rec)
+      this.enforceIpBound()
     }
 
     // Reset minute window
@@ -68,6 +74,28 @@ export class RateLimiterAndCircuitBreaker {
     rec.minuteCount++
     rec.dayCount++
     return { allowed: true }
+  }
+
+  /** Number of tracked IPs, exposed for diagnostics and tests. */
+  get trackedIpCount(): number {
+    return this.ipRecords.size
+  }
+
+  /** Opportunistic sweep keeps idle records from accumulating indefinitely. */
+  private evictExpiredIpRecords(now: number): void {
+    if (now - this.lastIpSweepAt < IP_SWEEP_INTERVAL_MS) return
+    this.lastIpSweepAt = now
+    for (const [key, rec] of this.ipRecords) {
+      if (now >= rec.dayResetAt && now >= rec.minuteResetAt) this.ipRecords.delete(key)
+    }
+  }
+
+  private enforceIpBound(): void {
+    while (this.ipRecords.size > MAX_IP_RECORDS) {
+      const oldest = this.ipRecords.keys().next().value
+      if (oldest === undefined) return
+      this.ipRecords.delete(oldest)
+    }
   }
 
   isHostPaused(hostname: string): { paused: boolean; retryAfterSeconds?: number } {

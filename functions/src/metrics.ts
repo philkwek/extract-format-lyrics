@@ -43,6 +43,10 @@ export interface TimingMetric {
   cacheStatus?: 'hit' | 'miss' | 'stale' | 'bypass' | 'unavailable'
   attempts?: number
   retryOutcome?: 'not_retried' | 'succeeded' | 'failed'
+  blockReason?: 'upstream_rejected' | 'host_paused'
+  upstreamStatus?: number
+  retryAfterSeconds?: number
+  cooldownRemainingSeconds?: number
 }
 
 function metricsDisabled(): boolean {
@@ -62,6 +66,19 @@ export function recordTiming(metric: TimingMetric): void {
   if (metric.cacheStatus) event.cache_status = metric.cacheStatus
   if (metric.attempts !== undefined) event.attempts = Math.max(0, Math.min(10, Math.round(metric.attempts)))
   if (metric.retryOutcome) event.retry_outcome = metric.retryOutcome
+  if (metric.blockReason) event.block_reason = metric.blockReason
+  if (metric.upstreamStatus !== undefined && Number.isInteger(metric.upstreamStatus) &&
+      metric.upstreamStatus >= 100 && metric.upstreamStatus <= 599) {
+    event.upstream_status = metric.upstreamStatus
+  }
+  for (const [field, value] of [
+    ['retry_after_seconds', metric.retryAfterSeconds],
+    ['cooldown_remaining_seconds', metric.cooldownRemainingSeconds],
+  ] as const) {
+    if (value !== undefined && Number.isFinite(value)) {
+      event[field] = Math.max(0, Math.min(604_800, Math.ceil(value)))
+    }
+  }
   // Cloud Logging captures structured stdout lines; no monitoring platform is added.
   console.info(JSON.stringify(event))
 }

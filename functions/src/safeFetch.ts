@@ -6,11 +6,22 @@ export class FetchError extends Error {
   constructor(
     message: string,
     public readonly code: 'INVALID_URL' | 'SSRF_BLOCKED' | 'TIMEOUT' | 'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'HTTP_ERROR' | 'NETWORK_ERROR',
-    public readonly status?: number
+    public readonly status?: number,
+    public readonly retryAfterSeconds?: number
   ) {
     super(message)
     this.name = 'FetchError'
   }
+}
+
+function parseRetryAfter(value: string | null): number | undefined {
+  if (value === null) return undefined
+  const seconds = /^\d+$/.test(value)
+    ? Number(value)
+    : Number.isNaN(Number(value))
+      ? Math.ceil((Date.parse(value) - Date.now()) / 1000)
+      : NaN
+  return Number.isFinite(seconds) ? Math.max(0, seconds) : undefined
 }
 
 /**
@@ -245,7 +256,12 @@ async function fetchWithLimits(
   // 5. Handle HTTP status. Only 5xx is retryable; this rejects 403/429 and
   // invalid destinations without spending the retry budget.
   if (!res.ok) {
-    throw new FetchError(`HTTP error ${res.status}: ${res.statusText}`, 'HTTP_ERROR', res.status)
+    throw new FetchError(
+      `HTTP error ${res.status}: ${res.statusText}`,
+      'HTTP_ERROR',
+      res.status,
+      parseRetryAfter(res.headers.get('retry-after'))
+    )
   }
 
   // 6. Check content-type. Invalid content is never retried.
