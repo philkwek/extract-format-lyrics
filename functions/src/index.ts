@@ -28,6 +28,7 @@ import {
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
+import { resolveExtractionModel } from './extractionModel.js'
 import type { SharedLyricsPayload } from './types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
@@ -543,7 +544,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
           total: files.length,
         })}\n`
       )
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, model, {
+      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
         expectedSongCount,
         onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
           const message = type === 'analyzing'
