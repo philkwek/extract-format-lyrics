@@ -86,7 +86,7 @@ export class RateLimiterAndCircuitBreaker {
     if (now - this.lastIpSweepAt < IP_SWEEP_INTERVAL_MS) return
     this.lastIpSweepAt = now
     for (const [key, rec] of this.ipRecords) {
-      if (now >= rec.dayResetAt) this.ipRecords.delete(key)
+      if (now >= rec.dayResetAt && now >= rec.minuteResetAt) this.ipRecords.delete(key)
     }
   }
 

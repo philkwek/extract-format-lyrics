@@ -68,7 +68,7 @@ export function AppShell({
         </header>
       )}
       <main className={`mx-auto w-[96%] max-w-[92rem] pb-10 ${isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'}`}>
-        <AppErrorBoundary>
+        <AppErrorBoundary key={location.pathname}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/session/:sessionId" element={<SessionPage />} />

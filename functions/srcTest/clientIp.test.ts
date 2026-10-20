@@ -2,10 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { clientIpFromRequest } from '../src/clientIp.js'
 
 describe('clientIpFromRequest', () => {
-  it('uses the last X-Forwarded-For value', () => {
+  it('ignores a caller-supplied prefix on the direct functions path', () => {
     const ip = clientIpFromRequest({
       headers: { 'x-forwarded-for': '1.2.3.4, 203.0.113.9' },
       ip: '10.0.0.1',
+    })
+    expect(ip).toBe('203.0.113.9')
+  })
+
+  it('ignores Fastly-Client-IP on the direct functions path', () => {
+    const ip = clientIpFromRequest({
+      headers: {
+        'fastly-client-ip': '198.51.100.7',
+        'x-forwarded-for': '1.2.3.4, 203.0.113.9',
+      },
     })
     expect(ip).toBe('203.0.113.9')
   })

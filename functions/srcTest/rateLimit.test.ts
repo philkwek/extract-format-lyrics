@@ -35,6 +35,26 @@ describe('RateLimiterAndCircuitBreaker', () => {
     expect(limiter.trackedIpCount).toBe(1)
   })
 
+  it('preserves an active minute window when the daily window expires', () => {
+    let mockTime = 0
+    const limiter = new RateLimiterAndCircuitBreaker(
+      { perMinute: 1, perDay: 1000, consecutiveFailuresToPause: 3, pauseDurationSeconds: 60 },
+      () => mockTime
+    )
+
+    expect(limiter.checkIp('victim').allowed).toBe(true)
+
+    mockTime = 24 * 60 * 60_000 - 60_000
+    limiter.checkIp('other')
+
+    mockTime = 24 * 60 * 60_000 - 1
+    expect(limiter.checkIp('victim').allowed).toBe(true)
+    expect(limiter.checkIp('victim').allowed).toBe(false)
+
+    mockTime = 24 * 60 * 60_000 + 1
+    expect(limiter.checkIp('victim').allowed).toBe(false)
+  })
+
   it('bounds the number of tracked IP records', () => {
     const limiter = new RateLimiterAndCircuitBreaker()
 
