@@ -142,6 +142,8 @@ These are **simulated scheduling** results. They show that concurrent search rem
 
 The backend emits structured Cloud Logging lines with `"type":"perf"` and only bounded fields: operation, supported site identifier, duration, outcome, cache status, attempt count and retry outcome. No queries, titles, lyrics, URLs, session IDs or private content are logged. Disable logging with `PERF_METRICS=0`.
 
+For `search.site`, `outcome: "blocked"` includes `block_reason: "upstream_rejected"` when an actual request receives HTTP 403/429, or `block_reason: "host_paused"` when the circuit breaker skips the request. Rejections include `upstream_status` and, only when the source supplies a valid `Retry-After` header, `retry_after_seconds` (numeric seconds or an HTTP date converted to seconds). Pauses include `cooldown_remaining_seconds` instead. Logged delays are rounded up and bounded to zero through seven days; these diagnostic fields do not change request pacing or the circuit-breaker policy. Response bodies and other headers are not logged.
+
 The frontend reports `search_timing` to the existing GA4 stream with entry page, outcome, result count and bounded duration. It does not include the query.
 
 No live production measurements were taken for this change. Establish a baseline in Cloud Logging/GA4 before and after deployment if production evidence is required.

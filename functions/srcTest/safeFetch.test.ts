@@ -55,6 +55,42 @@ describe('assertSafeDns', () => {
 describe('safeFetchHtml', () => {
   const publicLookup = vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
 
+  it.each([
+    ['600', 600],
+    ['0', 0],
+    [null, undefined],
+    ['invalid', undefined],
+    ['-1', undefined],
+    ['1.5', undefined],
+    ['Infinity', undefined],
+  ])('preserves status and parses Retry-After %s without retrying', async (header, expected) => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('private upstream content', {
+      status: 429,
+      headers: header === null ? {} : { 'Retry-After': header },
+    }))
+    await expect(safeFetchHtml('https://pnwchords.com/?s=private-query', {
+      lookupFn: publicLookup as unknown as DnsLookupFn,
+      fetchFn: mockFetch as unknown as typeof fetch,
+    })).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 429, retryAfterSeconds: expected })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([60, -60])('parses a Retry-After HTTP date %s seconds from now', async (offset) => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 20, 4, 0, 0))
+    try {
+      const mockFetch = vi.fn().mockResolvedValue(new Response('Forbidden', {
+        status: 403,
+        headers: { 'Retry-After': new Date(Date.now() + offset * 1000).toUTCString() },
+      }))
+      await expect(safeFetchHtml('https://pnwchords.com/', {
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      })).rejects.toMatchObject({ status: 403, retryAfterSeconds: Math.max(0, offset) })
+    } finally {
+      now.mockRestore()
+    }
+  })
+
   it('rejects non-allowlisted domains before fetch', async () => {
     await expect(safeFetchHtml('https://evil.com/song')).rejects.toThrow(/not supported/)
   })

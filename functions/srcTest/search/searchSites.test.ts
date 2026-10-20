@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FetchError } from '../../src/safeFetch.js'
 import { RateLimiterAndCircuitBreaker } from '../../src/rateLimit.js'
 import { classifySearchError, searchSite, searchSites } from '../../src/search/searchSites.js'
 import { SearchParseError, type SearchAdapter, type SearchCandidate } from '../../src/search/types.js'
+
+afterEach(() => vi.restoreAllMocks())
 
 function candidate(site: string, url = `https://${site}.example/song`): SearchCandidate {
   return { site, title: 'Song', artist: 'Artist', url }
@@ -108,9 +110,11 @@ describe('searchSites', () => {
   })
 
   it('opens the existing host pause after repeated blocked responses', async () => {
-    const limiter = new RateLimiterAndCircuitBreaker()
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    let now = 0
+    const limiter = new RateLimiterAndCircuitBreaker(undefined, () => now)
     const blocked = vi.fn(async () => {
-      throw new FetchError('HTTP error 429', 'HTTP_ERROR', 429)
+      throw new FetchError('HTTP error 429: private upstream content', 'HTTP_ERROR', 429, 120)
     })
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -122,6 +126,11 @@ describe('searchSites', () => {
       expect(outcome).toMatchObject({ status: 'failed', failure: 'blocked' })
     }
 
+    expect(JSON.parse(info.mock.calls[2][0] as string)).toMatchObject({
+      block_reason: 'upstream_rejected', upstream_status: 429, retry_after_seconds: 120,
+    })
+
+    now = 10_000
     const paused = await searchSite(
       { site: 'ultimate-guitar', search: blocked },
       'song',
@@ -130,6 +139,23 @@ describe('searchSites', () => {
     expect(paused).toMatchObject({ status: 'failed', failure: 'blocked' })
     expect(paused.message).toMatch(/paused/i)
     expect(blocked).toHaveBeenCalledTimes(3)
+    const event = JSON.parse(info.mock.calls[3][0] as string)
+    expect(event).toMatchObject({ block_reason: 'host_paused', cooldown_remaining_seconds: 590 })
+    expect(event).not.toHaveProperty('upstream_status')
+    expect(event).not.toHaveProperty('retry_after_seconds')
+    expect(JSON.stringify(info.mock.calls)).not.toMatch(/private upstream content|song/)
+  })
+
+  it('logs a 403 without inventing a source retry delay', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await searchSite({ site: 'pnwchords', search: async () => {
+      throw new FetchError('Forbidden', 'HTTP_ERROR', 403)
+    } }, 'private-query', { limiter: new RateLimiterAndCircuitBreaker() })
+    const event = JSON.parse(info.mock.calls[0][0] as string)
+    expect(event).toMatchObject({ block_reason: 'upstream_rejected', upstream_status: 403 })
+    expect(event).not.toHaveProperty('retry_after_seconds')
+    expect(event).not.toHaveProperty('cooldown_remaining_seconds')
+    expect(JSON.stringify(event)).not.toContain('private-query')
   })
 })
 
