@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { RateLimiterAndCircuitBreaker } from '../src/rateLimit.js'
+import { MAX_IP_RECORDS, RateLimiterAndCircuitBreaker } from '../src/rateLimit.js'
 
 describe('RateLimiterAndCircuitBreaker', () => {
   it('enforces per-minute IP limit and returns retryAfter', () => {
@@ -18,6 +18,31 @@ describe('RateLimiterAndCircuitBreaker', () => {
     // Advance time past minute window
     mockTime += 61_000
     expect(limiter.checkIp('1.2.3.4').allowed).toBe(true)
+  })
+
+  it('removes stale IP records during an opportunistic sweep', () => {
+    let mockTime = 1000
+    const limiter = new RateLimiterAndCircuitBreaker(
+      { perMinute: 30, perDay: 300, consecutiveFailuresToPause: 3, pauseDurationSeconds: 60 },
+      () => mockTime
+    )
+
+    limiter.checkIp('1.2.3.4')
+    expect(limiter.trackedIpCount).toBe(1)
+
+    mockTime += 25 * 60 * 60_000
+    limiter.checkIp('203.0.113.9')
+    expect(limiter.trackedIpCount).toBe(1)
+  })
+
+  it('bounds the number of tracked IP records', () => {
+    const limiter = new RateLimiterAndCircuitBreaker()
+
+    for (let index = 0; index <= MAX_IP_RECORDS; index += 1) {
+      limiter.checkIp(`198.51.100.${index}`)
+    }
+
+    expect(limiter.trackedIpCount).toBe(MAX_IP_RECORDS)
   })
 
   it('trips circuit breaker after consecutive 403/429 failures', () => {
