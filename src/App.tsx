@@ -12,6 +12,7 @@ import PrivacyPage from './pages/PrivacyPage'
 import { trackPage, setTrackingEnabled } from './lib/analytics'
 
 import { IconButton } from './components/ui'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 
 export function AppShell({
   isDark,
@@ -67,14 +68,16 @@ export function AppShell({
         </header>
       )}
       <main className={`mx-auto w-[96%] max-w-[92rem] pb-10 ${isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'}`}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/session/:sessionId" element={<SessionPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/s/:shortId" element={<ShareImportPage />} />
-          <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
-        </Routes>
+        <AppErrorBoundary>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/session/:sessionId" element={<SessionPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/s/:shortId" element={<ShareImportPage />} />
+            <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
+          </Routes>
+        </AppErrorBoundary>
       </main>
       <footer className="mx-auto max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
         <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>

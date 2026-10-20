@@ -1,6 +1,14 @@
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore'
-import type { SharedSetSnapshot, SharedSetSong } from './types.js'
+import type {
+  ChordPlacement,
+  Line,
+  Section,
+  SectionType,
+  SharedSetSnapshot,
+  SharedSetSong,
+  Song,
+} from './types.js'
 
 export const MAX_SHARED_SET_SONGS = 15
 export const SHARE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -16,16 +24,118 @@ function database(): Firestore {
   return getFirestore()
 }
 
-export function isSharedSetSnapshot(value: unknown): value is SharedSetSnapshot {
-  if (!value || typeof value !== 'object') return false
-  const snapshot = value as Partial<SharedSetSnapshot>
-  return snapshot.v === 2 && typeof snapshot.name === 'string' && snapshot.name.trim().length > 0 &&
-    Array.isArray(snapshot.songs) && snapshot.songs.length > 0 && snapshot.songs.length <= MAX_SHARED_SET_SONGS &&
-    snapshot.songs.every((entry) =>
-      entry && typeof entry.entryId === 'string' && entry.entryId.length > 0 &&
-      entry.song && typeof entry.song === 'object' && typeof entry.song.id === 'string' &&
-      typeof entry.song.sourceUrl === 'string' && Array.isArray(entry.song.sections)
+const SECTION_TYPES: ReadonlySet<string> = new Set<SectionType>([
+  'Intro',
+  'Verse',
+  'Pre-Chorus',
+  'Chorus',
+  'Bridge',
+  'Outro',
+  'Instrumental',
+  'Other',
+])
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object'
+}
+
+function isSectionArray(value: unknown): value is Section[] {
+  return Array.isArray(value) && value.every(isSection)
+}
+
+export function isChordPlacement(value: unknown): value is ChordPlacement {
+  if (!isObject(value)) return false
+  return (
+    typeof value.pos === 'number' &&
+    Number.isFinite(value.pos) &&
+    typeof value.chord === 'string'
+  )
+}
+
+export function isLine(value: unknown): value is Line {
+  if (!isObject(value)) return false
+  if (value.kind === 'lyric') {
+    return (
+      typeof value.text === 'string' &&
+      Array.isArray(value.chords) &&
+      value.chords.every(isChordPlacement) &&
+      (value.splitFromPrevious === undefined || typeof value.splitFromPrevious === 'boolean')
     )
+  }
+  if (value.kind === 'chords-only') {
+    return (
+      Array.isArray(value.chords) &&
+      value.chords.every((chord) => typeof chord === 'string')
+    )
+  }
+  if (value.kind === 'tab') {
+    return typeof value.raw === 'string'
+  }
+  return false
+}
+
+export function isSection(value: unknown): value is Section {
+  if (!isObject(value)) return false
+  return (
+    typeof value.type === 'string' &&
+    SECTION_TYPES.has(value.type) &&
+    typeof value.label === 'string' &&
+    Array.isArray(value.lines) &&
+    value.lines.every(isLine)
+  )
+}
+
+export function isSong(value: unknown): value is Song {
+  if (!isObject(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.artist === 'string' &&
+    typeof value.sourceUrl === 'string' &&
+    typeof value.sourceSite === 'string' &&
+    (value.originalKey === null || typeof value.originalKey === 'string') &&
+    (value.capo === undefined ||
+      (typeof value.capo === 'number' && Number.isFinite(value.capo))) &&
+    Array.isArray(value.sections) &&
+    value.sections.every(isSection) &&
+    (value.simplifiedSections === undefined || isSectionArray(value.simplifiedSections)) &&
+    (value.simplifiedSource === undefined ||
+      value.simplifiedSource === 'official' ||
+      value.simplifiedSource === 'algorithmic') &&
+    (value.simplificationPending === undefined ||
+      typeof value.simplificationPending === 'boolean')
+  )
+}
+
+export function isSharedSetSong(value: unknown): value is SharedSetSong {
+  if (!isObject(value)) return false
+  return (
+    typeof value.entryId === 'string' &&
+    value.entryId.length > 0 &&
+    isSong(value.song) &&
+    (value.customSections === undefined || isSectionArray(value.customSections)) &&
+    (value.customSimplifiedSections === undefined ||
+      isSectionArray(value.customSimplifiedSections)) &&
+    (value.targetKey === undefined || typeof value.targetKey === 'string') &&
+    (value.padKeyMode === undefined ||
+      value.padKeyMode === 'match' ||
+      value.padKeyMode === 'custom') &&
+    (value.customPadKey === undefined || typeof value.customPadKey === 'string') &&
+    (value.simplified === undefined || typeof value.simplified === 'boolean')
+  )
+}
+
+export function isSharedSetSnapshot(value: unknown): value is SharedSetSnapshot {
+  if (!isObject(value)) return false
+  return (
+    value.v === 2 &&
+    typeof value.name === 'string' &&
+    value.name.trim().length > 0 &&
+    Array.isArray(value.songs) &&
+    value.songs.length > 0 &&
+    value.songs.length <= MAX_SHARED_SET_SONGS &&
+    value.songs.every(isSharedSetSong)
+  )
 }
 
 export function isExpired(expiresAt: Date | null, now: Date): boolean {
