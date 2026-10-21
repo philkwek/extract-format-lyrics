@@ -1,0 +1,7 @@
+<svg fill="#3368a0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="symbol-title"><title>Chord Sheets</title>
+  <title id="symbol-title">Chord Sheets Symbol</title>
+  <g fill="#3368a0">
+    <path fill-rule="evenodd" d="M 60 20 H 152 V 64 A 20 20 0 0 0 172 84 H 224 V 208 A 28 28 0 0 1 196 236 H 60 A 28 28 0 0 1 32 208 V 48 A 28 28 0 0 1 60 20 Z M 72 58 H 104 A 8 8 0 0 1 112 66 V 78 A 8 8 0 0 1 104 86 H 72 A 8 8 0 0 1 64 78 V 66 A 8 8 0 0 1 72 58 Z M 72 96 H 172 A 8 8 0 0 1 180 104 V 104 A 8 8 0 0 1 172 112 H 72 A 8 8 0 0 1 64 104 V 104 A 8 8 0 0 1 72 96 Z M 72 140 H 104 A 8 8 0 0 1 112 148 V 160 A 8 8 0 0 1 104 168 H 72 A 8 8 0 0 1 64 160 V 148 A 8 8 0 0 1 72 140 Z M 136 140 H 168 A 8 8 0 0 1 176 148 V 160 A 8 8 0 0 1 168 168 H 136 A 8 8 0 0 1 128 160 V 148 A 8 8 0 0 1 136 140 Z M 72 178 H 184 A 8 8 0 0 1 192 186 V 186 A 8 8 0 0 1 184 194 H 72 A 8 8 0 0 1 64 186 V 186 A 8 8 0 0 1 72 178 Z"/>
+    <path d="M 168 20 L 224 76 H 176 A 8 8 0 0 1 168 68 V 20 Z"/>
+  </g>
+</svg>
