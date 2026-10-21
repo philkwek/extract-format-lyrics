@@ -55,7 +55,7 @@ const HOME_TIPS = [
 export default function HomePage() {
   const navigate = useNavigate()
   const [homeTip] = useState(() => HOME_TIPS[Math.floor(Math.random() * HOME_TIPS.length)])
-  const [createMode, setCreateMode] = useState<'paste' | 'search'>('paste')
+  const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
 
   // Paste mode state
   const [inputText, setInputText] = useState('')
@@ -253,8 +253,8 @@ export default function HomePage() {
               value={createMode}
               onChange={setCreateMode}
               options={[
-                { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
                 { value: 'search', label: 'Search', icon: <Search size={14} /> },
+                { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
               ]}
             />
             <Button variant="secondary" icon={<FileUp size={15} />} onClick={() => setIsUploadModalOpen(true)}>

@@ -75,6 +75,7 @@ describe('usage events at action boundaries', () => {
     } as never)
     vi.spyOn(songCache, 'recordFailed').mockResolvedValue()
     home()
+    fireEvent.click(screen.getByRole('tab', { name: 'Paste links' }))
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'https://pnwchords.com/cached/\nhttps://pnwchords.com/failure/' },
     })
@@ -87,6 +88,7 @@ describe('usage events at action boundaries', () => {
   it('does not report cached songs as imported when saving fails', async () => {
     vi.mocked(sessionStore.createSession).mockRejectedValue(new Error('storage unavailable'))
     home()
+    fireEvent.click(screen.getByRole('tab', { name: 'Paste links' }))
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'https://pnwchords.com/cached/' },
     })
