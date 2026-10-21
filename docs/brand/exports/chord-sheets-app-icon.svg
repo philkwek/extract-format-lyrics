@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><title>Chord Sheets</title><rect width="256" height="256" rx="57.6" fill="#3368A0"/><g transform="translate(33.92 33.92) scale(0.735)" fill="#ffffff">
+  <title id="symbol-small-title">Chord Sheets Small Icon</title>
+  <g fill="#ffffff">
+    <path fill-rule="evenodd" d="M 60 20 H 148 V 68 A 20 20 0 0 0 168 88 H 224 V 208 A 28 28 0 0 1 196 236 H 60 A 28 28 0 0 1 32 208 V 48 A 28 28 0 0 1 60 20 Z M 74 96 H 102 A 10 10 0 0 1 112 106 V 126 A 10 10 0 0 1 102 136 H 74 A 10 10 0 0 1 64 126 V 106 A 10 10 0 0 1 74 96 Z M 138 96 H 166 A 10 10 0 0 1 176 106 V 126 A 10 10 0 0 1 166 136 H 138 A 10 10 0 0 1 128 126 V 106 A 10 10 0 0 1 138 96 Z M 74 156 H 182 A 10 10 0 0 1 192 166 V 178 A 10 10 0 0 1 182 188 H 74 A 10 10 0 0 1 64 178 V 166 A 10 10 0 0 1 74 156 Z"/>
+    <path d="M 168 20 L 224 76 H 176 A 8 8 0 0 1 168 68 V 20 Z"/>
+  </g>
+</g></svg>
