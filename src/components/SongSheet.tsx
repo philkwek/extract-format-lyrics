@@ -245,7 +245,7 @@ function renderLine(
   return (
     <div
       key={key}
-      className={`min-w-0 py-0.5 ${
+      className={`min-w-0 ${
         isSplitting ? '-mx-1 rounded bg-[#C8DFDB]/40 px-1 dark:bg-amber-400/10' : ''
       }`}
     >
@@ -566,7 +566,7 @@ export default function SongSheet({
                   onDrop={(e) => handleDrop(e, originalIndex)}
                   onDragEnd={handleDragEnd}
                   title={onReorderSections ? 'Drag section to reorder' : undefined}
-                  className={`section-block mb-6 relative transition-all rounded-xl p-3 -m-3 select-none ${
+                  className={`section-block relative transition-all rounded-xl p-3 -m-3 select-none ${
                     onReorderSections
                       ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100/60 dark:hover:bg-[#1a1a1a]/60'
                       : ''
