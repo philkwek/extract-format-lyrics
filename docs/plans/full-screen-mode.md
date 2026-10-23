@@ -55,6 +55,7 @@ Required:
 - Song tabs for the set (horizontally scrollable, active tab auto-scrolled into view).
 - Song title, artist and capo.
 - Transpose selector. The original-key badge is omitted because the selector already marks the original key.
+- Simplify toggle beside the transpose selector when the song has simplified chords.
 - Ambient pad button.
 - Pads Key switch (Match Song / Custom) and custom pad key selector when Custom is active. Pad controls sit on the name row.
 - View controls: columns 1/2/3/4, Fit toggle and text size. These are collapsed behind a **Customise** button on the name row and expand as a row below it.
@@ -64,7 +65,7 @@ Required:
 Confirmed exclusions:
 
 - Set name and all set-management actions (Share set, Share lyrics, Arrange, Add song, Upload).
-- Simplify, Edit chords and Restore original. These remain available in normal mode only.
+- Edit chords and Restore original. These remain available in normal mode only.
 - External source link.
 - Per-song remove buttons and drag-reorder affordances. Tabs remain clickable and keyboard-navigable for switching songs.
 - The "Customize sections" tip.
@@ -132,7 +133,7 @@ This avoids a confusing state where the user changes a control and Fit immediate
 
 - Full screen is a performance/playback view, so entering it closes chord-editing, split-line and chord-position modes.
 - The floating chord-position toolbar and chord keyboard are therefore not present in full-screen mode.
-- Simplify is also hidden in full-screen mode and remains a normal-mode action. If the user toggles Simplify in normal mode, Fit recalculates the next time full screen is entered.
+- Simplify is available in both modes. In full screen it sits beside the transpose selector. Toggling it changes the sections used by the sheet, so Fit re-runs immediately.
 
 ## 4. Chrome hiding
 
@@ -266,7 +267,7 @@ export interface SongDisplayPrefs {
 3. **Fit priority:** keep the user's text size first. Try the other column counts (1–4) at that size, then shrink text if necessary.
 4. **Manual override:** changing columns or text size while Fit is active turns Fit off for that song. A visible **Fit** button lets the user re-enable auto-fit.
 5. **4th column:** available as a manual view control everywhere, in normal and full-screen modes. It is not limited to Fit.
-6. **Full-screen controls:** only the listed controls. Set management, Simplify, Edit chords, Restore original and the source link are hidden.
+6. **Full-screen controls:** only the listed controls. Set management, Edit chords, Restore original and the source link are hidden; Simplify stays beside transpose.
 
 ### Assumptions for the remaining details
 
@@ -281,7 +282,7 @@ These were the assumptions used during implementation.
 
 ## 9. Implementation notes
 
-- **Compact full-screen name row.** The song title/artist/capo sit on the left. Transpose, pad controls and the **Customise** button sit on the right. On narrow windows the right group wraps below the title and stays right-aligned; on tablet/desktop widths it shares the name row. The original-key badge is removed in full screen only.
+- **Compact full-screen name row.** The song title/artist/capo sit on the left. Transpose, the optional Simplify toggle, pad controls and the **Customise** button sit on the right. On narrow windows the right group wraps below the title and stays right-aligned; on tablet/desktop widths it shares the name row. The original-key badge is removed in full screen only.
 - **Collapsible view controls.** Columns 1–4, Fit and text size are hidden by default behind the Customise button. Opening it renders a compact row below the name row; the status line stays visible in both states. The button uses `aria-expanded` / `aria-controls`.
 - **Pad controls are shared.** `PadControls` is reused by the normal-mode `DisplayControls` and by the full-screen name row. The full-screen variant drops the visible "Pads Key:" label and shortens the button to "Play Pad" (with a full accessible label), saving horizontal space.
 - **Fourth column is a real manual control** in `DisplayControls` for both normal and full-screen modes. On screens below the existing `sm` breakpoint (640px), the responsive grid still collapses multi-column layouts to one column, matching the existing behaviour of the 2- and 3-column options.
