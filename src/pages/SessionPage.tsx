@@ -1472,10 +1472,7 @@ export default function SessionPage() {
           isOpen={isEditSetOpen}
           onClose={() => setIsEditSetOpen(false)}
           session={session}
-          onArrange={() => {
-            setIsEditSetOpen(false)
-            setIsArrangingSongs(true)
-          }}
+          onArrange={() => setIsArrangingSongs(true)}
           onSessionUpdated={handleSessionUpdated}
           onImportUploadedSongs={handleImportUploadedSongs}
         />
