@@ -231,4 +231,26 @@ describe('DisplayControls — columns and fit', () => {
     expect(screen.queryByRole('button', { name: 'Edit chords' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull()
   })
+
+  it('can render only the view controls without pad or status content', () => {
+    render(
+      <DisplayControls
+        prefs={defaultPrefs}
+        onChangePrefs={vi.fn()}
+        variant="fullscreen"
+        showPads={false}
+        showStatus={false}
+        currentKey="G"
+        isPadPlaying={false}
+        onTogglePad={vi.fn()}
+        fitActive={true}
+        fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
+        onToggleFit={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Fit' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /ambient pad/i })).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
 })
