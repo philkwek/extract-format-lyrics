@@ -30,6 +30,7 @@ import UploadSheetModal from '../components/UploadSheetModal'
 import { useThemeMode } from '../lib/useThemeMode'
 
 import { getChordPos, setChordPos } from '../lib/chordNudge'
+import { identityFlow } from '../lib/sectionFlow'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
@@ -141,10 +142,19 @@ export default function SessionPage() {
             origMap.set(item.entryId || item.url, loaded)
             let songToUse = loaded
             if (item.customSections) {
-              songToUse = { ...songToUse, sections: item.customSections }
+              songToUse = {
+                ...songToUse,
+                sections: item.customSections,
+                flow: item.customFlow ?? identityFlow(item.customSections.length),
+              }
             }
             if (item.customSimplifiedSections && songToUse.simplifiedSections) {
-              songToUse = { ...songToUse, simplifiedSections: item.customSimplifiedSections }
+              songToUse = {
+                ...songToUse,
+                simplifiedSections: item.customSimplifiedSections,
+                simplifiedFlow:
+                  item.customSimplifiedFlow ?? identityFlow(item.customSimplifiedSections.length),
+              }
             }
             map.set(item.entryId || item.url, songToUse)
           }
