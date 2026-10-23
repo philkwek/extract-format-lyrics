@@ -22,8 +22,9 @@ The song sheet is the page: it should fill the remaining viewport height below a
 ┌──────────────────────────────────────────────────────────────────────┐
 │ [Song 1] [Song 2] [Song 3] ...                         [Exit full]  │  ← tabs row
 ├──────────────────────────────────────────────────────────────────────┤
-│ Song title · artist / capo     Key [G ▾]   Pad [Match|Custom ▾] ▶    │  ← song row
-│                              Columns [1|2|3|4|Fit]  Size [A− 14 A+]  │
+│ Song title · artist / capo       [G (Original) ▾] [Pads ▶] [Customise] │  ← name row
+│ [Columns 1 2 3 4 | Fit]  [A− 11 A+]                                 │  ← only when open
+│ Auto layout · 3 columns · 11px                                      │  ← status
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │   chord sheet viewport                                               │
@@ -53,10 +54,11 @@ Required:
 
 - Song tabs for the set (horizontally scrollable, active tab auto-scrolled into view).
 - Song title, artist and capo.
-- Transpose selector / current key / original key.
+- Transpose selector. The original-key badge is omitted because the selector already marks the original key.
 - Ambient pad button.
-- Pads Key switch (Match Song / Custom) and custom pad key selector when Custom is active.
-- View controls: columns 1/2/3/4, Fit toggle, text size.
+- Pads Key switch (Match Song / Custom) and custom pad key selector when Custom is active. Pad controls sit on the name row.
+- View controls: columns 1/2/3/4, Fit toggle and text size. These are collapsed behind a **Customise** button on the name row and expand as a row below it.
+- A compact status line for the fit result or overflow warning.
 - Exit full-screen control.
 
 Confirmed exclusions:
@@ -279,6 +281,9 @@ These were the assumptions used during implementation.
 
 ## 9. Implementation notes
 
+- **Compact full-screen name row.** The song title/artist/capo sit on the left. Transpose, pad controls and the **Customise** button sit on the right. On narrow windows the right group wraps below the title and stays right-aligned; on tablet/desktop widths it shares the name row. The original-key badge is removed in full screen only.
+- **Collapsible view controls.** Columns 1–4, Fit and text size are hidden by default behind the Customise button. Opening it renders a compact row below the name row; the status line stays visible in both states. The button uses `aria-expanded` / `aria-controls`.
+- **Pad controls are shared.** `PadControls` is reused by the normal-mode `DisplayControls` and by the full-screen name row. The full-screen variant drops the visible "Pads Key:" label and shortens the button to "Play Pad" (with a full accessible label), saving horizontal space.
 - **Fourth column is a real manual control** in `DisplayControls` for both normal and full-screen modes. On screens below the existing `sm` breakpoint (640px), the responsive grid still collapses multi-column layouts to one column, matching the existing behaviour of the 2- and 3-column options.
 - **Fit measures the live viewport** (`clientWidth`/`clientHeight`) rather than cached dimensions or `window.innerHeight`. The selection runs on a microtask, then verifies the rendered DOM and steps down one font pixel at a time until the sheet fits or reaches the readable minimum. This also avoids throttled `requestAnimationFrame` callbacks in background tabs.
 - **Manual overflow remains scrollable.** When Fit is off or cannot fit at the minimum size, the full-screen sheet viewport uses `overflow-auto`, so manually selected narrow columns are not silently clipped.
