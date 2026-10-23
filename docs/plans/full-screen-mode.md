@@ -1,6 +1,6 @@
 # Full Screen Mode + Fit to Screen — Implementation Plan
 
-Status: Draft for review
+Status: Implemented
 Scope: the setlist chord-sheet view (`/session/:sessionId`) only
 
 The shared lyrics view (`/lyrics/:shortId`) is explicitly out of scope and must not change.
@@ -108,7 +108,7 @@ The existing `useFitToScreen.ts` prototype is unused and calculates against `win
 - Extend `partitionSections` to support 4 balanced, chronological columns. Prefer a generic dynamic-programming partitioner over the current special-case 2/3-column code; preserve order and minimise the tallest column, then minimise spread.
 - Extend `SheetColumns` to `1 | 2 | 3 | 4` for the rendered layout. `ManualColumns` is also `1 | 2 | 3 | 4`, and the column control shows `1 2 3 4` in both normal and full-screen modes.
 - Add the 4-column grid variant in `SongSheet.tsx` and verify `visibleColumnPartitions`, adaptive column widths, and empty-column handling.
-- Manual 4 columns is allowed at any width; the existing lyric-overflow warning informs the user if the columns are too narrow. Fit will not auto-select a 4-column layout that overflows.
+- Manual 4 columns follows the same responsive widths as 2/3 columns; below the existing `sm` breakpoint the grid still collapses to one column. At multi-column widths, the existing lyric-overflow warning informs the user if columns are too narrow. Fit will not auto-select a 4-column layout that overflows.
 - If Fit finds that 4 columns would cause overflow, it falls back to 3 (or the widest valid count) before shrinking text.
 
 #### Failure state
@@ -268,7 +268,7 @@ export interface SongDisplayPrefs {
 
 ### Assumptions for the remaining details
 
-These follow the recommended defaults from the review; correct them if needed before implementation.
+These were the assumptions used during implementation.
 
 7. **Song metadata:** full screen keeps title, artist and capo, but hides the external source link.
 8. **Persistence:** full-screen state is session-only (refresh starts normal). The per-song Fit preference and manual columns persist in `localStorage`.
@@ -276,3 +276,13 @@ These follow the recommended defaults from the review; correct them if needed be
 10. **Editing:** entering full screen exits chord-editing, split-line and chord-position modes. There is no editing UI in full screen.
 11. **Keyboard:** entry is via the Full screen button; exit is via the Exit button or `Escape`. No extra shortcut.
 12. **Mobile:** Fit tries to remove scrolling down to 11px. If it cannot fit, the sheet viewport scrolls with a compact notice; text is never clipped.
+
+## 9. Implementation notes
+
+- **Fourth column is a real manual control** in `DisplayControls` for both normal and full-screen modes. On screens below the existing `sm` breakpoint (640px), the responsive grid still collapses multi-column layouts to one column, matching the existing behaviour of the 2- and 3-column options.
+- **Fit measures the live viewport** (`clientWidth`/`clientHeight`) rather than cached dimensions or `window.innerHeight`. The selection runs on a microtask, then verifies the rendered DOM and steps down one font pixel at a time until the sheet fits or reaches the readable minimum. This also avoids throttled `requestAnimationFrame` callbacks in background tabs.
+- **Manual overflow remains scrollable.** When Fit is off or cannot fit at the minimum size, the full-screen sheet viewport uses `overflow-auto`, so manually selected narrow columns are not silently clipped.
+- **Full-screen section chrome is removed** by not passing the section edit/reorder/delete callbacks to `SongSheet`. This also removes the drag grip, rename pencil and delete button; tabs remain switchable but cannot be reordered or removed.
+- **Fit-safe transitions.** Section blocks no longer use `transition-all`; animating `font-size` during a fit change caused the verification pass to observe transient overflow. The narrower transition keeps hover/drag feedback without affecting text metrics.
+- **Focus handling.** Entering full screen records the triggering button; exiting through the button or `Escape` restores focus to it. Escape is ignored while a dialog, input, select or textarea is focused.
+- **Tests added:** `srcTest/lib/useFitToScreen.test.ts`, `srcTest/pages/SessionPage.test.tsx`, plus updates to `songLayout`, `songPrefs`, `DisplayControls` and `App` tests.
