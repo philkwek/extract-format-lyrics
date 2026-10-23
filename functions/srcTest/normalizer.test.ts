@@ -171,7 +171,7 @@ Hallelujah
     })
   })
 
-  it('removes duplicate contiguous sections with identical lyrics and chords', () => {
+  it('groups duplicate sections with identical lyrics and chords while preserving flow', () => {
     const raw = `
 [Instrumental]
 G   A   D
@@ -200,11 +200,15 @@ You gave me chance after chance
 D
 All my life
 `
-    const sections = normalizeSongText(raw)
-    expect(sections.length).toBe(3)
+    const normalized = normalizeSongText(raw)
+    expect(normalized).toHaveLength(4)
+
+    const { sections, flow } = deduplicateSongSections(normalized)
+    expect(sections).toHaveLength(3)
     expect(sections[0].label).toBe('Instrumental')
     expect(sections[1].label).toBe('Bridge')
     expect(sections[2].label).toBe('Chorus 1')
+    expect(flow).toEqual([0, 1, 1, 2])
   })
 
   it('removes duplicate lines separated by blank lines', () => {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { Song } from './types.js'
 import { siteForHost } from './urls.js'
 import { safeFetchHtml } from './safeFetch.js'
-import { normalizeSongText, inferKeyFromChords } from './normalizer.js'
+import { normalizeSongText, deduplicateSongSections, inferKeyFromChords } from './normalizer.js'
 import { normalizeSongKey } from './keyDetector.js'
 import { simplifySections } from './simplifyChords.js'
 import { ultimateGuitarAdapter } from './adapters/ultimateGuitar.js'
@@ -59,12 +59,17 @@ export async function scrapeSingleUrl(
   const adapter = adapterForUrl(finalUrl)
   const parseStartedAt = Date.now()
   let rawSong: ReturnType<SiteAdapter['extract']>
+  let fullSections: ReturnType<typeof normalizeSongText>
   let sections: ReturnType<typeof normalizeSongText>
+  let flow: number[]
   let key: string | null
   try {
     rawSong = adapter.extract(html, finalUrl)
-    sections = normalizeSongText(rawSong.content)
-    key = inferKeyFromChords(sections) ?? normalizeSongKey(rawSong.originalKey)
+    fullSections = normalizeSongText(rawSong.content)
+    key = inferKeyFromChords(fullSections) ?? normalizeSongKey(rawSong.originalKey)
+    const normal = deduplicateSongSections(fullSections)
+    sections = normal.sections
+    flow = normal.flow
     recordTiming({
       operation: 'chart.parse',
       site: sourceSite,
@@ -82,11 +87,14 @@ export async function scrapeSingleUrl(
   }
 
   let simplifiedSections: typeof sections | undefined
+  let simplifiedFlow: number[] | undefined
   let simplifiedSource: 'official' | 'algorithmic' | undefined
   let simplificationPending = false
 
   if (rawSong.simplifiedContent) {
-    simplifiedSections = normalizeSongText(rawSong.simplifiedContent)
+    const simplified = deduplicateSongSections(normalizeSongText(rawSong.simplifiedContent))
+    simplifiedSections = simplified.sections
+    simplifiedFlow = simplified.flow
     simplifiedSource = 'official'
   } else if (sourceSite === 'ultimate-guitar' && rawSong.isSimplifyAvailable) {
     // Do not delay the original chart for the optional official simplification.
@@ -96,12 +104,15 @@ export async function scrapeSingleUrl(
 
   // If no usable official simplified chart was obtained, generate algorithmic fallback
   if (!simplifiedSections || simplifiedSections.length === 0) {
-    const { sections: fallbackSections, changedCount } = simplifySections(sections)
+    const { sections: fallbackSections, changedCount } = simplifySections(fullSections)
     if (changedCount > 0) {
-      simplifiedSections = fallbackSections
+      const simplified = deduplicateSongSections(fallbackSections)
+      simplifiedSections = simplified.sections
+      simplifiedFlow = simplified.flow
       simplifiedSource = 'algorithmic'
     } else {
       simplifiedSections = undefined
+      simplifiedFlow = undefined
       simplifiedSource = undefined
     }
   }
@@ -115,7 +126,9 @@ export async function scrapeSingleUrl(
     originalKey: key,
     capo: rawSong.capo,
     sections,
+    flow,
     simplifiedSections,
+    simplifiedFlow,
     simplifiedSource,
     simplificationPending: simplificationPending || undefined,
   }

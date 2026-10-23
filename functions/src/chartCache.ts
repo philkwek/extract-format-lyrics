@@ -5,7 +5,7 @@ import type { Song } from './types.js'
 import { checkUrl } from './urls.js'
 
 /** Bump when the normalized Song schema or adapter output changes. */
-export const CHART_CACHE_VERSION = 'chart-v1'
+export const CHART_CACHE_VERSION = 'chart-v2'
 export const CHART_CACHE_TTL_MS = 6 * 60 * 60 * 1000
 export const CHART_ALIAS_TTL_MS = 24 * 60 * 60 * 1000
 export const CHART_CACHE_MAX_ENTRIES = 50
@@ -138,7 +138,9 @@ export function toSourceSong(song: Song): Song {
     originalKey: song.originalKey,
     capo: song.capo,
     sections: song.sections,
+    ...(song.flow ? { flow: song.flow } : {}),
     ...(song.simplifiedSections ? { simplifiedSections: song.simplifiedSections } : {}),
+    ...(song.simplifiedFlow ? { simplifiedFlow: song.simplifiedFlow } : {}),
     ...(song.simplifiedSource ? { simplifiedSource: song.simplifiedSource } : {}),
     ...(song.simplificationPending ? { simplificationPending: song.simplificationPending } : {}),
   }

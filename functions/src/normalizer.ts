@@ -179,8 +179,7 @@ export function normalizeSongText(rawText: string): Section[] {
     }
   }
 
-  const nonEmptySections = sections.filter((s) => s.lines.length > 0)
-  return deduplicateSections(nonEmptySections)
+  return sections.filter((s) => s.lines.length > 0)
 }
 
 export function areLinesIdentical(a: Line, b: Line): boolean {
@@ -285,21 +284,6 @@ export function areSectionsIdentical(a: Section, b: Section): boolean {
   if (aLines.length !== bLines.length) return false
 
   return aLines.every((lineA, idx) => areLinesIdentical(lineA, bLines[idx]))
-}
-
-export function deduplicateSections(sections: Section[]): Section[] {
-  const result: Section[] = []
-  for (const sec of sections) {
-    if (result.length === 0) {
-      result.push(sec)
-      continue
-    }
-    const prev = result[result.length - 1]
-    if (!areSectionsIdentical(prev, sec)) {
-      result.push(sec)
-    }
-  }
-  return result
 }
 
 /** Groups identical sections across the whole song while preserving every occurrence in `flow`. */

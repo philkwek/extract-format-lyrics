@@ -48,6 +48,42 @@ Second line
     expect(song.simplifiedSource).toBeUndefined()
   })
 
+  it('groups repeated sections globally while preserving flow order', async () => {
+    const mockHtml = `
+      <html>
+        <body>
+          <h1 class="page-title">Repeated Song – Test Artist</h1>
+          <pre data-key="G">
+[Verse 1]
+G
+First verse
+
+[Chorus]
+C
+Same chorus
+
+[Verse 2]
+D
+Second verse
+
+[Chorus]
+C
+Same chorus
+          </pre>
+        </body>
+      </html>
+    `
+    const mockFetch = vi.fn().mockResolvedValue({
+      text: mockHtml,
+      finalUrl: 'https://pnwchords.com/repeated-song',
+    })
+
+    const song = await scrapeSingleUrl('https://pnwchords.com/repeated-song', mockFetch as unknown as typeof safeFetchHtml)
+
+    expect(song.sections.map((section) => section.label)).toEqual(['Verse 1', 'Chorus', 'Verse 2'])
+    expect(song.flow).toEqual([0, 1, 2, 1])
+  })
+
   it('returns the original chart immediately and marks official simplification pending', async () => {
     const ugHtmlNormal = `
       <div class="js-store" data-content="${JSON.stringify({

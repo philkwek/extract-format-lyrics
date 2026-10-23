@@ -51,11 +51,22 @@ describe('canonicalChartUrl', () => {
 })
 
 describe('toSourceSong', () => {
-  it('strips browser or session-only fields', () => {
-    const source = { ...song(), customSections: [], targetKey: 'D', body: 'lyrics' }
-    expect(toSourceSong(source as Song)).not.toHaveProperty('customSections')
-    expect(toSourceSong(source as Song)).not.toHaveProperty('targetKey')
-    expect(toSourceSong(source as Song)).not.toHaveProperty('body')
+  it('strips browser or session-only fields but keeps section flow', () => {
+    const source = {
+      ...song(),
+      flow: [0],
+      simplifiedSections: [{ type: 'Verse' as const, label: 'Verse 1', lines: [] }],
+      simplifiedFlow: [0],
+      customSections: [],
+      targetKey: 'D',
+      body: 'lyrics',
+    }
+    const cached = toSourceSong(source as Song)
+    expect(cached).not.toHaveProperty('customSections')
+    expect(cached).not.toHaveProperty('targetKey')
+    expect(cached).not.toHaveProperty('body')
+    expect(cached.flow).toEqual([0])
+    expect(cached.simplifiedFlow).toEqual([0])
   })
 })
 
