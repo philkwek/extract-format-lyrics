@@ -112,7 +112,7 @@ export default function DisplayControls({
       <div
         className={
           isFullScreen
-            ? 'flex flex-wrap items-center justify-between gap-x-4 gap-y-2'
+            ? 'flex flex-wrap items-center justify-start gap-x-4 gap-y-2'
             : 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4'
         }
       >
@@ -179,7 +179,7 @@ export default function DisplayControls({
             className={
               isFullScreen
                 ? 'flex flex-wrap items-center gap-2'
-                : 'grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0'
+                : 'grid w-full justify-end grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:flex-grow sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0'
             }
           >
             {showPads && (
