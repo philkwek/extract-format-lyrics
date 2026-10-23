@@ -1,5 +1,7 @@
 import type { Line, Section } from '../types/song'
 
+export type SheetColumns = 1 | 2 | 3 | 4
+
 export interface ColumnSectionItem {
   section: Section
   originalIndex: number
@@ -154,15 +156,90 @@ export function getSectionWeight(section: Section): number {
 }
 
 /**
- * Partitions an ordered array of song sections into N balanced columns (1, 2, or 3)
- * while strictly preserving musical chronological reading order (Column 1 -> Column 2 -> Column 3).
+ * Estimates the rendered height of one section in pixels at a given sheet font
+ * size. The renderer stacks a chord row above every lyric row, so lyric lines
+ * take roughly 2.625em even when a line has no chords.
+ */
+export function estimateSectionHeightPx(section: Section, fontSizePx: number): number {
+  let height = fontSizePx * 1.3 + 13 // section label, border and margins
+
+  section.lines.forEach((line, index) => {
+    if (line.kind === 'tab') {
+      height += 12 * 1.5 + 2
+    } else if (line.kind === 'chords-only') {
+      height += fontSizePx * 1.5 + 4
+    } else if (!line.text.trim() && line.chords.length === 0) {
+      height += 12
+    } else {
+      height += fontSizePx * 2.625
+    }
+    if (index < section.lines.length - 1) height += 2 // space-y-0.5
+  })
+
+  return height
+}
+
+/** Estimates the tallest column height for a partitioned section set. */
+export function estimateColumnHeightPx(
+  column: ColumnSectionItem[],
+  fontSizePx: number,
+  sectionGapPx = 24,
+): number {
+  if (column.length === 0) return 0
+  return (
+    column.reduce((total, item) => total + estimateSectionHeightPx(item.section, fontSizePx), 0) +
+    (column.length - 1) * sectionGapPx
+  )
+}
+
+interface PartitionCandidate {
+  maxWeight: number
+  minWeight: number
+  /** Split positions, always starting at 0 and ending at the section count. */
+  splits: number[]
+}
+
+function comparePartitionCandidates(a: PartitionCandidate, b: PartitionCandidate): number {
+  if (a.maxWeight !== b.maxWeight) return a.maxWeight - b.maxWeight
+  const spreadA = a.maxWeight - a.minWeight
+  const spreadB = b.maxWeight - b.minWeight
+  if (spreadA !== spreadB) return spreadA - spreadB
+  return a.splits.join(',').localeCompare(b.splits.join(','))
+}
+
+/**
+ * Keeps the Pareto frontier of (tallest column, shortest column) candidates.
+ * A candidate is dominated when another one is no taller and no shorter.
+ */
+function prunePartitionCandidates(candidates: PartitionCandidate[]): PartitionCandidate[] {
+  const sorted = [...candidates].sort((a, b) => {
+    if (a.maxWeight !== b.maxWeight) return a.maxWeight - b.maxWeight
+    if (a.minWeight !== b.minWeight) return b.minWeight - a.minWeight
+    return a.splits.join(',').localeCompare(b.splits.join(','))
+  })
+
+  const kept: PartitionCandidate[] = []
+  for (const candidate of sorted) {
+    const dominated = kept.some(
+      (existing) =>
+        existing.maxWeight <= candidate.maxWeight && existing.minWeight >= candidate.minWeight,
+    )
+    if (!dominated) kept.push(candidate)
+  }
+  return kept
+}
+
+/**
+ * Partitions an ordered array of song sections into N balanced columns (1–4)
+ * while strictly preserving musical chronological reading order (Column 1 ->
+ * Column 2 -> Column 3 -> Column 4).
  *
- * This eliminates the WebKit / Safari CSS multi-column bug where column-fill: balance
- * stops filling at the viewport height and leaves trailing columns empty.
+ * This eliminates the WebKit / Safari CSS multi-column bug where column-fill:
+ * balance stops filling at the viewport height and leaves trailing columns empty.
  */
 export function partitionSections(
   sections: Section[],
-  numColumns: 1 | 2 | 3
+  numColumns: SheetColumns,
 ): ColumnSectionItem[][] {
   if (!sections || sections.length === 0) {
     return [[]]
@@ -200,55 +277,45 @@ export function partitionSections(
   }
   const rangeWeight = (start: number, end: number) => prefixWeights[end] - prefixWeights[start]
 
-  if (numColumns === 2) {
-    let bestSplit = 1
-    let bestDiff = Infinity
+  // dp[k][i] contains the Pareto-optimal partition of the first i sections into
+  // k non-empty groups. Keeping multiple states preserves the best possible
+  // spread when the tallest column is tied later.
+  const dp: PartitionCandidate[][][] = Array.from({ length: numColumns + 1 }, () =>
+    Array.from({ length: M + 1 }, () => [] as PartitionCandidate[]),
+  )
 
-    for (let i = 1; i < M; i++) {
-      const w0 = rangeWeight(0, i)
-      const w1 = rangeWeight(i, M)
-      const diff = Math.abs(w0 - w1)
-      if (diff < bestDiff) {
-        bestDiff = diff
-        bestSplit = i
-      }
-    }
-
-    return [
-      items.slice(0, bestSplit).map((it) => ({ section: it.section, originalIndex: it.originalIndex })),
-      items.slice(bestSplit).map((it) => ({ section: it.section, originalIndex: it.originalIndex })),
-    ]
+  for (let i = 1; i <= M; i++) {
+    const weight = rangeWeight(0, i)
+    dp[1][i] = [{ maxWeight: weight, minWeight: weight, splits: [0, i] }]
   }
 
-  // numColumns === 3
-  let bestI = 1
-  let bestJ = 2
-  let bestScore = Infinity
-  let bestMax = Infinity
-
-  for (let i = 1; i < M - 1; i++) {
-    for (let j = i + 1; j < M; j++) {
-      const w0 = rangeWeight(0, i)
-      const w1 = rangeWeight(i, j)
-      const w2 = rangeWeight(j, M)
-      const maxW = Math.max(w0, w1, w2)
-      const minW = Math.min(w0, w1, w2)
-      const diff = maxW - minW
-
-      // Primary goal: minimize the tallest column height
-      // Secondary goal: minimize the spread between columns
-      if (maxW < bestMax || (maxW === bestMax && diff < bestScore)) {
-        bestMax = maxW
-        bestScore = diff
-        bestI = i
-        bestJ = j
+  for (let columns = 2; columns <= numColumns; columns++) {
+    for (let end = columns; end <= M; end++) {
+      const candidates: PartitionCandidate[] = []
+      for (let start = columns - 1; start < end; start++) {
+        const weight = rangeWeight(start, end)
+        for (const previous of dp[columns - 1][start]) {
+          candidates.push({
+            maxWeight: Math.max(previous.maxWeight, weight),
+            minWeight: Math.min(previous.minWeight, weight),
+            splits: [...previous.splits, end],
+          })
+        }
       }
+      dp[columns][end] = prunePartitionCandidates(candidates)
     }
   }
 
-  return [
-    items.slice(0, bestI).map((it) => ({ section: it.section, originalIndex: it.originalIndex })),
-    items.slice(bestI, bestJ).map((it) => ({ section: it.section, originalIndex: it.originalIndex })),
-    items.slice(bestJ).map((it) => ({ section: it.section, originalIndex: it.originalIndex })),
-  ]
+  const best = [...dp[numColumns][M]].sort(comparePartitionCandidates)[0]
+  if (!best) {
+    // Defensive fallback: keep the musical order in a single column.
+    return [items.map((item) => ({ section: item.section, originalIndex: item.originalIndex }))]
+  }
+
+  return best.splits.slice(0, -1).map((start, index) => {
+    const end = best.splits[index + 1]
+    return items
+      .slice(start, end)
+      .map((item) => ({ section: item.section, originalIndex: item.originalIndex }))
+  })
 }
