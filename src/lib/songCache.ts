@@ -52,6 +52,7 @@ export class SongCache {
       const { sections: fallbackSections, changedCount } = simplifySections(val.sections)
       if (changedCount > 0) {
         val.simplifiedSections = fallbackSections
+        if (val.flow) val.simplifiedFlow = val.flow
         val.simplifiedSource = 'algorithmic'
         await this.store.set(`${CACHE_PREFIX}${normalizeSongUrl(val.sourceUrl)}`, val)
       }

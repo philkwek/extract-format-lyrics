@@ -68,6 +68,7 @@ describe('transposeSong', () => {
     sourceUrl: 'u',
     sourceSite: 's',
     originalKey: 'G',
+    flow: [0],
     sections: [
       {
         type: 'Verse',
@@ -83,6 +84,7 @@ describe('transposeSong', () => {
 
   it('transposes every chord and keeps tabs and text intact', () => {
     const out = transposeSong(song, -2, 'F')
+    expect(out.flow).toEqual([0])
     const lines = out.sections[0].lines
     expect(lines[0]).toMatchObject({
       text: 'Hello there',

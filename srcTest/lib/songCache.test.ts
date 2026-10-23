@@ -131,6 +131,7 @@ describe('SongCache', () => {
       sourceUrl: 'https://tabs.ultimate-guitar.com/tab/123',
       sourceSite: 'ultimate-guitar',
       originalKey: 'G',
+      flow: [0],
       sections: [
         {
           type: 'Verse',
@@ -153,6 +154,7 @@ describe('SongCache', () => {
     expect(retrieved).not.toBeNull()
     expect(retrieved?.simplifiedSource).toBe('algorithmic')
     expect(retrieved?.simplifiedSections).toBeDefined()
+    expect(retrieved?.simplifiedFlow).toEqual([0])
     expect(retrieved?.simplifiedSections?.[0].lines[0]).toEqual({
       kind: 'lyric',
       text: 'Hello world',
