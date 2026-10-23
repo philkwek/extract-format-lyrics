@@ -209,6 +209,7 @@ function renderLine(
     return (
       <div
         key={key}
+        data-sheet-line
         className="font-mono text-[#255283] dark:text-amber-400 font-bold py-0.5 whitespace-pre"
       >
         {line.chords.map((chord, cIdx) => (
