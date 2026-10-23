@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   AmbientPadPlayer,
   resolvePadKey,
@@ -261,5 +261,60 @@ describe('AmbientPadPlayer', () => {
 
     vi.advanceTimersByTime(2000)
     expect(env.createdSources[0].stopCalls).toHaveLength(1)
+  })
+})
+
+describe('iOS audio session', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'audioSession')
+  })
+
+  it('sets the session to playback before creating the audio context', async () => {
+    const audioSession = { type: 'auto' }
+    Object.defineProperty(navigator, 'audioSession', {
+      configurable: true,
+      value: audioSession,
+    })
+
+    const env = createMockAudioEnv()
+    let sessionTypeAtCreation: string | undefined
+    const player = new AmbientPadPlayer({
+      createAudioContext: () => {
+        sessionTypeAtCreation = audioSession.type
+        return env.ctx
+      },
+      fetchAudioData: env.fetchAudioData,
+    })
+
+    await player.play('C')
+
+    expect(sessionTypeAtCreation).toBe('playback')
+    expect(audioSession.type).toBe('playback')
+  })
+
+  it('does not reassign a session that is already set to playback', async () => {
+    const setType = vi.fn()
+    const audioSession = {
+      get type() {
+        return 'playback'
+      },
+      set type(value: string) {
+        setType(value)
+      },
+    }
+    Object.defineProperty(navigator, 'audioSession', {
+      configurable: true,
+      value: audioSession,
+    })
+
+    const env = createMockAudioEnv()
+    const player = new AmbientPadPlayer({
+      createAudioContext: () => env.ctx,
+      fetchAudioData: env.fetchAudioData,
+    })
+
+    await player.play('C')
+
+    expect(setType).not.toHaveBeenCalled()
   })
 })

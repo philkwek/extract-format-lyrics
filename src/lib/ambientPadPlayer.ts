@@ -100,6 +100,32 @@ function estimateVoiceGain(voice: ActiveVoice, now: number): number {
   return voice.fadeStartValue + (voice.fadeTargetValue - voice.fadeStartValue) * progress
 }
 
+interface AudioSessionLike {
+  type: string
+}
+
+type NavigatorWithAudioSession = Navigator & {
+  audioSession?: AudioSessionLike
+}
+
+/**
+ * iOS routes Web Audio through the ambient audio session by default, which is
+ * silenced by the hardware Ring/Silent switch. Declaring playback keeps the
+ * pad audible regardless of the switch position. Safari 16.4+ implements the
+ * AudioSession API; other browsers expose no such object.
+ */
+function configureAudioSession(): void {
+  if (typeof navigator === 'undefined') return
+  const audioSession = (navigator as NavigatorWithAudioSession).audioSession
+  if (!audioSession || audioSession.type === 'playback') return
+
+  try {
+    audioSession.type = 'playback'
+  } catch {
+    // Some Safari versions expose only a partial AudioSession implementation.
+  }
+}
+
 function defaultCreateAudioContext(): AudioContextLike {
   const Ctor =
     window.AudioContext ||
@@ -165,6 +191,7 @@ export class AmbientPadPlayer {
 
   private ensureContext(): AudioContextLike {
     if (!this.ctx) {
+      configureAudioSession()
       this.ctx = this.createAudioContext()
     }
     return this.ctx
