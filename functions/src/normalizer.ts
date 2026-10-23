@@ -272,6 +272,8 @@ export function deduplicateRepeatedBlocks(lines: Line[]): Line[] {
 }
 
 export function areSectionsIdentical(a: Section, b: Section): boolean {
+  if (a.type !== b.type) return false
+
   const aLines = a.lines.filter(
     (l) => l.kind !== 'lyric' || l.text.trim() !== '' || l.chords.length > 0
   )
@@ -298,6 +300,22 @@ export function deduplicateSections(sections: Section[]): Section[] {
     }
   }
   return result
+}
+
+/** Groups identical sections across the whole song while preserving every occurrence in `flow`. */
+export function deduplicateSongSections(sections: Section[]): { sections: Section[]; flow: number[] } {
+  const unique: Section[] = []
+  const flow: number[] = []
+  for (const section of sections) {
+    const existing = unique.findIndex((candidate) => areSectionsIdentical(candidate, section))
+    if (existing === -1) {
+      flow.push(unique.length)
+      unique.push(section)
+    } else {
+      flow.push(existing)
+    }
+  }
+  return { sections: unique, flow }
 }
 
 /**

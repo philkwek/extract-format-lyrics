@@ -44,9 +44,14 @@ export interface Song {
   /** Key as scraped, e.g. "G" or "Am". Null if it could not be determined. */
   originalKey: string | null
   capo?: number
+  /** Unique section definitions, in first-occurrence order. */
   sections: Section[]
+  /** Ordered section indices into `sections`; absent on legacy full-flow songs. */
+  flow?: number[]
   /** Optional simplified version if supported by source (e.g. Ultimate Guitar) or auto fallback. */
   simplifiedSections?: Section[]
+  /** Ordered section indices into `simplifiedSections`. */
+  simplifiedFlow?: number[]
   /** Source of simplifiedSections: 'official' (source-provided) or 'algorithmic' (auto fallback). */
   simplifiedSource?: 'official' | 'algorithmic'
   /** True when the site advertises an official simplified chart that is not loaded yet. */

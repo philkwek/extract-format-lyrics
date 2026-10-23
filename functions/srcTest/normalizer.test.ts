@@ -3,6 +3,7 @@ import {
   detectSectionHeader,
   extractChordsWithPositions,
   normalizeSongText,
+  deduplicateSongSections,
   inferKeyFromChords,
   isTabLine,
 } from '../src/normalizer.js'
@@ -236,5 +237,46 @@ You gave me chance after chance
     expect(sections[0].lines.length).toBe(2)
     expect(sections[0].lines[0].text).toBe("I, I'm lifting both of my hands")
     expect(sections[0].lines[1].text).toBe('You gave me chance after chance')
+  })
+})
+
+describe('deduplicateSongSections', () => {
+  it('groups identical sections across the song and preserves every occurrence', () => {
+    const sections = normalizeSongText(`
+[Verse 1]
+G
+First verse
+
+[Chorus]
+C
+Same chorus
+
+[Verse 2]
+D
+Second verse
+
+[Chorus]
+C
+Same chorus
+`)
+    const { sections: unique, flow } = deduplicateSongSections(sections)
+    expect(unique.map((section) => section.label)).toEqual(['Verse 1', 'Chorus', 'Verse 2'])
+    expect(flow).toEqual([0, 1, 2, 1])
+  })
+
+  it('does not merge identical lyrics with different section types', () => {
+    const { sections, flow } = deduplicateSongSections([
+      { type: 'Verse', label: 'Verse', lines: [{ kind: 'lyric', text: 'Same words', chords: [] }] },
+      { type: 'Chorus', label: 'Chorus', lines: [{ kind: 'lyric', text: 'Same words', chords: [] }] },
+    ])
+    expect(sections).toHaveLength(2)
+    expect(flow).toEqual([0, 1])
+  })
+
+  it('keeps adjacent duplicate occurrences in flow', () => {
+    const section = { type: 'Chorus' as const, label: 'Chorus', lines: [{ kind: 'lyric' as const, text: 'Twice', chords: [] }] }
+    const { sections, flow } = deduplicateSongSections([section, { ...section }])
+    expect(sections).toHaveLength(1)
+    expect(flow).toEqual([0, 0])
   })
 })
