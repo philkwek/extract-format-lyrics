@@ -74,6 +74,7 @@ export default function SessionPage() {
   const [editedName, setEditedName] = useState('')
   const { isDark: themeDark, setMode: setThemeMode } = useThemeMode()
   const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
+  const [shareSnapshotError, setShareSnapshotError] = useState<string | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
@@ -1034,17 +1035,19 @@ export default function SessionPage() {
   const handleOpenShareMenu = async () => {
     if (isPreparingShare) return
     setIsPreparingShare(true)
+    setShareSnapshotError(null)
     try {
       setSharingSnapshot(await buildSharedSetSnapshot(session))
-      setIsShareMenuOpen(true)
     } catch (err) {
-      window.alert(
+      setSharingSnapshot(null)
+      setShareSnapshotError(
         err instanceof ShareSnapshotError
           ? err.message
           : 'Unable to prepare this set for sharing.'
       )
     } finally {
       setIsPreparingShare(false)
+      setIsShareMenuOpen(true)
     }
   }
 
@@ -1452,9 +1455,10 @@ export default function SessionPage() {
       )}
 
       {/* Share Modal */}
-      {isShareMenuOpen && sharingSnapshot && session && !isFullScreen && (
+      {isShareMenuOpen && session && !isFullScreen && (
         <ShareMenuModal
           snapshot={sharingSnapshot}
+          snapshotError={shareSnapshotError}
           session={session}
           songsData={songsData}
           isOpen={isShareMenuOpen}

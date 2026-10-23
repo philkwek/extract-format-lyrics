@@ -1,12 +1,14 @@
+import { AlertTriangle } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
 import type { SharedSetSnapshot, Song } from '../types/song'
-import { Button } from './ui'
+import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import ShareSetLinkPanel from './share/ShareSetLinkPanel'
 import ShareLyricsLinkPanel from './share/ShareLyricsLinkPanel'
 
 interface ShareMenuModalProps {
-  snapshot: SharedSetSnapshot
+  snapshot: SharedSetSnapshot | null
+  snapshotError?: string | null
   session: Session
   songsData: Map<string, Song>
   isOpen: boolean
@@ -15,6 +17,7 @@ interface ShareMenuModalProps {
 
 export default function ShareMenuModal({
   snapshot,
+  snapshotError,
   session,
   songsData,
   isOpen,
@@ -43,7 +46,13 @@ export default function ShareMenuModal({
               Send the full chord sheet, including the set order, keys and musical edits.
             </p>
           </div>
-          <ShareSetLinkPanel snapshot={snapshot} />
+          {snapshot ? (
+            <ShareSetLinkPanel snapshot={snapshot} />
+          ) : (
+            <StatusBanner tone="error" icon={<AlertTriangle size={16} />}>
+              {snapshotError || 'This set could not be prepared for sharing right now.'}
+            </StatusBanner>
+          )}
         </section>
 
         <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
