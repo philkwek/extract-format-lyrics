@@ -273,7 +273,7 @@ function renderLine(
       }`}
     >
       {wrappedRows ? (
-        <div className="min-w-0 space-y-0.5">
+        <div className="min-w-0">
           {wrappedRows.map((row, rowIndex) => (
             <Fragment key={rowIndex}>
               {renderLyricSegments(
