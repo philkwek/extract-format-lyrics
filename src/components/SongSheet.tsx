@@ -579,7 +579,7 @@ export default function SongSheet({
                   onDrop={(e) => handleDrop(e, originalIndex)}
                   onDragEnd={handleDragEnd}
                   title={onReorderSections ? 'Drag section to reorder' : undefined}
-                  className={`section-block relative transition-all rounded-xl p-3 -m-3 select-none ${
+                  className={`section-block relative transition-[background-color,opacity,transform,box-shadow] rounded-xl p-3 -m-3 select-none ${
                     onReorderSections
                       ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100/60 dark:hover:bg-[#1a1a1a]/60'
                       : ''
