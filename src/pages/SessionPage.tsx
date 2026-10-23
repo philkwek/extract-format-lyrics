@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Share2,
+  SlidersHorizontal,
   Upload,
   X,
 } from 'lucide-react'
@@ -25,6 +26,8 @@ import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
+import PadControls from '../components/PadControls'
+import TransposeSelector from '../components/TransposeSelector'
 import ShareModal from '../components/ShareModal'
 import ShareLyricsModal from '../components/ShareLyricsModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
@@ -92,6 +95,7 @@ export default function SessionPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const fullScreenTriggerRef = useRef<HTMLElement | null>(null)
   const tabListRef = useRef<HTMLDivElement | null>(null)
   const { setHidden: setChromeHidden } = useChromeVisibility()
@@ -404,6 +408,7 @@ export default function SessionPage() {
     sections: displayedSections,
     preferredColumns: prefs.columns,
     preferredFontSizePx: prefs.fontSizePx,
+    revision: showFullScreenDisplayControls,
   })
   const effectiveColumns = fitEnabled ? fitLayout.columns : prefs.columns
   const effectiveFontSizePx = fitEnabled ? fitLayout.fontSizePx : prefs.fontSizePx
@@ -411,6 +416,16 @@ export default function SessionPage() {
     fitEnabled && !fitLayout.fitsOnScreen
       ? 'Smallest readable text applied. Scroll to see the rest.'
       : null
+  const fullScreenStatus =
+    fitNotice ??
+    (hasLyricOverflow
+      ? 'Lyric overflow detected. Try fewer columns or a smaller text size.'
+      : null) ??
+    (fitEnabled
+      ? `Auto layout · ${fitLayout.columns} column${
+          fitLayout.columns === 1 ? '' : 's'
+        } · ${fitLayout.fontSizePx}px`
+      : null)
 
   const handleToggleFit = () => {
     if (!currentSong || !currentItem || !session) return
@@ -419,6 +434,7 @@ export default function SessionPage() {
 
   const handleExitFullScreen = useCallback(() => {
     setIsFullScreen(false)
+    setShowFullScreenDisplayControls(false)
     setChromeHidden(false)
     window.setTimeout(() => {
       const storedTrigger = fullScreenTriggerRef.current
@@ -439,6 +455,7 @@ export default function SessionPage() {
     setIsArrangingSongs(false)
     setIsUploadModalOpen(false)
     setIsFullScreen(true)
+    setShowFullScreenDisplayControls(false)
     setChromeHidden(true)
   }
 
@@ -1242,45 +1259,115 @@ export default function SessionPage() {
                     : 'space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]'
                 }
               >
-                <SongHeader
-                  song={displayedSong}
-                  currentKey={currentKey}
-                  offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                  onResetKey={handleResetKey}
-                  onSelectKey={handleSelectKey}
-                  variant={isFullScreen ? 'fullscreen' : 'default'}
-                />
+                {isFullScreen ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <SongHeader
+                        song={displayedSong}
+                        currentKey={currentKey}
+                        offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
+                        onResetKey={handleResetKey}
+                        onSelectKey={handleSelectKey}
+                        variant="fullscreen"
+                      />
+                      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                        <TransposeSelector
+                          originalKey={displayedSong.originalKey}
+                          currentKey={currentKey}
+                          onSelectKey={handleSelectKey}
+                          onReset={handleResetKey}
+                          compact
+                        />
+                        <PadControls
+                          currentKey={currentKey}
+                          padKeyMode={padKeyMode}
+                          customPadKey={customPadKey}
+                          isPadPlaying={padState.isPlaying}
+                          isPadLoading={padState.isLoading}
+                          onChangePadKeyMode={handleChangePadKeyMode}
+                          onSelectCustomPadKey={handleSelectCustomPadKey}
+                          onTogglePad={handleTogglePad}
+                          variant="fullscreen"
+                        />
+                        <Button
+                          size="sm"
+                          variant={showFullScreenDisplayControls ? 'primary' : 'secondary'}
+                          icon={<SlidersHorizontal size={14} />}
+                          onClick={() =>
+                            setShowFullScreenDisplayControls((visible) => !visible)
+                          }
+                          aria-expanded={showFullScreenDisplayControls}
+                          aria-controls="fullscreen-display-controls"
+                          title="Customise song sheet display"
+                          aria-label="Customise song sheet display"
+                        >
+                          <span className="hidden sm:inline">Customise</span>
+                        </Button>
+                      </div>
+                    </div>
 
-                <DisplayControls
-                  prefs={prefs}
-                  onChangePrefs={handleUpdatePrefs}
-                  canSimplify={canSimplify}
-                  simplifiedSource={currentSong?.simplifiedSource}
-                  onRestoreOriginal={handleRestoreOriginal}
-                  isEditingChords={isEditingChords}
-                  hasLyricOverflow={hasLyricOverflow}
-                  isPadPlaying={padState.isPlaying}
-                  isPadLoading={padState.isLoading}
-                  currentKey={currentKey}
-                  padKeyMode={padKeyMode}
-                  customPadKey={customPadKey}
-                  onChangePadKeyMode={handleChangePadKeyMode}
-                  onSelectCustomPadKey={handleSelectCustomPadKey}
-                  onTogglePad={handleTogglePad}
-                  variant={isFullScreen ? 'fullscreen' : 'default'}
-                  fitActive={fitEnabled}
-                  fitLayout={fitLayout}
-                  onToggleFit={handleToggleFit}
-                  fitNotice={fitNotice}
-                  onToggleEditChords={() => {
-                    setIsEditingChords((prev) => {
-                      if (prev) {
-                        setPositioningChord(null)
-                      }
-                      return !prev
-                    })
-                  }}
-                />
+                    {showFullScreenDisplayControls && (
+                      <div
+                        id="fullscreen-display-controls"
+                        className="mt-2 border-t border-[var(--ui-border)] pt-2"
+                      >
+                        <DisplayControls
+                          prefs={prefs}
+                          onChangePrefs={handleUpdatePrefs}
+                          variant="fullscreen"
+                          showPads={false}
+                          showStatus={false}
+                          fitActive={fitEnabled}
+                          fitLayout={fitLayout}
+                          onToggleFit={handleToggleFit}
+                        />
+                      </div>
+                    )}
+
+                    <div
+                      role="status"
+                      className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
+                    >
+                      {fullScreenStatus ?? '\u00A0'}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <SongHeader
+                      song={displayedSong}
+                      currentKey={currentKey}
+                      offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
+                      onResetKey={handleResetKey}
+                      onSelectKey={handleSelectKey}
+                    />
+
+                    <DisplayControls
+                      prefs={prefs}
+                      onChangePrefs={handleUpdatePrefs}
+                      canSimplify={canSimplify}
+                      simplifiedSource={currentSong?.simplifiedSource}
+                      onRestoreOriginal={handleRestoreOriginal}
+                      isEditingChords={isEditingChords}
+                      hasLyricOverflow={hasLyricOverflow}
+                      isPadPlaying={padState.isPlaying}
+                      isPadLoading={padState.isLoading}
+                      currentKey={currentKey}
+                      padKeyMode={padKeyMode}
+                      customPadKey={customPadKey}
+                      onChangePadKeyMode={handleChangePadKeyMode}
+                      onSelectCustomPadKey={handleSelectCustomPadKey}
+                      onTogglePad={handleTogglePad}
+                      onToggleEditChords={() => {
+                        setIsEditingChords((prev) => {
+                          if (prev) {
+                            setPositioningChord(null)
+                          }
+                          return !prev
+                        })
+                      }}
+                    />
+                  </>
+                )}
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}

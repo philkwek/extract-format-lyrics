@@ -188,6 +188,8 @@ export interface UseFitToScreenOptions {
   preferredColumns: SheetColumns
   preferredFontSizePx: number
   minFontSizePx?: number
+  /** Pass a value that changes when surrounding chrome changes height. */
+  revision?: unknown
 }
 
 /**
@@ -204,6 +206,7 @@ interface FitSelectionInputs {
   viewportWidth: number
   viewportHeight: number
   charWidthAt16Px: number
+  revision: unknown
 }
 
 export function useFitToScreen({
@@ -212,6 +215,7 @@ export function useFitToScreen({
   preferredColumns,
   preferredFontSizePx,
   minFontSizePx = DEFAULT_MIN_FONT_SIZE_PX,
+  revision,
 }: UseFitToScreenOptions) {
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
@@ -280,7 +284,8 @@ export function useFitToScreen({
         previousInputs.minFontSizePx !== minFontSizePx ||
         previousInputs.viewportWidth !== viewportWidth ||
         previousInputs.viewportHeight !== viewportHeight ||
-        previousInputs.charWidthAt16Px !== charWidthAt16Px
+        previousInputs.charWidthAt16Px !== charWidthAt16Px ||
+        previousInputs.revision !== revision
 
       if (inputsChanged) {
         selectionInputsRef.current = {
@@ -291,6 +296,7 @@ export function useFitToScreen({
           viewportWidth,
           viewportHeight,
           charWidthAt16Px,
+          revision,
         }
 
         const next = selectFitLayout({
@@ -354,6 +360,7 @@ export function useFitToScreen({
     viewportSize.width,
     viewportSize.height,
     charWidthAt16Px,
+    revision,
   ])
 
   return {
