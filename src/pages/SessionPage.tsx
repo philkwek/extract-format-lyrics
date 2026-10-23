@@ -30,7 +30,12 @@ import UploadSheetModal from '../components/UploadSheetModal'
 import { useThemeMode } from '../lib/useThemeMode'
 
 import { getChordPos, setChordPos } from '../lib/chordNudge'
-import { identityFlow } from '../lib/sectionFlow'
+import {
+  identityFlow,
+  moveSectionInFlow,
+  removeSectionFromFlow,
+  resolveSessionFlow,
+} from '../lib/sectionFlow'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
@@ -341,6 +346,23 @@ export default function SessionPage() {
     return currentSong?.sections ?? []
   }, [isSimplified, currentSong])
 
+  const activeFlow = useMemo(
+    () =>
+      currentSong && currentItem
+        ? resolveSessionFlow(currentItem, currentSong, isSimplified, activeSections.length)
+        : identityFlow(activeSections.length),
+    [activeSections.length, currentItem, currentSong, isSimplified]
+  )
+
+  const withUpdatedSections = (
+    item: SessionSongItem,
+    sections: Section[],
+    flow: number[]
+  ): SessionSongItem =>
+    isSimplified
+      ? { ...item, customSimplifiedSections: sections, customSimplifiedFlow: flow }
+      : { ...item, customSections: sections, customFlow: flow }
+
   // Compute transposed song
   const displayedSong = useMemo(() => {
     if (!currentSong) return null
@@ -439,21 +461,18 @@ export default function SessionPage() {
 
     const [movedSection] = baseSections.splice(fromIndex, 1)
     baseSections.splice(toIndex, 0, movedSection)
+    const nextFlow = moveSectionInFlow(activeFlow, fromIndex, toIndex)
 
     const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: baseSections }
-      : { ...currentSong, sections: baseSections }
+      ? { ...currentSong, simplifiedSections: baseSections, simplifiedFlow: nextFlow }
+      : { ...currentSong, sections: baseSections, flow: nextFlow }
 
     setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     // Persist reordered sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : baseSections,
-            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, baseSections, nextFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -481,11 +500,7 @@ export default function SessionPage() {
 
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : baseSections,
-            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, baseSections, activeFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -543,9 +558,12 @@ export default function SessionPage() {
     if (!currentSong || !session) return
     const targetSection = activeSections[sectionIndex]
     const label = targetSection?.label || `Section ${sectionIndex + 1}`
+    const repeatCount = activeFlow.filter((index) => index === sectionIndex).length
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${label}"?\n\nYou can restore it to the original chord sheet at any time.`
+      `Are you sure you want to delete "${label}"?${
+        repeatCount > 1 ? `\n\nThis removes ${repeatCount} occurrences that share this section.` : ''
+      }\n\nYou can restore it to the original chord sheet at any time.`
     )
     if (!confirmed) return
 
@@ -553,21 +571,18 @@ export default function SessionPage() {
       ? currentSong.simplifiedSections
       : currentSong.sections
     const updatedSections = baseSections.filter((_, idx) => idx !== sectionIndex)
+    const nextFlow = removeSectionFromFlow(activeFlow, sectionIndex)
 
     const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: updatedSections }
-      : { ...currentSong, sections: updatedSections }
+      ? { ...currentSong, simplifiedSections: updatedSections, simplifiedFlow: nextFlow }
+      : { ...currentSong, sections: updatedSections, flow: nextFlow }
 
     setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
 
     // Persist custom sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : updatedSections,
-            customSimplifiedSections: isSimplified ? updatedSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, updatedSections, nextFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -591,11 +606,7 @@ export default function SessionPage() {
     setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
     const updatedSongs = session.songs.map((song) =>
       song.entryId === currentItem?.entryId
-        ? {
-            ...song,
-            customSections: isSimplified ? song.customSections : updatedSections,
-            customSimplifiedSections: isSimplified ? updatedSections : song.customSimplifiedSections,
-          }
+        ? withUpdatedSections(song, updatedSections, activeFlow)
         : song
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -619,11 +630,7 @@ export default function SessionPage() {
     setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
     const updatedSongs = session.songs.map((song) =>
       song.entryId === currentItem?.entryId
-        ? {
-            ...song,
-            customSections: isSimplified ? song.customSections : updatedSections,
-            customSimplifiedSections: isSimplified ? updatedSections : song.customSimplifiedSections,
-          }
+        ? withUpdatedSections(song, updatedSections, activeFlow)
         : song
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -686,11 +693,7 @@ export default function SessionPage() {
 
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : baseSections,
-            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, baseSections, activeFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -741,11 +744,7 @@ export default function SessionPage() {
 
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : baseSections,
-            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, baseSections, activeFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -777,11 +776,7 @@ export default function SessionPage() {
 
     const updatedSongs = session.songs.map((s) =>
       s.entryId === currentItem?.entryId
-        ? {
-            ...s,
-            customSections: isSimplified ? s.customSections : baseSections,
-            customSimplifiedSections: isSimplified ? baseSections : s.customSimplifiedSections,
-          }
+        ? withUpdatedSections(s, baseSections, activeFlow)
         : s
     )
     const updatedSession = { ...session, songs: updatedSongs }
@@ -852,7 +847,13 @@ export default function SessionPage() {
       setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, freshCopy))
       const updatedSongs = session.songs.map((s) =>
         s.entryId === currentItem?.entryId
-          ? { ...s, customSections: undefined, customSimplifiedSections: undefined }
+          ? {
+              ...s,
+              customSections: undefined,
+              customFlow: undefined,
+              customSimplifiedSections: undefined,
+              customSimplifiedFlow: undefined,
+            }
           : s
       )
       const updatedSession = { ...session, songs: updatedSongs }
