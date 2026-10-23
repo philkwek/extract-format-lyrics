@@ -1,13 +1,18 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
-import { allocateColumnWidths, getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
+import {
+  allocateColumnWidths,
+  getColumnDisplayWidths,
+  partitionSections,
+  type SheetColumns,
+} from '../lib/songLayout'
 import { getLyricSplitPositions } from '../lib/lineSplit'
 
 interface SongSheetProps {
   sections: Section[]
   fontSizePx?: number
-  columns?: 1 | 2 | 3
+  columns?: SheetColumns
   isEditingChords?: boolean
   onDeleteSection?: (sectionIndex: number) => void
   onReorderSections?: (fromIndex: number, toIndex: number) => void
@@ -352,7 +357,7 @@ export default function SongSheet({
     () => allocateColumnWidths(columnDisplayWidths, availableWidthCh),
     [columnDisplayWidths, availableWidthCh],
   )
-  const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as 1 | 2 | 3
+  const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as SheetColumns
   const hasAdaptiveColumns = desktopColumnCount > 1 && allocatedColumnWidths.length > 1
   const adaptiveGridStyle: CSSProperties | undefined = hasAdaptiveColumns
     ? ({
@@ -363,11 +368,13 @@ export default function SongSheet({
     : undefined
 
   const gridClass =
-    desktopColumnCount === 3
-      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
-      : desktopColumnCount === 2
-        ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
-        : 'song-sheet-grid grid grid-cols-1 gap-6'
+    desktopColumnCount === 4
+      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-4 gap-6 sm:gap-8 items-start'
+      : desktopColumnCount === 3
+        ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
+        : desktopColumnCount === 2
+          ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
+          : 'song-sheet-grid grid grid-cols-1 gap-6'
 
   useLayoutEffect(() => {
     if (!sheetRef.current) return
@@ -520,7 +527,12 @@ export default function SongSheet({
   }
 
   return (
-    <div ref={sheetRef} className="song-sheet select-text" style={{ fontSize: `${fontSizePx}px` }}>
+    <div
+      ref={sheetRef}
+      data-song-sheet
+      className="song-sheet select-text"
+      style={{ fontSize: `${fontSizePx}px` }}
+    >
       <span
         ref={chProbeRef}
         aria-hidden="true"
