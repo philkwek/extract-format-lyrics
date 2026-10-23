@@ -1,6 +1,5 @@
 import {
   AlertTriangle,
-  AudioLines,
   Columns3,
   Pencil,
   RotateCcw,
@@ -8,11 +7,12 @@ import {
   Type,
   WandSparkles,
 } from 'lucide-react'
-import { PAD_KEYS, resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
+import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
 import type { PadKeyMode } from '../lib/sessionStore'
 import type { SheetColumns } from '../lib/songLayout'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
-import { Button, SegmentedControl, StatusBanner } from './ui'
+import PadControls from './PadControls'
+import { Button, StatusBanner } from './ui'
 
 export interface FitControlLayout {
   columns: SheetColumns
@@ -38,6 +38,8 @@ interface DisplayControlsProps {
   onSelectCustomPadKey?: (key: PadKey) => void
   onTogglePad?: () => void
   variant?: 'default' | 'fullscreen'
+  showPads?: boolean
+  showStatus?: boolean
   fitActive?: boolean
   fitLayout?: FitControlLayout | null
   onToggleFit?: () => void
@@ -62,6 +64,8 @@ export default function DisplayControls({
   onSelectCustomPadKey,
   onTogglePad,
   variant = 'default',
+  showPads = true,
+  showStatus = true,
   fitActive = false,
   fitLayout,
   onToggleFit,
@@ -72,6 +76,9 @@ export default function DisplayControls({
   const canPlayPad = Boolean(resolvePadKey(effectivePadKey))
   const isFullScreen = variant === 'fullscreen'
   const displayFontSizePx = fitActive && fitLayout ? fitLayout.fontSizePx : prefs.fontSizePx
+  const showRightGroup =
+    (showPads && onTogglePad && Boolean(onChangePadKeyMode || canPlayPad)) ||
+    (!isFullScreen && Boolean(canSimplify || onToggleEditChords || onRestoreOriginal))
 
   const handleColumnChange = (column: SheetColumns) => {
     onChangePrefs({
@@ -167,66 +174,28 @@ export default function DisplayControls({
           </div>
         </div>
 
-        <div
-          className={
-            isFullScreen
-              ? 'flex flex-wrap items-center gap-2'
-              : 'grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0'
-          }
-        >
-          {onTogglePad && (onChangePadKeyMode || canPlayPad) && (
-            <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1">
-              {onChangePadKeyMode && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-semibold text-[var(--ui-text-muted)]">
-                    Pads Key:
-                  </span>
-                  <SegmentedControl
-                    label="Pads Key"
-                    value={padKeyMode}
-                    onChange={onChangePadKeyMode}
-                    className="ui-segmented--compact"
-                    options={[
-                      { value: 'match', label: 'Match Song' },
-                      { value: 'custom', label: 'Custom' },
-                    ]}
-                  />
-                  {padKeyMode === 'custom' && onSelectCustomPadKey && (
-                    <select
-                      aria-label="Custom pad key"
-                      value={resolvedCustomKey}
-                      onChange={(e) => onSelectCustomPadKey(e.target.value as PadKey)}
-                      className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-neutral-900 dark:text-[#e5e5e5] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono shadow-xs"
-                    >
-                      {PAD_KEYS.map((k) => (
-                        <option key={k} value={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
-              {effectivePadKey && canPlayPad && (
-                <Button
-                  size="sm"
-                  variant={isPadPlaying ? 'primary' : 'secondary'}
-                  icon={<AudioLines size={14} />}
-                  onClick={onTogglePad}
-                  disabled={isPadLoading}
-                  aria-pressed={Boolean(isPadPlaying)}
-                  title={
-                    isPadPlaying
-                      ? `Stop ambient pad (${effectivePadKey})`
-                      : `Play ambient pad in ${effectivePadKey}`
-                  }
-                >
-                  {isPadPlaying ? `Playing Pad (${effectivePadKey})` : 'Play Ambient Pad'}
-                </Button>
-              )}
-            </div>
-          )}
-          {!isFullScreen && canSimplify && (
+        {showRightGroup && (
+          <div
+            className={
+              isFullScreen
+                ? 'flex flex-wrap items-center gap-2'
+                : 'grid w-full grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0'
+            }
+          >
+            {showPads && (
+              <PadControls
+                currentKey={currentKey}
+                padKeyMode={padKeyMode}
+                customPadKey={customPadKey}
+                isPadPlaying={isPadPlaying}
+                isPadLoading={isPadLoading}
+                onChangePadKeyMode={onChangePadKeyMode}
+                onSelectCustomPadKey={onSelectCustomPadKey}
+                onTogglePad={onTogglePad}
+                variant={isFullScreen ? 'fullscreen' : 'default'}
+              />
+            )}
+            {!isFullScreen && canSimplify && (
             <div className="flex w-full items-center gap-1.5 sm:w-auto">
               <Button
                 size="sm"
@@ -271,16 +240,19 @@ export default function DisplayControls({
               Restore
             </Button>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {isFullScreen ? (
-        <div
-          role="status"
-          className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
-        >
-          {statusMessage ?? '\u00A0'}
-        </div>
+        showStatus ? (
+          <div
+            role="status"
+            className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
+          >
+            {statusMessage ?? '\u00A0'}
+          </div>
+        ) : null
       ) : (
         hasLyricOverflow && (
           <StatusBanner tone="warning" icon={<AlertTriangle size={15} />}>
