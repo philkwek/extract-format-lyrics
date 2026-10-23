@@ -166,6 +166,22 @@ function hasHorizontalOverflow(sheet: HTMLElement): boolean {
   return false
 }
 
+/** Returns the content-box size, excluding the viewport's own padding. */
+function getViewportContentSize(viewport: HTMLElement) {
+  const style = window.getComputedStyle(viewport)
+  const paddingX =
+    (Number.parseFloat(style.paddingLeft) || 0) +
+    (Number.parseFloat(style.paddingRight) || 0)
+  const paddingY =
+    (Number.parseFloat(style.paddingTop) || 0) +
+    (Number.parseFloat(style.paddingBottom) || 0)
+
+  return {
+    width: Math.max(0, viewport.clientWidth - paddingX),
+    height: Math.max(0, viewport.clientHeight - paddingY),
+  }
+}
+
 export interface UseFitToScreenOptions {
   enabled: boolean
   sections: Section[]
@@ -251,8 +267,8 @@ export function useFitToScreen({
     let cancelled = false
     queueMicrotask(() => {
       if (cancelled) return
-      const viewportWidth = viewport.clientWidth
-      const viewportHeight = viewport.clientHeight
+      const { width: viewportWidth, height: viewportHeight } =
+        getViewportContentSize(viewport)
       if (!viewportWidth || !viewportHeight) return
 
       const previousInputs = selectionInputsRef.current
@@ -299,7 +315,7 @@ export function useFitToScreen({
       const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
       if (!sheet) return
 
-      const availableHeightPx = viewport.clientHeight
+      const { height: availableHeightPx } = getViewportContentSize(viewport)
       const overflow =
         sheet.scrollHeight > availableHeightPx + 1 || hasHorizontalOverflow(sheet)
       if (!overflow) {
