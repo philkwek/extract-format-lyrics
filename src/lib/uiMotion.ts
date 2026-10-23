@@ -4,6 +4,12 @@ export const uiSpring = {
   duration: 0.38,
 }
 
+export const segmentedSpring = {
+  type: 'spring' as const,
+  bounce: 0,
+  duration: 0.3,
+}
+
 export const momentumSpring = {
   type: 'spring' as const,
   bounce: 0.18,
@@ -28,5 +34,21 @@ export function getDialogMotion(reduceMotion: boolean) {
         animate: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' },
         exit: { opacity: 0, scale: 0.97, y: 8, filter: 'blur(5px)' },
         transition: uiSpring,
+      }
+}
+
+export function getPopoverMotion(reduceMotion: boolean) {
+  return reduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: reducedMotionTransition,
+      }
+    : {
+        initial: { opacity: 0, scale: 0.92, y: -4, filter: 'blur(4px)' },
+        animate: { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' },
+        exit: { opacity: 0, scale: 0.95, y: -2, filter: 'blur(3px)' },
+        transition: segmentedSpring,
       }
 }

@@ -1,17 +1,19 @@
+import type { CSSProperties } from 'react'
 import {
   AlertTriangle,
-  Columns3,
   Pencil,
   RotateCcw,
   Scan,
-  Type,
   WandSparkles,
 } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
 import type { PadKeyMode } from '../lib/sessionStore'
 import type { SheetColumns } from '../lib/songLayout'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
+import { reducedMotionTransition, segmentedSpring } from '../lib/uiMotion'
 import PadControls from './PadControls'
+import TransposeSelector from './TransposeSelector'
 import { Button, StatusBanner } from './ui'
 
 export interface FitControlLayout {
@@ -31,7 +33,10 @@ interface DisplayControlsProps {
   hasLyricOverflow?: boolean
   isPadPlaying?: boolean
   isPadLoading?: boolean
+  originalKey?: string | null
   currentKey?: string | null
+  onSelectKey?: (newKey: string) => void
+  onResetKey?: () => void
   padKeyMode?: PadKeyMode
   customPadKey?: PadKey | null
   onChangePadKeyMode?: (mode: PadKeyMode) => void
@@ -57,7 +62,10 @@ export default function DisplayControls({
   hasLyricOverflow,
   isPadPlaying,
   isPadLoading,
+  originalKey,
   currentKey,
+  onSelectKey,
+  onResetKey,
   padKeyMode = 'match',
   customPadKey,
   onChangePadKeyMode,
@@ -71,12 +79,14 @@ export default function DisplayControls({
   onToggleFit,
   fitNotice,
 }: DisplayControlsProps) {
+  const reduceMotion = useReducedMotion()
   const resolvedCustomKey: PadKey = customPadKey ?? resolvePadKey(currentKey) ?? 'C'
   const effectivePadKey = padKeyMode === 'custom' ? resolvedCustomKey : currentKey
   const canPlayPad = Boolean(resolvePadKey(effectivePadKey))
   const isFullScreen = variant === 'fullscreen'
   const displayFontSizePx = fitActive && fitLayout ? fitLayout.fontSizePx : prefs.fontSizePx
   const showRightGroup =
+    (!isFullScreen && Boolean(onSelectKey)) ||
     (showPads && onTogglePad && Boolean(onChangePadKeyMode || canPlayPad)) ||
     (!isFullScreen && Boolean(canSimplify || onToggleEditChords || onRestoreOriginal))
 
@@ -108,20 +118,34 @@ export default function DisplayControls({
   const statusMessage = fitNotice ?? overflowMessage ?? fitCaption
 
   return (
-    <div className={`${isFullScreen ? 'space-y-1.5 pb-0' : 'space-y-2 pb-2'} text-xs`}>
+    <div className={`${isFullScreen ? 'space-y-1.5 pb-0' : 'space-y-2 pb-1'} text-xs`}>
       <div
         className={
           isFullScreen
-            ? 'flex flex-wrap items-center justify-start gap-x-4 gap-y-2'
-            : 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4'
+            ? 'flex flex-wrap items-center justify-start gap-x-3 gap-y-2'
+            : 'flex flex-wrap items-center justify-between gap-x-3 gap-y-2'
         }
       >
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
-              <Columns3 size={13} /> Columns
-            </span>
-            <div className="ui-segmented ui-segmented--compact">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <div
+              role="group"
+              aria-label="Columns"
+              title="Columns"
+              className="ui-segmented ui-segmented--compact"
+              style={{ '--seg-count': 4 } as CSSProperties}
+            >
+              <motion.span
+                aria-hidden="true"
+                className="ui-segmented__thumb"
+                initial={false}
+                animate={{
+                  x: `${(prefs.columns - 1) * 100}%`,
+                  opacity: fitActive ? 0 : 1,
+                  scale: fitActive ? 0.92 : 1,
+                }}
+                transition={reduceMotion ? reducedMotionTransition : segmentedSpring}
+              />
               {([1, 2, 3, 4] as const).map((column) => (
                 <button
                   key={column}
@@ -150,38 +174,43 @@ export default function DisplayControls({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--ui-text-muted)]">
-              <Type size={13} /> Size
+          <div
+            role="group"
+            aria-label="Font size"
+            className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
+          >
+            <button
+              type="button"
+              aria-label="Decrease song font size"
+              onClick={() => handleFontSizeChange(-1)}
+              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+            >
+              A−
+            </button>
+            <span className="w-6 text-center font-mono text-[11px] font-bold tabular-nums text-[var(--ui-text)] select-none">
+              {displayFontSizePx}
             </span>
-            <div className="flex items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[3px]">
-              <button
-                type="button"
-                aria-label="Decrease song font size"
-                onClick={() => handleFontSizeChange(-1)}
-                className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
-              >A−</button>
-              <span className="w-7 text-center font-mono text-[11px] font-bold text-[var(--ui-text)]">
-                {displayFontSizePx}
-              </span>
-              <button
-                type="button"
-                aria-label="Increase song font size"
-                onClick={() => handleFontSizeChange(1)}
-                className="min-h-7 rounded-lg px-2 font-semibold text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-raised)] disabled:opacity-30"
-              >A+</button>
-            </div>
+            <button
+              type="button"
+              aria-label="Increase song font size"
+              onClick={() => handleFontSizeChange(1)}
+              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+            >
+              A+
+            </button>
           </div>
         </div>
 
         {showRightGroup && (
-          <div
-            className={
-              isFullScreen
-                ? 'flex flex-wrap items-center gap-2'
-                : 'grid w-full justify-end grid-cols-2 gap-2 border-t border-[var(--ui-border)] pt-2.5 sm:flex sm:flex-grow sm:w-auto sm:flex-wrap sm:items-center sm:border-0 sm:pt-0'
-            }
-          >
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+            {!isFullScreen && onSelectKey && (
+              <TransposeSelector
+                originalKey={originalKey ?? null}
+                currentKey={currentKey ?? null}
+                onSelectKey={onSelectKey}
+                onReset={onResetKey || (() => {})}
+              />
+            )}
             {showPads && (
               <PadControls
                 currentKey={currentKey}
@@ -196,50 +225,48 @@ export default function DisplayControls({
               />
             )}
             {!isFullScreen && canSimplify && (
-            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <div className="inline-flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={prefs.simplified ? 'primary' : 'secondary'}
+                  icon={<WandSparkles size={14} />}
+                  onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
+                >
+                  {prefs.simplified ? 'Simplified' : 'Simplify'}
+                </Button>
+                {prefs.simplified && simplifiedSource === 'algorithmic' && (
+                  <span
+                    title="Extra chord notes removed. Some chords may sound different."
+                    aria-label="Extra chord notes removed. Some chords may sound different."
+                    className="inline-flex shrink-0 items-center rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-text-muted)] select-none"
+                  >
+                    Auto
+                  </span>
+                )}
+              </div>
+            )}
+            {!isFullScreen && onToggleEditChords && (
               <Button
                 size="sm"
-                variant={prefs.simplified ? 'primary' : 'secondary'}
-                icon={<WandSparkles size={14} />}
-                onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
-                className="flex-1 sm:flex-initial sm:w-auto"
+                variant={isEditingChords ? 'primary' : 'secondary'}
+                icon={<Pencil size={14} />}
+                onClick={onToggleEditChords}
+                title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}
               >
-                {prefs.simplified ? 'Simplified' : 'Simplify'}
+                {isEditingChords ? 'Done editing' : 'Edit chords'}
               </Button>
-              {prefs.simplified && simplifiedSource === 'algorithmic' && (
-                <span
-                  title="Extra chord notes removed. Some chords may sound different."
-                  aria-label="Extra chord notes removed. Some chords may sound different."
-                  className="inline-flex shrink-0 items-center rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ui-text-muted)] select-none"
-                >
-                  Auto
-                </span>
-              )}
-            </div>
-          )}
-          {!isFullScreen && onToggleEditChords && (
-            <Button
-              size="sm"
-              variant={isEditingChords ? 'primary' : 'secondary'}
-              icon={<Pencil size={14} />}
-              onClick={onToggleEditChords}
-              title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}
-            >
-              {isEditingChords ? 'Done editing' : 'Edit chords'}
-            </Button>
-          )}
-          {!isFullScreen && onRestoreOriginal && (
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={<RotateCcw size={14} />}
-              onClick={onRestoreOriginal}
-              className={canSimplify ? '' : 'col-span-2'}
-              title="Restore original chords and sections"
-            >
-              Restore
-            </Button>
-          )}
+            )}
+            {!isFullScreen && onRestoreOriginal && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<RotateCcw size={14} />}
+                onClick={onRestoreOriginal}
+                title="Restore original chords and sections"
+              >
+                Restore
+              </Button>
+            )}
           </div>
         )}
       </div>

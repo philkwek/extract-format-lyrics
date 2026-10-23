@@ -1,10 +1,9 @@
 import type { Song } from '../types/song'
 import { ExternalLink } from 'lucide-react'
-import TransposeSelector from './TransposeSelector'
 
 interface SongHeaderProps {
   song: Song
-  currentKey: string | null
+  currentKey?: string | null
   offsetDisplay?: string
   onResetKey?: () => void
   onSelectKey?: (newKey: string) => void
@@ -13,13 +12,8 @@ interface SongHeaderProps {
 
 export default function SongHeader({
   song,
-  currentKey,
-  offsetDisplay,
-  onResetKey,
-  onSelectKey,
   variant = 'default',
 }: SongHeaderProps) {
-  const isTransposed = song.originalKey && currentKey && currentKey !== song.originalKey
   const isFullScreen = variant === 'fullscreen'
 
   return (
@@ -27,7 +21,7 @@ export default function SongHeader({
       className={
         isFullScreen
           ? 'min-w-[14rem] flex-1'
-          : 'flex flex-col justify-between gap-3 pb-1 sm:flex-row sm:items-center'
+          : 'flex flex-col justify-between gap-2 pb-0.5 sm:flex-row sm:items-center'
       }
     >
       <div className="min-w-0">
@@ -47,10 +41,19 @@ export default function SongHeader({
           className={
             isFullScreen
               ? 'mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--ui-text-muted)]'
-              : 'mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)]'
+              : 'mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[var(--ui-text-muted)]'
           }
         >
           <span className={isFullScreen ? 'max-w-[44ch] truncate' : undefined}>{song.artist}</span>
+          {!isFullScreen && song.originalKey && (
+            <>
+              <span aria-hidden="true">•</span>
+              <span>
+                Original key{' '}
+                <strong className="font-semibold text-[var(--ui-text)]">{song.originalKey}</strong>
+              </span>
+            </>
+          )}
           {!isFullScreen && (
             <>
               <span aria-hidden="true">•</span>
@@ -72,41 +75,6 @@ export default function SongHeader({
           )}
         </div>
       </div>
-
-      {!isFullScreen && (
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Transpose Key Selector */}
-          {onSelectKey ? (
-            <TransposeSelector
-              originalKey={song.originalKey}
-              currentKey={currentKey}
-              onSelectKey={onSelectKey}
-              onReset={onResetKey || (() => {})}
-            />
-          ) : (
-            isTransposed && (
-              <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1 text-xs text-[#1c436b] dark:text-amber-300">
-                <span>Key: {currentKey}</span>
-                {offsetDisplay && <span className="text-neutral-500 dark:text-[#999999]">({offsetDisplay})</span>}
-                {onResetKey && (
-                  <button
-                    onClick={onResetKey}
-                    className="ml-1 text-xs text-neutral-600 hover:text-black dark:text-[#999999] dark:hover:text-[#e5e5e5] underline cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            )
-          )}
-
-          {/* Original Key Badge */}
-          <div className="inline-flex items-center rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 py-1 text-xs">
-            <span className="mr-1.5 text-[var(--ui-text-muted)]">Original key</span>
-            <span className="font-bold text-[#255283] dark:text-amber-400">{song.originalKey || 'Unknown'}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

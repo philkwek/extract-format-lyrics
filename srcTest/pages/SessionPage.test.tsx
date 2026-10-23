@@ -229,8 +229,12 @@ describe('SessionPage full screen mode', () => {
   it('closes chord editing when entering full screen', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit chords' }))
+    expect(await screen.findByRole('button', { name: 'Edit chords' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit chords' }))
     expect(screen.getByText(/Chord editing active/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /full screen/i }))
 

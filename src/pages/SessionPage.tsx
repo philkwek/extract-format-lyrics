@@ -1390,7 +1390,7 @@ export default function SessionPage() {
                         </div>
                       </div>
 
-                      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <TransposeSelector
                           originalKey={displayedSong.originalKey}
                           currentKey={currentKey}
@@ -1467,25 +1467,28 @@ export default function SessionPage() {
                   </>
                 ) : (
                   <>
-                    <SongHeader
-                      song={displayedSong}
-                      currentKey={currentKey}
-                      offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                      onResetKey={handleResetKey}
-                      onSelectKey={handleSelectKey}
-                    />
+                    <SongHeader song={displayedSong} />
 
                     <DisplayControls
                       prefs={prefs}
                       onChangePrefs={handleUpdatePrefs}
                       canSimplify={canSimplify}
                       simplifiedSource={currentSong?.simplifiedSource}
-                      onRestoreOriginal={handleRestoreOriginal}
+                      onRestoreOriginal={
+                        currentItem?.customSections !== undefined ||
+                        currentItem?.customSimplifiedSections !== undefined ||
+                        isEditingChords
+                          ? handleRestoreOriginal
+                          : undefined
+                      }
                       isEditingChords={isEditingChords}
                       hasLyricOverflow={hasLyricOverflow}
                       isPadPlaying={padState.isPlaying}
                       isPadLoading={padState.isLoading}
+                      originalKey={displayedSong.originalKey}
                       currentKey={currentKey}
+                      onSelectKey={handleSelectKey}
+                      onResetKey={handleResetKey}
                       padKeyMode={padKeyMode}
                       customPadKey={customPadKey}
                       onChangePadKeyMode={handleChangePadKeyMode}

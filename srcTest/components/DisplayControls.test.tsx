@@ -59,7 +59,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     expect(padButton.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('renders Pads Key slider defaulting to Match Song Key without custom key dropdown', () => {
+  it('keeps Pads Key popover closed by default and opens it via Pad key settings button', () => {
     const onChangePadKeyMode = vi.fn()
     render(
       <DisplayControls
@@ -74,7 +74,16 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
+    expect(screen.queryByText('Pads Key:')).toBeNull()
+    const settingsBtn = screen.getByRole('button', { name: 'Pad key settings' })
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(settingsBtn)
+    expect(settingsBtn.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText('Pads Key:')).toBeTruthy()
+    const tablist = screen.getByRole('tablist', { name: 'Pads Key' })
+    expect(tablist.classList.contains('ui-segmented--full')).toBe(true)
+    expect(tablist.querySelector('.ui-segmented__thumb')).toBeTruthy()
     const matchTab = screen.getByRole('tab', { name: 'Match Song' })
     const customTab = screen.getByRole('tab', { name: 'Custom' })
     expect(matchTab.getAttribute('aria-selected')).toBe('true')
@@ -85,7 +94,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     expect(onChangePadKeyMode).toHaveBeenCalledWith('custom')
   })
 
-  it('shows custom key dropdown on the right when Custom Key is selected and uses custom key for pad playback label', () => {
+  it('shows custom key dropdown in the popover when Custom Key is selected and uses custom key for pad playback label', () => {
     const onSelectCustomPadKey = vi.fn()
     render(
       <DisplayControls
@@ -101,16 +110,16 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
+    // Ensure Playing Pad button shows the custom key (A) rather than the song key (G)
+    expect(screen.getByRole('button', { name: 'Playing Pad (A)' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pad key settings' }))
     const customTab = screen.getByRole('tab', { name: 'Custom' })
     const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
     expect(dropdown.value).toBe('A')
 
-    // Ensure custom key dropdown appears to the right (after) the Pads Key segmented control
     const position = customTab.compareDocumentPosition(dropdown)
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    // Ensure Playing Pad button shows the custom key (A) rather than the song key (G)
-    expect(screen.getByRole('button', { name: 'Playing Pad (A)' })).toBeTruthy()
 
     fireEvent.change(dropdown, { target: { value: 'Bb' } })
     expect(onSelectCustomPadKey).toHaveBeenCalledWith('Bb')
@@ -129,15 +138,19 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
+    fireEvent.click(screen.getByRole('button', { name: 'Pad key settings' }))
     const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
     expect(dropdown.value).toBe('D')
   })
 })
 
 describe('DisplayControls — columns and fit', () => {
-  it('offers four manual columns', () => {
+  it('offers four manual columns with an animated sliding thumb', () => {
     const onChangePrefs = vi.fn()
     render(<DisplayControls prefs={defaultPrefs} onChangePrefs={onChangePrefs} />)
+
+    const columnsGroup = screen.getByRole('group', { name: 'Columns' })
+    expect(columnsGroup.querySelector('.ui-segmented__thumb')).toBeTruthy()
 
     const fourthColumn = screen.getByRole('button', { name: '4' })
     expect(fourthColumn.getAttribute('aria-pressed')).toBe('false')
