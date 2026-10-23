@@ -2,17 +2,14 @@ import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  FileText,
   GripVertical,
   Lightbulb,
-  ListOrdered,
   Maximize2,
   Minimize2,
   Pencil,
-  Plus,
+  Settings2,
   Share2,
   SlidersHorizontal,
-  Upload,
   X,
 } from 'lucide-react'
 
@@ -28,10 +25,9 @@ import SongSheet from '../components/SongSheet'
 import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
-import ShareModal from '../components/ShareModal'
-import ShareLyricsModal from '../components/ShareLyricsModal'
+import ShareMenuModal from '../components/ShareMenuModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
-import UploadSheetModal from '../components/UploadSheetModal'
+import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
 
 import { getChordPos, setChordPos } from '../lib/chordNudge'
@@ -91,8 +87,9 @@ export default function SessionPage() {
       return false
     }
   })
-  const [isShareLyricsOpen, setIsShareLyricsOpen] = useState(false)
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
+  const [isPreparingShare, setIsPreparingShare] = useState(false)
+  const [isEditSetOpen, setIsEditSetOpen] = useState(false)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
@@ -142,44 +139,46 @@ export default function SessionPage() {
   // Song index from ?song= query param, default 0
   const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
 
+  const loadSessionSongs = useCallback(async (nextSession: Session) => {
+    const map = new Map<string, Song>()
+    const origMap = new Map<string, Song>()
+    for (const item of nextSession.songs) {
+      if (item.status === 'ok') {
+        const loaded = await songCache.getSong(item.url)
+        if (loaded) {
+          origMap.set(item.entryId || item.url, loaded)
+          let songToUse = loaded
+          if (item.customSections) {
+            songToUse = {
+              ...songToUse,
+              sections: item.customSections,
+              flow: item.customFlow ?? identityFlow(item.customSections.length),
+            }
+          }
+          if (item.customSimplifiedSections && songToUse.simplifiedSections) {
+            songToUse = {
+              ...songToUse,
+              simplifiedSections: item.customSimplifiedSections,
+              simplifiedFlow:
+                item.customSimplifiedFlow ?? identityFlow(item.customSimplifiedSections.length),
+            }
+          }
+          map.set(item.entryId || item.url, songToUse)
+        }
+      }
+    }
+    setSongsData(map)
+    setOriginalSongs(origMap)
+  }, [])
+
   useEffect(() => {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
       if (!s) return
       setSession(s)
-
-      // Load cached song data for successful items
-      const map = new Map<string, Song>()
-      const origMap = new Map<string, Song>()
-      for (const item of s.songs) {
-        if (item.status === 'ok') {
-          const loaded = await songCache.getSong(item.url)
-          if (loaded) {
-            origMap.set(item.entryId || item.url, loaded)
-            let songToUse = loaded
-            if (item.customSections) {
-              songToUse = {
-                ...songToUse,
-                sections: item.customSections,
-                flow: item.customFlow ?? identityFlow(item.customSections.length),
-              }
-            }
-            if (item.customSimplifiedSections && songToUse.simplifiedSections) {
-              songToUse = {
-                ...songToUse,
-                simplifiedSections: item.customSimplifiedSections,
-                simplifiedFlow:
-                  item.customSimplifiedFlow ?? identityFlow(item.customSimplifiedSections.length),
-              }
-            }
-            map.set(item.entryId || item.url, songToUse)
-          }
-        }
-      }
-      setSongsData(map)
-      setOriginalSongs(origMap)
+      await loadSessionSongs(s)
     })
-  }, [sessionId])
+  }, [sessionId, loadSessionSongs])
 
   const currentItem = session?.songs[activeIndex]
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
@@ -295,6 +294,14 @@ export default function SessionPage() {
   const selectSong = (index: number) => {
     setPositioningChord(null)
     setSearchParams({ song: index.toString() })
+  }
+
+  const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
+    setSession(updatedSession)
+    await loadSessionSongs(updatedSession)
+    if (typeof firstNewIndex === 'number') {
+      selectSong(firstNewIndex)
+    }
   }
 
   const handleSelectKey = async (newKey: string) => {
@@ -451,9 +458,9 @@ export default function SessionPage() {
     setIsEditingChords(false)
     setPositioningChord(null)
     setSharingSnapshot(null)
-    setIsShareLyricsOpen(false)
+    setIsShareMenuOpen(false)
+    setIsEditSetOpen(false)
     setIsArrangingSongs(false)
-    setIsUploadModalOpen(false)
     setIsFullScreen(true)
     setShowFullScreenDisplayControls(false)
     setChromeHidden(true)
@@ -1024,11 +1031,20 @@ export default function SessionPage() {
     }
   }
 
-  const handleShareSet = async () => {
+  const handleOpenShareMenu = async () => {
+    if (isPreparingShare) return
+    setIsPreparingShare(true)
     try {
       setSharingSnapshot(await buildSharedSetSnapshot(session))
+      setIsShareMenuOpen(true)
     } catch (err) {
-      window.alert(err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.')
+      window.alert(
+        err instanceof ShareSnapshotError
+          ? err.message
+          : 'Unable to prepare this set for sharing.'
+      )
+    } finally {
+      setIsPreparingShare(false)
     }
   }
 
@@ -1068,22 +1084,23 @@ export default function SessionPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button size="sm" variant="secondary" icon={<Share2 size={14} />} onClick={handleShareSet}>Share set</Button>
             <Button
               size="sm"
               variant="secondary"
-              icon={<FileText size={14} />}
-              onClick={() => setIsShareLyricsOpen(true)}
-              title="Share all lyrics without chords"
+              icon={<Share2 size={14} />}
+              onClick={handleOpenShareMenu}
+              loading={isPreparingShare}
             >
-              Share lyrics
+              Share
             </Button>
-            {session.songs.length > 1 && (
-              <Button size="sm" variant="secondary" icon={<ListOrdered size={14} />} onClick={() => setIsArrangingSongs(true)}>Arrange</Button>
-            )}
-
-            <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => navigate(`/search?session=${session.id}`)}>Add song</Button>
-            <Button size="sm" variant="secondary" icon={<Upload size={14} />} onClick={() => setIsUploadModalOpen(true)}>Upload</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Settings2 size={14} />}
+              onClick={() => setIsEditSetOpen(true)}
+            >
+              Edit Set
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -1435,24 +1452,30 @@ export default function SessionPage() {
       )}
 
       {/* Share Modal */}
-      {sharingSnapshot && !isFullScreen && (
-        <ShareModal
+      {isShareMenuOpen && sharingSnapshot && session && !isFullScreen && (
+        <ShareMenuModal
           snapshot={sharingSnapshot}
-          isOpen={Boolean(sharingSnapshot)}
-          onClose={() => setSharingSnapshot(null)}
-        />
-      )}
-
-      {/* Share Lyrics Modal */}
-      {isShareLyricsOpen && session && !isFullScreen && (
-        <ShareLyricsModal
           session={session}
           songsData={songsData}
-          isOpen={isShareLyricsOpen}
-          onClose={() => setIsShareLyricsOpen(false)}
+          isOpen={isShareMenuOpen}
+          onClose={() => setIsShareMenuOpen(false)}
         />
       )}
 
+      {/* Edit Set Modal */}
+      {isEditSetOpen && session && !isFullScreen && (
+        <EditSetModal
+          isOpen={isEditSetOpen}
+          onClose={() => setIsEditSetOpen(false)}
+          session={session}
+          onArrange={() => {
+            setIsEditSetOpen(false)
+            setIsArrangingSongs(true)
+          }}
+          onSessionUpdated={handleSessionUpdated}
+          onImportUploadedSongs={handleImportUploadedSongs}
+        />
+      )}
 
       {/* Arrange Songs Drawer */}
       <ArrangeDrawer
@@ -1495,13 +1518,6 @@ export default function SessionPage() {
           </div>
         </aside>
       )}
-
-      {/* Upload SongSelect Sheet Modal */}
-      <UploadSheetModal
-        isOpen={isUploadModalOpen && !isFullScreen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onImport={handleImportUploadedSongs}
-      />
 
       {/* Floating Chord Position Adjustment Toolbar */}
       {positioningChord && !isFullScreen && (
