@@ -407,4 +407,31 @@ describe('transformRawSongsToAppSongs', () => {
       ])
     }
   })
+
+  it('deduplicates identical sections across merged pages while preserving flow', () => {
+    const merged = mergeConsecutiveSongs([
+      {
+        title: 'Repeated Song',
+        sections: [
+          { type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', content: 'First verse' }] },
+          { type: 'Chorus', label: 'Chorus', lines: [{ kind: 'lyric', content: 'Same chorus' }] },
+        ],
+      },
+      {
+        title: 'Repeated Song',
+        sections: [
+          { type: 'Verse', label: 'Verse 2', lines: [{ kind: 'lyric', content: 'Second verse' }] },
+          { type: 'Chorus', label: 'Chorus', lines: [{ kind: 'lyric', content: 'Same chorus' }] },
+        ],
+      },
+    ])
+
+    const songs = transformRawSongsToAppSongs(merged)
+    expect(songs[0].sections.map((section) => section.label)).toEqual([
+      'Verse 1',
+      'Chorus',
+      'Verse 2',
+    ])
+    expect(songs[0].flow).toEqual([0, 1, 2, 1])
+  })
 })

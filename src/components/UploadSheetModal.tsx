@@ -510,7 +510,7 @@ export default function UploadSheetModal({
                     <div className="text-xs text-neutral-500 dark:text-[#999999] mb-2 flex items-center justify-between">
                       <span className="font-semibold uppercase tracking-wider text-[11px]">Layout Preview</span>
                       <span>
-                        {extractedSongs[activePreviewIndex].sections.length} sections detected
+                        {extractedSongs[activePreviewIndex].sections.length} unique sections
                       </span>
                     </div>
                     <SongSheet
