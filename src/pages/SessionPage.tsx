@@ -13,11 +13,22 @@ import {
   X,
 } from 'lucide-react'
 
-import { makeEntryId, sessionStore, type PadKeyMode, type Session, type SessionSongItem } from '../lib/sessionStore'
+import {
+  makeEntryId,
+  sessionStore,
+  type PadKeyMode,
+  type Session,
+  type SessionSongItem,
+} from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { scrapeApi, simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
-import { getDefaultSongPrefs, getSongPrefs, saveSongPrefs, type SongDisplayPrefs } from '../lib/songPrefs'
+import {
+  getDefaultSongPrefs,
+  getSongPrefs,
+  saveSongPrefs,
+  type SongDisplayPrefs,
+} from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
@@ -43,7 +54,12 @@ import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
 import { Button, IconButton } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
-import { ambientPadPlayer, resolvePadKey, type AmbientPadState, type PadKey } from '../lib/ambientPadPlayer'
+import {
+  ambientPadPlayer,
+  resolvePadKey,
+  type AmbientPadState,
+  type PadKey,
+} from '../lib/ambientPadPlayer'
 import { useChromeVisibility } from '../lib/chromeVisibility'
 import { useFitToScreen } from '../lib/useFitToScreen'
 
@@ -209,7 +225,7 @@ export default function SessionPage() {
         if (controller.signal.aborted || response.status !== 'ok') return
 
         const currentSessionItem = sessionRef.current?.songs.find(
-          (item) => (item.entryId || item.url) === key
+          (item) => (item.entryId || item.url) === key,
         )
         if (currentSessionItem?.customSimplifiedSections?.length) return
 
@@ -236,8 +252,8 @@ export default function SessionPage() {
   const padKeyMode: PadKeyMode = currentItem?.padKeyMode ?? 'match'
   const customPadKey: PadKey =
     padKeyMode === 'custom'
-      ? resolvePadKey(currentItem?.customPadKey) ?? resolvePadKey(currentKey) ?? 'C'
-      : resolvePadKey(currentKey) ?? 'C'
+      ? (resolvePadKey(currentItem?.customPadKey) ?? resolvePadKey(currentKey) ?? 'C')
+      : (resolvePadKey(currentKey) ?? 'C')
   const effectivePadKey = padKeyMode === 'custom' ? customPadKey : currentKey
 
   useEffect(() => {
@@ -285,7 +301,14 @@ export default function SessionPage() {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
       setPrefsRevision((revision) => revision + 1)
       if (newPrefs.simplified !== currentItem.simplified) {
-        const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, simplified: newPrefs.simplified } : item) }
+        const updated = {
+          ...session,
+          songs: session.songs.map((item) =>
+            item.entryId === currentItem.entryId
+              ? { ...item, simplified: newPrefs.simplified }
+              : item,
+          ),
+        }
         void sessionStore.updateSession(updated)
         setSession(updated)
       }
@@ -307,14 +330,24 @@ export default function SessionPage() {
 
   const handleSelectKey = async (newKey: string) => {
     if (!currentItem || !session) return
-    const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, targetKey: newKey } : item) }
+    const updated = {
+      ...session,
+      songs: session.songs.map((item) =>
+        item.entryId === currentItem.entryId ? { ...item, targetKey: newKey } : item,
+      ),
+    }
     await sessionStore.updateSession(updated)
     setSession(updated)
   }
 
   const handleResetKey = async () => {
     if (!currentItem || !session) return
-    const updated = { ...session, songs: session.songs.map((item) => item.entryId === currentItem.entryId ? { ...item, targetKey: undefined } : item) }
+    const updated = {
+      ...session,
+      songs: session.songs.map((item) =>
+        item.entryId === currentItem.entryId ? { ...item, targetKey: undefined } : item,
+      ),
+    }
     await sessionStore.updateSession(updated)
     setSession(updated)
   }
@@ -324,7 +357,7 @@ export default function SessionPage() {
     if ((currentItem.padKeyMode ?? 'match') === mode) return
     const nextCustomKey =
       mode === 'custom'
-        ? resolvePadKey(currentKey) ?? resolvePadKey(currentItem.customPadKey) ?? 'C'
+        ? (resolvePadKey(currentKey) ?? resolvePadKey(currentItem.customPadKey) ?? 'C')
         : undefined
     const updated = {
       ...session,
@@ -335,7 +368,7 @@ export default function SessionPage() {
               padKeyMode: mode,
               customPadKey: nextCustomKey,
             }
-          : item
+          : item,
       ),
     }
     await sessionStore.updateSession(updated)
@@ -349,17 +382,23 @@ export default function SessionPage() {
       songs: session.songs.map((item) =>
         item.entryId === currentItem.entryId
           ? { ...item, padKeyMode: 'custom' as const, customPadKey: newPadKey }
-          : item
+          : item,
       ),
     }
     await sessionStore.updateSession(updated)
     setSession(updated)
   }
 
-  const canSimplify = Boolean(currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0)
+  const canSimplify = Boolean(
+    currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0,
+  )
   const isSimplified = Boolean(prefs.simplified && canSimplify)
   const activeSections = useMemo(() => {
-    if (isSimplified && currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0) {
+    if (
+      isSimplified &&
+      currentSong?.simplifiedSections &&
+      currentSong.simplifiedSections.length > 0
+    ) {
       return currentSong.simplifiedSections
     }
     return currentSong?.sections ?? []
@@ -370,13 +409,13 @@ export default function SessionPage() {
       currentSong && currentItem
         ? resolveSessionFlow(currentItem, currentSong, isSimplified, activeSections.length)
         : identityFlow(activeSections.length),
-    [activeSections.length, currentItem, currentSong, isSimplified]
+    [activeSections.length, currentItem, currentSong, isSimplified],
   )
 
   const withUpdatedSections = (
     item: SessionSongItem,
     sections: Section[],
-    flow: number[]
+    flow: number[],
   ): SessionSongItem =>
     isSimplified
       ? { ...item, customSimplifiedSections: sections, customSimplifiedFlow: flow }
@@ -406,7 +445,7 @@ export default function SessionPage() {
       positioningChord.sectionIndex,
       positioningChord.lineIndex,
       positioningChord.chordIndex,
-      positioningChord.currentPos
+      positioningChord.currentPos,
     )
   }, [displayedSong, positioningChord])
 
@@ -454,8 +493,7 @@ export default function SessionPage() {
   }, [setChromeHidden])
 
   const handleEnterFullScreen = (trigger?: HTMLElement | null) => {
-    fullScreenTriggerRef.current =
-      trigger ?? (document.activeElement as HTMLElement | null)
+    fullScreenTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null)
     setIsEditingChords(false)
     setPositioningChord(null)
     setSharingSnapshot(null)
@@ -471,7 +509,7 @@ export default function SessionPage() {
     () => () => {
       setChromeHidden(false)
     },
-    [setChromeHidden]
+    [setChromeHidden],
   )
 
   useEffect(() => {
@@ -534,8 +572,14 @@ export default function SessionPage() {
         await songCache.saveSong(res.song, item.url)
         const updatedSongs = session.songs.map((s) =>
           s.entryId === item.entryId
-            ? { ...s, status: 'ok' as const, title: res.song?.title, artist: res.song?.artist, errorMessage: undefined }
-            : s
+            ? {
+                ...s,
+                status: 'ok' as const,
+                title: res.song?.title,
+                artist: res.song?.artist,
+                errorMessage: undefined,
+              }
+            : s,
         )
         const updatedSession = { ...session, songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
@@ -545,7 +589,7 @@ export default function SessionPage() {
       } else {
         const errorMsg = res?.message || 'Retry failed'
         const updatedSongs = session.songs.map((s) =>
-          s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s
+          s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s,
         )
         const updatedSession = { ...session, songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
@@ -554,7 +598,7 @@ export default function SessionPage() {
     } catch (err) {
       const errorMsg = (err as Error).message || 'Retry network error'
       const updatedSongs = session.songs.map((s) =>
-        s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s
+        s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s,
       )
       const updatedSession = { ...session, songs: updatedSongs }
       await sessionStore.updateSession(updatedSession)
@@ -579,15 +623,20 @@ export default function SessionPage() {
     }
   }
 
-
   const handleReorderSections = async (fromIndex: number, toIndex: number) => {
     if (!currentSong || !session || fromIndex === toIndex) return
 
-    const baseSections = isSimplified && currentSong.simplifiedSections
-      ? [...currentSong.simplifiedSections]
-      : [...currentSong.sections]
+    const baseSections =
+      isSimplified && currentSong.simplifiedSections
+        ? [...currentSong.simplifiedSections]
+        : [...currentSong.sections]
 
-    if (fromIndex < 0 || fromIndex >= baseSections.length || toIndex < 0 || toIndex >= baseSections.length) {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= baseSections.length ||
+      toIndex < 0 ||
+      toIndex >= baseSections.length
+    ) {
       return
     }
 
@@ -595,17 +644,18 @@ export default function SessionPage() {
     baseSections.splice(toIndex, 0, movedSection)
     const nextFlow = moveSectionInFlow(activeFlow, fromIndex, toIndex)
 
-    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: baseSections, simplifiedFlow: nextFlow }
-      : { ...currentSong, sections: baseSections, flow: nextFlow }
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: baseSections, simplifiedFlow: nextFlow }
+        : { ...currentSong, sections: baseSections, flow: nextFlow }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     // Persist reordered sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, baseSections, nextFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, baseSections, nextFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -628,12 +678,12 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, baseSections, activeFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, baseSections, activeFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -642,7 +692,13 @@ export default function SessionPage() {
 
   const handleReorderSongs = async (fromIndex: number, toIndex: number) => {
     if (!session || fromIndex === toIndex) return
-    if (fromIndex < 0 || fromIndex >= session.songs.length || toIndex < 0 || toIndex >= session.songs.length) return
+    if (
+      fromIndex < 0 ||
+      fromIndex >= session.songs.length ||
+      toIndex < 0 ||
+      toIndex >= session.songs.length
+    )
+      return
 
     const currentActiveEntryId = session.songs[activeIndex]?.entryId
 
@@ -650,7 +706,9 @@ export default function SessionPage() {
     if (updatedSession) {
       setSession(updatedSession)
       if (currentActiveEntryId) {
-        const newActiveIndex = updatedSession.songs.findIndex((s) => s.entryId === currentActiveEntryId)
+        const newActiveIndex = updatedSession.songs.findIndex(
+          (s) => s.entryId === currentActiveEntryId,
+        )
         if (newActiveIndex >= 0 && newActiveIndex !== activeIndex) {
           setSearchParams({ song: newActiveIndex.toString() })
         }
@@ -694,28 +752,32 @@ export default function SessionPage() {
 
     const confirmed = window.confirm(
       `Are you sure you want to delete "${label}"?${
-        repeatCount > 1 ? `\n\nThis removes ${repeatCount} occurrences that share this section.` : ''
-      }\n\nYou can restore it to the original chord sheet at any time.`
+        repeatCount > 1
+          ? `\n\nThis removes ${repeatCount} occurrences that share this section.`
+          : ''
+      }\n\nYou can restore it to the original chord sheet at any time.`,
     )
     if (!confirmed) return
 
-    const baseSections = isSimplified && currentSong.simplifiedSections
-      ? currentSong.simplifiedSections
-      : currentSong.sections
+    const baseSections =
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
     const updatedSections = baseSections.filter((_, idx) => idx !== sectionIndex)
     const nextFlow = removeSectionFromFlow(activeFlow, sectionIndex)
 
-    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: updatedSections, simplifiedFlow: nextFlow }
-      : { ...currentSong, sections: updatedSections, flow: nextFlow }
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: updatedSections, simplifiedFlow: nextFlow }
+        : { ...currentSong, sections: updatedSections, flow: nextFlow }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     // Persist custom sections to session so it survives page reloads
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, updatedSections, nextFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, updatedSections, nextFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -725,21 +787,25 @@ export default function SessionPage() {
   const handleSplitLine = async (sectionIndex: number, lineIndex: number, splitAt: number) => {
     if (!currentSong || !session) return
 
-    const sourceSections = isSimplified && currentSong.simplifiedSections
-      ? currentSong.simplifiedSections
-      : currentSong.sections
+    const sourceSections =
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
     const updatedSections = splitSectionLyricLine(sourceSections, sectionIndex, lineIndex, splitAt)
     if (!updatedSections) return
 
-    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: updatedSections }
-      : { ...currentSong, sections: updatedSections }
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: updatedSections }
+        : { ...currentSong, sections: updatedSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
     const updatedSongs = session.songs.map((song) =>
       song.entryId === currentItem?.entryId
         ? withUpdatedSections(song, updatedSections, activeFlow)
-        : song
+        : song,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -749,21 +815,29 @@ export default function SessionPage() {
   const handleMergeLineWithPrevious = async (sectionIndex: number, lineIndex: number) => {
     if (!currentSong || !session) return
 
-    const sourceSections = isSimplified && currentSong.simplifiedSections
-      ? currentSong.simplifiedSections
-      : currentSong.sections
-    const updatedSections = mergeSectionLyricLineWithPrevious(sourceSections, sectionIndex, lineIndex)
+    const sourceSections =
+      isSimplified && currentSong.simplifiedSections
+        ? currentSong.simplifiedSections
+        : currentSong.sections
+    const updatedSections = mergeSectionLyricLineWithPrevious(
+      sourceSections,
+      sectionIndex,
+      lineIndex,
+    )
     if (!updatedSections) return
 
-    const updatedSong: Song = isSimplified && currentSong.simplifiedSections
-      ? { ...currentSong, simplifiedSections: updatedSections }
-      : { ...currentSong, sections: updatedSections }
+    const updatedSong: Song =
+      isSimplified && currentSong.simplifiedSections
+        ? { ...currentSong, simplifiedSections: updatedSections }
+        : { ...currentSong, sections: updatedSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
     const updatedSongs = session.songs.map((song) =>
       song.entryId === currentItem?.entryId
         ? withUpdatedSections(song, updatedSections, activeFlow)
-        : song
+        : song,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -774,7 +848,7 @@ export default function SessionPage() {
     sectionIndex: number,
     lineIndex: number,
     chordIndex: number,
-    newChord: string
+    newChord: string,
   ) => {
     if (!currentSong || !session) return
 
@@ -802,7 +876,9 @@ export default function SessionPage() {
           if (ln.kind === 'lyric') {
             return {
               ...ln,
-              chords: ln.chords.map((c, cIdx) => (cIdx === chordIndex ? { ...c, chord: baseChord } : c)),
+              chords: ln.chords.map((c, cIdx) =>
+                cIdx === chordIndex ? { ...c, chord: baseChord } : c,
+              ),
             }
           }
           if (ln.kind === 'chords-only') {
@@ -821,23 +897,19 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, baseSections, activeFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, baseSections, activeFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
     setSession(updatedSession)
   }
 
-  const handleDeleteChord = async (
-    sectionIndex: number,
-    lineIndex: number,
-    chordIndex: number
-  ) => {
+  const handleDeleteChord = async (sectionIndex: number, lineIndex: number, chordIndex: number) => {
     if (!currentSong || !session) return
 
     const baseSections: Section[] = (
@@ -872,12 +944,12 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, baseSections, activeFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, baseSections, activeFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -888,7 +960,7 @@ export default function SessionPage() {
     sectionIndex: number,
     lineIndex: number,
     chordIndex: number,
-    newPos: number
+    newPos: number,
   ) => {
     if (!currentSong || !session) return
 
@@ -904,12 +976,12 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections }
         : { ...currentSong, sections: baseSections }
 
-    setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong))
+    setSongsData((prev) =>
+      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
+    )
 
     const updatedSongs = session.songs.map((s) =>
-      s.entryId === currentItem?.entryId
-        ? withUpdatedSections(s, baseSections, activeFlow)
-        : s
+      s.entryId === currentItem?.entryId ? withUpdatedSections(s, baseSections, activeFlow) : s,
     )
     const updatedSession = { ...session, songs: updatedSongs }
     await sessionStore.updateSession(updatedSession)
@@ -942,7 +1014,8 @@ export default function SessionPage() {
 
   const handleNudgePosition = (delta: number) => {
     if (!positioningChord || !displayedSong) return
-    const line = displayedSong.sections[positioningChord.sectionIndex]?.lines[positioningChord.lineIndex]
+    const line =
+      displayedSong.sections[positioningChord.sectionIndex]?.lines[positioningChord.lineIndex]
     if (!line || line.kind !== 'lyric') return
     const maxPos = line.text.length
     const nextPos = Math.max(0, Math.min(maxPos, positioningChord.currentPos + delta))
@@ -959,7 +1032,7 @@ export default function SessionPage() {
       positioningChord.sectionIndex,
       positioningChord.lineIndex,
       positioningChord.chordIndex,
-      positioningChord.currentPos
+      positioningChord.currentPos,
     )
     setPositioningChord(null)
   }
@@ -968,7 +1041,7 @@ export default function SessionPage() {
     setPositioningChord(null)
     if (!currentSong || !session) return
     const confirmed = window.confirm(
-      `Restore "${currentSong.title}" to its original chord sheet? Any custom chord edits or deleted sections will be restored.`
+      `Restore "${currentSong.title}" to its original chord sheet? Any custom chord edits or deleted sections will be restored.`,
     )
     if (!confirmed) return
 
@@ -976,7 +1049,9 @@ export default function SessionPage() {
     const orig = cached || originalSongs.get(currentItem?.entryId || currentSong.sourceUrl)
     if (orig) {
       const freshCopy: Song = JSON.parse(JSON.stringify(orig))
-      setSongsData((prev) => new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, freshCopy))
+      setSongsData((prev) =>
+        new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, freshCopy),
+      )
       const updatedSongs = session.songs.map((s) =>
         s.entryId === currentItem?.entryId
           ? {
@@ -986,7 +1061,7 @@ export default function SessionPage() {
               customSimplifiedSections: undefined,
               customSimplifiedFlow: undefined,
             }
-          : s
+          : s,
       )
       const updatedSession = { ...session, songs: updatedSongs }
       await sessionStore.updateSession(updatedSession)
@@ -997,14 +1072,21 @@ export default function SessionPage() {
   if (!session) {
     return (
       <div className="bg-white dark:bg-[#151515] rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-[#C8DFDB]/50 dark:border-[#282828]">
-        Session not found. <button onClick={() => navigate('/')} className="text-[#3368A0] dark:text-amber-400 underline cursor-pointer">Return home</button>
+        Session not found.{' '}
+        <button
+          onClick={() => navigate('/')}
+          className="text-[#3368A0] dark:text-amber-400 underline cursor-pointer"
+        >
+          Return home
+        </button>
       </div>
     )
   }
 
-  const offset = currentSong && currentSong.originalKey && currentKey
-    ? keyOffset(currentSong.originalKey, currentKey)
-    : 0
+  const offset =
+    currentSong && currentSong.originalKey && currentKey
+      ? keyOffset(currentSong.originalKey, currentKey)
+      : 0
 
   const handleStartRename = () => {
     if (!session) return
@@ -1041,9 +1123,7 @@ export default function SessionPage() {
     } catch (err) {
       setSharingSnapshot(null)
       setShareSnapshotError(
-        err instanceof ShareSnapshotError
-          ? err.message
-          : 'Unable to prepare this set for sharing.'
+        err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.',
       )
     } finally {
       setIsPreparingShare(false)
@@ -1074,12 +1154,18 @@ export default function SessionPage() {
                   autoFocus
                   className="ui-field max-w-sm px-2.5 py-1.5 text-sm font-bold"
                 />
-                <Button size="sm" variant="primary" onClick={handleSaveRename}>Save</Button>
+                <Button size="sm" variant="primary" onClick={handleSaveRename}>
+                  Save
+                </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">{session.name}</h1>
-                <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}><Pencil size={14} /></IconButton>
+                <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">
+                  {session.name}
+                </h1>
+                <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}>
+                  <Pencil size={14} />
+                </IconButton>
               </div>
             )}
             <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
@@ -1130,111 +1216,109 @@ export default function SessionPage() {
         <div
           ref={tabListRef}
           className={`no-scrollbar relative flex space-x-1.5 overflow-x-auto ${
-            isFullScreen
-              ? 'flex-1 py-1.5'
-              : 'border-b border-[var(--ui-border)] px-1 pb-2 pt-1'
+            isFullScreen ? 'flex-1 py-1.5' : 'border-b border-[var(--ui-border)] px-1 pb-2 pt-1'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
         >
           {session.songs.map((item, idx) => {
-          const isActive = idx === activeIndex
-          const song = songForItem(item)
-          const label = song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
-          const isDragging = draggedSongIdx === idx
-          const isOver = dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
-          const canDrag = !isFullScreen && session.songs.length > 1
+            const isActive = idx === activeIndex
+            const song = songForItem(item)
+            const label =
+              song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
+            const isDragging = draggedSongIdx === idx
+            const isOver =
+              dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
+            const canDrag = !isFullScreen && session.songs.length > 1
 
-          return (
-            <div
-              key={`${item.url}-${idx}`}
-              data-song-tab={idx}
-              role="tab"
-              aria-selected={isActive}
-              tabIndex={isActive ? 0 : -1}
-              draggable={canDrag}
-              onDragStart={(e) => handleTabDragStart(e, idx)}
-              onDragOver={(e) => handleTabDragOver(e, idx)}
-              onDrop={(e) => handleTabDrop(e, idx)}
-              onDragEnd={handleTabDragEnd}
-              onClick={() => selectSong(idx)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  selectSong(idx)
-                } else {
-                  const nextIndex = getNextTabIndex(e.key, idx, session.songs.length)
-                  if (nextIndex === null) return
-                  e.preventDefault()
-                  selectSong(nextIndex)
-                  window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-song-tab="${nextIndex}"]`)?.focus())
-                }
-              }}
-              title={canDrag ? 'Drag to reorder songs in setlist' : undefined}
-              className={`relative flex min-h-9 items-center space-x-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-all select-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
-                canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-              } ${
-                isDragging ? 'opacity-40 scale-95' : ''
-              } ${
-                isActive
-                  ? 'bg-[var(--ui-surface-raised)] text-[#255283] dark:text-amber-400 border-[var(--ui-border-strong)] font-bold shadow-sm'
-                  : 'bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:text-[var(--ui-text)] border-transparent'
-              }`}
-            >
-              {/* Drop insertion indicator line */}
-              {isOver && (
-                draggedSongIdx! < idx ? (
-                  <div className="absolute -right-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                    <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                  </div>
-                ) : (
-                  <div className="absolute -left-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                    <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                  </div>
-                )
-              )}
-
-              {canDrag && (
-                <span
-                  className="mr-1 text-[var(--ui-text-muted)]"
-                  title="Drag tab to reorder"
-                >
-                  <GripVertical size={13} />
-                </span>
-              )}
-
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  item.status === 'ok'
-                    ? 'bg-emerald-500'
-                    : item.status === 'error'
-                      ? 'bg-red-500'
-                      : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
+            return (
+              <div
+                key={`${item.url}-${idx}`}
+                data-song-tab={idx}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                draggable={canDrag}
+                onDragStart={(e) => handleTabDragStart(e, idx)}
+                onDragOver={(e) => handleTabDragOver(e, idx)}
+                onDrop={(e) => handleTabDrop(e, idx)}
+                onDragEnd={handleTabDragEnd}
+                onClick={() => selectSong(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    selectSong(idx)
+                  } else {
+                    const nextIndex = getNextTabIndex(e.key, idx, session.songs.length)
+                    if (nextIndex === null) return
+                    e.preventDefault()
+                    selectSong(nextIndex)
+                    window.requestAnimationFrame(() =>
+                      document
+                        .querySelector<HTMLElement>(`[data-song-tab="${nextIndex}"]`)
+                        ?.focus(),
+                    )
+                  }
+                }}
+                title={canDrag ? 'Drag to reorder songs in setlist' : undefined}
+                className={`relative flex min-h-9 items-center space-x-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-all select-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
+                  canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+                  isActive
+                    ? 'bg-[var(--ui-surface-raised)] text-[#255283] dark:text-amber-400 border-[var(--ui-border-strong)] font-bold shadow-sm'
+                    : 'bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:text-[var(--ui-text)] border-transparent'
                 }`}
-              />
-              <span className="truncate max-w-[140px]">{label}</span>
-              {!isFullScreen && session.songs.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemoveSong(item.entryId || '')
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  title="Remove song from setlist"
-                  aria-label={`Remove ${label}`}
-                  className="ml-1 rounded p-0.5 leading-none text-[var(--ui-text-muted)] transition hover:bg-red-500/10 hover:text-red-500"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )
-        })}
+              >
+                {/* Drop insertion indicator line */}
+                {isOver &&
+                  (draggedSongIdx! < idx ? (
+                    <div className="absolute -right-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                      <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    </div>
+                  ) : (
+                    <div className="absolute -left-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                      <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    </div>
+                  ))}
+
+                {canDrag && (
+                  <span className="mr-1 text-[var(--ui-text-muted)]" title="Drag tab to reorder">
+                    <GripVertical size={13} />
+                  </span>
+                )}
+
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    item.status === 'ok'
+                      ? 'bg-emerald-500'
+                      : item.status === 'error'
+                        ? 'bg-red-500'
+                        : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
+                  }`}
+                />
+                <span className="truncate max-w-[140px]">{label}</span>
+                {!isFullScreen && session.songs.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveSong(item.entryId || '')
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    title="Remove song from setlist"
+                    aria-label={`Remove ${label}`}
+                    className="ml-1 rounded p-0.5 leading-none text-[var(--ui-text-muted)] transition hover:bg-red-500/10 hover:text-red-500"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
         {isFullScreen && (
           <Button
@@ -1257,9 +1341,15 @@ export default function SessionPage() {
           {currentItem.status === 'error' ? (
             <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
               <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
-                <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
-                <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">{currentItem.url}</p>
-                <p className="text-xs text-red-600 dark:text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
+                <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">
+                  Failed to extract chord sheet
+                </h3>
+                <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">
+                  {currentItem.url}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-300">
+                  {currentItem.errorMessage || 'Unknown extraction error'}
+                </p>
                 <button
                   onClick={() => handleRetry(currentItem)}
                   disabled={retryingUrls.has(currentItem.url)}
@@ -1282,14 +1372,23 @@ export default function SessionPage() {
                 {isFullScreen ? (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <SongHeader
-                        song={displayedSong}
-                        currentKey={currentKey}
-                        offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                        onResetKey={handleResetKey}
-                        onSelectKey={handleSelectKey}
-                        variant="fullscreen"
-                      />
+                      <div className="flex flex-col">
+                        <SongHeader
+                          song={displayedSong}
+                          currentKey={currentKey}
+                          offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
+                          onResetKey={handleResetKey}
+                          onSelectKey={handleSelectKey}
+                          variant="fullscreen"
+                        />
+                        <div
+                          role="status"
+                          className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
+                        >
+                          {fullScreenStatus ?? '\u00A0'}
+                        </div>
+                      </div>
+
                       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                         <TransposeSelector
                           originalKey={displayedSong.originalKey}
@@ -1313,9 +1412,7 @@ export default function SessionPage() {
                           size="sm"
                           variant={showFullScreenDisplayControls ? 'primary' : 'secondary'}
                           icon={<SlidersHorizontal size={14} />}
-                          onClick={() =>
-                            setShowFullScreenDisplayControls((visible) => !visible)
-                          }
+                          onClick={() => setShowFullScreenDisplayControls((visible) => !visible)}
                           aria-expanded={showFullScreenDisplayControls}
                           aria-controls="fullscreen-display-controls"
                           title="Customise song sheet display"
@@ -1343,13 +1440,6 @@ export default function SessionPage() {
                         />
                       </div>
                     )}
-
-                    <div
-                      role="status"
-                      className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
-                    >
-                      {fullScreenStatus ?? '\u00A0'}
-                    </div>
                   </>
                 ) : (
                   <>
@@ -1396,9 +1486,7 @@ export default function SessionPage() {
                 className={
                   isFullScreen
                     ? `min-h-0 flex-1 px-3 pb-2 pt-2 ${
-                        fitEnabled && fitLayout.fitsOnScreen
-                          ? 'overflow-hidden'
-                          : 'overflow-auto'
+                        fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
                       }`
                     : 'pt-1'
                 }
@@ -1493,7 +1581,11 @@ export default function SessionPage() {
           }
         })}
         onMove={handleReorderSongs}
-        onDelete={session.songs.length > 1 ? (idx) => handleRemoveSong(session.songs[idx].entryId || '') : undefined}
+        onDelete={
+          session.songs.length > 1
+            ? (idx) => handleRemoveSong(session.songs[idx].entryId || '')
+            : undefined
+        }
         onClose={() => setIsArrangingSongs(false)}
       />
 
@@ -1509,13 +1601,24 @@ export default function SessionPage() {
               <Lightbulb size={14} />
               <span>Customize sections</span>
             </div>
-            <IconButton label="Dismiss tip" variant="ghost" onClick={handleDismissSectionEditTip}><X size={14} /></IconButton>
+            <IconButton label="Dismiss tip" variant="ghost" onClick={handleDismissSectionEditTip}>
+              <X size={14} />
+            </IconButton>
           </div>
           <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-            You can delete duplicate sections with <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder them anytime by <strong className="text-neutral-800 dark:text-neutral-100">dragging and dropping</strong>.
+            You can delete duplicate sections with{' '}
+            <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections
+            with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder
+            them anytime by{' '}
+            <strong className="text-neutral-800 dark:text-neutral-100">
+              dragging and dropping
+            </strong>
+            .
           </p>
           <div className="flex justify-end pt-0.5">
-            <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>Got it</Button>
+            <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
+              Got it
+            </Button>
           </div>
         </aside>
       )}
