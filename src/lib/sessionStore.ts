@@ -12,7 +12,9 @@ export interface SessionSongItem {
   status: 'ok' | 'error' | 'loading'
   errorMessage?: string
   customSections?: Section[]
+  customFlow?: number[]
   customSimplifiedSections?: Section[]
+  customSimplifiedFlow?: number[]
   /** Per-set musical choices; layout and typography remain personal preferences. */
   targetKey?: string
   padKeyMode?: PadKeyMode

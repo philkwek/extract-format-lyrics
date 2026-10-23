@@ -23,13 +23,16 @@ const song: Song = {
   originalKey: 'C',
   capo: 2,
   sections,
+  flow: [0],
 }
 
 const entry: SharedSetSong = {
   entryId: 'entry-1',
   song,
   customSections: sections,
+  customFlow: [0],
   customSimplifiedSections: sections,
+  customSimplifiedFlow: [0],
   targetKey: 'D',
   padKeyMode: 'custom',
   customPadKey: 'E',
@@ -90,6 +93,26 @@ describe('shared set validation', () => {
     expect(
       isSharedSetSnapshot(
         snapshotWithEntry({ customSimplifiedSections: [{ type: 'Chorus', label: 'x' }] })
+      )
+    ).toBe(false)
+  })
+
+  it('rejects section flow indices outside the section list', () => {
+    expect(isSharedSetSnapshot(snapshotWithSong({ flow: [1] }))).toBe(false)
+    expect(isSharedSetSnapshot(snapshotWithSong({ flow: [-1] }))).toBe(false)
+    expect(isSharedSetSnapshot(snapshotWithSong({ flow: [0.5] }))).toBe(false)
+    expect(isSharedSetSnapshot(snapshotWithEntry({ customFlow: [1] }))).toBe(false)
+    expect(isSharedSetSnapshot(snapshotWithEntry({ customSimplifiedFlow: [1] }))).toBe(false)
+  })
+
+  it('rejects custom flow without custom sections', () => {
+    expect(isSharedSetSnapshot(snapshotWithEntry({ customSections: undefined, customFlow: [0] }))).toBe(false)
+    expect(
+      isSharedSetSnapshot(
+        snapshotWithEntry({
+          customSimplifiedSections: undefined,
+          customSimplifiedFlow: [0],
+        })
       )
     ).toBe(false)
   })

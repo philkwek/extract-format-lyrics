@@ -43,6 +43,15 @@ function isSectionArray(value: unknown): value is Section[] {
   return Array.isArray(value) && value.every(isSection)
 }
 
+function isFlow(value: unknown, sectionCount: number): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (index) => Number.isSafeInteger(index) && index >= 0 && index < sectionCount
+    )
+  )
+}
+
 export function isChordPlacement(value: unknown): value is ChordPlacement {
   if (!isObject(value)) return false
   return (
@@ -98,7 +107,11 @@ export function isSong(value: unknown): value is Song {
       (typeof value.capo === 'number' && Number.isFinite(value.capo))) &&
     Array.isArray(value.sections) &&
     value.sections.every(isSection) &&
+    (value.flow === undefined || isFlow(value.flow, value.sections.length)) &&
     (value.simplifiedSections === undefined || isSectionArray(value.simplifiedSections)) &&
+    (value.simplifiedFlow === undefined ||
+      (Array.isArray(value.simplifiedSections) &&
+        isFlow(value.simplifiedFlow, value.simplifiedSections.length))) &&
     (value.simplifiedSource === undefined ||
       value.simplifiedSource === 'official' ||
       value.simplifiedSource === 'algorithmic') &&
@@ -114,8 +127,14 @@ export function isSharedSetSong(value: unknown): value is SharedSetSong {
     value.entryId.length > 0 &&
     isSong(value.song) &&
     (value.customSections === undefined || isSectionArray(value.customSections)) &&
+    (value.customFlow === undefined ||
+      (Array.isArray(value.customSections) &&
+        isFlow(value.customFlow, value.customSections.length))) &&
     (value.customSimplifiedSections === undefined ||
       isSectionArray(value.customSimplifiedSections)) &&
+    (value.customSimplifiedFlow === undefined ||
+      (Array.isArray(value.customSimplifiedSections) &&
+        isFlow(value.customSimplifiedFlow, value.customSimplifiedSections.length))) &&
     (value.targetKey === undefined || typeof value.targetKey === 'string') &&
     (value.padKeyMode === undefined ||
       value.padKeyMode === 'match' ||

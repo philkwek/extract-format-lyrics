@@ -6,7 +6,9 @@ import type { Song } from '../../src/types/song'
 const sourceSong: Song = {
   id: 'song-1', title: 'Song', artist: 'Artist', sourceUrl: 'https://example.test/song', sourceSite: 'test', originalKey: 'C',
   sections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 2, chord: 'G' }] }] }],
+  flow: [0],
   simplifiedSections: [{ type: 'Verse', label: 'Simple', lines: [] }],
+  simplifiedFlow: [0],
 }
 
 describe('shared set snapshots', () => {
@@ -14,7 +16,7 @@ describe('shared set snapshots', () => {
     const session: Session = {
       id: 'set', createdAt: 1, name: 'Sunday', songs: [
         { entryId: 'first', url: sourceSong.sourceUrl, status: 'ok', targetKey: 'D', padKeyMode: 'custom', customPadKey: 'E', simplified: true },
-        { entryId: 'second', url: sourceSong.sourceUrl, status: 'ok', customSections: [], simplified: false },
+        { entryId: 'second', url: sourceSong.sourceUrl, status: 'ok', customSections: [], customFlow: [], simplified: false },
       ],
     }
     const snapshot = await createSharedSetSnapshot(session, async () => sourceSong)
@@ -23,6 +25,7 @@ describe('shared set snapshots', () => {
     expect(snapshot.songs[0].padKeyMode).toBe('custom')
     expect(snapshot.songs[0].customPadKey).toBe('E')
     expect(snapshot.songs[1].customSections).toEqual([])
+    expect(snapshot.songs[1].customFlow).toEqual([])
     expect(sessionSongsFromSnapshot(snapshot)).toMatchObject(session.songs)
   })
 
@@ -58,6 +61,7 @@ describe('shared set snapshots', () => {
           status: 'ok',
           simplified: true,
           customSimplifiedSections: [{ type: 'Verse', label: 'Custom Simple', lines: [] }],
+          customSimplifiedFlow: [0],
         },
       ],
     }
@@ -66,11 +70,13 @@ describe('shared set snapshots', () => {
     expect(snapshot.songs[0].song.simplifiedSource).toBe('algorithmic')
     expect(snapshot.songs[0].song.simplifiedSections).toEqual(algorithmicSong.simplifiedSections)
     expect(snapshot.songs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+    expect(snapshot.songs[0].customSimplifiedFlow).toEqual([0])
     expect(snapshot.songs[0].simplified).toBe(true)
 
     const restoredSongs = sessionSongsFromSnapshot(snapshot)
     expect(restoredSongs[0].simplified).toBe(true)
     expect(restoredSongs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+    expect(restoredSongs[0].customSimplifiedFlow).toEqual([0])
   })
 })
 

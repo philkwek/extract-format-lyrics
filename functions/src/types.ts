@@ -64,7 +64,9 @@ export interface SharedSetSong {
   entryId: string
   song: Song
   customSections?: Section[]
+  customFlow?: number[]
   customSimplifiedSections?: Section[]
+  customSimplifiedFlow?: number[]
   targetKey?: string
   padKeyMode?: 'match' | 'custom'
   customPadKey?: string
