@@ -17,7 +17,7 @@ If you're leading with just a guitar, you can also play an ambient pad and send 
 1. **Add your songs.** Paste chord sheet links on the home page, or use **Search** to find a song. You can also use **Upload chart** for a PDF or image you already have.
 2. **Put your set together.** Give it a name, add the other songs and arrange them in the order you want.
 3. **Make it work for you.** Change the key, adjust the text size and columns, or edit the chords and sections.
-4. **Share it when you're ready.** Use **Share set** for the musicians or **Share lyrics** for everyone singing along.
+4. **Share it when you're ready.** Open **Share**, then choose **Share this set** for the musicians or **Share lyrics** for everyone singing along.
 
 ![Getting started: adding songs and opening a set in Chord Sheets](docs/readme/getting-started-compact.gif)
 
@@ -43,7 +43,7 @@ Skipping an intro, or using a different section order? Change the song to match 
 
 - Drag sections to change their order on a computer.
 - Use a section's edit button to rename it, or remove sections you don't need.
-- Drag the song tabs to reorder your set. On a phone or tablet, use **Arrange** and its up/down buttons.
+- Drag the song tabs to reorder your set. On a phone or tablet, open **Edit Set** and use **Arrange setlist**.
 
 ![Reordering songs and moving sections within a song](docs/readme/arrange.gif)
 
@@ -51,7 +51,7 @@ Skipping an intro, or using a different section order? Change the song to match 
 
 For cell group worship, people can open the lyrics on their own phones while you play. They get a simple lyrics view with song tabs and no chords.
 
-Open **Share lyrics**, use **See Preview** to check it, then **Generate link** and **Copy link** to send it to your group.
+Open **Share**, choose **Share lyrics**, use **See Preview** to check it, then **Generate link** and **Copy link** to send it to your group.
 
 ![Generating a lyrics link and opening the shared lyrics view](docs/readme/share-lyrics.gif)
 
@@ -73,15 +73,15 @@ Using a capo? Choose **Custom Key** under **Pads Key** and select the key your g
 
 ## Send the set to your musicians
 
-**Share set** gives your team a copy of the songs, including your chord edits, section order, selected keys and simplified chord choices. They can import it and adjust it for themselves.
+**Share this set** gives your team a copy of the songs, including your chord edits, section order, selected keys and simplified chord choices. They can import it and adjust it for themselves.
 
-Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns and theme.
+Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns, line wrapping and theme.
 
 Both set and lyrics links support up to **15 songs**. Anyone with the link can open it without an account.
 
 ## Read it comfortably
 
-Choose one, two or three columns and adjust the text size for your screen. Use light mode in a bright room or dark mode when you want less glare.
+Choose one, two or three columns and adjust the text size for your screen. Long chord and lyric lines wrap automatically onto the next row; turn off **Wrap** if you prefer to scroll or split them yourself. Use light mode in a bright room or dark mode when you want less glare.
 
 ![A demo set in dark mode](docs/readme/dark-mode.png)
 
@@ -91,7 +91,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords and Worship Together. Other websites aren't currently supported for link imports. A supported site may sometimes block an import.
 - **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it to your set. Some files need AI processing and may ask for a Gemini API key if the website doesn't have one configured.
-- **Saved on this browser:** Sets aren't synced across devices. Use **Share set** to move a copy to another device. Clearing browser data can remove your saved sets and your ability to update an existing lyrics link.
+- **Saved on this browser:** Sets aren't synced across devices. Use **Share → Share this set** to move a copy to another device. Clearing browser data can remove your saved sets and your ability to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
 - **Sharing stores a copy online:** Set links include chords and lyrics; lyrics links include lyrics only. Keep the content you share within the permissions you have from its owners.
 

@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react'
 import { parseKey } from '../lib/transpose'
 import { keyOptions, keyOffset, formatOffset, matchKeyOption } from '../lib/keys'
 
@@ -6,6 +7,7 @@ interface TransposeSelectorProps {
   currentKey: string | null
   onSelectKey: (newKey: string) => void
   onReset: () => void
+  compact?: boolean
 }
 
 export default function TransposeSelector({
@@ -13,10 +15,12 @@ export default function TransposeSelector({
   currentKey,
   onSelectKey,
   onReset,
+  compact = false,
 }: TransposeSelectorProps) {
   if (!originalKey) {
+    if (compact) return null
     return (
-      <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+      <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 text-xs text-[var(--ui-text-muted)]">
         <span>Key unknown</span>
       </div>
     )
@@ -29,39 +33,43 @@ export default function TransposeSelector({
   const activeKey = currentKey || matchedOriginal
 
   const offset = keyOffset(matchedOriginal, activeKey)
-  const offsetLabel = formatOffset(offset)
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-neutral-600 dark:text-[#999999] font-medium">Transpose:</span>
+    <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)]">
+      <span className="mr-1.5 text-[11px] font-semibold text-[var(--ui-text-muted)] select-none">
+        Key
+      </span>
       <select
+        aria-label="Transpose song"
         value={activeKey}
         onChange={(e) => onSelectKey(e.target.value)}
-        className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-neutral-900 dark:text-[#e5e5e5] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono shadow-xs"
+        className="cursor-pointer bg-transparent py-1 font-mono text-xs font-bold text-[var(--ui-text)] focus:outline-none"
       >
         {options.map((opt) => {
           const optOffset = keyOffset(matchedOriginal, opt)
           const optOffsetLabel = formatOffset(optOffset)
           return (
-            <option key={opt} value={opt}>
-              {opt} {optOffset !== 0 ? `(${optOffsetLabel})` : '(Original)'}
+            <option
+              key={opt}
+              value={opt}
+              className="bg-[var(--ui-surface-raised)] text-[var(--ui-text)]"
+            >
+              {opt} {optOffset !== 0 ? `(${optOffsetLabel})` : '(Orig)'}
             </option>
           )
         })}
       </select>
 
       {offset !== 0 && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#255283] dark:text-amber-400 font-medium">
-            ({offsetLabel})
-          </span>
-          <button
-            onClick={onReset}
-            className="text-xs text-neutral-500 hover:text-black dark:text-[#999999] dark:hover:text-[#e5e5e5] underline cursor-pointer"
-          >
-            Reset
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          title={`Reset to original key (${matchedOriginal})`}
+          aria-label={`Reset to original key (${matchedOriginal})`}
+          className="ml-1 -mr-1 inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)] active:scale-[0.92]"
+        >
+          <RotateCcw size={12} />
+        </button>
       )}
     </div>
   )

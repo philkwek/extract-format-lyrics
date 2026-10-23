@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import type { SharedLyricsPayload } from '../types/song'
 import OverlayDialog from './ui/OverlayDialog'
 import LyricsViewerContent from './LyricsViewerContent'
@@ -14,9 +15,9 @@ export default function LyricsPreviewModal({
   onClose,
   payload,
 }: LyricsPreviewModalProps) {
-  if (!isOpen || !payload) return null
+  if (!isOpen || !payload || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
@@ -32,6 +33,7 @@ export default function LyricsPreviewModal({
       }
     >
       <LyricsViewerContent songs={payload.songs} isModal />
-    </OverlayDialog>
+    </OverlayDialog>,
+    document.body
   )
 }

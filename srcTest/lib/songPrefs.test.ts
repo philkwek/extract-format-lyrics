@@ -44,6 +44,8 @@ describe('getDefaultSongPrefs', () => {
       fontSizePx: 14,
       darkMode: true,
       simplified: false,
+      fitToScreen: true,
+      wrapLines: true,
     })
 
     expect(getDefaultSongPrefs(1024)).toEqual({
@@ -51,6 +53,8 @@ describe('getDefaultSongPrefs', () => {
       fontSizePx: 14,
       darkMode: true,
       simplified: false,
+      fitToScreen: true,
+      wrapLines: true,
     })
   })
 })
@@ -71,10 +75,57 @@ describe('getSongPrefs', () => {
     expect(getSongPrefs('saved-1col', 1024)).toMatchObject({ columns: 1, fontSizePx: 16 })
   })
 
-  it('falls back to screen-width default columns for invalid or removed fit preference', () => {
+  it('preserves a manually selected fourth column', () => {
+    localStorage.setItem('song_pref:saved-4col', JSON.stringify({ columns: 4, fontSizePx: 13 }))
+
+    expect(getSongPrefs('saved-4col', 390)).toMatchObject({ columns: 4, fontSizePx: 13 })
+    expect(getSongPrefs('saved-4col', 1024)).toMatchObject({ columns: 4, fontSizePx: 13 })
+  })
+
+  it('round-trips the full-screen fit preference', () => {
+    localStorage.setItem(
+      'song_pref:fit-off',
+      JSON.stringify({ columns: 2, fontSizePx: 15, fitToScreen: false })
+    )
+
+    expect(getSongPrefs('fit-off', 1024)).toMatchObject({
+      columns: 2,
+      fontSizePx: 15,
+      fitToScreen: false,
+    })
+  })
+
+  it('round-trips the line-wrap preference and defaults it on', () => {
+    localStorage.setItem(
+      'song_pref:wrap-on',
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: true })
+    )
+    localStorage.setItem(
+      'song_pref:wrap-off',
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: false })
+    )
+    localStorage.setItem(
+      'song_pref:wrap-missing',
+      JSON.stringify({ columns: 2, fontSizePx: 15 })
+    )
+
+    expect(getSongPrefs('wrap-on', 1024)).toMatchObject({ wrapLines: true })
+    expect(getSongPrefs('wrap-off', 1024)).toMatchObject({ wrapLines: false })
+    expect(getSongPrefs('wrap-missing', 1024)).toMatchObject({ wrapLines: true })
+  })
+
+  it('migrates the removed fit column mode to the fit preference', () => {
     localStorage.setItem('song_pref:legacy-fit', JSON.stringify({ columns: 'fit', fontSizePx: 16 }))
 
-    expect(getSongPrefs('legacy-fit', 390)).toMatchObject({ columns: 1, fontSizePx: 16 })
-    expect(getSongPrefs('legacy-fit', 1024)).toMatchObject({ columns: 3, fontSizePx: 16 })
+    expect(getSongPrefs('legacy-fit', 390)).toMatchObject({
+      columns: 1,
+      fontSizePx: 16,
+      fitToScreen: true,
+    })
+    expect(getSongPrefs('legacy-fit', 1024)).toMatchObject({
+      columns: 3,
+      fontSizePx: 16,
+      fitToScreen: true,
+    })
   })
 })

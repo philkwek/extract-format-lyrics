@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   allocateColumnWidths,
+  estimateColumnHeightPx,
+  estimateSectionHeightPx,
   getColumnDisplayWidths,
   getLineDisplayWidth,
   getSectionDisplayWidth,
@@ -192,5 +194,52 @@ describe('songLayout - partitionSections', () => {
     }
     // Base 2.5 + 2 + 1 + 1.5 + 1 = 8
     expect(getSectionWeight(section)).toBe(8)
+  })
+
+  it('partitions 5 sections across 4 columns while preserving order and keeping every column non-empty', () => {
+    const sections = [
+      makeMockSection('Intro', 4),
+      makeMockSection('Verse 1', 8),
+      makeMockSection('Chorus', 8),
+      makeMockSection('Bridge', 6),
+      makeMockSection('Outro', 4),
+    ]
+    const result = partitionSections(sections, 4)
+    expect(result).toHaveLength(4)
+    expect(result.every((column) => column.length > 0)).toBe(true)
+    expect(result.flat().map((item) => item.originalIndex)).toEqual([0, 1, 2, 3, 4])
+  })
+
+  it('balances four columns by section weight', () => {
+    const sections = Array.from({ length: 8 }, (_, index) =>
+      makeMockSection(`Section ${index + 1}`, 6)
+    )
+    const result = partitionSections(sections, 4)
+    const weights = result.map((column) =>
+      column.reduce((total, item) => total + getSectionWeight(item.section), 0)
+    )
+    expect(Math.max(...weights) - Math.min(...weights)).toBeLessThanOrEqual(0.01)
+    expect(result.flat().map((item) => item.originalIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+  })
+
+  it('estimates section and column heights in pixels', () => {
+    const short = makeMockSection('Intro', 1)
+    const long = makeMockSection('Verse', 8)
+
+    expect(estimateSectionHeightPx(short, 14)).toBeGreaterThan(estimateSectionHeightPx(short, 12))
+    expect(estimateColumnHeightPx([{ section: short, originalIndex: 0 }], 14)).toBe(
+      estimateSectionHeightPx(short, 14)
+    )
+    expect(
+      estimateColumnHeightPx(
+        [
+          { section: short, originalIndex: 0 },
+          { section: long, originalIndex: 1 },
+        ],
+        14
+      )
+    ).toBe(
+      estimateSectionHeightPx(short, 14) + estimateSectionHeightPx(long, 14) + 24
+    )
   })
 })

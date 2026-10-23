@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import HomePage from './pages/HomePage'
@@ -13,9 +13,11 @@ import { trackPage, setTrackingEnabled } from './lib/analytics'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import ThemeToggle from './components/ThemeToggle'
+import { ChromeVisibilityContext } from './lib/chromeVisibility'
 
 export function AppShell() {
   const location = useLocation()
+  const [chromeHidden, setChromeHidden] = useState(false)
   useEffect(() => { trackPage(location.pathname) }, [location.pathname])
   useEffect(() => {
     const sync = (event: StorageEvent) => {
@@ -29,9 +31,10 @@ export function AppShell() {
   const isLyricsView = location.pathname.startsWith('/lyrics/')
 
   return (
-    <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
-      {!isLyricsView && (
-        <header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
+    <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
+      <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
+        {!isLyricsView && !chromeHidden && (
+          <header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">
             <NavLink to="/" className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2 text-neutral-900 outline-none transition active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-[#3368A0]/30 dark:text-[#ededeb] dark:focus-visible:ring-amber-400/30">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#3368A0] transition-transform group-hover:scale-[1.04] dark:text-amber-500">
@@ -65,23 +68,34 @@ export function AppShell() {
           </div>
         </header>
       )}
-      <main className={`mx-auto w-[96%] max-w-[92rem] pb-10 ${isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'}`}>
-        <AppErrorBoundary key={location.pathname}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/session/:sessionId" element={<SessionPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/s/:shortId" element={<ShareImportPage />} />
-            <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
-          </Routes>
-        </AppErrorBoundary>
-      </main>
-      <footer className="mx-auto max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
-        <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>
-        {!isLyricsView && <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>}
-      </footer>
-    </div>
+        <main
+          className={
+            chromeHidden
+              ? 'w-full max-w-none p-0'
+              : `mx-auto w-[96%] max-w-[92rem] pb-10 ${
+                  isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'
+                }`
+          }
+        >
+          <AppErrorBoundary key={location.pathname}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/session/:sessionId" element={<SessionPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/s/:shortId" element={<ShareImportPage />} />
+              <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
+            </Routes>
+          </AppErrorBoundary>
+        </main>
+        {!chromeHidden && (
+          <footer className="mx-auto max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
+            <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>
+            {!isLyricsView && <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>}
+          </footer>
+        )}
+      </div>
+    </ChromeVisibilityContext.Provider>
   )
 }
 

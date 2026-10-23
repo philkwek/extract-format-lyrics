@@ -1,13 +1,26 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  Fragment,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
-import { allocateColumnWidths, getColumnDisplayWidths, partitionSections } from '../lib/songLayout'
+import {
+  allocateColumnWidths,
+  getColumnDisplayWidths,
+  partitionSections,
+  type SheetColumns,
+} from '../lib/songLayout'
 import { getLyricSplitPositions } from '../lib/lineSplit'
+import { wrapLyricLine } from '../lib/lyricWrap'
 
 interface SongSheetProps {
   sections: Section[]
   fontSizePx?: number
-  columns?: 1 | 2 | 3
+  columns?: SheetColumns
   isEditingChords?: boolean
   onDeleteSection?: (sectionIndex: number) => void
   onReorderSections?: (fromIndex: number, toIndex: number) => void
@@ -33,6 +46,8 @@ interface SongSheetProps {
   onSplitLine?: (sectionIndex: number, lineIndex: number, splitAt: number) => void
   onMergeLineWithPrevious?: (sectionIndex: number, lineIndex: number) => void
   onLyricOverflowChange?: (hasOverflow: boolean) => void
+  /** Draw long lyric lines on multiple rows instead of overflowing horizontally. */
+  wrapLines?: boolean
 }
 
 interface EditingChordTarget {
@@ -51,7 +66,7 @@ interface EditingChordTarget {
  */
 function renderLyricSegments(
   text: string,
-  chords: ChordPlacement[],
+  chords: Array<ChordPlacement & { originalIndex?: number }>,
   onChordClick?: (chordIndex: number, chord: string) => void,
   selectedIndex?: number,
   measurementKey?: string,
@@ -59,7 +74,10 @@ function renderLyricSegments(
   onSplitAt?: (splitAt: number) => void,
 ) {
   const sorted = chords
-    .map((c, originalIndex) => ({ ...c, originalIndex }))
+    .map((c, originalIndex) => ({
+      ...c,
+      originalIndex: c.originalIndex ?? originalIndex,
+    }))
     .sort((a, b) => a.pos - b.pos || a.originalIndex - b.originalIndex)
 
   const segments: { chord?: (typeof sorted)[number]; text: string; start: number }[] = []
@@ -179,10 +197,12 @@ function renderLine(
   ) => void,
   selectedChordIndex?: number,
   controls?: {
-    measurementKey: string
+    measurementKey?: string
     isOverflowing: boolean
     isSplitting: boolean
     canMergeWithPrevious: boolean
+    /** When set, lyric lines are wrapped to this many character cells. */
+    wrapWidthCh?: number
     onStartSplit?: () => void
     onSplitAt?: (splitAt: number) => void
     onCancelSplit?: () => void
@@ -204,6 +224,7 @@ function renderLine(
     return (
       <div
         key={key}
+        data-sheet-line
         className="font-mono text-[#255283] dark:text-amber-400 font-bold py-0.5 whitespace-pre"
       >
         {line.chords.map((chord, cIdx) => (
@@ -241,6 +262,8 @@ function renderLine(
 
   const isSplitting = Boolean(controls?.isSplitting && controls.onSplitAt && controls.onCancelSplit)
   const splitPositions = isSplitting ? getLyricSplitPositions(line) : undefined
+  const wrappedRows =
+    controls?.wrapWidthCh !== undefined ? wrapLyricLine(line, controls.wrapWidthCh) : null
 
   return (
     <div
@@ -249,17 +272,44 @@ function renderLine(
         isSplitting ? '-mx-1 rounded bg-[#C8DFDB]/40 px-1 dark:bg-amber-400/10' : ''
       }`}
     >
-      {renderLyricSegments(
-        line.text,
-        line.chords,
-        onChordClick
-          ? (chordIndex, chord) =>
-              onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
-          : undefined,
-        selectedChordIndex,
-        controls?.measurementKey,
-        splitPositions,
-        controls?.onSplitAt,
+      {wrappedRows ? (
+        <div className="min-w-0 space-y-0.5">
+          {wrappedRows.map((row, rowIndex) => (
+            <Fragment key={rowIndex}>
+              {renderLyricSegments(
+                row.text,
+                row.chords,
+                onChordClick
+                  ? (chordIndex, chord) =>
+                      onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
+                  : undefined,
+                selectedChordIndex,
+                undefined,
+                splitPositions
+                  ?.map((position) => position - row.start)
+                  .filter(
+                    (position) => position > 0 && position <= row.text.length,
+                  ),
+                controls?.onSplitAt
+                  ? (splitAt) => controls.onSplitAt?.(splitAt + row.start)
+                  : undefined,
+              )}
+            </Fragment>
+          ))}
+        </div>
+      ) : (
+        renderLyricSegments(
+          line.text,
+          line.chords,
+          onChordClick
+            ? (chordIndex, chord) =>
+                onChordClick(sectionIndex, lineIndex, chordIndex, chord, line.text)
+            : undefined,
+          selectedChordIndex,
+          controls?.measurementKey,
+          splitPositions,
+          controls?.onSplitAt,
+        )
       )}
       {isSplitting && (
         <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-medium leading-none text-[#1c436b] dark:text-amber-200">
@@ -324,6 +374,7 @@ export default function SongSheet({
   onSplitLine,
   onMergeLineWithPrevious,
   onLyricOverflowChange,
+  wrapLines = false,
 }: SongSheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -352,8 +403,26 @@ export default function SongSheet({
     () => allocateColumnWidths(columnDisplayWidths, availableWidthCh),
     [columnDisplayWidths, availableWidthCh],
   )
-  const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as 1 | 2 | 3
+  const desktopColumnCount = Math.min(columns, visibleColumnPartitions.length) as SheetColumns
   const hasAdaptiveColumns = desktopColumnCount > 1 && allocatedColumnWidths.length > 1
+  const columnWrapWidths = useMemo(() => {
+    if (!wrapLines) return []
+    return visibleColumnPartitions.map((_, index) => {
+      if (availableWidthCh === undefined) return undefined
+      const allocated = hasAdaptiveColumns
+        ? allocatedColumnWidths[index]
+        : availableWidthCh
+      if (allocated === undefined || !Number.isFinite(allocated)) return undefined
+      // Keep one character of rounding room so a measured row never clips.
+      return Math.max(1, Math.floor(allocated) - 1)
+    })
+  }, [
+    allocatedColumnWidths,
+    availableWidthCh,
+    hasAdaptiveColumns,
+    visibleColumnPartitions,
+    wrapLines,
+  ])
   const adaptiveGridStyle: CSSProperties | undefined = hasAdaptiveColumns
     ? ({
         '--song-sheet-column-template': allocatedColumnWidths
@@ -363,18 +432,20 @@ export default function SongSheet({
     : undefined
 
   const gridClass =
-    desktopColumnCount === 3
-      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
-      : desktopColumnCount === 2
-        ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
-        : 'song-sheet-grid grid grid-cols-1 gap-6'
+    desktopColumnCount === 4
+      ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-4 gap-6 sm:gap-8 items-start'
+      : desktopColumnCount === 3
+        ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 items-start'
+        : desktopColumnCount === 2
+          ? 'song-sheet-grid grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 items-start'
+          : 'song-sheet-grid grid grid-cols-1 gap-6'
 
   useLayoutEffect(() => {
     if (!sheetRef.current) return
 
     const sheet = sheetRef.current
     const measureOverflow = () => {
-      if (hasAdaptiveColumns && gridRef.current) {
+      if ((hasAdaptiveColumns || wrapLines) && gridRef.current) {
         const gridWidthPx = gridRef.current.clientWidth
         const probeWidthPx = chProbeRef.current?.getBoundingClientRect().width ?? 0
         const chWidthPx = probeWidthPx > 0 ? probeWidthPx / 10 : fontSizePx * 0.6
@@ -390,11 +461,13 @@ export default function SongSheet({
             desktopColumnCount,
             Math.floor(usableWidthPx / chWidthPx - 1),
           )
-          const nextWidths = allocateColumnWidths(columnDisplayWidths, nextAvailableCh)
-          gridRef.current.style.setProperty(
-            '--song-sheet-column-template',
-            nextWidths.map((width) => `minmax(0, ${width}fr)`).join(' '),
-          )
+          if (hasAdaptiveColumns) {
+            const nextWidths = allocateColumnWidths(columnDisplayWidths, nextAvailableCh)
+            gridRef.current.style.setProperty(
+              '--song-sheet-column-template',
+              nextWidths.map((width) => `minmax(0, ${width}fr)`).join(' '),
+            )
+          }
           setAvailableWidthCh((current) =>
             current === nextAvailableCh ? current : nextAvailableCh,
           )
@@ -440,6 +513,7 @@ export default function SongSheet({
     isEditingChords,
     onLyricOverflowChange,
     sections,
+    wrapLines,
   ])
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
@@ -520,7 +594,12 @@ export default function SongSheet({
   }
 
   return (
-    <div ref={sheetRef} className="song-sheet select-text" style={{ fontSize: `${fontSizePx}px` }}>
+    <div
+      ref={sheetRef}
+      data-song-sheet
+      className="song-sheet select-text"
+      style={{ fontSize: `${fontSizePx}px` }}
+    >
       <span
         ref={chProbeRef}
         aria-hidden="true"
@@ -556,6 +635,7 @@ export default function SongSheet({
               const isDragging = draggedIdx === originalIndex
               const isOver = dragOverIdx === originalIndex && draggedIdx !== originalIndex
               const isSplitSection = splittingLine?.sectionIndex === originalIndex
+              const columnWrapWidthCh = wrapLines ? columnWrapWidths[colIdx] : undefined
 
               return (
                 <div
@@ -566,7 +646,7 @@ export default function SongSheet({
                   onDrop={(e) => handleDrop(e, originalIndex)}
                   onDragEnd={handleDragEnd}
                   title={onReorderSections ? 'Drag section to reorder' : undefined}
-                  className={`section-block relative transition-all rounded-xl p-3 -m-3 select-none ${
+                  className={`section-block relative transition-[background-color,opacity,transform,box-shadow] rounded-xl p-3 -m-3 select-none ${
                     onReorderSections
                       ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100/60 dark:hover:bg-[#1a1a1a]/60'
                       : ''
@@ -713,8 +793,13 @@ export default function SongSheet({
                           : undefined,
                         line.kind === 'lyric'
                           ? {
-                              measurementKey: `${originalIndex}:${lIdx}`,
-                              isOverflowing: overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
+                              measurementKey: wrapLines
+                                ? undefined
+                                : `${originalIndex}:${lIdx}`,
+                              isOverflowing:
+                                !wrapLines &&
+                                overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
+                              wrapWidthCh: columnWrapWidthCh,
                               isSplitting:
                                 splittingLine?.sectionIndex === originalIndex &&
                                 splittingLine.lineIndex === lIdx,

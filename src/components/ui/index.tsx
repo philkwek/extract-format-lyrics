@@ -1,9 +1,12 @@
 import type {
   ButtonHTMLAttributes,
+  CSSProperties,
   HTMLAttributes,
   ReactNode,
 } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
+import { reducedMotionTransition, segmentedSpring } from '../../lib/uiMotion'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
 export type ButtonSize = 'sm' | 'md' | 'icon'
@@ -88,8 +91,28 @@ export function SegmentedControl<T extends string>({
   label,
   className,
 }: SegmentedControlProps<T>) {
+  const reduceMotion = useReducedMotion()
+  const activeIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  )
+
   return (
-    <div className={classes('ui-segmented', className)} role="tablist" aria-label={label}>
+    <div
+      className={classes('ui-segmented', className)}
+      role="tablist"
+      aria-label={label}
+      style={{ '--seg-count': options.length } as CSSProperties}
+    >
+      {options.length > 0 && (
+        <motion.span
+          aria-hidden="true"
+          className="ui-segmented__thumb"
+          initial={false}
+          animate={{ x: `${activeIndex * 100}%` }}
+          transition={reduceMotion ? reducedMotionTransition : segmentedSpring}
+        />
+      )}
       {options.map((option) => {
         const isActive = option.value === value
         return (

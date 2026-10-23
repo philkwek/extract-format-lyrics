@@ -1,8 +1,16 @@
+import type { SheetColumns } from './songLayout'
+
+export type ManualColumns = SheetColumns
+
 export interface SongDisplayPrefs {
-  columns: 1 | 2 | 3
+  columns: ManualColumns
   fontSizePx: number
   darkMode: boolean
   simplified?: boolean
+  /** Full-screen auto layout. Undefined means "on by default in full screen". */
+  fitToScreen?: boolean
+  /** Wrap long chord/lyric lines instead of letting them overflow. */
+  wrapLines?: boolean
 }
 
 export const IPAD_BREAKPOINT_PX = 768
@@ -23,6 +31,8 @@ export function getDefaultSongPrefs(width?: number): SongDisplayPrefs {
     fontSizePx: 14,
     darkMode: true,
     simplified: false,
+    fitToScreen: true,
+    wrapLines: true,
   }
 }
 
@@ -33,12 +43,28 @@ export function getSongPrefs(songId: string, width?: number): SongDisplayPrefs {
   try {
     const raw = localStorage.getItem(`${PREF_PREFIX}${songId}`)
     if (raw) {
-      const stored = JSON.parse(raw) as Partial<SongDisplayPrefs> & { columns?: unknown }
+      const stored = JSON.parse(raw) as Omit<
+        Partial<SongDisplayPrefs>,
+        'columns' | 'fitToScreen'
+      > & {
+        columns?: unknown
+        fitToScreen?: unknown
+      }
+      const legacyFit = stored.columns === 'fit'
       const columns =
-        stored.columns === 1 || stored.columns === 2 || stored.columns === 3
+        stored.columns === 1 ||
+        stored.columns === 2 ||
+        stored.columns === 3 ||
+        stored.columns === 4
           ? stored.columns
           : defaultPrefs.columns
-      return { ...defaultPrefs, ...stored, columns }
+      const fitToScreen =
+        typeof stored.fitToScreen === 'boolean'
+          ? stored.fitToScreen
+          : legacyFit || defaultPrefs.fitToScreen
+      const wrapLines =
+        typeof stored.wrapLines === 'boolean' ? stored.wrapLines : defaultPrefs.wrapLines
+      return { ...defaultPrefs, ...stored, columns, fitToScreen, wrapLines }
     }
   } catch {
     // fallback
