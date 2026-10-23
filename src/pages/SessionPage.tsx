@@ -420,7 +420,13 @@ export default function SessionPage() {
   const handleExitFullScreen = useCallback(() => {
     setIsFullScreen(false)
     setChromeHidden(false)
-    window.setTimeout(() => fullScreenTriggerRef.current?.focus(), 0)
+    window.setTimeout(() => {
+      const storedTrigger = fullScreenTriggerRef.current
+      const trigger = storedTrigger?.isConnected
+        ? storedTrigger
+        : document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+      trigger?.focus()
+    }, 0)
   }, [setChromeHidden])
 
   const handleEnterFullScreen = (trigger?: HTMLElement | null) => {
@@ -1068,6 +1074,7 @@ export default function SessionPage() {
               onClick={(event) => handleEnterFullScreen(event.currentTarget)}
               title="Fill the window with this chord sheet"
               aria-label="Full screen"
+              data-fullscreen-trigger
             >
               <span className="hidden sm:inline">Full screen</span>
             </Button>
