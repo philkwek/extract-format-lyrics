@@ -13,12 +13,15 @@ interface UploadSheetModalProps {
   isOpen: boolean
   onClose: () => void
   onImport: (songs: Song[]) => void | Promise<void>
+  /** Render the upload/review flow inline instead of inside its own dialog. */
+  inline?: boolean
 }
 
 export default function UploadSheetModal({
   isOpen,
   onClose,
   onImport,
+  inline = false,
 }: UploadSheetModalProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -236,27 +239,23 @@ export default function UploadSheetModal({
     setSelectedChord(null)
   }
 
-  return (
-    <OverlayDialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={extractedSongs ? 'Review extracted songs' : 'Upload chord charts'}
-      description={extractedSongs
-        ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review them before adding them to your setlist.`
-        : 'Import multi-page SongSelect PDFs or sheet images with Gemini-assisted extraction.'}
-      size="lg"
-      className={extractedSongs ? 'h-[92dvh]' : ''}
-      contentClassName={`bg-[var(--ui-surface-muted)] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'space-y-4'}`}
-      closeOnBackdrop={!isProcessing}
-      footer={!extractedSongs ? (
-        <>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" icon={<FileUp size={15} />} disabled={selectedFiles.length === 0 || isProcessing} loading={isProcessing} onClick={handleExtract}>
-            Extract with Gemini ({selectedFiles.length})
-          </Button>
-        </>
-      ) : undefined}
-    >
+  const dialogFooter = !extractedSongs ? (
+    <>
+      <Button variant="ghost" onClick={onClose}>Cancel</Button>
+      <Button
+        variant="primary"
+        icon={<FileUp size={15} />}
+        disabled={selectedFiles.length === 0 || isProcessing}
+        loading={isProcessing}
+        onClick={handleExtract}
+      >
+        Extract with Gemini ({selectedFiles.length})
+      </Button>
+    </>
+  ) : undefined
+
+  const content = (
+    <>
           {errorMessage && (
             <StatusBanner tone="error" icon={<AlertTriangle size={17} />} className="p-4 text-sm">
               <div className="flex-1">
@@ -600,6 +599,37 @@ export default function UploadSheetModal({
               </div>
             </div>
           )}
+    </>
+  )
+
+  if (inline) {
+    return (
+      <div className={extractedSongs ? 'flex flex-col gap-2 sm:gap-3' : 'space-y-4'}>
+        {content}
+        {dialogFooter && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--ui-border)] pt-3">
+            {dialogFooter}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <OverlayDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={extractedSongs ? 'Review extracted songs' : 'Upload chord charts'}
+      description={extractedSongs
+        ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review them before adding them to your setlist.`
+        : 'Import multi-page SongSelect PDFs or sheet images with Gemini-assisted extraction.'}
+      size="lg"
+      className={extractedSongs ? 'h-[92dvh]' : ''}
+      contentClassName={`bg-[var(--ui-surface-muted)] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'space-y-4'}`}
+      closeOnBackdrop={!isProcessing}
+      footer={dialogFooter}
+    >
+      {content}
     </OverlayDialog>
   )
 }
