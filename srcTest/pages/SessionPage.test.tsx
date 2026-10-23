@@ -7,6 +7,16 @@ import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 
 const fixtures = vi.hoisted(() => {
+  const sections = [
+    {
+      type: 'Verse',
+      label: 'Verse 1',
+      lines: [
+        { kind: 'lyric', text: 'You give life, You are love', chords: [{ chord: 'G', pos: 0 }] },
+      ],
+    },
+  ]
+
   const song = {
     id: 'song-1',
     title: 'Great Are You Lord',
@@ -14,15 +24,9 @@ const fixtures = vi.hoisted(() => {
     sourceUrl: 'https://example.test/great-are-you-lord',
     sourceSite: 'Demo',
     originalKey: 'G',
-    sections: [
-      {
-        type: 'Verse',
-        label: 'Verse 1',
-        lines: [
-          { kind: 'lyric', text: 'You give life, You are love', chords: [{ chord: 'G', pos: 0 }] },
-        ],
-      },
-    ],
+    sections,
+    simplifiedSections: sections,
+    simplifiedSource: 'algorithmic',
   }
 
   const session = {
@@ -124,6 +128,11 @@ describe('SessionPage full screen mode', () => {
     expect(screen.queryByText('Original key')).toBeNull()
     expect(screen.getByRole('button', { name: /play ambient pad/i })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Fit' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simplify' }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Simplified' })).toBeTruthy()
+    })
 
     const customiseButton = screen.getByRole('button', {
       name: /customise song sheet display/i,
