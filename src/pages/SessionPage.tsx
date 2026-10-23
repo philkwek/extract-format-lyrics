@@ -467,7 +467,7 @@ export default function SessionPage() {
   const fullScreenStatus =
     fitNotice ??
     (hasLyricOverflow
-      ? 'Lyric overflow detected. Try fewer columns or a smaller text size.'
+      ? 'Lyric overflow detected. Try fewer columns, a smaller text size, or turn on Wrap.'
       : null) ??
     (fitEnabled
       ? `Auto layout · ${fitLayout.columns} column${
@@ -1556,6 +1556,7 @@ export default function SessionPage() {
                   onSplitLine={handleSplitLine}
                   onMergeLineWithPrevious={handleMergeLineWithPrevious}
                   onLyricOverflowChange={setHasLyricOverflow}
+                  wrapLines={prefs.wrapLines}
                 />
               </div>
             </div>

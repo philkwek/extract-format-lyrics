@@ -45,6 +45,7 @@ describe('getDefaultSongPrefs', () => {
       darkMode: true,
       simplified: false,
       fitToScreen: true,
+      wrapLines: true,
     })
 
     expect(getDefaultSongPrefs(1024)).toEqual({
@@ -53,6 +54,7 @@ describe('getDefaultSongPrefs', () => {
       darkMode: true,
       simplified: false,
       fitToScreen: true,
+      wrapLines: true,
     })
   })
 })
@@ -91,6 +93,25 @@ describe('getSongPrefs', () => {
       fontSizePx: 15,
       fitToScreen: false,
     })
+  })
+
+  it('round-trips the line-wrap preference and defaults it on', () => {
+    localStorage.setItem(
+      'song_pref:wrap-on',
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: true })
+    )
+    localStorage.setItem(
+      'song_pref:wrap-off',
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: false })
+    )
+    localStorage.setItem(
+      'song_pref:wrap-missing',
+      JSON.stringify({ columns: 2, fontSizePx: 15 })
+    )
+
+    expect(getSongPrefs('wrap-on', 1024)).toMatchObject({ wrapLines: true })
+    expect(getSongPrefs('wrap-off', 1024)).toMatchObject({ wrapLines: false })
+    expect(getSongPrefs('wrap-missing', 1024)).toMatchObject({ wrapLines: true })
   })
 
   it('migrates the removed fit column mode to the fit preference', () => {

@@ -5,6 +5,7 @@ import {
   RotateCcw,
   Scan,
   WandSparkles,
+  WrapText,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
@@ -113,7 +114,7 @@ export default function DisplayControls({
       ? `Auto layout · ${fitLayout.columns} column${fitLayout.columns === 1 ? '' : 's'} · ${fitLayout.fontSizePx}px`
       : null
   const overflowMessage = hasLyricOverflow
-    ? 'Lyric overflow detected. Try fewer columns or a smaller text size.'
+    ? 'Lyric overflow detected. Try fewer columns or a smaller text size, or turn on Wrap.'
     : null
   const statusMessage = fitNotice ?? overflowMessage ?? fitCaption
 
@@ -199,6 +200,27 @@ export default function DisplayControls({
               A+
             </button>
           </div>
+
+          <Button
+            size="sm"
+            variant={prefs.wrapLines ? 'primary' : 'secondary'}
+            icon={<WrapText size={14} />}
+            onClick={() =>
+              onChangePrefs({
+                ...prefs,
+                wrapLines: !prefs.wrapLines,
+                fitToScreen: fitActive ? false : prefs.fitToScreen,
+              })
+            }
+            aria-pressed={Boolean(prefs.wrapLines)}
+            title={
+              prefs.wrapLines
+                ? 'Turn off automatic line wrapping'
+                : 'Wrap long chord and lyric lines'
+            }
+          >
+            {prefs.wrapLines ? 'Wrapped' : 'Wrap'}
+          </Button>
         </div>
 
         {showRightGroup && (

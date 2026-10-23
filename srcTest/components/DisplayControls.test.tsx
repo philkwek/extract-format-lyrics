@@ -74,13 +74,13 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
-    expect(screen.queryByText('Pads Key:')).toBeNull()
+    expect(screen.queryByRole('tablist', { name: 'Pads Key' })).toBeNull()
     const settingsBtn = screen.getByRole('button', { name: 'Pad key settings' })
     expect(settingsBtn.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(settingsBtn)
     expect(settingsBtn.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByText('Pads Key:')).toBeTruthy()
+    expect(screen.getByRole('tablist', { name: 'Pads Key' })).toBeTruthy()
     const tablist = screen.getByRole('tablist', { name: 'Pads Key' })
     expect(tablist.classList.contains('ui-segmented--full')).toBe(true)
     expect(tablist.querySelector('.ui-segmented__thumb')).toBeTruthy()
@@ -202,6 +202,47 @@ describe('DisplayControls — columns and fit', () => {
     fireEvent.click(screen.getByRole('button', { name: '2' }))
     expect(onChangePrefs).toHaveBeenCalledWith(
       expect.objectContaining({ columns: 2, fitToScreen: false })
+    )
+  })
+
+  it('turns automatic line wrapping off and Fit off when active', () => {
+    const onChangePrefs = vi.fn()
+    render(
+      <DisplayControls
+        prefs={{ ...defaultPrefs, wrapLines: true }}
+        onChangePrefs={onChangePrefs}
+        variant="fullscreen"
+        fitActive={true}
+        fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
+        onToggleFit={vi.fn()}
+      />
+    )
+
+    const wrapButton = screen.getByRole('button', { name: 'Wrapped' })
+    expect(wrapButton.getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(wrapButton)
+    expect(onChangePrefs).toHaveBeenCalledWith(
+      expect.objectContaining({ wrapLines: false, fitToScreen: false })
+    )
+  })
+
+  it('turns automatic line wrapping on from the unwrapped state', () => {
+    const onChangePrefs = vi.fn()
+    render(
+      <DisplayControls
+        prefs={{ ...defaultPrefs, wrapLines: false }}
+        onChangePrefs={onChangePrefs}
+        variant="fullscreen"
+      />
+    )
+
+    const wrapButton = screen.getByRole('button', { name: 'Wrap' })
+    expect(wrapButton.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(wrapButton)
+    expect(onChangePrefs).toHaveBeenCalledWith(
+      expect.objectContaining({ wrapLines: true })
     )
   })
 

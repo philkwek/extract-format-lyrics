@@ -75,13 +75,13 @@ Using a capo? Choose **Custom Key** under **Pads Key** and select the key your g
 
 **Share this set** gives your team a copy of the songs, including your chord edits, section order, selected keys and simplified chord choices. They can import it and adjust it for themselves.
 
-Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns and theme.
+Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns, line wrapping and theme.
 
 Both set and lyrics links support up to **15 songs**. Anyone with the link can open it without an account.
 
 ## Read it comfortably
 
-Choose one, two or three columns and adjust the text size for your screen. Use light mode in a bright room or dark mode when you want less glare.
+Choose one, two or three columns and adjust the text size for your screen. Long chord and lyric lines wrap automatically onto the next row; turn off **Wrap** if you prefer to scroll or split them yourself. Use light mode in a bright room or dark mode when you want less glare.
 
 ![A demo set in dark mode](docs/readme/dark-mode.png)
 

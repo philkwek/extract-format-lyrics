@@ -9,6 +9,8 @@ export interface SongDisplayPrefs {
   simplified?: boolean
   /** Full-screen auto layout. Undefined means "on by default in full screen". */
   fitToScreen?: boolean
+  /** Wrap long chord/lyric lines instead of letting them overflow. */
+  wrapLines?: boolean
 }
 
 export const IPAD_BREAKPOINT_PX = 768
@@ -30,6 +32,7 @@ export function getDefaultSongPrefs(width?: number): SongDisplayPrefs {
     darkMode: true,
     simplified: false,
     fitToScreen: true,
+    wrapLines: true,
   }
 }
 
@@ -59,7 +62,9 @@ export function getSongPrefs(songId: string, width?: number): SongDisplayPrefs {
         typeof stored.fitToScreen === 'boolean'
           ? stored.fitToScreen
           : legacyFit || defaultPrefs.fitToScreen
-      return { ...defaultPrefs, ...stored, columns, fitToScreen }
+      const wrapLines =
+        typeof stored.wrapLines === 'boolean' ? stored.wrapLines : defaultPrefs.wrapLines
+      return { ...defaultPrefs, ...stored, columns, fitToScreen, wrapLines }
     }
   } catch {
     // fallback
