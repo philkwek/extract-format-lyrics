@@ -222,9 +222,11 @@ Used in [`ShareModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-l
 
 ## 6. Theme Switching Mechanism
 
-- Persisted in `localStorage` under key `theme:dark` (`true` or `false`).
+- Persisted in `localStorage` under key `app_theme` with values `light`, `dark`, or `system`.
+- `system` follows the device via `prefers-color-scheme` and reacts live to OS theme changes while selected.
+- `useThemeMode` (`src/lib/useThemeMode.ts`) is the shared hook for reading the mode, resolving the effective theme, and changing it. `ThemeToggle` renders the header and lyrics-view controls and cycles through device, light, and dark modes.
 - Applies `.dark` class to `document.documentElement` (`<html>`).
-- Dispatches a custom window event `app_theme_changed` so decoupled UI modules update synchronously.
+- Dispatches a custom window event `app_theme_changed` with `{ mode, isDark }` so decoupled UI modules update synchronously.
 - Tailwind v4 configured with:
   ```css
   @variant dark (&:where(.dark, .dark *));

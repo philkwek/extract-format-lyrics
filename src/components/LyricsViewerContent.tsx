@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Moon, RotateCcw, Sun } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { SharedLyricsSong } from '../types/song'
 import { cleanLyricLine } from '../lib/exportLyrics'
-import { getInitialTheme, saveTheme } from '../lib/theme'
-import { Button, IconButton, Surface } from './ui'
+import { Button, Surface } from './ui'
+import ThemeToggle from './ThemeToggle'
 
 export interface LyricsViewerContentProps {
   songs: SharedLyricsSong[]
@@ -27,26 +27,6 @@ export default function LyricsViewerContent({
   isModal = false,
 }: LyricsViewerContentProps) {
   const [internalEntryId, setInternalEntryId] = useState<string | null>(null)
-  const [isDark, setIsDark] = useState<boolean>(getInitialTheme)
-
-  useEffect(() => {
-    const handleThemeChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ isDark: boolean }>
-      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
-        setIsDark(customEvent.detail.isDark)
-      }
-    }
-    window.addEventListener('app_theme_changed', handleThemeChange)
-    return () => {
-      window.removeEventListener('app_theme_changed', handleThemeChange)
-    }
-  }, [])
-
-  const toggleTheme = () => {
-    const next = !isDark
-    setIsDark(next)
-    saveTheme(next)
-  }
 
   const activeEntryId =
     controlledEntryId !== undefined
@@ -139,15 +119,7 @@ export default function LyricsViewerContent({
                 <span className="hidden sm:inline">Refresh</span>
               </Button>
             )}
-            {!isModal && (
-              <IconButton
-                onClick={toggleTheme}
-                label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-                variant="ghost"
-              >
-                {isDark ? <Sun size={15} /> : <Moon size={15} />}
-              </IconButton>
-            )}
+            {!isModal && <ThemeToggle variant="ghost" size={15} />}
           </div>
         </div>
       )}

@@ -36,7 +36,7 @@ describe('App navigation visibility', () => {
   it('renders navbar on home and search routes', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/']}>
-        <AppShell isDark={false} toggleTheme={vi.fn()} />
+        <AppShell />
       </MemoryRouter>
     )
 
@@ -46,7 +46,7 @@ describe('App navigation visibility', () => {
 
     render(
       <MemoryRouter initialEntries={['/search']}>
-        <AppShell isDark={false} toggleTheme={vi.fn()} />
+        <AppShell />
       </MemoryRouter>
     )
 
@@ -56,7 +56,7 @@ describe('App navigation visibility', () => {
   it('hides navbar on /lyrics/:shortId route', () => {
     render(
       <MemoryRouter initialEntries={['/lyrics/test-short-id']}>
-        <AppShell isDark={false} toggleTheme={vi.fn()} />
+        <AppShell />
       </MemoryRouter>
     )
 
@@ -71,7 +71,7 @@ describe('App navigation visibility', () => {
 
     render(
       <MemoryRouter initialEntries={['/session/broken']}>
-        <AppShell isDark={false} toggleTheme={vi.fn()} />
+        <AppShell />
       </MemoryRouter>
     )
 

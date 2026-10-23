@@ -27,7 +27,7 @@ import ShareModal from '../components/ShareModal'
 import ShareLyricsModal from '../components/ShareLyricsModal'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import UploadSheetModal from '../components/UploadSheetModal'
-import { getInitialTheme, saveTheme } from '../lib/theme'
+import { useThemeMode } from '../lib/useThemeMode'
 
 import { getChordPos, setChordPos } from '../lib/chordNudge'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
@@ -63,7 +63,7 @@ export default function SessionPage() {
   const sessionRef = useRef<Session | null>(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
-  const [themeDark, setThemeDark] = useState<boolean>(getInitialTheme)
+  const { isDark: themeDark, setMode: setThemeMode } = useThemeMode()
   const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
@@ -121,19 +121,6 @@ export default function SessionPage() {
       // ignore
     }
   }
-
-  useEffect(() => {
-    const handleThemeChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ isDark: boolean }>
-      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
-        setThemeDark(customEvent.detail.isDark)
-      }
-    }
-    window.addEventListener('app_theme_changed', handleThemeChange)
-    return () => {
-      window.removeEventListener('app_theme_changed', handleThemeChange)
-    }
-  }, [])
 
   // Song index from ?song= query param, default 0
   const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
@@ -266,7 +253,7 @@ export default function SessionPage() {
 
   const handleUpdatePrefs = (newPrefs: SongDisplayPrefs) => {
     if (newPrefs.darkMode !== themeDark) {
-      saveTheme(newPrefs.darkMode)
+      setThemeMode(newPrefs.darkMode ? 'dark' : 'light')
     }
     if (currentSong && currentItem && session) {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })

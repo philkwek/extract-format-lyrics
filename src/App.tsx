@@ -1,26 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { Moon, Search, Sun } from 'lucide-react'
+import { Search } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
 import SessionPage from './pages/SessionPage'
 import ShareImportPage from './pages/ShareImportPage'
 import LyricsViewerPage from './pages/LyricsViewerPage'
-import { getInitialTheme, saveTheme, applyTheme } from './lib/theme'
+import { useThemeMode } from './lib/useThemeMode'
 
 import PrivacyPage from './pages/PrivacyPage'
 import { trackPage, setTrackingEnabled } from './lib/analytics'
 
-import { IconButton } from './components/ui'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
+import ThemeToggle from './components/ThemeToggle'
 
-export function AppShell({
-  isDark,
-  toggleTheme,
-}: {
-  isDark: boolean
-  toggleTheme: () => void
-}) {
+export function AppShell() {
   const location = useLocation()
   useEffect(() => { trackPage(location.pathname) }, [location.pathname])
   useEffect(() => {
@@ -66,13 +60,7 @@ export function AppShell({
                 <Search size={15} />
                 <span className="hidden sm:inline">Find songs</span>
               </NavLink>
-              <IconButton
-                onClick={toggleTheme}
-                label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-                variant="secondary"
-              >
-                {isDark ? <Sun size={16} /> : <Moon size={16} />}
-              </IconButton>
+              <ThemeToggle />
             </nav>
           </div>
         </header>
@@ -98,31 +86,11 @@ export function AppShell({
 }
 
 function App() {
-  const [isDark, setIsDark] = useState<boolean>(getInitialTheme)
-
-  useEffect(() => {
-    applyTheme(isDark)
-    const handleThemeChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ isDark: boolean }>
-      if (customEvent.detail && typeof customEvent.detail.isDark === 'boolean') {
-        setIsDark(customEvent.detail.isDark)
-      }
-    }
-    window.addEventListener('app_theme_changed', handleThemeChange)
-    return () => {
-      window.removeEventListener('app_theme_changed', handleThemeChange)
-    }
-  }, [isDark])
-
-  const toggleTheme = () => {
-    const next = !isDark
-    setIsDark(next)
-    saveTheme(next)
-  }
+  useThemeMode()
 
   return (
     <BrowserRouter>
-      <AppShell isDark={isDark} toggleTheme={toggleTheme} />
+      <AppShell />
     </BrowserRouter>
   )
 }
