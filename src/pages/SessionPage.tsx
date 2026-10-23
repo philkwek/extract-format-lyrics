@@ -10,6 +10,7 @@ import {
   Settings2,
   Share2,
   SlidersHorizontal,
+  WandSparkles,
   X,
 } from 'lucide-react'
 
@@ -1397,6 +1398,29 @@ export default function SessionPage() {
                           onReset={handleResetKey}
                           compact
                         />
+                        {canSimplify && (
+                          <Button
+                            size="sm"
+                            variant={prefs.simplified ? 'primary' : 'secondary'}
+                            icon={<WandSparkles size={14} />}
+                            onClick={() =>
+                              handleUpdatePrefs({
+                                ...prefs,
+                                simplified: !prefs.simplified,
+                              })
+                            }
+                            aria-pressed={Boolean(prefs.simplified)}
+                            title={
+                              prefs.simplified
+                                ? currentSong?.simplifiedSource === 'algorithmic'
+                                  ? 'Simplified chords are active. Extra chord notes may be removed.'
+                                  : 'Simplified chords are active'
+                                : 'Use simpler chords where possible'
+                            }
+                          >
+                            {prefs.simplified ? 'Simplified' : 'Simplify'}
+                          </Button>
+                        )}
                         <PadControls
                           currentKey={currentKey}
                           padKeyMode={padKeyMode}
