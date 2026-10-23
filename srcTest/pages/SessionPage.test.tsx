@@ -142,7 +142,37 @@ describe('SessionPage full screen mode', () => {
     fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
-    expect(screen.getByRole('button', { name: /share set/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Edit Set' })).toBeTruthy()
+  })
+
+  it('groups set sharing behind one Share modal with both link generators', async () => {
+    render(<TestHarness />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+
+    expect(await screen.findByText('Share this set')).toBeTruthy()
+    expect(screen.getByText('Share lyrics')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(2)
+  })
+
+  it('groups arrange, add song and upload under Edit Set', async () => {
+    render(<TestHarness />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Set' }))
+
+    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Search' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Paste links' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Upload sheet' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Arrange setlist' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Upload sheet' }))
+    expect(screen.getByRole('button', { name: /Extract with Gemini/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Arrange setlist' }))
+    expect(screen.queryByRole('heading', { name: 'Edit set' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Arrange Setlist' })).toBeTruthy()
   })
 
   it('exits full screen with Escape', async () => {
