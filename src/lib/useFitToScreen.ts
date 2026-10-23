@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { Section } from '../types/song'
 import {
   allocateColumnWidths,
@@ -175,6 +175,16 @@ export interface UseFitToScreenOptions {
  * optimistic. The hook never steps below the readable minimum and never clips
  * content; callers can use `layout.fitsOnScreen` to allow scrolling.
  */
+interface FitSelectionInputs {
+  sections: Section[]
+  preferredColumns: SheetColumns
+  preferredFontSizePx: number
+  minFontSizePx: number
+  viewportWidth: number
+  viewportHeight: number
+  charWidthAt16Px: number
+}
+
 export function useFitToScreen({
   enabled,
   sections,
@@ -190,6 +200,7 @@ export function useFitToScreen({
     fontSizePx: preferredFontSizePx,
     fitsOnScreen: true,
   }))
+  const selectionInputsRef = useRef<FitSelectionInputs | null>(null)
 
   const viewportRef = useCallback((node: HTMLDivElement | null) => {
     setViewport(node)
@@ -227,88 +238,111 @@ export function useFitToScreen({
 
   useLayoutEffect(() => {
     if (!enabled) {
-      setLayout((previous) =>
-        previous.columns === preferredColumns &&
-        previous.fontSizePx === preferredFontSizePx &&
-        previous.fitsOnScreen
-          ? previous
-          : {
-              columns: preferredColumns,
-              fontSizePx: preferredFontSizePx,
-              fitsOnScreen: true,
-            },
-      )
+      selectionInputsRef.current = null
       return
     }
+    if (!viewport) return
 
-    if (!viewportSize.width || !viewportSize.height) return
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      const viewportWidth = viewport.clientWidth
+      const viewportHeight = viewport.clientHeight
+      if (!viewportWidth || !viewportHeight) return
 
-    const next = selectFitLayout({
-      sections,
-      viewportWidthPx: viewportSize.width,
-      viewportHeightPx: viewportSize.height,
-      preferredColumns,
-      preferredFontSizePx,
-      minFontSizePx,
-      charWidthAt16Px,
-    })
-    setLayout((previous) =>
-      previous.columns === next.columns &&
-      previous.fontSizePx === next.fontSizePx &&
-      previous.fitsOnScreen === next.fitsOnScreen
-        ? previous
-        : next,
-    )
-  }, [
-    enabled,
-    sections,
-    preferredColumns,
-    preferredFontSizePx,
-    minFontSizePx,
-    viewportSize.width,
-    viewportSize.height,
-    charWidthAt16Px,
-  ])
+      const previousInputs = selectionInputsRef.current
+      const inputsChanged =
+        !previousInputs ||
+        previousInputs.sections !== sections ||
+        previousInputs.preferredColumns !== preferredColumns ||
+        previousInputs.preferredFontSizePx !== preferredFontSizePx ||
+        previousInputs.minFontSizePx !== minFontSizePx ||
+        previousInputs.viewportWidth !== viewportWidth ||
+        previousInputs.viewportHeight !== viewportHeight ||
+        previousInputs.charWidthAt16Px !== charWidthAt16Px
 
-  useLayoutEffect(() => {
-    if (!enabled || !viewport) return
+      if (inputsChanged) {
+        selectionInputsRef.current = {
+          sections,
+          preferredColumns,
+          preferredFontSizePx,
+          minFontSizePx,
+          viewportWidth,
+          viewportHeight,
+          charWidthAt16Px,
+        }
 
-    const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
-    if (!sheet) return
-
-    const availableHeightPx = viewport.clientHeight
-    const overflow =
-      sheet.scrollHeight > availableHeightPx + 1 || hasHorizontalOverflow(sheet)
-    if (!overflow) {
-      if (!layout.fitsOnScreen) {
-        setLayout((previous) => ({ ...previous, fitsOnScreen: true }))
+        const next = selectFitLayout({
+          sections,
+          viewportWidthPx: viewportWidth,
+          viewportHeightPx: viewportHeight,
+          preferredColumns,
+          preferredFontSizePx,
+          minFontSizePx,
+          charWidthAt16Px,
+        })
+        const changed =
+          layout.columns !== next.columns ||
+          layout.fontSizePx !== next.fontSizePx ||
+          layout.fitsOnScreen !== next.fitsOnScreen
+        if (changed) {
+          setLayout(next)
+          return
+        }
       }
-      return
-    }
 
-    const floorFontSizePx = Math.min(
-      minFontSizePx,
-      Math.max(1, Math.round(preferredFontSizePx)),
-    )
-    if (layout.fontSizePx > floorFontSizePx) {
-      setLayout((previous) =>
-        previous.fontSizePx === layout.fontSizePx
-          ? { ...previous, fontSizePx: previous.fontSizePx - 1, fitsOnScreen: true }
-          : previous,
+      const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
+      if (!sheet) return
+
+      const availableHeightPx = viewport.clientHeight
+      const overflow =
+        sheet.scrollHeight > availableHeightPx + 1 || hasHorizontalOverflow(sheet)
+      if (!overflow) {
+        if (!layout.fitsOnScreen) {
+          setLayout((previous) => ({ ...previous, fitsOnScreen: true }))
+        }
+        return
+      }
+
+      const floorFontSizePx = Math.min(
+        minFontSizePx,
+        Math.max(1, Math.round(preferredFontSizePx)),
       )
-    } else if (layout.fitsOnScreen) {
-      setLayout((previous) => ({ ...previous, fitsOnScreen: false }))
+      if (layout.fontSizePx > floorFontSizePx) {
+        setLayout((previous) =>
+          previous.fontSizePx === layout.fontSizePx
+            ? { ...previous, fontSizePx: previous.fontSizePx - 1, fitsOnScreen: true }
+            : previous,
+        )
+      } else if (layout.fitsOnScreen) {
+        setLayout((previous) => ({ ...previous, fitsOnScreen: false }))
+      }
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [
     enabled,
     layout,
     sections,
-    viewport,
-    minFontSizePx,
+    preferredColumns,
     preferredFontSizePx,
+    minFontSizePx,
+    viewport,
     viewportSize.width,
     viewportSize.height,
+    charWidthAt16Px,
   ])
 
-  return { viewportRef, layout }
+  return {
+    viewportRef,
+    layout: enabled
+      ? layout
+      : {
+          columns: preferredColumns,
+          fontSizePx: preferredFontSizePx,
+          fitsOnScreen: true,
+        },
+  }
 }
