@@ -129,6 +129,24 @@ describe('selectFitLayout', () => {
     expect(result.fitsOnScreen).toBe(false)
   })
 
+  it('uses one column below the responsive multi-column breakpoint', () => {
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections: [
+        makeSection('Verse 1', 4),
+        makeSection('Chorus', 4),
+        makeSection('Verse 2', 4),
+        makeSection('Bridge', 4),
+      ],
+      viewportWidthPx: 500,
+      viewportHeightPx: 2000,
+      preferredColumns: 4,
+      preferredFontSizePx: 14,
+    })
+
+    expect(result.columns).toBe(1)
+  })
+
   it('returns the preferred layout for an empty sheet', () => {
     const result = selectFitLayout({
       ...baseOptions,

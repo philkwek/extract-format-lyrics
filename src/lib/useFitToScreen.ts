@@ -65,7 +65,12 @@ export function selectFitLayout({
     }
   }
 
-  const columnOrder = orderedColumnCounts(preferred)
+  // SongSheet uses a single-column grid below Tailwind's `sm` breakpoint.
+  // Keep the fit candidate set in sync with that responsive layout.
+  const maxColumns: SheetColumns = viewportWidthPx < 640 ? 1 : 4
+  const columnOrder = orderedColumnCounts(preferred).filter(
+    (columns) => columns <= maxColumns,
+  )
   let fallback: { columns: SheetColumns; height: number } | null = null
 
   const measureColumns = (columns: SheetColumns, fontSizePx: number) => {
