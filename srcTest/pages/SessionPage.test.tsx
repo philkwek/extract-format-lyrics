@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
@@ -156,6 +156,23 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(2)
   })
 
+  it('layers the lyrics preview over Share and returns to Share when closed', async () => {
+    render(<TestHarness />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'See Preview' }))
+
+    expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Preview' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeNull()
+    })
+    expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
+  })
+
   it('groups arrange, add song and upload under Edit Set', async () => {
     render(<TestHarness />)
 
@@ -171,8 +188,20 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: /Extract with Gemini/ })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Arrange setlist' }))
-    expect(screen.queryByRole('heading', { name: 'Edit set' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Arrange Setlist' })).toBeTruthy()
+    const arrangeHeading = await screen.findByRole('heading', { name: 'Arrange Setlist' })
+    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
+
+    const arrangeDialog = arrangeHeading.closest('[role="dialog"]') as HTMLElement
+    expect(arrangeDialog).toBeTruthy()
+    fireEvent.click(within(arrangeDialog).getByRole('button', { name: 'Done' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Arrange Setlist' })).toBeNull()
+    })
+    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Upload sheet' }).getAttribute('aria-selected')).toBe(
+      'true'
+    )
   })
 
   it('exits full screen with Escape', async () => {
