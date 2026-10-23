@@ -6,6 +6,7 @@ interface TransposeSelectorProps {
   currentKey: string | null
   onSelectKey: (newKey: string) => void
   onReset: () => void
+  compact?: boolean
 }
 
 export default function TransposeSelector({
@@ -13,6 +14,7 @@ export default function TransposeSelector({
   currentKey,
   onSelectKey,
   onReset,
+  compact = false,
 }: TransposeSelectorProps) {
   if (!originalKey) {
     return (
@@ -32,9 +34,12 @@ export default function TransposeSelector({
   const offsetLabel = formatOffset(offset)
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-neutral-600 dark:text-[#999999] font-medium">Transpose:</span>
+    <div className={`flex flex-wrap items-center text-xs ${compact ? 'gap-1.5' : 'gap-2'}`}>
+      {!compact && (
+        <span className="text-neutral-600 dark:text-[#999999] font-medium">Transpose:</span>
+      )}
       <select
+        aria-label="Transpose song"
         value={activeKey}
         onChange={(e) => onSelectKey(e.target.value)}
         className="bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-neutral-900 dark:text-[#e5e5e5] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500 font-mono shadow-xs"
