@@ -133,3 +133,102 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     expect(dropdown.value).toBe('D')
   })
 })
+
+describe('DisplayControls — columns and fit', () => {
+  it('offers four manual columns', () => {
+    const onChangePrefs = vi.fn()
+    render(<DisplayControls prefs={defaultPrefs} onChangePrefs={onChangePrefs} />)
+
+    const fourthColumn = screen.getByRole('button', { name: '4' })
+    expect(fourthColumn.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(fourthColumn)
+    expect(onChangePrefs).toHaveBeenCalledWith(
+      expect.objectContaining({ columns: 4 })
+    )
+  })
+
+  it('marks the manual column active and leaves Fit available', () => {
+    const onChangePrefs = vi.fn()
+    const onToggleFit = vi.fn()
+    render(
+      <DisplayControls
+        prefs={{ ...defaultPrefs, columns: 3 }}
+        onChangePrefs={onChangePrefs}
+        variant="fullscreen"
+        fitActive={false}
+        fitLayout={{ columns: 3, fontSizePx: 14, fitsOnScreen: true }}
+        onToggleFit={onToggleFit}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: '3' }).getAttribute('aria-pressed')).toBe('true')
+    const fitButton = screen.getByRole('button', { name: 'Fit' })
+    expect(fitButton.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(fitButton)
+    expect(onToggleFit).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns Fit off when a manual column is selected and shows the auto caption', () => {
+    const onChangePrefs = vi.fn()
+    render(
+      <DisplayControls
+        prefs={defaultPrefs}
+        onChangePrefs={onChangePrefs}
+        variant="fullscreen"
+        fitActive={true}
+        fitLayout={{ columns: 4, fontSizePx: 12, fitsOnScreen: true }}
+        onToggleFit={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Fit' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Auto layout · 4 columns · 12px')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    expect(onChangePrefs).toHaveBeenCalledWith(
+      expect.objectContaining({ columns: 2, fitToScreen: false })
+    )
+  })
+
+  it('uses the fitted font size for manual size changes and turns Fit off', () => {
+    const onChangePrefs = vi.fn()
+    render(
+      <DisplayControls
+        prefs={{ ...defaultPrefs, fontSizePx: 16 }}
+        onChangePrefs={onChangePrefs}
+        variant="fullscreen"
+        fitActive={true}
+        fitLayout={{ columns: 3, fontSizePx: 12, fitsOnScreen: true }}
+        onToggleFit={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('12')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Increase song font size' }))
+    expect(onChangePrefs).toHaveBeenCalledWith(
+      expect.objectContaining({ fontSizePx: 13, fitToScreen: false })
+    )
+  })
+
+  it('hides normal-mode editing controls in full screen', () => {
+    render(
+      <DisplayControls
+        prefs={defaultPrefs}
+        onChangePrefs={vi.fn()}
+        variant="fullscreen"
+        canSimplify={true}
+        onToggleEditChords={vi.fn()}
+        onRestoreOriginal={vi.fn()}
+        fitActive={true}
+        fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
+        onToggleFit={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Simplify' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit chords' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull()
+  })
+})
