@@ -1067,8 +1067,9 @@ export default function SessionPage() {
               icon={<Maximize2 size={14} />}
               onClick={(event) => handleEnterFullScreen(event.currentTarget)}
               title="Fill the window with this chord sheet"
+              aria-label="Full screen"
             >
-              Full screen
+              <span className="hidden sm:inline">Full screen</span>
             </Button>
           </div>
         </div>
