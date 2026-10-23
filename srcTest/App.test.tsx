@@ -22,7 +22,7 @@ vi.mock('../src/pages/SearchPage', () => ({
 vi.mock('../src/pages/SessionPage', async () => {
   const { useChromeVisibility } = await import('../src/lib/chromeVisibility')
   return {
-    default: () => {
+    default: function MockSessionPage() {
       const { setHidden } = useChromeVisibility()
       if (mockState.throwOnSession) throw new Error('session render failed')
       return (
