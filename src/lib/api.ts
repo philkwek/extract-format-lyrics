@@ -170,6 +170,7 @@ export type SimplifyResponse =
   | {
       status: 'ok'
       simplifiedSections: Section[]
+      simplifiedFlow?: number[]
       simplifiedSource: 'official'
       cached?: boolean
     }

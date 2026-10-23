@@ -131,6 +131,22 @@ describe('loadOfficialSimplification', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
+  it('deduplicates repeated simplified sections while preserving flow', async () => {
+    const cache = new SimplificationCache({ store: emptyCacheStore().store, now: () => 1_000 })
+    const sourceCache = new ChartCache({ store: emptyChartStore(), now: () => 1_000 })
+    const fetchFn = vi.fn(async () => ({
+      text: ugHtml('[Verse]\nG\nLine\n\n[Chorus]\nC\nChorus\n\n[Verse]\nG\nLine'),
+      finalUrl: `${url}?simplified=1`,
+    }))
+
+    const result = await loadOfficialSimplification(url, { cache, sourceCache, fetchFn })
+    expect(result).toMatchObject({ status: 'ok', simplifiedSource: 'official' })
+    if (result.status === 'ok') {
+      expect(result.simplifiedSections.map((section) => section.label)).toEqual(['Verse', 'Chorus'])
+      expect(result.simplifiedFlow).toEqual([0, 1, 0])
+    }
+  })
+
   it('caches a failed enrichment briefly without breaking the original chart', async () => {
     const { store } = emptyCacheStore()
     const cache = new SimplificationCache({ store, now: () => 1_000 })

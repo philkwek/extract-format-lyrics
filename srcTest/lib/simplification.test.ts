@@ -39,6 +39,7 @@ function song(): Song {
 const official = {
   status: 'ok' as const,
   simplifiedSource: 'official' as const,
+  simplifiedFlow: [0],
   simplifiedSections: [
     {
       type: 'Verse' as const,
@@ -57,6 +58,7 @@ describe('mergeOfficialSimplification', () => {
     expect(merged.capo).toBe(2)
     expect(merged.originalKey).toBe('G')
     expect(merged.simplifiedSource).toBe('official')
+    expect(merged.simplifiedFlow).toEqual([0])
     expect(merged.simplificationPending).toBe(false)
     expect(merged.simplifiedSections?.[0].lines[0]).toMatchObject({
       kind: 'lyric',

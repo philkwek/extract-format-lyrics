@@ -14,6 +14,7 @@ export function mergeOfficialSimplification(song: Song, response: SimplifyRespon
   return {
     ...song,
     simplifiedSections: response.simplifiedSections,
+    simplifiedFlow: response.simplifiedFlow,
     simplifiedSource: 'official',
     simplificationPending: false,
   }

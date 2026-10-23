@@ -6,10 +6,10 @@ import { FetchError, safeFetchHtml } from './safeFetch.js'
 import { checkUrl, siteForHost } from './urls.js'
 import { canonicalChartUrl, chartCache, type ChartCache } from './chartCache.js'
 import { adapterForUrl } from './scraper.js'
-import { normalizeSongText } from './normalizer.js'
+import { deduplicateSongSections, normalizeSongText } from './normalizer.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
-export const SIMPLIFICATION_CACHE_VERSION = 'simplification-v1'
+export const SIMPLIFICATION_CACHE_VERSION = 'simplification-v2'
 export const SIMPLIFICATION_CACHE_TTL_MS = 6 * 60 * 60 * 1000
 export const SIMPLIFICATION_UNAVAILABLE_TTL_MS = 5 * 60 * 1000
 export const SIMPLIFICATION_CACHE_MAX_ENTRIES = 100
@@ -19,6 +19,7 @@ export type OfficialSimplificationResult =
   | {
       status: 'ok'
       simplifiedSections: Section[]
+      simplifiedFlow?: number[]
       simplifiedSource: 'official'
       cached?: boolean
     }
@@ -35,6 +36,7 @@ interface SimplificationCacheEntry {
   canonicalUrl: string
   status: 'ok' | 'unavailable'
   simplifiedSections?: Section[]
+  simplifiedFlow?: number[]
   code?: string
   message?: string
   expiresAt: number
@@ -157,6 +159,7 @@ export class SimplificationCache {
       ? {
           status: 'ok',
           simplifiedSections: entry.simplifiedSections ?? [],
+          ...(entry.simplifiedFlow ? { simplifiedFlow: entry.simplifiedFlow } : {}),
           simplifiedSource: 'official',
           cached: true,
         }
@@ -185,7 +188,7 @@ export class SimplificationCache {
       status: result.status,
       expiresAt: this.now() + ttl,
       ...(result.status === 'ok'
-        ? { simplifiedSections: result.simplifiedSections }
+        ? { simplifiedSections: result.simplifiedSections, simplifiedFlow: result.simplifiedFlow }
         : { code: result.code, message: result.message }),
     }
     this.memorySet(canonical, entry)
@@ -216,7 +219,9 @@ async function fetchOfficialSimplification(
     const { text, finalUrl } = await fetchFn(source.toString())
     const adapter = adapterForUrl(finalUrl)
     const raw = adapter.extract(text, finalUrl)
-    const simplifiedSections = normalizeSongText(raw.content)
+    const { sections: simplifiedSections, flow: simplifiedFlow } = deduplicateSongSections(
+      normalizeSongText(raw.content)
+    )
     if (simplifiedSections.length === 0) {
       recordTiming({
         operation: 'chart.simplify',
@@ -232,7 +237,7 @@ async function fetchOfficialSimplification(
       durationMs: elapsedMs(startedAt),
       outcome: 'ok',
     })
-    return { status: 'ok', simplifiedSections, simplifiedSource: 'official' }
+    return { status: 'ok', simplifiedSections, simplifiedFlow, simplifiedSource: 'official' }
   } catch (err) {
     const fetchError = err as FetchError
     const code = fetchError?.code ?? 'SIMPLIFICATION_FAILED'
@@ -304,6 +309,7 @@ export async function loadOfficialSimplification(
         await sourceCache.save(check.url, {
           ...existing,
           simplifiedSections: result.simplifiedSections,
+          simplifiedFlow: result.simplifiedFlow,
           simplifiedSource: 'official',
           simplificationPending: false,
         })
