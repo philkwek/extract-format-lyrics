@@ -1,11 +1,13 @@
 import { trackSongImport } from '../lib/analytics'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   FileText,
   GripVertical,
   Lightbulb,
   ListOrdered,
+  Maximize2,
+  Minimize2,
   Pencil,
   Plus,
   Share2,
@@ -43,6 +45,8 @@ import type { Song, Section, SharedSetSnapshot } from '../types/song'
 import { Button, IconButton } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import { ambientPadPlayer, resolvePadKey, type AmbientPadState, type PadKey } from '../lib/ambientPadPlayer'
+import { useChromeVisibility } from '../lib/chromeVisibility'
+import { useFitToScreen } from '../lib/useFitToScreen'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -87,7 +91,10 @@ export default function SessionPage() {
   const [isShareLyricsOpen, setIsShareLyricsOpen] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
-
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const fullScreenTriggerRef = useRef<HTMLElement | null>(null)
+  const tabListRef = useRef<HTMLDivElement | null>(null)
+  const { setHidden: setChromeHidden } = useChromeVisibility()
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
     if (!session) throw new Error('Setlist is unavailable')
@@ -390,6 +397,100 @@ export default function SessionPage() {
       positioningChord.currentPos
     )
   }, [displayedSong, positioningChord])
+
+  const fitEnabled = isFullScreen && (prefs.fitToScreen ?? true)
+  const { viewportRef: fitViewportRef, layout: fitLayout } = useFitToScreen({
+    enabled: fitEnabled,
+    sections: displayedSections,
+    preferredColumns: prefs.columns,
+    preferredFontSizePx: prefs.fontSizePx,
+  })
+  const effectiveColumns = fitEnabled ? fitLayout.columns : prefs.columns
+  const effectiveFontSizePx = fitEnabled ? fitLayout.fontSizePx : prefs.fontSizePx
+  const fitNotice =
+    fitEnabled && !fitLayout.fitsOnScreen
+      ? 'Smallest readable text applied. Scroll to see the rest.'
+      : null
+
+  const handleToggleFit = () => {
+    if (!currentSong || !currentItem || !session) return
+    handleUpdatePrefs({ ...prefs, fitToScreen: !fitEnabled })
+  }
+
+  const handleExitFullScreen = useCallback(() => {
+    setIsFullScreen(false)
+    setChromeHidden(false)
+    window.setTimeout(() => fullScreenTriggerRef.current?.focus(), 0)
+  }, [setChromeHidden])
+
+  const handleEnterFullScreen = (trigger?: HTMLElement | null) => {
+    fullScreenTriggerRef.current =
+      trigger ?? (document.activeElement as HTMLElement | null)
+    setIsEditingChords(false)
+    setPositioningChord(null)
+    setSharingSnapshot(null)
+    setIsShareLyricsOpen(false)
+    setIsArrangingSongs(false)
+    setIsUploadModalOpen(false)
+    setIsFullScreen(true)
+    setChromeHidden(true)
+  }
+
+  useEffect(
+    () => () => {
+      setChromeHidden(false)
+    },
+    [setChromeHidden]
+  )
+
+  useEffect(() => {
+    if (!isFullScreen) return
+    const html = document.documentElement
+    const body = document.body
+    const previousHtmlOverflow = html.style.overflow
+    const previousBodyOverflow = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = previousHtmlOverflow
+      body.style.overflow = previousBodyOverflow
+    }
+  }, [isFullScreen])
+
+  useEffect(() => {
+    if (!isFullScreen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, select, textarea, [role="dialog"]')
+      ) {
+        return
+      }
+      if (document.querySelector('[role="dialog"]')) return
+      handleExitFullScreen()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullScreen, handleExitFullScreen])
+
+  useEffect(() => {
+    if (!isFullScreen) return
+    const container = tabListRef.current
+    const tab = container?.querySelector<HTMLElement>(`[data-song-tab="${activeIndex}"]`)
+    if (!container || !tab) return
+    const left = tab.offsetLeft
+    const right = left + tab.offsetWidth
+    if (left < container.scrollLeft) {
+      container.scrollTo({ left: Math.max(0, left - 8), behavior: 'smooth' })
+    } else if (right > container.scrollLeft + container.clientWidth) {
+      container.scrollTo({
+        left: right - container.clientWidth + 8,
+        behavior: 'smooth',
+      })
+    }
+  }, [activeIndex, isFullScreen])
 
   const handleRetry = async (item: SessionSongItem) => {
     if (!session || retryingUrls.has(item.url)) return
@@ -909,62 +1010,95 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="ui-surface space-y-5 p-4 sm:p-6">
+    <div
+      className={
+        isFullScreen
+          ? 'flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[var(--ui-canvas)]'
+          : 'ui-surface space-y-5 p-4 sm:p-6'
+      }
+    >
       {/* Session Title Bar */}
-      <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          {isEditingName ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                onBlur={handleSaveRename}
-                onKeyDown={handleKeyDownRename}
-                autoFocus
-                className="ui-field max-w-sm px-2.5 py-1.5 text-sm font-bold"
-              />
-              <Button size="sm" variant="primary" onClick={handleSaveRename}>Save</Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">{session.name}</h1>
-              <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}><Pencil size={14} /></IconButton>
-            </div>
-          )}
-          <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
-            {session.songs.length} song(s) in setlist
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="secondary" icon={<Share2 size={14} />} onClick={handleShareSet}>Share set</Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<FileText size={14} />}
-            onClick={() => setIsShareLyricsOpen(true)}
-            title="Share all lyrics without chords"
-          >
-            Share lyrics
-          </Button>
-          {session.songs.length > 1 && (
-            <Button size="sm" variant="secondary" icon={<ListOrdered size={14} />} onClick={() => setIsArrangingSongs(true)}>Arrange</Button>
-          )}
+      {!isFullScreen && (
+        <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onBlur={handleSaveRename}
+                  onKeyDown={handleKeyDownRename}
+                  autoFocus
+                  className="ui-field max-w-sm px-2.5 py-1.5 text-sm font-bold"
+                />
+                <Button size="sm" variant="primary" onClick={handleSaveRename}>Save</Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">{session.name}</h1>
+                <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}><Pencil size={14} /></IconButton>
+              </div>
+            )}
+            <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
+              {session.songs.length} song(s) in setlist
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button size="sm" variant="secondary" icon={<Share2 size={14} />} onClick={handleShareSet}>Share set</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<FileText size={14} />}
+              onClick={() => setIsShareLyricsOpen(true)}
+              title="Share all lyrics without chords"
+            >
+              Share lyrics
+            </Button>
+            {session.songs.length > 1 && (
+              <Button size="sm" variant="secondary" icon={<ListOrdered size={14} />} onClick={() => setIsArrangingSongs(true)}>Arrange</Button>
+            )}
 
-          <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => navigate(`/search?session=${session.id}`)}>Add song</Button>
-          <Button size="sm" variant="secondary" icon={<Upload size={14} />} onClick={() => setIsUploadModalOpen(true)}>Upload</Button>
+            <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => navigate(`/search?session=${session.id}`)}>Add song</Button>
+            <Button size="sm" variant="secondary" icon={<Upload size={14} />} onClick={() => setIsUploadModalOpen(true)}>Upload</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Maximize2 size={14} />}
+              onClick={(event) => handleEnterFullScreen(event.currentTarget)}
+              title="Fill the window with this chord sheet"
+            >
+              Full screen
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Scrollable Song Tabs */}
-      <div className="no-scrollbar relative flex space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] px-1 pb-2 pt-1" role="tablist" aria-label="Songs in setlist">
-        {session.songs.map((item, idx) => {
+      <div
+        className={
+          isFullScreen
+            ? 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
+            : ''
+        }
+      >
+        <div
+          ref={tabListRef}
+          className={`no-scrollbar relative flex space-x-1.5 overflow-x-auto ${
+            isFullScreen
+              ? 'flex-1 py-1.5'
+              : 'border-b border-[var(--ui-border)] px-1 pb-2 pt-1'
+          }`}
+          role="tablist"
+          aria-label="Songs in setlist"
+        >
+          {session.songs.map((item, idx) => {
           const isActive = idx === activeIndex
           const song = songForItem(item)
           const label = song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
           const isDragging = draggedSongIdx === idx
           const isOver = dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
-          const canDrag = session.songs.length > 1
+          const canDrag = !isFullScreen && session.songs.length > 1
 
           return (
             <div
@@ -1038,7 +1172,7 @@ export default function SessionPage() {
                 }`}
               />
               <span className="truncate max-w-[140px]">{label}</span>
-              {session.songs.length > 1 && (
+              {!isFullScreen && session.songs.length > 1 && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1056,34 +1190,57 @@ export default function SessionPage() {
             </div>
           )
         })}
+        </div>
+        {isFullScreen && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Minimize2 size={14} />}
+            onClick={handleExitFullScreen}
+            title="Exit full screen"
+            aria-label="Exit full screen"
+            className="shrink-0"
+          >
+            <span className="hidden sm:inline">Exit full screen</span>
+          </Button>
+        )}
       </div>
 
       {/* Main Song Content */}
       {currentItem && (
-        <div className="space-y-4">
+        <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
           {currentItem.status === 'error' ? (
-            <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
-              <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
-              <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">{currentItem.url}</p>
-              <p className="text-xs text-red-600 dark:text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
-              <button
-                onClick={() => handleRetry(currentItem)}
-                disabled={retryingUrls.has(currentItem.url)}
-                className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
-              >
-                {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
-              </button>
+            <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
+              <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
+                <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">Failed to extract chord sheet</h3>
+                <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">{currentItem.url}</p>
+                <p className="text-xs text-red-600 dark:text-red-300">{currentItem.errorMessage || 'Unknown extraction error'}</p>
+                <button
+                  onClick={() => handleRetry(currentItem)}
+                  disabled={retryingUrls.has(currentItem.url)}
+                  className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
+                >
+                  {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
+                </button>
+              </div>
             </div>
           ) : displayedSong ? (
-            <div className="space-y-4">
+            <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
               {/* Header and Toolbar tightly grouped */}
-              <div className="space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]">
+              <div
+                className={
+                  isFullScreen
+                    ? 'shrink-0 border-b border-[#C8DFDB] px-3 pb-1.5 pt-1.5 dark:border-[#282828]'
+                    : 'space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]'
+                }
+              >
                 <SongHeader
                   song={displayedSong}
                   currentKey={currentKey}
                   offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
                   onResetKey={handleResetKey}
                   onSelectKey={handleSelectKey}
+                  variant={isFullScreen ? 'fullscreen' : 'default'}
                 />
 
                 <DisplayControls
@@ -1102,6 +1259,11 @@ export default function SessionPage() {
                   onChangePadKeyMode={handleChangePadKeyMode}
                   onSelectCustomPadKey={handleSelectCustomPadKey}
                   onTogglePad={handleTogglePad}
+                  variant={isFullScreen ? 'fullscreen' : 'default'}
+                  fitActive={fitEnabled}
+                  fitLayout={fitLayout}
+                  onToggleFit={handleToggleFit}
+                  fitNotice={fitNotice}
                   onToggleEditChords={() => {
                     setIsEditingChords((prev) => {
                       if (prev) {
@@ -1114,11 +1276,23 @@ export default function SessionPage() {
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
-              <div className="pt-1">
+              <div
+                ref={fitViewportRef}
+                className={
+                  isFullScreen
+                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 ${
+                        fitEnabled && fitLayout.fitsOnScreen
+                          ? 'overflow-hidden'
+                          : 'overflow-auto'
+                      }`
+                    : 'pt-1'
+                }
+              >
                 <SongSheet
+                  key={isFullScreen ? 'fullscreen' : 'normal'}
                   sections={displayedSections}
-                  fontSizePx={prefs.fontSizePx}
-                  columns={prefs.columns}
+                  fontSizePx={effectiveFontSizePx}
+                  columns={effectiveColumns}
                   isEditingChords={isEditingChords}
                   selectedChord={
                     positioningChord
@@ -1129,15 +1303,23 @@ export default function SessionPage() {
                         }
                       : null
                   }
-                  onDeleteSection={(idx) => {
-                    setPositioningChord(null)
-                    handleDeleteSection(idx)
-                  }}
-                  onReorderSections={(from, to) => {
-                    setPositioningChord(null)
-                    handleReorderSections(from, to)
-                  }}
-                  onRenameSection={handleRenameSection}
+                  onDeleteSection={
+                    isFullScreen
+                      ? undefined
+                      : (idx) => {
+                          setPositioningChord(null)
+                          handleDeleteSection(idx)
+                        }
+                  }
+                  onReorderSections={
+                    isFullScreen
+                      ? undefined
+                      : (from, to) => {
+                          setPositioningChord(null)
+                          handleReorderSections(from, to)
+                        }
+                  }
+                  onRenameSection={isFullScreen ? undefined : handleRenameSection}
                   onEditChord={handleEditChord}
                   onDeleteChord={handleDeleteChord}
                   onStartEditPosition={handleStartEditPosition}
@@ -1148,15 +1330,17 @@ export default function SessionPage() {
               </div>
             </div>
           ) : (
-            <div className="py-8 text-center text-xs text-neutral-500 animate-pulse">
-              Loading song sheet...
+            <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
+              <div className="py-8 text-center text-xs text-neutral-500 animate-pulse">
+                Loading song sheet...
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* Share Modal */}
-      {sharingSnapshot && (
+      {sharingSnapshot && !isFullScreen && (
         <ShareModal
           snapshot={sharingSnapshot}
           isOpen={Boolean(sharingSnapshot)}
@@ -1165,7 +1349,7 @@ export default function SessionPage() {
       )}
 
       {/* Share Lyrics Modal */}
-      {isShareLyricsOpen && session && (
+      {isShareLyricsOpen && session && !isFullScreen && (
         <ShareLyricsModal
           session={session}
           songsData={songsData}
@@ -1177,7 +1361,7 @@ export default function SessionPage() {
 
       {/* Arrange Songs Drawer */}
       <ArrangeDrawer
-        isOpen={isArrangingSongs}
+        isOpen={isArrangingSongs && !isFullScreen}
         title="Arrange Setlist"
         subtitle={`Reorder songs in "${session.name}"`}
         items={session.songs.map((item, idx) => {
@@ -1195,7 +1379,7 @@ export default function SessionPage() {
       />
 
       {/* Floating Section Customization Helper Tip (First song & first instance only) */}
-      {showSectionEditTip && activeIndex === 0 && Boolean(displayedSong) && (
+      {showSectionEditTip && !isFullScreen && activeIndex === 0 && Boolean(displayedSong) && (
         <aside
           role="complementary"
           aria-label="Section customization tip"
@@ -1219,13 +1403,13 @@ export default function SessionPage() {
 
       {/* Upload SongSelect Sheet Modal */}
       <UploadSheetModal
-        isOpen={isUploadModalOpen}
+        isOpen={isUploadModalOpen && !isFullScreen}
         onClose={() => setIsUploadModalOpen(false)}
         onImport={handleImportUploadedSongs}
       />
 
       {/* Floating Chord Position Adjustment Toolbar */}
-      {positioningChord && (
+      {positioningChord && !isFullScreen && (
         <ChordPositionToolbar
           chord={positioningChord.chord}
           onNudgeLeft={() => handleNudgePosition(-1)}
