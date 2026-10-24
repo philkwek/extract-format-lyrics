@@ -1,5 +1,5 @@
 import { trackSongImport } from '../lib/analytics'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle, ChevronDown, ChevronUp, FileUp, KeyRound } from 'lucide-react'
 import type { Song, Section } from '../types/song'
 import { prepareFilesForExtraction } from '../lib/fileOptimizer'
@@ -15,6 +15,8 @@ interface UploadSheetModalProps {
   onImport: (songs: Song[]) => void | Promise<void>
   /** Render the upload/review flow inline instead of inside its own dialog. */
   inline?: boolean
+  /** Notifies the host when the inline flow enters or leaves the extracted-songs review step. */
+  onReviewChange?: (isReviewing: boolean) => void
 }
 
 export default function UploadSheetModal({
@@ -22,6 +24,7 @@ export default function UploadSheetModal({
   onClose,
   onImport,
   inline = false,
+  onReviewChange,
 }: UploadSheetModalProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -51,6 +54,13 @@ export default function UploadSheetModal({
   } | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Keep the host dialog's height in sync with the inline review step.
+  const isReviewing = Boolean(extractedSongs)
+  useEffect(() => {
+    onReviewChange?.(isReviewing)
+  }, [isReviewing, onReviewChange])
+  useEffect(() => () => onReviewChange?.(false), [onReviewChange])
 
   const handleApiKeyChange = (val: string) => {
     setApiKey(val)
@@ -553,7 +563,7 @@ export default function UploadSheetModal({
                           <button
                             type="button"
                             onClick={handleConfirmNudge}
-                            className="px-3 h-9 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition cursor-pointer"
+                            className="px-3 h-9 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black transition cursor-pointer"
                           >
                             ✓ Confirm
                           </button>

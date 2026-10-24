@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { FileUp, Link2, ListOrdered, Search } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
 import type { Song } from '../types/song'
@@ -28,6 +28,10 @@ export default function EditSetModal({
   onImportUploadedSongs,
 }: EditSetModalProps) {
   const [mode, setMode] = useState<EditSetMode>('search')
+  const [isReviewingUpload, setIsReviewingUpload] = useState(false)
+  const handleUploadReviewChange = useCallback((isReviewing: boolean) => {
+    setIsReviewingUpload(isReviewing)
+  }, [])
 
   if (!isOpen) return null
 
@@ -38,7 +42,7 @@ export default function EditSetModal({
       title="Edit set"
       description="Arrange the setlist, add a song, or upload a chord sheet."
       size="lg"
-      className={mode === 'upload' ? 'h-[88dvh]' : ''}
+      className={mode === 'upload' && isReviewingUpload ? 'h-[88dvh]' : ''}
       footer={
         <Button variant="ghost" onClick={onClose}>
           Done
@@ -86,6 +90,7 @@ export default function EditSetModal({
             isOpen={isOpen}
             onClose={onClose}
             onImport={onImportUploadedSongs}
+            onReviewChange={handleUploadReviewChange}
           />
         </div>
       </div>
