@@ -1,4 +1,5 @@
 import { lookup as dnsLookup } from 'node:dns/promises'
+import type { Impit as ImpitClient } from 'impit'
 import { checkUrl, siteForHost } from './urls.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
@@ -79,6 +80,11 @@ export interface SafeFetchOptions {
   lookupFn?: typeof dnsLookup
   fetchFn?: typeof fetch
   userAgent?: string
+  /**
+   * HTTP transport. `auto` uses Impit for sites that reject Node's TLS/HTTP2
+   * fingerprint and the built-in fetch everywhere else.
+   */
+  httpClient?: 'auto' | 'undici' | 'impit'
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -87,6 +93,97 @@ const DEFAULT_MAX_REDIRECTS = 3
 const RETRY_DELAY_MS = 300
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+
+/** Cloudflare rejects undici's TLS/HTTP2 fingerprint on these hosts. */
+const IMPIT_HOSTS = ['worshipchords.com', 'worshipchords.net'] as const
+
+export function usesImpitTransport(hostname: string): boolean {
+  const host = hostname.toLowerCase()
+  return IMPIT_HOSTS.some((domain) => host === domain || host.endsWith(`.${domain}`))
+}
+
+interface FetchResponseLike {
+  status: number
+  statusText: string
+  ok: boolean
+  headers: { get(name: string): string | null }
+  body: ReadableStream<Uint8Array> | null
+}
+
+interface FetchInitLike {
+  method: 'GET'
+  headers?: Record<string, string>
+  redirect: 'manual'
+  signal: AbortSignal
+}
+
+type FetchLike = (url: string, init: FetchInitLike) => Promise<FetchResponseLike>
+
+interface FetchTransport {
+  fetch: FetchLike
+  headers?: Record<string, string>
+}
+
+let impitClientPromise: Promise<ImpitClient | null> | undefined
+
+/** Loads Impit lazily so a missing native binary cannot break other sources. */
+async function loadImpitClient(): Promise<ImpitClient | null> {
+  impitClientPromise ??= import('impit')
+    .then((mod) => new mod.Impit({ browser: 'chrome', timeout: null }))
+    .catch((err: unknown) => {
+      console.warn(`Impit HTTP transport unavailable: ${(err as Error).message}`)
+      return null
+    })
+  return impitClientPromise
+}
+
+function htmlHeaders(options: SafeFetchOptions): Record<string, string> {
+  return {
+    'User-Agent': options.userAgent ?? DEFAULT_USER_AGENT,
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  }
+}
+
+function asFetchLike(fetchImpl: typeof fetch): FetchLike {
+  return async (url, init) => {
+    const res = await fetchImpl(url, init)
+    return {
+      status: res.status,
+      statusText: res.statusText,
+      ok: res.ok,
+      headers: res.headers,
+      body: res.body,
+    }
+  }
+}
+
+async function resolveTransport(
+  hostname: string,
+  options: SafeFetchOptions
+): Promise<FetchTransport> {
+  // Explicit injection wins so tests and callers never hit the network.
+  if (options.fetchFn) {
+    return { fetch: asFetchLike(options.fetchFn), headers: htmlHeaders(options) }
+  }
+
+  const requested = options.httpClient ?? 'auto'
+  const useImpit =
+    requested === 'impit' || (requested === 'auto' && usesImpitTransport(hostname))
+  if (useImpit) {
+    const client = await loadImpitClient()
+    if (client) {
+      return {
+        fetch: (url, init) => client.fetch(url, init),
+        // Let Impit generate a consistent browser profile. Only an explicit
+        // override is forwarded.
+        headers: options.userAgent ? { 'User-Agent': options.userAgent } : undefined,
+      }
+    }
+  }
+
+  return { fetch: asFetchLike(fetch), headers: htmlHeaders(options) }
+}
 
 interface FetchDeadline {
   signal: AbortSignal
@@ -193,7 +290,6 @@ async function fetchWithLimits(
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS
   const lookup = options.lookupFn ?? dnsLookup
-  const customFetch = options.fetchFn ?? fetch
 
   throwIfExpired(deadline, timeoutMs)
 
@@ -212,16 +308,13 @@ async function fetchWithLimits(
 
   // 3. Perform fetch with manual redirects. One signal covers the whole request,
   // including redirects and body streaming.
-  let res: Response
+  const transport = await resolveTransport(parsed.hostname, options)
+  let res: FetchResponseLike
   try {
     res = await withinDeadline(
-      customFetch(check.url, {
+      transport.fetch(check.url, {
         method: 'GET',
-        headers: {
-          'User-Agent': options.userAgent ?? DEFAULT_USER_AGENT,
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
+        headers: transport.headers,
         redirect: 'manual',
         signal: deadline.signal,
       }),

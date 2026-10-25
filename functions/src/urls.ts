@@ -5,17 +5,24 @@ export const ALLOWED_DOMAINS = [
   'ultimate-guitar.com',
   'pnwchords.com',
   'worshipchords.com',
+  'worshipchords.net',
   'worshiptogether.com',
 ] as const
 
 export const MAX_URLS_PER_REQUEST = 20
 
-export type SiteId = 'ultimate-guitar' | 'pnwchords' | 'worshipchords' | 'worshiptogether'
+export type SiteId =
+  | 'ultimate-guitar'
+  | 'pnwchords'
+  | 'worshipchords'
+  | 'worshipchords-net'
+  | 'worshiptogether'
 
 const SITE_BY_DOMAIN: Record<(typeof ALLOWED_DOMAINS)[number], SiteId> = {
   'ultimate-guitar.com': 'ultimate-guitar',
   'pnwchords.com': 'pnwchords',
   'worshipchords.com': 'worshipchords',
+  'worshipchords.net': 'worshipchords-net',
   'worshiptogether.com': 'worshiptogether',
 }
 

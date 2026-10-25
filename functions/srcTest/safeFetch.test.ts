@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { lookup as dnsLookup } from 'node:dns/promises'
-import { isPrivateOrReservedIp, safeFetchHtml, assertSafeDns } from '../src/safeFetch.js'
+import {
+  isPrivateOrReservedIp,
+  safeFetchHtml,
+  assertSafeDns,
+  usesImpitTransport,
+} from '../src/safeFetch.js'
 
 type DnsLookupFn = typeof dnsLookup
 
@@ -52,8 +57,35 @@ describe('assertSafeDns', () => {
   })
 })
 
+describe('usesImpitTransport', () => {
+  it('selects Impit for both Worship Chords domains and their subdomains', () => {
+    expect(usesImpitTransport('worshipchords.com')).toBe(true)
+    expect(usesImpitTransport('www.worshipchords.net')).toBe(true)
+    expect(usesImpitTransport('pnwchords.com')).toBe(false)
+    expect(usesImpitTransport('worshipchords.com.evil.com')).toBe(false)
+  })
+})
+
 describe('safeFetchHtml', () => {
   const publicLookup = vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+
+  it('allows an injected fetch for worshipchords.net without loading Impit', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('<html><body>Song</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    )
+    const result = await safeFetchHtml(
+      'https://www.worshipchords.net/guitar/artist/song',
+      {
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      }
+    )
+    expect(result.text).toContain('Song')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
 
   it.each([
     ['600', 600],

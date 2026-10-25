@@ -11,8 +11,10 @@ describe('isAllowedHost', () => {
   it('allows listed domains and subdomains only', () => {
     expect(isAllowedHost('tabs.ultimate-guitar.com')).toBe(true)
     expect(isAllowedHost('www.worshiptogether.com')).toBe(true)
+    expect(isAllowedHost('www.worshipchords.net')).toBe(true)
     expect(isAllowedHost('evilultimate-guitar.com')).toBe(false)
     expect(isAllowedHost('ultimate-guitar.com.evil.com')).toBe(false)
+    expect(isAllowedHost('worshipchords.net.evil.com')).toBe(false)
   })
 })
 
@@ -23,6 +25,17 @@ describe('checkUrl', () => {
       ok: true,
       url: 'https://tabs.ultimate-guitar.com/tab/a/b-chords-1',
       site: 'ultimate-guitar',
+    })
+  })
+
+  it('keeps the two Worship Chords domains separate', () => {
+    expect(checkUrl('https://www.worshipchords.net/guitar/a/b-1')).toMatchObject({
+      ok: true,
+      site: 'worshipchords-net',
+    })
+    expect(checkUrl('https://worshipchords.com/goodness-of-god-chords/')).toMatchObject({
+      ok: true,
+      site: 'worshipchords',
     })
   })
 
