@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { normalizeChartSectionLabels } from './chartSectionLabels.js'
 import type { RawSong, SiteAdapter } from './types.js'
 
 export const worshipChordsAdapter: SiteAdapter = {
@@ -17,20 +18,32 @@ export const worshipChordsAdapter: SiteAdapter = {
     const $ = cheerio.load(html)
 
     // Check for Cloudflare / bot gating
-    if ($('#challenge-error-text, .cf-browser-verification').length > 0 || $('title').text().includes('Just a moment')) {
+    if (
+      $('#challenge-error-text, .cf-browser-verification').length > 0 ||
+      /Just a moment|Attention Required/i.test($('title').text())
+    ) {
       const err = new Error('worshipchords: Access blocked by anti-bot verification')
       Object.assign(err, { code: 'BLOCKED' })
       throw err
     }
 
-    const titleEl = $('h1.entry-title, h1.song-title, h1').first().text().trim()
-    let title = titleEl
+    const titleEl = $('h1.entry-title, h1.song-title, .archive_header h1, h1')
+      .first()
+      .text()
+      .trim()
+    let title: string
     let artist = 'Unknown Artist'
 
     const splitMatch = titleEl.match(/^(.+?)\s+[–—-]\s+(.+)$/)
     if (splitMatch) {
       title = splitMatch[1].trim()
       artist = splitMatch[2].trim()
+    } else {
+      // The live site titles chart pages "<Song> Chords" and lists performers
+      // in the post-meta line rather than in the heading.
+      title = titleEl.replace(/\s+Chords$/i, '').trim()
+      const artistText = $('.post-artists-authors .categories').first().text().trim()
+      if (artistText) artist = artistText
     }
 
     // Try finding chords in pre tag or chordpro container
@@ -39,7 +52,9 @@ export const worshipChordsAdapter: SiteAdapter = {
 
     const preEl = $('pre').first()
     if (preEl.length > 0) {
-      content = preEl.text().trim()
+      content = normalizeChartSectionLabels(preEl.text(), {
+        dropTrailingBibleVerse: true,
+      })
       originalKey = preEl.attr('data-key') || null
     }
 

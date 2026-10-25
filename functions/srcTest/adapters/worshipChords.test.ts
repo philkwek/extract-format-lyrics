@@ -15,6 +15,42 @@ describe('worshipChordsAdapter', () => {
     expect(() => worshipChordsAdapter.extract(blockedHtml, 'https://worshipchords.com/song')).toThrow(/anti-bot verification/)
   })
 
+  it('parses the live archive-header layout and strips the Chords suffix', () => {
+    const html = `
+      <html><body>
+        <div class="archive_header">
+          <h1>Goodness Of God Chords</h1>
+          <h2 class="post-meta">
+            <span class="post-artists-authors">
+              <span class="categories">Bethel Music, Jenn Johnson</span>
+              <span class="categories"><a href="/ben-fielding/">Ben Fielding</a></span>
+            </span>
+          </h2>
+        </div>
+        <pre data-key="Ab">
+[Intro]
+Ab   Db   Ab   Db
+
+First Verse
+            Ab
+I love You Lord
+        </pre>
+      </body></html>
+    `
+    const raw = worshipChordsAdapter.extract(
+      html,
+      'https://worshipchords.com/goodness-of-god-chords/'
+    )
+    expect(raw.title).toBe('Goodness Of God')
+    expect(raw.artist).toBe('Bethel Music, Jenn Johnson')
+    expect(raw.originalKey).toBe('Ab')
+    expect(raw.content).toContain('Verse 1')
+    expect(normalizeSongText(raw.content).map((section) => section.type)).toEqual([
+      'Intro',
+      'Verse',
+    ])
+  })
+
   it('extracts metadata and content from fixture', () => {
     const fixturePath = path.join(__dirname, '__fixtures__', 'worshipchords.html')
     const html = fs.readFileSync(fixturePath, 'utf-8')

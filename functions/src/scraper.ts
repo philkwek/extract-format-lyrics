@@ -8,6 +8,7 @@ import { simplifySections } from './simplifyChords.js'
 import { ultimateGuitarAdapter } from './adapters/ultimateGuitar.js'
 import { pnwChordsAdapter } from './adapters/pnwChords.js'
 import { worshipChordsAdapter } from './adapters/worshipChords.js'
+import { worshipChordsNetAdapter } from './adapters/worshipChordsNet.js'
 import { worshipTogetherAdapter } from './adapters/worshipTogether.js'
 import { genericFallbackAdapter } from './adapters/genericFallback.js'
 import type { SiteAdapter } from './adapters/types.js'
@@ -17,6 +18,7 @@ const ADAPTERS: SiteAdapter[] = [
   ultimateGuitarAdapter,
   pnwChordsAdapter,
   worshipChordsAdapter,
+  worshipChordsNetAdapter,
   worshipTogetherAdapter,
   genericFallbackAdapter,
 ]

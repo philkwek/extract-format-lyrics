@@ -10,6 +10,7 @@ export type MetricSite =
   | 'ultimate-guitar'
   | 'pnwchords'
   | 'worshipchords'
+  | 'worshipchords-net'
   | 'worshiptogether'
   | 'generic'
   | 'unknown'
