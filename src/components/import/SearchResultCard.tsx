@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 import type { SearchCandidate } from '../../lib/api'
+import { sourceLabel } from '../../lib/searchResults'
 import { Button } from '../ui'
 
 interface SearchResultCardProps {
@@ -25,7 +26,7 @@ export default function SearchResultCard({
             {candidate.title}
           </h4>
           <span className="shrink-0 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
-            {candidate.site}
+            {sourceLabel(candidate.site)}
           </span>
         </div>
         <p className="mt-1 text-xs text-[var(--ui-text-muted)]">{candidate.artist}</p>

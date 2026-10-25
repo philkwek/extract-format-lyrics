@@ -103,6 +103,10 @@ export function sourceLabel(site: string): string {
       return 'Ultimate Guitar'
     case 'pnwchords':
       return 'PNW Chords'
+    case 'worshipchords':
+      return 'Worship Chords (.com)'
+    case 'worshipchords-net':
+      return 'Worship Chords (.net)'
     case 'worshiptogether':
       return 'Worship Together'
     default:

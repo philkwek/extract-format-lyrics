@@ -1,4 +1,5 @@
 import type { Song } from '../types/song'
+import { sourceLabel } from '../lib/searchResults'
 import { ExternalLink } from 'lucide-react'
 
 interface SongHeaderProps {
@@ -63,7 +64,7 @@ export default function SongHeader({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 font-medium transition-colors hover:text-[#3368A0] dark:hover:text-amber-400"
               >
-                {song.sourceSite} <ExternalLink size={11} />
+                {sourceLabel(song.sourceSite)} <ExternalLink size={11} />
               </a>
             </>
           )}
