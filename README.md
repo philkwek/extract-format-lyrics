@@ -89,7 +89,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 
 ## A few things to know
 
-- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords and Worship Together. Other websites aren't currently supported for link imports. A supported site may sometimes block an import.
+- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other websites aren't currently supported for link imports. A supported site may sometimes block an import.
 - **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it to your set. Some files need AI processing and may ask for a Gemini API key if the website doesn't have one configured.
 - **Saved on this browser:** Sets aren't synced across devices. Use **Share → Share this set** to move a copy to another device. Clearing browser data can remove your saved sets and your ability to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.

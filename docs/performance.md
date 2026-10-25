@@ -6,17 +6,19 @@ This document describes the search/import pipeline, its caches and budgets, and 
 
 1. The browser calls `GET /api/search?q=...&stream=1` with `Accept: application/x-ndjson`.
 2. The backend checks an instance-local and Firestore-backed search cache.
-3. On a miss, Ultimate Guitar, PNW Chords and Worship Together start concurrently.
-4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen. Each source is initially capped at three results (`ceil(8 / 3)`), reserving slots for slower sources.
+3. On a miss, Ultimate Guitar, PNW Chords, Worship Together and Worship Chords (`.net`) start concurrently.
+4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen. Each source is initially capped at two results (`ceil(8 / 4)`), reserving slots for slower sources.
 5. The backend emits a final `complete` event using Ultimate Guitar’s native first three results plus the balanced selection for other sources. The browser adopts that composition while preserving the position of cards already shown.
 
 The ordinary `GET /api/search?q=...` JSON response remains available for cached/simple clients.
+
+The two Worship Chords domains are fetched through Impit, which imitates a browser TLS/HTTP2 fingerprint. Cloudflare fronts both sites and rejects Node’s default undici fingerprint. Other sources keep the built-in fetch. If the Impit native module cannot load, the function falls back to undici without affecting the other sources.
 
 ### Result selection
 
 Ultimate Guitar’s first three accessible results are used directly in payload order.
 
-For PNW Chords and Worship Together:
+For PNW Chords, Worship Together and Worship Chords (`.net`):
 
 1. Candidates that match no query token are dropped when at least one relevant candidate exists.
 2. Canonical URLs are de-duplicated (tracking parameters and fragments removed, meaningful parameters such as `version` and `simplified` kept).
@@ -31,8 +33,8 @@ Ultimate Guitar’s own result order is treated as authoritative for that source
 
 - The adapter filters inaccessible Official/Pro and non-chord rows, then keeps the **first three accessible results** in payload order.
 - The backend does not apply relevance/rating re-sorting to those UG results.
-- PNW Chords and Worship Together still use the balanced/relevance selector and fill the remaining capacity.
-- Search cache entries are versioned as `search-v2` so older sorted results are not reused.
+- PNW Chords, Worship Together and Worship Chords (`.net`) still use the balanced/relevance selector and fill the remaining capacity.
+- Search cache entries are versioned as `search-v3` so older sorted results are not reused.
 
 ### Source outcomes
 
@@ -52,7 +54,7 @@ A failure never hides another source’s results. Three consecutive 403/429 resp
 | Shared | Firestore `searchCache` | 5 min | Complete results only; document id is a hash of the versioned key |
 | In-flight | Function process | Request lifetime | Identical concurrent work coalesces within one instance |
 
-Keys use `search-v2:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
+Keys use `search-v3:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
 
 Partial results and failed-site results are intentionally short-lived and are not written to Firestore. A failed site is never persisted as a long-lived legitimate empty result. Cache-store failures degrade to a normal upstream search.
 
@@ -152,7 +154,7 @@ No live production measurements were taken for this change. Establish a baseline
 
 The workflow was exercised locally with Vite and a temporary mock `/api` server (controlled timers and fixed Song fixtures):
 
-- all three sources successful and displayed with per-source counts;
+- all four sources successful and displayed with per-source counts;
 - one source failed while the other results remained usable;
 - first source results selectable while slower sources were still pending;
 - first import, then a repeat import from IndexedDB with no additional scrape request;
