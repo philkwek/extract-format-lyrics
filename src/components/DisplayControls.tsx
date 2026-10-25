@@ -1,12 +1,5 @@
 import type { CSSProperties } from 'react'
-import {
-  AlertTriangle,
-  Pencil,
-  RotateCcw,
-  Scan,
-  WandSparkles,
-  WrapText,
-} from 'lucide-react'
+import { AlertTriangle, Pencil, RotateCcw, Scan, WandSparkles, WrapText } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
 import type { PadKeyMode } from '../lib/sessionStore'
@@ -129,6 +122,18 @@ export default function DisplayControls({
       >
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
+            {isFullScreen && onToggleFit && (
+              <Button
+                size="sm"
+                variant={fitActive ? 'primary' : 'secondary'}
+                icon={<Scan size={14} />}
+                onClick={onToggleFit}
+                aria-pressed={fitActive}
+                title={fitActive ? 'Turn off fit to screen' : 'Fit the whole song on screen'}
+              >
+                Auto
+              </Button>
+            )}
             <div
               role="group"
               aria-label="Columns"
@@ -147,6 +152,7 @@ export default function DisplayControls({
                 }}
                 transition={reduceMotion ? reducedMotionTransition : segmentedSpring}
               />
+
               {([1, 2, 3, 4] as const).map((column) => (
                 <button
                   key={column}
@@ -161,18 +167,6 @@ export default function DisplayControls({
                 </button>
               ))}
             </div>
-            {isFullScreen && onToggleFit && (
-              <Button
-                size="sm"
-                variant={fitActive ? 'primary' : 'secondary'}
-                icon={<Scan size={14} />}
-                onClick={onToggleFit}
-                aria-pressed={fitActive}
-                title={fitActive ? 'Turn off fit to screen' : 'Fit the whole song on screen'}
-              >
-                Fit
-              </Button>
-            )}
           </div>
 
           <div
@@ -233,19 +227,6 @@ export default function DisplayControls({
                 onReset={onResetKey || (() => {})}
               />
             )}
-            {showPads && (
-              <PadControls
-                currentKey={currentKey}
-                padKeyMode={padKeyMode}
-                customPadKey={customPadKey}
-                isPadPlaying={isPadPlaying}
-                isPadLoading={isPadLoading}
-                onChangePadKeyMode={onChangePadKeyMode}
-                onSelectCustomPadKey={onSelectCustomPadKey}
-                onTogglePad={onTogglePad}
-                variant={isFullScreen ? 'fullscreen' : 'default'}
-              />
-            )}
             {!isFullScreen && canSimplify && (
               <div className="inline-flex items-center gap-1">
                 <Button
@@ -266,6 +247,19 @@ export default function DisplayControls({
                   </span>
                 )}
               </div>
+            )}
+            {showPads && (
+              <PadControls
+                currentKey={currentKey}
+                padKeyMode={padKeyMode}
+                customPadKey={customPadKey}
+                isPadPlaying={isPadPlaying}
+                isPadLoading={isPadLoading}
+                onChangePadKeyMode={onChangePadKeyMode}
+                onSelectCustomPadKey={onSelectCustomPadKey}
+                onTogglePad={onTogglePad}
+                variant={isFullScreen ? 'fullscreen' : 'default'}
+              />
             )}
             {!isFullScreen && onToggleEditChords && (
               <Button
