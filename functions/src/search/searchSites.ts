@@ -7,6 +7,7 @@ import { SearchParseError } from './types.js'
 export const SEARCH_HOSTS: Record<string, string> = {
   'ultimate-guitar': 'www.ultimate-guitar.com',
   pnwchords: 'pnwchords.com',
+  'worshipchords-net': 'www.worshipchords.net',
   worshiptogether: 'www.worshiptogether.com',
 }
 

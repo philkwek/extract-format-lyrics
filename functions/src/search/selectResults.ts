@@ -2,7 +2,7 @@ import type { SearchCandidate } from './types.js'
 import { UG_SEARCH_RESULT_LIMIT } from './types.js'
 
 export const DEFAULT_SEARCH_RESULT_LIMIT = 8
-export const SUPPORTED_SEARCH_SOURCE_COUNT = 3
+export const SUPPORTED_SEARCH_SOURCE_COUNT = 4
 /** Reserve capacity for every source while streaming partial results. */
 export const PARTIAL_SOURCE_RESULT_LIMIT = Math.ceil(
   DEFAULT_SEARCH_RESULT_LIMIT / SUPPORTED_SEARCH_SOURCE_COUNT

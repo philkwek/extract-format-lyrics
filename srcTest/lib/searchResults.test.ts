@@ -3,6 +3,7 @@ import {
   allSearchSourcesFailed,
   mergeFinalSearchCandidates,
   mergePartialSearchCandidates,
+  sourceLabel,
   upsertSearchSource,
 } from '../../src/lib/searchResults'
 import type { SearchCandidate } from '../../src/lib/api'
@@ -24,17 +25,24 @@ function sourceCandidates(site: string, count: number): SearchCandidate[] {
 describe('mergePartialSearchCandidates', () => {
   it('reserves capacity so a fast source cannot fill all eight slots', () => {
     const first = mergePartialSearchCandidates([], sourceCandidates('pnwchords', 8))
-    expect(first).toHaveLength(3)
+    expect(first).toHaveLength(2)
     expect(first.every((item) => item.site === 'pnwchords')).toBe(true)
 
     const second = mergePartialSearchCandidates(first, sourceCandidates('ultimate-guitar', 8))
-    expect(second).toHaveLength(6)
+    expect(second).toHaveLength(4)
 
     const third = mergePartialSearchCandidates(second, sourceCandidates('worshiptogether', 8))
-    expect(third).toHaveLength(8)
-    expect(third.filter((item) => item.site === 'pnwchords')).toHaveLength(3)
-    expect(third.filter((item) => item.site === 'ultimate-guitar')).toHaveLength(3)
-    expect(third.filter((item) => item.site === 'worshiptogether')).toHaveLength(2)
+    expect(third).toHaveLength(6)
+
+    const fourth = mergePartialSearchCandidates(
+      third,
+      sourceCandidates('worshipchords-net', 8)
+    )
+    expect(fourth).toHaveLength(8)
+    expect(fourth.filter((item) => item.site === 'pnwchords')).toHaveLength(2)
+    expect(fourth.filter((item) => item.site === 'ultimate-guitar')).toHaveLength(2)
+    expect(fourth.filter((item) => item.site === 'worshiptogether')).toHaveLength(2)
+    expect(fourth.filter((item) => item.site === 'worshipchords-net')).toHaveLength(2)
   })
 
   it('keeps existing positions and refreshes metadata in place', () => {
@@ -91,6 +99,15 @@ describe('mergeFinalSearchCandidates', () => {
     expect(mergeFinalSearchCandidates(previous, final).map((item) => item.title)).toEqual([
       'UG C',
     ])
+  })
+})
+
+describe('sourceLabel', () => {
+  it('distinguishes the two Worship Chords domains and keeps existing labels', () => {
+    expect(sourceLabel('worshipchords')).toBe('Worship Chords (.com)')
+    expect(sourceLabel('worshipchords-net')).toBe('Worship Chords (.net)')
+    expect(sourceLabel('ultimate-guitar')).toBe('Ultimate Guitar')
+    expect(sourceLabel('unknown-site')).toBe('unknown-site')
   })
 })
 

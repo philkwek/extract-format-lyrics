@@ -8,6 +8,7 @@ import { rateLimiter } from './rateLimit.js'
 import { clientIpFromRequest } from './clientIp.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
+import { worshipChordsNetSearchAdapter } from './search/worshipChordsNetSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
 import { searchCache } from './search/searchCache.js'
@@ -146,6 +147,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       ultimateGuitarSearchAdapter,
       pnwChordsSearchAdapter,
       worshipTogetherSearchAdapter,
+      worshipChordsNetSearchAdapter,
     ]
     const wantsStream =
       req.query.stream === '1' ||

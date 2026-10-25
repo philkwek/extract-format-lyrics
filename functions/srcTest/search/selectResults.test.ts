@@ -36,6 +36,7 @@ describe('selectSearchResults', () => {
         result('ultimate-guitar', 'Good Grace', 'https://ug.com/3', 4.8),
         result('pnwchords', 'Good Grace', 'https://pnw.com/1'),
         result('worshiptogether', 'Good Grace', 'https://wt.com/1'),
+        result('worshipchords-net', 'Good Grace', 'https://wcn.com/1'),
       ],
       'good grace'
     )
@@ -44,6 +45,7 @@ describe('selectSearchResults', () => {
       'ultimate-guitar',
       'pnwchords',
       'worshiptogether',
+      'worshipchords-net',
       'ultimate-guitar',
       'ultimate-guitar',
     ])
@@ -99,7 +101,8 @@ describe('selectSearchResults', () => {
       'song',
       PARTIAL_SOURCE_RESULT_LIMIT
     )
-    expect(results).toHaveLength(3)
+    expect(PARTIAL_SOURCE_RESULT_LIMIT).toBe(2)
+    expect(results).toHaveLength(2)
   })
 
   it('fills all capacity from one available source', () => {
@@ -164,6 +167,7 @@ describe('combined Ultimate Guitar selection', () => {
       result('ultimate-guitar', 'Song', 'https://ug.com/fourth', 4),
       result('pnwchords', 'Song', 'https://pnw.com/a'),
       result('worshiptogether', 'Song', 'https://wt.com/a'),
+      result('worshipchords-net', 'Song', 'https://wcn.com/a'),
     ]
 
     const selected = selectCombinedSearchResults(candidates, 'song', 8)
@@ -175,6 +179,7 @@ describe('combined Ultimate Guitar selection', () => {
     expect(selected.slice(3).map((candidate) => candidate.site)).toEqual([
       'pnwchords',
       'worshiptogether',
+      'worshipchords-net',
     ])
   })
 
