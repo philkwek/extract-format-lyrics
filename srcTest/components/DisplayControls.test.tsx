@@ -16,7 +16,7 @@ const defaultPrefs: SongDisplayPrefs = {
 }
 
 describe('DisplayControls — Play Ambient Pad button', () => {
-  it('renders Play Ambient Pad button immediately to the left of Simplify button', () => {
+  it('renders Play Ambient Pad button after the Simplify button', () => {
     const onTogglePad = vi.fn()
     render(
       <DisplayControls
@@ -35,8 +35,8 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     expect(padButton).toBeTruthy()
     expect(simplifyButton).toBeTruthy()
 
-    // Ensure Play Ambient Pad appears before Simplify in DOM order
-    const position = padButton.compareDocumentPosition(simplifyButton)
+    // Ensure Play Ambient Pad appears after Simplify in DOM order
+    const position = simplifyButton.compareDocumentPosition(padButton)
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     fireEvent.click(padButton)
@@ -161,7 +161,7 @@ describe('DisplayControls — columns and fit', () => {
     )
   })
 
-  it('marks the manual column active and leaves Fit available', () => {
+  it('marks the manual column active and leaves Auto available', () => {
     const onChangePrefs = vi.fn()
     const onToggleFit = vi.fn()
     render(
@@ -176,14 +176,14 @@ describe('DisplayControls — columns and fit', () => {
     )
 
     expect(screen.getByRole('button', { name: '3' }).getAttribute('aria-pressed')).toBe('true')
-    const fitButton = screen.getByRole('button', { name: 'Fit' })
+    const fitButton = screen.getByRole('button', { name: 'Auto' })
     expect(fitButton.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(fitButton)
     expect(onToggleFit).toHaveBeenCalledTimes(1)
   })
 
-  it('turns Fit off when a manual column is selected and shows the auto caption', () => {
+  it('turns Auto off when a manual column is selected and shows the auto caption', () => {
     const onChangePrefs = vi.fn()
     render(
       <DisplayControls
@@ -196,7 +196,7 @@ describe('DisplayControls — columns and fit', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Fit' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Auto' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('Auto layout · 4 columns · 12px')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
@@ -246,7 +246,7 @@ describe('DisplayControls — columns and fit', () => {
     )
   })
 
-  it('uses the fitted font size for manual size changes and turns Fit off', () => {
+  it('uses the fitted font size for manual size changes and turns Auto off', () => {
     const onChangePrefs = vi.fn()
     render(
       <DisplayControls
@@ -303,7 +303,7 @@ describe('DisplayControls — columns and fit', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Fit' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Auto' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /ambient pad/i })).toBeNull()
     expect(screen.queryByRole('status')).toBeNull()
   })

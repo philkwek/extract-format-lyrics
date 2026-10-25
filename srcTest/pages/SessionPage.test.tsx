@@ -127,7 +127,7 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: /exit full screen/i })).toBeTruthy()
     expect(screen.queryByText('Original key')).toBeNull()
     expect(screen.getByRole('button', { name: /play ambient pad/i })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Fit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Auto' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Simplify' }))
     await waitFor(() => {
@@ -141,12 +141,12 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(customiseButton)
     expect(customiseButton.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByRole('button', { name: 'Fit' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Auto' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '4' })).toBeTruthy()
 
     fireEvent.click(customiseButton)
     expect(customiseButton.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'Fit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Auto' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
 
