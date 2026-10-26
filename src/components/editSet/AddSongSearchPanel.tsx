@@ -121,7 +121,7 @@ export default function AddSongSearchPanel({
         onSubmit={handleSearch}
         isSearching={isSearching}
         error={error}
-        description="Search by title or artist across Ultimate Guitar, PNW Chords, and Worship Together."
+        description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
         placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
       />
       <SearchResults

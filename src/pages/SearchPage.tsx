@@ -217,7 +217,7 @@ export default function SearchPage() {
             onSubmit={handleSearch}
             isSearching={isSearching}
             error={error}
-            description="Find chord sheets across Ultimate Guitar, PNW Chords, and Worship Together."
+            description="Find chord sheets across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
             placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
           />
         ) : (
