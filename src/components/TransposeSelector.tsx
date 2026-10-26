@@ -32,7 +32,7 @@ export default function TransposeSelector({
   const matchedOriginal = matchKeyOption(originalKey) || originalKey
   const activeKey = currentKey || matchedOriginal
 
-  const offset = keyOffset(matchedOriginal, activeKey)
+  const isModified = activeKey !== matchedOriginal
 
   return (
     <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)]">
@@ -48,19 +48,20 @@ export default function TransposeSelector({
         {options.map((opt) => {
           const optOffset = keyOffset(matchedOriginal, opt)
           const optOffsetLabel = formatOffset(optOffset)
+          const isOriginalOption = opt === matchedOriginal
           return (
             <option
               key={opt}
               value={opt}
               className="bg-[var(--ui-surface-raised)] text-[var(--ui-text)]"
             >
-              {opt} {optOffset !== 0 ? `(${optOffsetLabel})` : '(Orig)'}
+              {opt} {isOriginalOption ? '(Orig)' : `(${optOffsetLabel})`}
             </option>
           )
         })}
       </select>
 
-      {offset !== 0 && (
+      {isModified && (
         <button
           type="button"
           onClick={onReset}
