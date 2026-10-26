@@ -58,6 +58,17 @@ describe('keys', () => {
     expect(keyUsesFlats('F#')).toBe(false)
     expect(keyUsesFlats('Em')).toBe(false)
   })
+
+  it('follows the selected spelling for every sharp and flat key', () => {
+    expect(keyUsesFlats('C#')).toBe(false)
+    expect(keyUsesFlats('Db')).toBe(true)
+    expect(keyUsesFlats('D#m')).toBe(false)
+    expect(keyUsesFlats('Ebm')).toBe(true)
+    expect(keyUsesFlats('Gbm')).toBe(true)
+    expect(keyUsesFlats('F#m')).toBe(false)
+    expect(keyUsesFlats('A#m')).toBe(false)
+    expect(keyUsesFlats('Bbm')).toBe(true)
+  })
 })
 
 describe('transposeSong', () => {
@@ -74,7 +85,14 @@ describe('transposeSong', () => {
         type: 'Verse',
         label: 'Verse 1',
         lines: [
-          { kind: 'lyric', text: 'Hello there', chords: [{ pos: 0, chord: 'G' }, { pos: 6, chord: 'D/F#' }] },
+          {
+            kind: 'lyric',
+            text: 'Hello there',
+            chords: [
+              { pos: 0, chord: 'G' },
+              { pos: 6, chord: 'D/F#' },
+            ],
+          },
           { kind: 'chords-only', chords: ['Em', 'C'] },
           { kind: 'tab', raw: 'e|--0--|' },
         ],
@@ -88,7 +106,10 @@ describe('transposeSong', () => {
     const lines = out.sections[0].lines
     expect(lines[0]).toMatchObject({
       text: 'Hello there',
-      chords: [{ pos: 0, chord: 'F' }, { pos: 6, chord: 'C/E' }],
+      chords: [
+        { pos: 0, chord: 'F' },
+        { pos: 6, chord: 'C/E' },
+      ],
     })
     expect(lines[1]).toEqual({ kind: 'chords-only', chords: ['Dm', 'Bb'] })
     expect(lines[2]).toEqual({ kind: 'tab', raw: 'e|--0--|' })
@@ -97,5 +118,43 @@ describe('transposeSong', () => {
   it('does not mutate the original', () => {
     transposeSong(song, 5, 'C')
     expect(song.sections[0].lines[1]).toEqual({ kind: 'chords-only', chords: ['Em', 'C'] })
+  })
+
+  it('respells chords for an enharmonic target at zero semitones', () => {
+    const sharpSong: Song = {
+      ...song,
+      originalKey: 'F#',
+      sections: [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [
+            {
+              kind: 'lyric',
+              text: 'Hello there',
+              chords: [
+                { pos: 0, chord: 'F#' },
+                { pos: 6, chord: 'C#/F#' },
+              ],
+            },
+            { kind: 'chords-only', chords: ['D#m', 'B'] },
+            { kind: 'tab', raw: 'e|--0--|' },
+          ],
+        },
+      ],
+    }
+
+    expect(transposeSong(sharpSong, 0, 'F#')).toBe(sharpSong)
+
+    const out = transposeSong(sharpSong, 0, 'Gb')
+    const lines = out.sections[0].lines
+    expect(lines[0]).toMatchObject({
+      chords: [
+        { pos: 0, chord: 'Gb' },
+        { pos: 6, chord: 'Db/Gb' },
+      ],
+    })
+    expect(lines[1]).toEqual({ kind: 'chords-only', chords: ['Ebm', 'B'] })
+    expect(lines[2]).toEqual({ kind: 'tab', raw: 'e|--0--|' })
   })
 })

@@ -64,13 +64,16 @@ function transposeLine(line: Line, semitones: number, useFlats: boolean): Line {
 
 /** Returns a new song with every chord shifted by `semitones`, spelled for `targetKey`. */
 export function transposeSong(song: Song, semitones: number, targetKey: string): Song {
-  if (semitones % 12 === 0) return song
+  const shift = ((semitones % 12) + 12) % 12
+  if (shift === 0 && song.originalKey && targetKey === song.originalKey) {
+    return song
+  }
   const useFlats = keyUsesFlats(targetKey)
   return {
     ...song,
     sections: song.sections.map((s) => ({
       ...s,
-      lines: s.lines.map((l) => transposeLine(l, semitones, useFlats)),
+      lines: s.lines.map((l) => transposeLine(l, shift, useFlats)),
     })),
   }
 }
