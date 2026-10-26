@@ -858,10 +858,8 @@ export default function SessionPage() {
     const currentKey = currentItem?.targetKey || currentSong.originalKey
     if (currentKey && currentSong.originalKey && currentKey !== currentSong.originalKey) {
       const offset = keyOffset(currentSong.originalKey, currentKey)
-      if (offset !== 0) {
-        const useFlats = keyUsesFlats(currentSong.originalKey)
-        baseChord = transposeChord(newChord, -offset, useFlats)
-      }
+      const useFlats = keyUsesFlats(currentSong.originalKey)
+      baseChord = transposeChord(newChord, -offset, useFlats)
     }
 
     const baseSections: Section[] = (
