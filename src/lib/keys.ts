@@ -1,9 +1,46 @@
 import { parseKey } from './transpose'
 
-const MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
-const MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm']
+const MAJOR_KEYS = [
+  'C',
+  'C#',
+  'Db',
+  'D',
+  'D#',
+  'Eb',
+  'E',
+  'F',
+  'F#',
+  'Gb',
+  'G',
+  'G#',
+  'Ab',
+  'A',
+  'A#',
+  'Bb',
+  'B',
+]
 
-/** The 12 selectable keys, major or minor to match the original key's mode. */
+const MINOR_KEYS = [
+  'Cm',
+  'C#m',
+  'Dbm',
+  'Dm',
+  'D#m',
+  'Ebm',
+  'Em',
+  'Fm',
+  'F#m',
+  'Gbm',
+  'Gm',
+  'G#m',
+  'Abm',
+  'Am',
+  'A#m',
+  'Bbm',
+  'Bm',
+]
+
+/** The selectable keys (including both sharp and flat enharmonic spellings), major or minor to match the original key's mode. */
 export function keyOptions(minor: boolean): string[] {
   return minor ? MINOR_KEYS : MAJOR_KEYS
 }
@@ -26,10 +63,17 @@ export function formatOffset(offset: number): string {
   return offset > 0 ? `+${offset}` : `−${Math.abs(offset)}`
 }
 
-/** Picks the option in `keyOptions` that matches `key` by pitch (handles enharmonics like A# → Bb). */
+/**
+ * Picks the option in `keyOptions` that matches `key`.
+ * Prefers an exact enharmonic spelling match (e.g. "C#" → "C#", "Db" → "Db"),
+ * and falls back to pitch-class match for theoretical spellings (e.g. "Cb" → "B").
+ */
 export function matchKeyOption(key: string): string | null {
   const parsed = parseKey(key)
   if (!parsed) return null
+  const normalizedRoot = parsed.rootName.replace('♯', '#').replace('♭', 'b')
   const options = keyOptions(parsed.minor)
+  const exactMatch = options.find((o) => parseKey(o)?.rootName === normalizedRoot)
+  if (exactMatch) return exactMatch
   return options.find((o) => parseKey(o)?.root === parsed.root) ?? null
 }
