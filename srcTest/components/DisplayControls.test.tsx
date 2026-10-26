@@ -59,6 +59,40 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     expect(padButton.getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('shows both enharmonic spellings and resets an enharmonic selection at zero offset', () => {
+    const onResetKey = vi.fn()
+    render(
+      <DisplayControls
+        prefs={defaultPrefs}
+        onChangePrefs={vi.fn()}
+        originalKey="F#"
+        currentKey="Gb"
+        onSelectKey={vi.fn()}
+        onResetKey={onResetKey}
+        padKeyMode="match"
+        isPadPlaying={true}
+        onTogglePad={vi.fn()}
+      />
+    )
+
+    const select = screen.getByLabelText('Transpose song') as HTMLSelectElement
+    const labels = Array.from(select.options).map((option) => option.textContent?.trim())
+
+    expect(select.value).toBe('Gb')
+    expect(labels).toContain('F# (Orig)')
+    expect(labels).toContain('Gb (0)')
+    expect(labels).not.toContain('Gb (Orig)')
+    expect(labels).toContain('C# (−5)')
+    expect(labels).toContain('Db (−5)')
+
+    const resetButton = screen.getByRole('button', { name: 'Reset to original key (F#)' })
+    fireEvent.click(resetButton)
+    expect(onResetKey).toHaveBeenCalledTimes(1)
+
+    const padButton = screen.getByRole('button', { name: 'Playing Pad (Gb)' })
+    expect(padButton.getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('keeps Pads Key popover closed by default and opens it via Pad key settings button', () => {
     const onChangePadKeyMode = vi.fn()
     render(
