@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { keyOptions } from '../../src/lib/keys'
 import {
   AmbientPadPlayer,
+  PAD_KEYS,
   resolvePadKey,
   getPadAudioUrl,
   type AudioContextLike,
   type AudioBufferSourceNodeLike,
   type GainNodeLike,
 } from '../../src/lib/ambientPadPlayer'
+
+const ENHARMONIC_PAIRS: Array<[string, string]> = [
+  ['C#', 'Db'],
+  ['D#', 'Eb'],
+  ['F#', 'Gb'],
+  ['G#', 'Ab'],
+  ['A#', 'Bb'],
+]
 
 interface MockVoiceNodes {
   source: AudioBufferSourceNodeLike & {
@@ -128,6 +138,18 @@ describe('resolvePadKey', () => {
     expect(resolvePadKey('A#')).toBe('Bb')
   })
 
+  it('maps every selectable major key to a valid canonical pad key', () => {
+    for (const key of keyOptions(false)) {
+      expect(PAD_KEYS).toContain(resolvePadKey(key))
+    }
+  })
+
+  it('maps each enharmonic pair to the same canonical pad key', () => {
+    for (const [sharp, flat] of ENHARMONIC_PAIRS) {
+      expect(resolvePadKey(sharp)).toBe(resolvePadKey(flat))
+    }
+  })
+
   it('returns null for empty, invalid, or minor keys', () => {
     expect(resolvePadKey(null)).toBeNull()
     expect(resolvePadKey(undefined)).toBeNull()
@@ -191,6 +213,31 @@ describe('AmbientPadPlayer', () => {
     expect(env.fetchedUrls).toEqual(['/pads/Gb.mp3'])
     expect(player.getState().isPlaying).toBe(true)
   })
+
+  it.each(ENHARMONIC_PAIRS)(
+    'keeps playing without refetching when switching from %s to %s',
+    async (sharp, flat) => {
+      const env = createMockAudioEnv()
+      const player = new AmbientPadPlayer({
+        createAudioContext: () => env.ctx,
+        fetchAudioData: env.fetchAudioData,
+      })
+
+      await player.play(sharp)
+      const resolved = resolvePadKey(sharp)
+      expect(player.getState().activeKey).toBe(resolved)
+      expect(env.createdSources).toHaveLength(1)
+      expect(env.fetchedUrls).toHaveLength(1)
+
+      await player.setKey(flat)
+      await player.setKey(sharp)
+
+      expect(player.getState().activeKey).toBe(resolved)
+      expect(player.getState().isPlaying).toBe(true)
+      expect(env.createdSources).toHaveLength(1)
+      expect(env.fetchedUrls).toHaveLength(1)
+    },
+  )
 
   it('crossfades smoothly when switching to a song in a different key and caches buffers', async () => {
     const env = createMockAudioEnv()
