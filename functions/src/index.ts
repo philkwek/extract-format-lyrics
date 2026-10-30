@@ -1,3 +1,4 @@
+import type { Request, Response } from 'express'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
@@ -19,8 +20,7 @@ import {
   selectNativeSourceResults,
   selectSearchResults,
 } from './search/selectResults.js'
-import { UG_SEARCH_RESULT_LIMIT } from './search/types.js'
-import { toSourceStatus } from './search/types.js'
+import { UG_SEARCH_RESULT_LIMIT, toSourceStatus, type SearchSiteOutcome } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
   sharedLyricsStore,
@@ -52,6 +52,39 @@ export interface ScrapeResponse {
   invalid: Array<{ input: string; reason: string }>
 }
 
+/** Sends 429 and returns true when the caller is over the limit. */
+function rejectIfLimited(req: Request, res: Response): boolean {
+  const limitCheck = rateLimiter.checkIp(clientIpFromRequest(req))
+  if (limitCheck.allowed) return false
+  res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+  sendJsonError(
+    res,
+    429,
+    'RATE_LIMITED',
+    `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
+  )
+  return true
+}
+
+const SEARCH_ADAPTERS = [
+  ultimateGuitarSearchAdapter,
+  pnwChordsSearchAdapter,
+  worshipTogetherSearchAdapter,
+  worshipChordsNetSearchAdapter,
+]
+
+async function runSearch(
+  upstreamQuery: string,
+  onOutcome?: (outcome: SearchSiteOutcome) => void
+) {
+  const { candidates, outcomes } = await searchSites(SEARCH_ADAPTERS, upstreamQuery, {}, onOutcome)
+  return {
+    results: selectCombinedSearchResults(candidates, upstreamQuery, DEFAULT_SEARCH_RESULT_LIMIT),
+    sources: outcomes.map(toSourceStatus),
+    partial: outcomes.some((outcome) => outcome.status === 'failed'),
+  }
+}
+
 export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) => {
   // Handle CORS and preflight
   if (handleCors(req, res)) {
@@ -71,19 +104,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const { urls } = req.body || {}
     if (!urls || !Array.isArray(urls)) {
@@ -128,27 +149,9 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const searchStartedAt = Date.now()
-    const adapters = [
-      ultimateGuitarSearchAdapter,
-      pnwChordsSearchAdapter,
-      worshipTogetherSearchAdapter,
-      worshipChordsNetSearchAdapter,
-    ]
     const wantsStream =
       req.query.stream === '1' ||
       String(req.headers.accept || '').includes('application/x-ndjson')
@@ -174,39 +177,25 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       }
 
       try {
-        const lookup = await searchCache.search(query, async (upstreamQuery) => {
-          const { candidates: combined, outcomes } = await searchSites(
-            adapters,
-            upstreamQuery,
-            {},
-            (outcome) => {
-              // Completed sources become usable immediately, even when another
-              // source is still pending.
-              const partialCandidates =
-                outcome.site === 'ultimate-guitar'
-                  ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
-                  : selectSearchResults(
-                      outcome.candidates,
-                      upstreamQuery,
-                      PARTIAL_SOURCE_RESULT_LIMIT
-                    )
-              write({
-                type: 'source',
-                source: toSourceStatus(outcome),
-                candidates: partialCandidates,
-              })
-            }
-          )
-          return {
-            results: selectCombinedSearchResults(
-              combined,
-              upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT
-            ),
-            sources: outcomes.map(toSourceStatus),
-            partial: outcomes.some((outcome) => outcome.status === 'failed'),
-          }
-        })
+        const lookup = await searchCache.search(query, (upstreamQuery) =>
+          runSearch(upstreamQuery, (outcome) => {
+            // Completed sources become usable immediately, even when another
+            // source is still pending.
+            const partialCandidates =
+              outcome.site === 'ultimate-guitar'
+                ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
+                : selectSearchResults(
+                    outcome.candidates,
+                    upstreamQuery,
+                    PARTIAL_SOURCE_RESULT_LIMIT
+                  )
+            write({
+              type: 'source',
+              source: toSourceStatus(outcome),
+              candidates: partialCandidates,
+            })
+          })
+        )
         const { results, sources, partial } = lookup.data
         recordTiming({
           operation: 'search.total',
@@ -240,18 +229,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     try {
-      const lookup = await searchCache.search(query, async (upstreamQuery) => {
-        const { candidates: combined, outcomes } = await searchSites(adapters, upstreamQuery)
-        return {
-          results: selectCombinedSearchResults(
-              combined,
-              upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT
-            ),
-          sources: outcomes.map(toSourceStatus),
-          partial: outcomes.some((outcome) => outcome.status === 'failed'),
-        }
-      })
+      const lookup = await searchCache.search(query, (q) => runSearch(q))
       const { results, sources, partial } = lookup.data
       recordTiming({
         operation: 'search.total',
@@ -296,13 +274,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
     const checked = checkUrl(url)
@@ -340,13 +312,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-      return
-    }
+    if (rejectIfLimited(req, res)) return
     const { snapshot } = req.body || {}
     const contentLength = Number(req.headers['content-length'] || 0)
     if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
@@ -406,13 +372,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     const id = lyricsShareMatch[1]
 
     if (req.method === 'PUT') {
-      const clientIp = clientIpFromRequest(req)
-      const limitCheck = rateLimiter.checkIp(clientIp)
-      if (!limitCheck.allowed) {
-        res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-        sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-        return
-      }
+      if (rejectIfLimited(req, res)) return
 
       const contentLength = Number(req.headers['content-length'] || 0)
       if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
@@ -488,19 +448,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const { files, apiKey, model, expectedSongCount } = req.body || {}
     if (!files || !Array.isArray(files) || files.length === 0) {
