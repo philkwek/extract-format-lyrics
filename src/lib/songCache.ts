@@ -1,6 +1,7 @@
 import { get, set, del, entries } from 'idb-keyval'
 import type { Song } from '../types/song'
 import { simplifySections } from './chords'
+import { canonicalChartUrl } from '../../functions/src/urls'
 
 const CACHE_PREFIX = 'song:'
 const FAILED_PREFIX = 'failed:'
@@ -16,8 +17,20 @@ export interface StorageStore {
 
 const defaultStore: StorageStore = { get, set, del, entries }
 
-/** Normalizes URL by lowercasing host, dropping fragment, and stripping tracking params. */
+/** Normalizes URL by lowercasing host, dropping fragment, stripping tracking params and sorting the rest. */
 export function normalizeSongUrl(input: string): string {
+  try {
+    const u = new URL(input)
+    // upload:// and other non-web ids are keys, not chart URLs.
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return input.trim()
+    return canonicalChartUrl(input)
+  } catch {
+    return input.trim()
+  }
+}
+
+/** The pre-canonical rule. Only used to find entries saved before the rules were unified. */
+function legacyNormalizeSongUrl(input: string): string {
   try {
     const u = new URL(input)
     u.hash = ''
@@ -34,6 +47,8 @@ export function normalizeSongUrl(input: string): string {
 
 export class SongCache {
   private readonly store: StorageStore
+  // Stored song URLs that simplifySections changed nothing in, for this page load.
+  private readonly nothingToSimplify = new Set<string>()
 
   constructor(store: StorageStore = defaultStore) {
     this.store = store
@@ -41,43 +56,66 @@ export class SongCache {
 
   async getSong(url: string): Promise<Song | null> {
     const normalized = normalizeSongUrl(url)
-    const val = await this.readSong(normalized)
+    const val = await this.readSong(normalized, url)
     if (!val) return null
 
     // Enrich older website songs that have no usable simplified sections
     const isUpload = Boolean(val.sourceUrl?.startsWith('upload://') || url.startsWith('upload://'))
     const hasUsableSimplified = Boolean(val.simplifiedSections && val.simplifiedSections.length > 0)
 
-    if (!isUpload && !hasUsableSimplified && val.sections && val.sections.length > 0) {
+    // Keyed by the stored song URL, the same key saveSong clears, so an alias lookup
+    // is also re-checked after the song is re-saved.
+    const storedKey = normalizeSongUrl(val.sourceUrl)
+    if (
+      !isUpload &&
+      !hasUsableSimplified &&
+      !this.nothingToSimplify.has(storedKey) &&
+      val.sections &&
+      val.sections.length > 0
+    ) {
       const { sections: fallbackSections, changedCount } = simplifySections(val.sections)
       if (changedCount > 0) {
         val.simplifiedSections = fallbackSections
         if (val.flow) val.simplifiedFlow = val.flow
         val.simplifiedSource = 'algorithmic'
-        await this.store.set(`${CACHE_PREFIX}${normalizeSongUrl(val.sourceUrl)}`, val)
+        await this.store.set(`${CACHE_PREFIX}${storedKey}`, val)
+      } else {
+        this.nothingToSimplify.add(storedKey)
       }
     }
 
     return val
   }
 
-  private async readSong(normalizedUrl: string): Promise<Song | null> {
+  private async readSong(normalizedUrl: string, rawUrl: string): Promise<Song | null> {
     const direct = await this.store.get<Song>(`${CACHE_PREFIX}${normalizedUrl}`)
     if (direct) return direct
 
     // Older entries are keyed by their final URL. A validated redirect alias
     // lets lookups through the original URL still find them.
     const target = await this.store.get<string>(`${ALIAS_PREFIX}${normalizedUrl}`)
-    if (typeof target !== 'string') return null
-    const finalUrl = normalizeSongUrl(target)
-    if (finalUrl === normalizedUrl) return null
-    return (await this.store.get<Song>(`${CACHE_PREFIX}${finalUrl}`)) ?? null
+    if (typeof target === 'string') {
+      const finalUrl = normalizeSongUrl(target)
+      if (finalUrl !== normalizedUrl) {
+        const viaAlias = await this.store.get<Song>(`${CACHE_PREFIX}${finalUrl}`)
+        if (viaAlias) return viaAlias
+      }
+    }
+
+    // Entries saved under the old rule: copy to the new key, keep the old one.
+    const legacyKey = legacyNormalizeSongUrl(rawUrl)
+    if (legacyKey === normalizedUrl) return null
+    const legacy = await this.store.get<Song>(`${CACHE_PREFIX}${legacyKey}`)
+    if (!legacy) return null
+    await this.store.set(`${CACHE_PREFIX}${normalizedUrl}`, legacy)
+    return legacy
   }
 
   async saveSong(song: Song, requestedUrl?: string): Promise<void> {
     const finalUrl = normalizeSongUrl(song.sourceUrl)
     const key = `${CACHE_PREFIX}${finalUrl}`
     await this.store.set(key, song)
+    this.nothingToSimplify.delete(finalUrl)
     // Clear any temporary failed marker
     await this.store.del(`${FAILED_PREFIX}${finalUrl}`)
 
@@ -88,12 +126,6 @@ export class SongCache {
         await this.store.del(`${FAILED_PREFIX}${originalUrl}`)
       }
     }
-  }
-
-  async saveAlias(requestedUrl: string, finalUrl: string): Promise<void> {
-    const from = normalizeSongUrl(requestedUrl)
-    const to = normalizeSongUrl(finalUrl)
-    if (from !== to) await this.store.set(`${ALIAS_PREFIX}${from}`, to)
   }
 
   async getAlias(url: string): Promise<string | null> {

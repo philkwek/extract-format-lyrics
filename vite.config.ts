@@ -11,6 +11,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:5001/demo-chords/us-central1/api',
         changeOrigin: true,
       },
+      '/extract-sheet': {
+        target: 'http://127.0.0.1:5001/demo-chords/us-central1/extractSheet',
+        changeOrigin: true,
+        rewrite: () => '',
+      },
     },
   },
   test: {

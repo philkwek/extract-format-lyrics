@@ -69,22 +69,6 @@ export interface ApiSearchResponse {
   partial?: boolean
 }
 
-export async function searchApi(query: string): Promise<SearchCandidate[]> {
-  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
-  if (!res.ok) {
-    let errMsg = `Search failed (${res.status})`
-    try {
-      const data = await res.json()
-      if (data?.error?.message) errMsg = data.error.message
-    } catch {
-      // ignore
-    }
-    throw new Error(errMsg)
-  }
-  const data = (await res.json()) as ApiSearchResponse
-  return data.results
-}
-
 export interface PartialSearchSource extends SearchSourceStatus {
   candidates: SearchCandidate[]
 }
@@ -309,8 +293,8 @@ export type ExtractSongsProgress = (progress: ExtractSongsProgressEvent) => void
 const extractSheetEndpoint =
   import.meta.env.VITE_EXTRACT_SHEET_ENDPOINT ||
   (import.meta.env.PROD
-    ? 'https://us-central1-extract-format-lyrics.cloudfunctions.net/api/extract-sheet'
-    : '/api/extract-sheet')
+    ? 'https://us-central1-extract-format-lyrics.cloudfunctions.net/extractSheet'
+    : '/extract-sheet')
 
 export async function extractSongsApi(
   files: Array<{ mimeType: string; base64Data: string }>,

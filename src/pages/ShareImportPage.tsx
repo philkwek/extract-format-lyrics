@@ -29,7 +29,9 @@ export default function ShareImportPage() {
         if (isCancelled) return
 
         setProgressMsg(`Importing "${snapshot.name}" (${snapshot.songs.length} song(s))...`)
-        for (const entry of snapshot.songs) await songCache.saveSong(entry.song)
+        for (const entry of snapshot.songs) {
+          if (!(await songCache.getSong(entry.song.sourceUrl))) await songCache.saveSong(entry.song)
+        }
         const sessionSongs = sessionSongsFromSnapshot(snapshot)
 
         if (isCancelled) return

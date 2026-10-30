@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto'
-import { getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
+import type { Firestore } from 'firebase-admin/firestore'
+import { BoundedMap } from './boundedMap.js'
+import { database, documentId, ttlAt } from './firestore.js'
 import type { Section } from './types.js'
 import { FetchError, safeFetchHtml } from './safeFetch.js'
-import { checkUrl, siteForHost } from './urls.js'
-import { canonicalChartUrl, chartCache, type ChartCache } from './chartCache.js'
+import { canonicalChartUrl, checkUrl, siteForHost } from './urls.js'
+import { chartCache, type ChartCache } from './chartCache.js'
 import { adapterForUrl } from './scraper.js'
 import { deduplicateSongSections, normalizeSongText } from './normalizer.js'
 import { elapsedMs, recordTiming } from './metrics.js'
@@ -47,15 +47,6 @@ export interface SimplificationCacheStore {
   set(key: string, entry: SimplificationCacheEntry): Promise<void>
 }
 
-function database(): Firestore {
-  if (getApps().length === 0) initializeApp()
-  return getFirestore()
-}
-
-function documentId(key: string): string {
-  return createHash('sha256').update(key).digest('hex')
-}
-
 export class FirestoreSimplificationCacheStore implements SimplificationCacheStore {
   constructor(private readonly db: Firestore = database()) {}
 
@@ -65,7 +56,10 @@ export class FirestoreSimplificationCacheStore implements SimplificationCacheSto
   }
 
   async set(key: string, entry: SimplificationCacheEntry): Promise<void> {
-    await this.db.collection(COLLECTION).doc(documentId(key)).set(entry)
+    await this.db
+      .collection(COLLECTION)
+      .doc(documentId(key))
+      .set({ ...entry, ttlAt: ttlAt(entry.expiresAt) })
   }
 }
 
@@ -100,32 +94,23 @@ export class SimplificationCache {
   private readonly now: () => number
   private readonly ttlMs: number
   private readonly unavailableTtlMs: number
-  private readonly maxEntries: number
   private readonly version: string
-  private readonly memory = new Map<string, { key: string; entry: SimplificationCacheEntry }>()
+  private readonly memory: BoundedMap<SimplificationCacheEntry>
 
   constructor(options: SimplificationCacheOptions = {}) {
     this.store = options.store
     this.now = options.now ?? (() => Date.now())
     this.ttlMs = options.ttlMs ?? SIMPLIFICATION_CACHE_TTL_MS
     this.unavailableTtlMs = options.unavailableTtlMs ?? SIMPLIFICATION_UNAVAILABLE_TTL_MS
-    this.maxEntries = Math.max(1, options.maxEntries ?? SIMPLIFICATION_CACHE_MAX_ENTRIES)
+    this.memory = new BoundedMap(
+      Math.max(1, options.maxEntries ?? SIMPLIFICATION_CACHE_MAX_ENTRIES)
+    )
     this.version = options.version ?? SIMPLIFICATION_CACHE_VERSION
   }
 
   private persistentStore(): SimplificationCacheStore {
     this.store ??= new FirestoreSimplificationCacheStore()
     return this.store
-  }
-
-  private memorySet(key: string, entry: SimplificationCacheEntry): void {
-    this.memory.delete(key)
-    this.memory.set(key, { key, entry })
-    while (this.memory.size > this.maxEntries) {
-      const oldest = this.memory.keys().next().value
-      if (oldest === undefined) break
-      this.memory.delete(oldest)
-    }
   }
 
   async get(url: string): Promise<OfficialSimplificationResult | null> {
@@ -140,15 +125,15 @@ export class SimplificationCache {
 
     const local = this.memory.get(canonical)
     let entry: SimplificationCacheEntry | null = null
-    if (local && isEntryValid(local.entry, this.now(), this.version)) {
-      entry = local.entry
+    if (local && isEntryValid(local, this.now(), this.version)) {
+      entry = local
     } else {
       this.memory.delete(canonical)
       try {
         const persisted = await this.persistentStore().get(canonical)
         if (persisted && isEntryValid(persisted, this.now(), this.version)) {
           entry = persisted
-          this.memorySet(canonical, persisted)
+          this.memory.set(canonical, persisted)
         }
       } catch {
         return null
@@ -191,7 +176,7 @@ export class SimplificationCache {
         ? { simplifiedSections: result.simplifiedSections, simplifiedFlow: result.simplifiedFlow }
         : { code: result.code, message: result.message }),
     }
-    this.memorySet(canonical, entry)
+    this.memory.set(canonical, entry)
     try {
       await this.persistentStore().set(canonical, entry)
     } catch {

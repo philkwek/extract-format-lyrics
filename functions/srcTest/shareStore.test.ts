@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isExpired, isSharedSetSnapshot, MAX_SHARED_SET_SONGS } from '../src/shareStore.js'
+import type { Firestore } from 'firebase-admin/firestore'
+import {
+  isExpired,
+  isSharedSetSnapshot,
+  MAX_SHARED_SET_SONGS,
+  ShareStore,
+  SHARE_TTL_MS,
+} from '../src/shareStore.js'
 import type { Section, SharedSetSong, Song } from '../src/types.js'
 
 const sections: Section[] = [
@@ -138,5 +145,41 @@ describe('shared set validation', () => {
     const now = new Date('2026-10-11T00:00:00.000Z')
     expect(isExpired(new Date(now), now)).toBe(true)
     expect(isExpired(new Date(now.getTime() + 1), now)).toBe(false)
+  })
+})
+
+describe('shared set store writes', () => {
+  it('gives every song document the same expiresAt as the root', async () => {
+    const writes = new Map<string, Record<string, unknown>>()
+    const fakeDb = {
+      collection: (name: string) => ({
+        doc: () => ({
+          id: 'set-1',
+          path: `${name}/set-1`,
+          collection: (sub: string) => ({
+            doc: (id: string) => ({ path: `${name}/set-1/${sub}/${id}` }),
+          }),
+        }),
+      }),
+      batch: () => ({
+        set: (ref: { path: string }, data: Record<string, unknown>) => {
+          writes.set(ref.path, data)
+        },
+        commit: async () => {},
+      }),
+    }
+    const now = new Date('2026-10-11T00:00:00.000Z')
+    const store = new ShareStore(fakeDb as unknown as Firestore, () => now)
+
+    const { expiresAt } = await store.create({ ...snapshot, songs: [entry, entry] })
+
+    expect(expiresAt.getTime()).toBe(now.getTime() + SHARE_TTL_MS)
+    const root = writes.get('sharedSets/set-1')
+    const songs = ['00', '01'].map((n) => writes.get(`sharedSets/set-1/songs/${n}`))
+    expect(songs).toHaveLength(2)
+    for (const doc of songs) {
+      expect(doc?.expiresAt).toBeDefined()
+      expect(doc?.expiresAt).toEqual(root?.expiresAt)
+    }
   })
 })

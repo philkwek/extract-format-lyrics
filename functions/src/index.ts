@@ -1,3 +1,4 @@
+import type { Request, Response } from 'express'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
 import { handleCors, sendJsonError } from './limits.js'
@@ -19,8 +20,7 @@ import {
   selectNativeSourceResults,
   selectSearchResults,
 } from './search/selectResults.js'
-import { UG_SEARCH_RESULT_LIMIT } from './search/types.js'
-import { toSourceStatus } from './search/types.js'
+import { UG_SEARCH_RESULT_LIMIT, toSourceStatus, type SearchSiteOutcome } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
   sharedLyricsStore,
@@ -52,7 +52,127 @@ export interface ScrapeResponse {
   invalid: Array<{ input: string; reason: string }>
 }
 
-export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) => {
+/** Sends 429 and returns true when the caller is over the limit. */
+function rejectIfLimited(req: Request, res: Response): boolean {
+  const limitCheck = rateLimiter.checkIp(clientIpFromRequest(req))
+  if (limitCheck.allowed) return false
+  res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
+  sendJsonError(
+    res,
+    429,
+    'RATE_LIMITED',
+    `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
+  )
+  return true
+}
+
+const SEARCH_ADAPTERS = [
+  ultimateGuitarSearchAdapter,
+  pnwChordsSearchAdapter,
+  worshipTogetherSearchAdapter,
+  worshipChordsNetSearchAdapter,
+]
+
+async function runSearch(
+  upstreamQuery: string,
+  onOutcome?: (outcome: SearchSiteOutcome) => void
+) {
+  const { candidates, outcomes } = await searchSites(SEARCH_ADAPTERS, upstreamQuery, {}, onOutcome)
+  return {
+    results: selectCombinedSearchResults(candidates, upstreamQuery, DEFAULT_SEARCH_RESULT_LIMIT),
+    sources: outcomes.map(toSourceStatus),
+    partial: outcomes.some((outcome) => outcome.status === 'failed'),
+  }
+}
+
+async function handleExtractSheet(req: Request, res: Response): Promise<void> {
+  if (rejectIfLimited(req, res)) return
+
+  const { files, apiKey, model, expectedSongCount } = req.body || {}
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
+    return
+  }
+
+  if (files.length > 10) {
+    sendJsonError(res, 400, 'MAX_FILES_EXCEEDED', 'A maximum of 10 pages/images can be extracted at once')
+    return
+  }
+
+  const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+  for (const f of files) {
+    if (!f.mimeType || !f.base64Data) {
+      sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
+      return
+    }
+    if (!allowed.includes(f.mimeType)) {
+      sendJsonError(res, 400, 'UNSUPPORTED_MIME_TYPE', `Unsupported mime type: ${f.mimeType}. Allowed: ${allowed.join(', ')}`)
+      return
+    }
+  }
+
+  if (
+    expectedSongCount !== undefined &&
+    !isExpectedSongCount(expectedSongCount)
+  ) {
+    sendJsonError(res, 400, 'INVALID_EXPECTED_SONG_COUNT', 'Expected song count must be a positive whole number')
+    return
+  }
+
+  try {
+    res.status(200)
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.flushHeaders()
+    res.write(
+      `${JSON.stringify({
+        type: 'progress',
+        message: 'Analyzing SongSelect sheet(s)...',
+        completed: 0,
+        total: files.length,
+      })}\n`
+    )
+    const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
+      expectedSongCount,
+      onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
+        const message = type === 'analyzing'
+          ? 'Checking PDF text layers...'
+          : type === 'page-route'
+            ? route === 'deterministic'
+              ? `Page ${pageIndex}: selectable text detected — extracting directly.`
+              : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
+          : type === 'deterministic'
+            ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
+            : type === 'batch'
+              ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
+              : type === 'merging'
+                ? 'Merging extracted pages...'
+                : `Found ${found} of ${expected} songs - checking for missing songs...`
+        res.write(
+          `${JSON.stringify({
+            type: 'progress',
+            message,
+            completed: type === 'batch' ? Math.max(0, (batchStartPage ?? 1) - 1) : 0,
+            total: files.length,
+          })}\n`
+        )
+      },
+    })
+    res.end(`${JSON.stringify({ type: 'result', songs })}\n`)
+    return
+  } catch (err) {
+    const msg = (err as Error).message || 'Extraction failed'
+    if (res.headersSent) {
+      res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
+    } else {
+      const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
+      sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
+    }
+    return
+  }
+}
+
+export const api = onRequest(async (req, res) => {
   // Handle CORS and preflight
   if (handleCors(req, res)) {
     return
@@ -60,6 +180,13 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
 
   // Health check endpoint
   if (req.method === 'GET' && (req.path === '/api/health' || req.path === '/health')) {
+    if (process.env.LOG_CLIENT_IP_HEADERS === '1') {
+      console.info('[client-ip]', {
+        xff: req.headers['x-forwarded-for'],
+        fastly: req.headers['fastly-client-ip'],
+        ip: req.ip,
+      })
+    }
     res.status(200).json({ ok: true })
     return
   }
@@ -71,19 +198,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const { urls } = req.body || {}
     if (!urls || !Array.isArray(urls)) {
@@ -128,27 +243,9 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const searchStartedAt = Date.now()
-    const adapters = [
-      ultimateGuitarSearchAdapter,
-      pnwChordsSearchAdapter,
-      worshipTogetherSearchAdapter,
-      worshipChordsNetSearchAdapter,
-    ]
     const wantsStream =
       req.query.stream === '1' ||
       String(req.headers.accept || '').includes('application/x-ndjson')
@@ -174,39 +271,25 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       }
 
       try {
-        const lookup = await searchCache.search(query, async (upstreamQuery) => {
-          const { candidates: combined, outcomes } = await searchSites(
-            adapters,
-            upstreamQuery,
-            {},
-            (outcome) => {
-              // Completed sources become usable immediately, even when another
-              // source is still pending.
-              const partialCandidates =
-                outcome.site === 'ultimate-guitar'
-                  ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
-                  : selectSearchResults(
-                      outcome.candidates,
-                      upstreamQuery,
-                      PARTIAL_SOURCE_RESULT_LIMIT
-                    )
-              write({
-                type: 'source',
-                source: toSourceStatus(outcome),
-                candidates: partialCandidates,
-              })
-            }
-          )
-          return {
-            results: selectCombinedSearchResults(
-              combined,
-              upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT
-            ),
-            sources: outcomes.map(toSourceStatus),
-            partial: outcomes.some((outcome) => outcome.status === 'failed'),
-          }
-        })
+        const lookup = await searchCache.search(query, (upstreamQuery) =>
+          runSearch(upstreamQuery, (outcome) => {
+            // Completed sources become usable immediately, even when another
+            // source is still pending.
+            const partialCandidates =
+              outcome.site === 'ultimate-guitar'
+                ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
+                : selectSearchResults(
+                    outcome.candidates,
+                    upstreamQuery,
+                    PARTIAL_SOURCE_RESULT_LIMIT
+                  )
+            write({
+              type: 'source',
+              source: toSourceStatus(outcome),
+              candidates: partialCandidates,
+            })
+          })
+        )
         const { results, sources, partial } = lookup.data
         recordTiming({
           operation: 'search.total',
@@ -240,18 +323,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     }
 
     try {
-      const lookup = await searchCache.search(query, async (upstreamQuery) => {
-        const { candidates: combined, outcomes } = await searchSites(adapters, upstreamQuery)
-        return {
-          results: selectCombinedSearchResults(
-              combined,
-              upstreamQuery,
-              DEFAULT_SEARCH_RESULT_LIMIT
-            ),
-          sources: outcomes.map(toSourceStatus),
-          partial: outcomes.some((outcome) => outcome.status === 'failed'),
-        }
-      })
+      const lookup = await searchCache.search(query, (q) => runSearch(q))
       const { results, sources, partial } = lookup.data
       recordTiming({
         operation: 'search.total',
@@ -296,13 +368,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-      return
-    }
+    if (rejectIfLimited(req, res)) return
 
     const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
     const checked = checkUrl(url)
@@ -340,13 +406,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
       return
     }
 
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-      return
-    }
+    if (rejectIfLimited(req, res)) return
     const { snapshot } = req.body || {}
     const contentLength = Number(req.headers['content-length'] || 0)
     if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
@@ -406,13 +466,7 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
     const id = lyricsShareMatch[1]
 
     if (req.method === 'PUT') {
-      const clientIp = clientIpFromRequest(req)
-      const limitCheck = rateLimiter.checkIp(clientIp)
-      if (!limitCheck.allowed) {
-        res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-        sendJsonError(res, 429, 'RATE_LIMITED', `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`)
-        return
-      }
+      if (rejectIfLimited(req, res)) return
 
       const contentLength = Number(req.headers['content-length'] || 0)
       if (Number.isFinite(contentLength) && contentLength > 9 * 1024 * 1024) {
@@ -481,111 +535,19 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
   }
 
 
-  // Extract sheet endpoint: POST /api/extract-sheet
-  if (req.path === '/api/extract-sheet' || req.path === '/extract-sheet') {
-    if (req.method !== 'POST') {
-      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/extract-sheet')
-      return
-    }
-
-    // IP Rate limit check
-    const clientIp = clientIpFromRequest(req)
-    const limitCheck = rateLimiter.checkIp(clientIp)
-    if (!limitCheck.allowed) {
-      res.setHeader('Retry-After', String(limitCheck.retryAfterSeconds ?? 60))
-      sendJsonError(
-        res,
-        429,
-        'RATE_LIMITED',
-        `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
-      )
-      return
-    }
-
-    const { files, apiKey, model, expectedSongCount } = req.body || {}
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
-      return
-    }
-
-    if (files.length > 10) {
-      sendJsonError(res, 400, 'MAX_FILES_EXCEEDED', 'A maximum of 10 pages/images can be extracted at once')
-      return
-    }
-
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
-    for (const f of files) {
-      if (!f.mimeType || !f.base64Data) {
-        sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
-        return
-      }
-      if (!allowed.includes(f.mimeType)) {
-        sendJsonError(res, 400, 'UNSUPPORTED_MIME_TYPE', `Unsupported mime type: ${f.mimeType}. Allowed: ${allowed.join(', ')}`)
-        return
-      }
-    }
-
-    if (
-      expectedSongCount !== undefined &&
-      !isExpectedSongCount(expectedSongCount)
-    ) {
-      sendJsonError(res, 400, 'INVALID_EXPECTED_SONG_COUNT', 'Expected song count must be a positive whole number')
-      return
-    }
-
-    try {
-      res.status(200)
-      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
-      res.setHeader('Cache-Control', 'no-cache, no-transform')
-      res.flushHeaders()
-      res.write(
-        `${JSON.stringify({
-          type: 'progress',
-          message: 'Analyzing SongSelect sheet(s)...',
-          completed: 0,
-          total: files.length,
-        })}\n`
-      )
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
-        expectedSongCount,
-        onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
-          const message = type === 'analyzing'
-            ? 'Checking PDF text layers...'
-            : type === 'page-route'
-              ? route === 'deterministic'
-                ? `Page ${pageIndex}: selectable text detected — extracting directly.`
-                : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
-            : type === 'deterministic'
-              ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
-              : type === 'batch'
-                ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
-                : type === 'merging'
-                  ? 'Merging extracted pages...'
-                  : `Found ${found} of ${expected} songs - checking for missing songs...`
-          res.write(
-            `${JSON.stringify({
-              type: 'progress',
-              message,
-              completed: type === 'batch' ? Math.max(0, (batchStartPage ?? 1) - 1) : 0,
-              total: files.length,
-            })}\n`
-          )
-        },
-      })
-      res.end(`${JSON.stringify({ type: 'result', songs })}\n`)
-      return
-    } catch (err) {
-      const msg = (err as Error).message || 'Extraction failed'
-      if (res.headersSent) {
-        res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
-      } else {
-        const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
-        sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
-      }
-      return
-    }
-  }
-
   // 404 for unrouted paths
   sendJsonError(res, 404, 'NOT_FOUND', `Cannot ${req.method} ${req.path}`)
 })
+
+// Uploads can hold a request for minutes; keep them off the main API's instances.
+export const extractSheet = onRequest(
+  { secrets: ['GEMINI_API_KEY'], maxInstances: 1, concurrency: 3 },
+  async (req, res) => {
+    if (handleCors(req, res)) return
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed')
+      return
+    }
+    await handleExtractSheet(req, res)
+  },
+)

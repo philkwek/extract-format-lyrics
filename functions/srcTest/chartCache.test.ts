@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   ChartCache,
-  canonicalChartUrl,
   toSourceSong,
   type ChartAliasEntry,
   type ChartCacheEntry,
@@ -39,16 +38,6 @@ function memoryStore() {
   }
   return { store, charts, aliases }
 }
-
-describe('canonicalChartUrl', () => {
-  it('keeps version and simplification parameters but drops tracking', () => {
-    expect(
-      canonicalChartUrl(
-        'https://TABS.ultimate-guitar.com/tab/song?simplified=1&utm_source=x&version=2#top'
-      )
-    ).toBe('https://tabs.ultimate-guitar.com/tab/song?simplified=1&version=2')
-  })
-})
 
 describe('toSourceSong', () => {
   it('strips browser or session-only fields but keeps section flow', () => {

@@ -1,6 +1,7 @@
-import { getApps, initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore'
 import crypto from 'node:crypto'
+import { database } from './firestore.js'
+import { isExpired } from './shareStore.js'
 import type { SharedLyricsPayload, SharedLyricsSong, SharedLyricsSection } from './types.js'
 
 export const MAX_SHARED_LYRICS_SONGS = 15
@@ -12,11 +13,6 @@ export type SharedLyricsLookup =
   | { kind: 'found'; lyrics: SharedLyricsPayload; expiresAt: Date }
   | { kind: 'expired' }
   | { kind: 'missing' }
-
-function database(): Firestore {
-  if (getApps().length === 0) initializeApp()
-  return getFirestore()
-}
 
 /**
  * Derives the publication ID from an update secret using domain-separated SHA-256.
@@ -75,10 +71,6 @@ function isSharedLyricsSong(value: unknown): value is SharedLyricsSong {
         sec.lines.every((line) => typeof line === 'string')
     )
   )
-}
-
-export function isLyricsExpired(expiresAt: Date | null, now: Date): boolean {
-  return !expiresAt || expiresAt.getTime() <= now.getTime()
 }
 
 export class SharedLyricsStore {
@@ -144,6 +136,7 @@ export class SharedLyricsStore {
           title: song.title.trim(),
           sections: whitelistedSections,
           rev,
+          expiresAt: Timestamp.fromDate(expiresAt),
         })
       })
 
@@ -171,7 +164,7 @@ export class SharedLyricsStore {
 
       const data = root.data()
       const expiresAt = data?.expiresAt instanceof Timestamp ? data.expiresAt.toDate() : null
-      if (isLyricsExpired(expiresAt, this.now())) return { kind: 'expired' }
+      if (isExpired(expiresAt, this.now())) return { kind: 'expired' }
 
       if (
         data?.v !== 1 ||
