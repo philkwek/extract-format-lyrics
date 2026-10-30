@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
+import { sessionStore } from '../../src/lib/sessionStore'
+import { scrapeApi } from '../../src/lib/api'
 
 const fixtures = vi.hoisted(() => {
   const sections = [
@@ -240,5 +242,53 @@ describe('SessionPage full screen mode', () => {
 
     expect(screen.queryByText(/Chord editing active/i)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit chords' })).toBeNull()
+  })
+
+  it('keeps edits made while a retry is in flight', async () => {
+    const twoSongSession = {
+      ...fixtures.session,
+      songs: [
+        {
+          entryId: 'entry-a',
+          url: 'https://example.test/broken',
+          status: 'error',
+          errorMessage: 'Boom',
+        },
+        { ...fixtures.session.songs[0], entryId: 'entry-b' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    let resolveScrape!: (value: Awaited<ReturnType<typeof scrapeApi>>) => void
+    vi.mocked(scrapeApi).mockReturnValue(
+      new Promise((resolve) => {
+        resolveScrape = resolve
+      }),
+    )
+
+    try {
+      render(<TestHarness />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Retry extraction' }))
+      fireEvent.click(screen.getAllByRole('tab')[1])
+      const select = (await screen.findAllByLabelText('Transpose song'))[0]
+      fireEvent.change(select, { target: { value: 'A' } })
+      await waitFor(() => {
+        expect(sessionStore.updateSession).toHaveBeenCalledTimes(1)
+      })
+
+      resolveScrape({
+        results: [{ url: 'https://example.test/broken', status: 'ok', song: fixtures.song }],
+      } as never)
+
+      await waitFor(() => {
+        expect(sessionStore.updateSession).toHaveBeenCalledTimes(2)
+      })
+      const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+      expect(saved.songs[0].status).toBe('ok')
+      expect(saved.songs[1].targetKey).toBe('A')
+    } finally {
+      vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    }
   })
 })

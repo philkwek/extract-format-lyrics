@@ -565,13 +565,14 @@ export default function SessionPage() {
   const handleRetry = async (item: SessionSongItem) => {
     if (!session || retryingUrls.has(item.url)) return
     setRetryingUrls((prev) => new Set(prev).add(item.url))
+    const latest = () => sessionRef.current ?? session
 
     try {
       const response = await scrapeApi([item.url])
       const res = response.results[0]
       if (res && res.status === 'ok' && res.song) {
         await songCache.saveSong(res.song, item.url)
-        const updatedSongs = session.songs.map((s) =>
+        const updatedSongs = latest().songs.map((s) =>
           s.entryId === item.entryId
             ? {
                 ...s,
@@ -582,28 +583,31 @@ export default function SessionPage() {
               }
             : s,
         )
-        const updatedSession = { ...session, songs: updatedSongs }
+        const updatedSession = { ...latest(), songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
         setSession(updatedSession)
+        sessionRef.current = updatedSession
         setSongsData((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
         setOriginalSongs((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
       } else {
         const errorMsg = res?.message || 'Retry failed'
-        const updatedSongs = session.songs.map((s) =>
+        const updatedSongs = latest().songs.map((s) =>
           s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s,
         )
-        const updatedSession = { ...session, songs: updatedSongs }
+        const updatedSession = { ...latest(), songs: updatedSongs }
         await sessionStore.updateSession(updatedSession)
         setSession(updatedSession)
+        sessionRef.current = updatedSession
       }
     } catch (err) {
       const errorMsg = (err as Error).message || 'Retry network error'
-      const updatedSongs = session.songs.map((s) =>
+      const updatedSongs = latest().songs.map((s) =>
         s.entryId === item.entryId ? { ...s, errorMessage: errorMsg } : s,
       )
-      const updatedSession = { ...session, songs: updatedSongs }
+      const updatedSession = { ...latest(), songs: updatedSongs }
       await sessionStore.updateSession(updatedSession)
       setSession(updatedSession)
+      sessionRef.current = updatedSession
     } finally {
       setRetryingUrls((prev) => {
         const next = new Set(prev)
