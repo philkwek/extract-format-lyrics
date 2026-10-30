@@ -6,7 +6,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
-import { scrapeApi } from '../../src/lib/api'
+import { scrapeApi, simplifyApi } from '../../src/lib/api'
+import { songCache } from '../../src/lib/songCache'
 
 const fixtures = vi.hoisted(() => {
   const sections = [
@@ -289,6 +290,42 @@ describe('SessionPage full screen mode', () => {
       expect(saved.songs[1].targetKey).toBe('A')
     } finally {
       vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    }
+  })
+
+  it('does not restart the simplify request when the song is edited', async () => {
+    const pendingSong = {
+      ...fixtures.song,
+      simplifiedSections: undefined,
+      simplifiedSource: undefined,
+      simplificationPending: true,
+      sourceSite: 'ultimate-guitar',
+    }
+    vi.mocked(songCache.getSong).mockResolvedValue(pendingSong as never)
+    vi.mocked(simplifyApi).mockReset()
+    vi.mocked(simplifyApi).mockReturnValue(new Promise(() => {}))
+
+    try {
+      render(<TestHarness />)
+
+      await waitFor(() => {
+        expect(simplifyApi).toHaveBeenCalledTimes(1)
+      })
+      const select = (await screen.findAllByLabelText('Transpose song'))[0]
+      fireEvent.change(select, { target: { value: 'A' } })
+      await waitFor(() => {
+        expect(sessionStore.updateSession).toHaveBeenCalledTimes(1)
+      })
+      fireEvent.change((await screen.findAllByLabelText('Transpose song'))[0], {
+        target: { value: 'B' },
+      })
+      await waitFor(() => {
+        expect(sessionStore.updateSession).toHaveBeenCalledTimes(2)
+      })
+
+      expect(simplifyApi).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.mocked(songCache.getSong).mockImplementation(async () => fixtures.song as never)
     }
   })
 })

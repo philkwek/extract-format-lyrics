@@ -87,6 +87,7 @@ export default function SessionPage() {
   const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
   const simplificationAttempts = useRef<Set<string>>(new Set())
   const sessionRef = useRef<Session | null>(null)
+  const originalSongsRef = useRef<Map<string, Song>>(new Map())
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const { isDark: themeDark, setMode: setThemeMode } = useThemeMode()
@@ -206,49 +207,64 @@ export default function SessionPage() {
     sessionRef.current = session
   }, [session])
 
+  useEffect(() => {
+    originalSongsRef.current = originalSongs
+  }, [originalSongs])
+
+  const simplifyKey = currentItem ? currentItem.entryId || currentItem.url : null
+  const simplifyUrl = currentSong?.sourceUrl ?? null
+  const simplifyNeeded = Boolean(
+    currentSong?.simplificationPending && currentSong.simplifiedSource !== 'official',
+  )
+
   // Official simplification is optional enrichment. The original chart is
   // already displayed, and only the simplified fields are merged on success.
+  // Depends only on stable primitives so edits do not abort and refire the request.
   useEffect(() => {
-    if (!currentItem || !currentSong) return
-    if (!currentSong.simplificationPending || currentSong.simplifiedSource === 'official') return
+    if (!simplifyKey || !simplifyUrl || !simplifyNeeded) return
+    const findItem = () =>
+      sessionRef.current?.songs.find((item) => (item.entryId || item.url) === simplifyKey)
     // Preserve explicit edits to a simplified chart instead of replacing them.
-    if (currentItem.customSimplifiedSections?.length) return
+    if (findItem()?.customSimplifiedSections?.length) return
 
-    const key = currentItem.entryId || currentItem.url
+    const key = simplifyKey
     const attempts = simplificationAttempts.current
     if (attempts.has(key)) return
     attempts.add(key)
 
     const controller = new AbortController()
+    let settled = false
     void (async () => {
       try {
-        const response = await simplifyApi(currentSong.sourceUrl, controller.signal)
+        // String() copy: passing the derived value directly makes React Compiler skip this file.
+        const response = await simplifyApi(String(simplifyUrl), controller.signal)
         if (controller.signal.aborted || response.status !== 'ok') return
 
-        const currentSessionItem = sessionRef.current?.songs.find(
-          (item) => (item.entryId || item.url) === key,
-        )
-        if (currentSessionItem?.customSimplifiedSections?.length) return
+        const item = findItem()
+        if (item?.customSimplifiedSections?.length) return
 
-        const sourceSong = originalSongs.get(key) ?? currentSong
-        const mergedSource = mergeOfficialSimplification(sourceSong, response)
-        setOriginalSongs((prev) => new Map(prev).set(key, mergedSource))
+        const sourceSong = originalSongsRef.current.get(key)
+        const mergedSource = sourceSong ? mergeOfficialSimplification(sourceSong, response) : null
+        if (mergedSource) setOriginalSongs((prev) => new Map(prev).set(key, mergedSource))
         setSongsData((prev) => {
           const latest = prev.get(key)
           if (!latest) return prev
           return new Map(prev).set(key, mergeOfficialSimplification(latest, response))
         })
-        await songCache.saveSong(mergedSource, currentItem.url)
+        if (mergedSource && item) await songCache.saveSong(mergedSource, item.url)
       } catch {
         // Enrichment failures leave the original/generated chart usable.
+      } finally {
+        settled = true
       }
     })()
 
     return () => {
       controller.abort()
-      attempts.delete(key)
+      // A finished attempt stays recorded so moving away and back does not retry it.
+      if (!settled) attempts.delete(key)
     }
-  }, [currentItem, currentSong, originalSongs])
+  }, [simplifyKey, simplifyUrl, simplifyNeeded])
   const currentKey = currentSong ? currentItem?.targetKey || currentSong.originalKey : null
   const padKeyMode: PadKeyMode = currentItem?.padKeyMode ?? 'match'
   const customPadKey: PadKey =
