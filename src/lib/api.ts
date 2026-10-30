@@ -309,8 +309,8 @@ export type ExtractSongsProgress = (progress: ExtractSongsProgressEvent) => void
 const extractSheetEndpoint =
   import.meta.env.VITE_EXTRACT_SHEET_ENDPOINT ||
   (import.meta.env.PROD
-    ? 'https://us-central1-extract-format-lyrics.cloudfunctions.net/api/extract-sheet'
-    : '/api/extract-sheet')
+    ? 'https://us-central1-extract-format-lyrics.cloudfunctions.net/extractSheet'
+    : '/extract-sheet')
 
 export async function extractSongsApi(
   files: Array<{ mimeType: string; base64Data: string }>,

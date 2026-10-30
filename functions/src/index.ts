@@ -85,7 +85,94 @@ async function runSearch(
   }
 }
 
-export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) => {
+async function handleExtractSheet(req: Request, res: Response): Promise<void> {
+  if (rejectIfLimited(req, res)) return
+
+  const { files, apiKey, model, expectedSongCount } = req.body || {}
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
+    return
+  }
+
+  if (files.length > 10) {
+    sendJsonError(res, 400, 'MAX_FILES_EXCEEDED', 'A maximum of 10 pages/images can be extracted at once')
+    return
+  }
+
+  const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+  for (const f of files) {
+    if (!f.mimeType || !f.base64Data) {
+      sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
+      return
+    }
+    if (!allowed.includes(f.mimeType)) {
+      sendJsonError(res, 400, 'UNSUPPORTED_MIME_TYPE', `Unsupported mime type: ${f.mimeType}. Allowed: ${allowed.join(', ')}`)
+      return
+    }
+  }
+
+  if (
+    expectedSongCount !== undefined &&
+    !isExpectedSongCount(expectedSongCount)
+  ) {
+    sendJsonError(res, 400, 'INVALID_EXPECTED_SONG_COUNT', 'Expected song count must be a positive whole number')
+    return
+  }
+
+  try {
+    res.status(200)
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.flushHeaders()
+    res.write(
+      `${JSON.stringify({
+        type: 'progress',
+        message: 'Analyzing SongSelect sheet(s)...',
+        completed: 0,
+        total: files.length,
+      })}\n`
+    )
+    const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
+      expectedSongCount,
+      onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
+        const message = type === 'analyzing'
+          ? 'Checking PDF text layers...'
+          : type === 'page-route'
+            ? route === 'deterministic'
+              ? `Page ${pageIndex}: selectable text detected — extracting directly.`
+              : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
+          : type === 'deterministic'
+            ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
+            : type === 'batch'
+              ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
+              : type === 'merging'
+                ? 'Merging extracted pages...'
+                : `Found ${found} of ${expected} songs - checking for missing songs...`
+        res.write(
+          `${JSON.stringify({
+            type: 'progress',
+            message,
+            completed: type === 'batch' ? Math.max(0, (batchStartPage ?? 1) - 1) : 0,
+            total: files.length,
+          })}\n`
+        )
+      },
+    })
+    res.end(`${JSON.stringify({ type: 'result', songs })}\n`)
+    return
+  } catch (err) {
+    const msg = (err as Error).message || 'Extraction failed'
+    if (res.headersSent) {
+      res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
+    } else {
+      const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
+      sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
+    }
+    return
+  }
+}
+
+export const api = onRequest(async (req, res) => {
   // Handle CORS and preflight
   if (handleCors(req, res)) {
     return
@@ -441,99 +528,19 @@ export const api = onRequest({ secrets: ['GEMINI_API_KEY'] }, async (req, res) =
   }
 
 
-  // Extract sheet endpoint: POST /api/extract-sheet
-  if (req.path === '/api/extract-sheet' || req.path === '/extract-sheet') {
-    if (req.method !== 'POST') {
-      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed for /api/extract-sheet')
-      return
-    }
-
-    if (rejectIfLimited(req, res)) return
-
-    const { files, apiKey, model, expectedSongCount } = req.body || {}
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
-      return
-    }
-
-    if (files.length > 10) {
-      sendJsonError(res, 400, 'MAX_FILES_EXCEEDED', 'A maximum of 10 pages/images can be extracted at once')
-      return
-    }
-
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
-    for (const f of files) {
-      if (!f.mimeType || !f.base64Data) {
-        sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
-        return
-      }
-      if (!allowed.includes(f.mimeType)) {
-        sendJsonError(res, 400, 'UNSUPPORTED_MIME_TYPE', `Unsupported mime type: ${f.mimeType}. Allowed: ${allowed.join(', ')}`)
-        return
-      }
-    }
-
-    if (
-      expectedSongCount !== undefined &&
-      !isExpectedSongCount(expectedSongCount)
-    ) {
-      sendJsonError(res, 400, 'INVALID_EXPECTED_SONG_COUNT', 'Expected song count must be a positive whole number')
-      return
-    }
-
-    try {
-      res.status(200)
-      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
-      res.setHeader('Cache-Control', 'no-cache, no-transform')
-      res.flushHeaders()
-      res.write(
-        `${JSON.stringify({
-          type: 'progress',
-          message: 'Analyzing SongSelect sheet(s)...',
-          completed: 0,
-          total: files.length,
-        })}\n`
-      )
-      const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
-        expectedSongCount,
-        onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
-          const message = type === 'analyzing'
-            ? 'Checking PDF text layers...'
-            : type === 'page-route'
-              ? route === 'deterministic'
-                ? `Page ${pageIndex}: selectable text detected — extracting directly.`
-                : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
-            : type === 'deterministic'
-              ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
-              : type === 'batch'
-                ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
-                : type === 'merging'
-                  ? 'Merging extracted pages...'
-                  : `Found ${found} of ${expected} songs - checking for missing songs...`
-          res.write(
-            `${JSON.stringify({
-              type: 'progress',
-              message,
-              completed: type === 'batch' ? Math.max(0, (batchStartPage ?? 1) - 1) : 0,
-              total: files.length,
-            })}\n`
-          )
-        },
-      })
-      res.end(`${JSON.stringify({ type: 'result', songs })}\n`)
-      return
-    } catch (err) {
-      const msg = (err as Error).message || 'Extraction failed'
-      if (res.headersSent) {
-        res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
-      } else {
-        const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
-        sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
-      }
-      return
-    }
-  }
-
   // 404 for unrouted paths
   sendJsonError(res, 404, 'NOT_FOUND', `Cannot ${req.method} ${req.path}`)
 })
+
+// Uploads can hold a request for minutes; keep them off the main API's instances.
+export const extractSheet = onRequest(
+  { secrets: ['GEMINI_API_KEY'], maxInstances: 1, concurrency: 3 },
+  async (req, res) => {
+    if (handleCors(req, res)) return
+    if (req.method !== 'POST') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed')
+      return
+    }
+    await handleExtractSheet(req, res)
+  },
+)
