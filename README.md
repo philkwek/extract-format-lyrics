@@ -156,7 +156,7 @@ Frontend tests live in `srcTest/` and mirror the `src/` folder structure. Backen
 For your own deployment:
 
 1. Configure your Firebase project in `.firebaserc` and enable Firestore in Native mode.
-2. Configure Firestore TTL policies on the `expiresAt` field for both the `sharedSets` and `sharedLyrics` collection groups. The backend checks expiry; TTL handles later cleanup.
+2. Configure Firestore TTL policies on the `expiresAt` field for the `sharedSets`, `sharedLyrics` and `songs` collection groups (`songs` holds the content of both), and on the `ttlAt` field for `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications`. The backend checks expiry on read; TTL deletes the data later.
 3. Configure the `GEMINI_API_KEY` function secret for chart extraction that needs Gemini.
 4. Build and deploy:
 

@@ -177,7 +177,11 @@ export class ShareStore {
       expiresAt: Timestamp.fromDate(expiresAt),
     })
     snapshot.songs.forEach((entry, index) => {
-      batch.set(ref.collection('songs').doc(String(index).padStart(2, '0')), { index, entry })
+      batch.set(ref.collection('songs').doc(String(index).padStart(2, '0')), {
+        index,
+        entry,
+        expiresAt: Timestamp.fromDate(expiresAt),
+      })
     })
     await batch.commit()
     return { id: ref.id, expiresAt }

@@ -167,7 +167,7 @@ Browser checks used fixtures only. They do not prove live upstream availability 
 
 ## Remaining limitations and deployment notes
 
-- Firestore expiry is logical (expiry timestamps checked on read). No Firestore TTL policy is provisioned by this change; add one for `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications` if physical cleanup is required.
+- Firestore expiry is logical (expiry timestamps checked on read). Physical cleanup needs Firestore TTL policies: see step 2 of "Firebase and deployment" in the README, which covers the `ttlAt` field on `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications`.
 - In-flight coalescing and host gates are per instance, not distributed.
 - A closed streaming search stops writing and the browser aborts stale requests, but an upstream fetch already in progress is not cancelled server-side.
 - Cache versions are code constants. Deploying a version bump makes old documents unreachable; they remain until cleaned up.

@@ -144,6 +144,7 @@ export class SharedLyricsStore {
           title: song.title.trim(),
           sections: whitelistedSections,
           rev,
+          expiresAt: Timestamp.fromDate(expiresAt),
         })
       })
 

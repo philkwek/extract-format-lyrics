@@ -224,6 +224,8 @@ describe('shared lyrics store and validation', () => {
     const sec0 = (songDoc?.sections as Record<string, unknown>[])[0]
     expect(sec0.chordPlacements).toBeUndefined()
     expect(sec0.lines).toEqual(['Line 1', 'Line 2'])
+    expect(songDoc?.expiresAt).toBeDefined()
+    expect(songDoc?.expiresAt).toEqual(rootDoc?.expiresAt)
 
     // Retrieve via store
     const lookup = await store.get(id)
