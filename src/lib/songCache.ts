@@ -114,12 +114,6 @@ export class SongCache {
     }
   }
 
-  async saveAlias(requestedUrl: string, finalUrl: string): Promise<void> {
-    const from = normalizeSongUrl(requestedUrl)
-    const to = normalizeSongUrl(finalUrl)
-    if (from !== to) await this.store.set(`${ALIAS_PREFIX}${from}`, to)
-  }
-
   async getAlias(url: string): Promise<string | null> {
     const target = await this.store.get<string>(`${ALIAS_PREFIX}${normalizeSongUrl(url)}`)
     return typeof target === 'string' ? target : null

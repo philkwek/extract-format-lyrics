@@ -69,22 +69,6 @@ export interface ApiSearchResponse {
   partial?: boolean
 }
 
-export async function searchApi(query: string): Promise<SearchCandidate[]> {
-  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
-  if (!res.ok) {
-    let errMsg = `Search failed (${res.status})`
-    try {
-      const data = await res.json()
-      if (data?.error?.message) errMsg = data.error.message
-    } catch {
-      // ignore
-    }
-    throw new Error(errMsg)
-  }
-  const data = (await res.json()) as ApiSearchResponse
-  return data.results
-}
-
 export interface PartialSearchSource extends SearchSourceStatus {
   candidates: SearchCandidate[]
 }

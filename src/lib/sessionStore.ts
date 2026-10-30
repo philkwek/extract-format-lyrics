@@ -132,11 +132,6 @@ export class SessionStore {
     return { session, firstNewIndex }
   }
 
-  async addSongToSession(sessionId: string, song: SessionSongItem): Promise<Session | null> {
-    const result = await this.addSongsToSession(sessionId, [song])
-    return result?.session ?? null
-  }
-
   async removeSongFromSession(sessionId: string, entryId: string): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
