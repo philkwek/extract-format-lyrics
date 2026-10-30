@@ -34,8 +34,8 @@ time (they share one working tree, so never two at once). After each task:
   `/Users/philkwek/CodeWorkspace/extract-format-lyrics` (the owner's main checkout).
   Do not create or switch branches.
 - **Commits:** exactly one commit for your task, message `fix(<area>): <what>` or
-  `refactor(<area>): <what>`, ending with the line
-  `Co-Authored-By: Claude <noreply@anthropic.com>`. Do not amend earlier commits. Do not push.
+  `refactor(<area>): <what>`, ending with the `Co-Authored-By` line your environment's attribution reminder gives
+  (it names your model). Do not amend earlier commits. Do not push.
 - **Never run** `firebase`, `gcloud`, `gh`, `git push`, or anything that touches the live
   `extract-format-lyrics` project. The Firebase and GitHub CLIs on this machine are logged
   in, so these would really run. Steps marked **HUMAN** are for the repo owner: copy them
