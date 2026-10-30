@@ -180,6 +180,13 @@ export const api = onRequest(async (req, res) => {
 
   // Health check endpoint
   if (req.method === 'GET' && (req.path === '/api/health' || req.path === '/health')) {
+    if (process.env.LOG_CLIENT_IP_HEADERS === '1') {
+      console.info('[client-ip]', {
+        xff: req.headers['x-forwarded-for'],
+        fastly: req.headers['fastly-client-ip'],
+        ip: req.ip,
+      })
+    }
     res.status(200).json({ ok: true })
     return
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { Request, Response } from 'express'
 import { api, extractSheet } from '../src/index.js'
 
@@ -59,5 +59,47 @@ describe('extract-sheet split', () => {
     })
     await done
     expect(res.status).toHaveBeenCalledWith(404)
+  })
+})
+
+describe('client IP header logging', () => {
+  const original = process.env.LOG_CLIENT_IP_HEADERS
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    if (original === undefined) delete process.env.LOG_CLIENT_IP_HEADERS
+    else process.env.LOG_CLIENT_IP_HEADERS = original
+  })
+
+  it('logs the client IP headers once on GET /api/health when LOG_CLIENT_IP_HEADERS is 1', async () => {
+    process.env.LOG_CLIENT_IP_HEADERS = '1'
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const { res, done } = callApi({
+      method: 'GET',
+      path: '/api/health',
+      headers: { 'x-forwarded-for': '198.51.100.7, 35.191.0.1' },
+    })
+    await done
+    expect(res.status).toHaveBeenCalledWith(200)
+    expect(info).toHaveBeenCalledTimes(1)
+    expect(info).toHaveBeenCalledWith(
+      '[client-ip]',
+      expect.objectContaining({
+        xff: '198.51.100.7, 35.191.0.1',
+      }),
+    )
+  })
+
+  it('does not log on GET /api/health when LOG_CLIENT_IP_HEADERS is unset', async () => {
+    delete process.env.LOG_CLIENT_IP_HEADERS
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const { res, done } = callApi({
+      method: 'GET',
+      path: '/api/health',
+      headers: { 'x-forwarded-for': '198.51.100.7, 35.191.0.1' },
+    })
+    await done
+    expect(res.status).toHaveBeenCalledWith(200)
+    expect(info).not.toHaveBeenCalled()
   })
 })
