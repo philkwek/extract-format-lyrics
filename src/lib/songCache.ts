@@ -47,6 +47,8 @@ function legacyNormalizeSongUrl(input: string): string {
 
 export class SongCache {
   private readonly store: StorageStore
+  // Stored song URLs that simplifySections changed nothing in, for this page load.
+  private readonly nothingToSimplify = new Set<string>()
 
   constructor(store: StorageStore = defaultStore) {
     this.store = store
@@ -61,13 +63,24 @@ export class SongCache {
     const isUpload = Boolean(val.sourceUrl?.startsWith('upload://') || url.startsWith('upload://'))
     const hasUsableSimplified = Boolean(val.simplifiedSections && val.simplifiedSections.length > 0)
 
-    if (!isUpload && !hasUsableSimplified && val.sections && val.sections.length > 0) {
+    // Keyed by the stored song URL, the same key saveSong clears, so an alias lookup
+    // is also re-checked after the song is re-saved.
+    const storedKey = normalizeSongUrl(val.sourceUrl)
+    if (
+      !isUpload &&
+      !hasUsableSimplified &&
+      !this.nothingToSimplify.has(storedKey) &&
+      val.sections &&
+      val.sections.length > 0
+    ) {
       const { sections: fallbackSections, changedCount } = simplifySections(val.sections)
       if (changedCount > 0) {
         val.simplifiedSections = fallbackSections
         if (val.flow) val.simplifiedFlow = val.flow
         val.simplifiedSource = 'algorithmic'
-        await this.store.set(`${CACHE_PREFIX}${normalizeSongUrl(val.sourceUrl)}`, val)
+        await this.store.set(`${CACHE_PREFIX}${storedKey}`, val)
+      } else {
+        this.nothingToSimplify.add(storedKey)
       }
     }
 
@@ -102,6 +115,7 @@ export class SongCache {
     const finalUrl = normalizeSongUrl(song.sourceUrl)
     const key = `${CACHE_PREFIX}${finalUrl}`
     await this.store.set(key, song)
+    this.nothingToSimplify.delete(finalUrl)
     // Clear any temporary failed marker
     await this.store.del(`${FAILED_PREFIX}${finalUrl}`)
 
