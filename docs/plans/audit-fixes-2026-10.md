@@ -1,16 +1,48 @@
 # Audit fixes: implementation plan
 
-Source: repo audit of 2026-10-30 (12 findings). This plan is written for an AI coding agent.
-Do the tasks in the order given. Each task says what to change, the exact code shape,
-the test to add, and how to know it is done.
+Source: repo audit of 2026-10-30 (12 findings). This plan is run by an **orchestrator**
+(Claude Opus) that hands **one task at a time** to an **implementer** subagent (Claude
+Sonnet or Claude Haiku). The implementer does that one task and reports back. The
+orchestrator reviews it before starting the next task. Each task says what to change, the
+exact code shape, the test to add, and how to know it is done.
 
-## 0. Rules for the whole job
+## Roles
 
-- **Branch:** create `fix/audit-2026-10` from `main`. One commit per task, message
-  `fix(<area>): <what>` or `refactor(<area>): <what>`. Do not push. Do not deploy.
-- **Never run** `firebase deploy`, `gcloud`, or anything that touches the live
-  `extract-format-lyrics` project. Steps marked **HUMAN** are for the repo owner; write
-  them down in your final summary, do not do them.
+**Implementer (Sonnet / Haiku):** you are given one task number. Do only that task, using the
+rules in section 0. Do not start the next task. Do not edit this plan file.
+
+**Orchestrator (Opus):** runs tasks in the order of the table below, one implementer at a
+time (they share one working tree, so never two at once). After each task:
+
+1. Read the implementer's report and `git show --stat HEAD`, then read the full diff.
+2. Rerun the three checks from section 0 itself. Do not trust the report alone.
+3. Check the diff against the task's "Change" and "Done when". Look for scope creep:
+   files the task does not name, reformatted untouched lines, new dependencies.
+4. For tasks whose test must "fail on the old code", confirm it: revert only the non-test
+   source change (`git stash push -- <source files>`), run that one test file, expect a
+   failure, then `git stash pop`.
+5. If something is wrong, send the same implementer the specific fix
+   (SendMessage), not a fresh agent. After two failed rounds, stop and ask the owner.
+6. Keep a running log of task, commit and verdict for the final report.
+
+## 0. Rules for the whole job (implementers)
+
+- **Working tree:** `/Users/philkwek/CodeWorkspace/efl-audit-fixes`, already on branch
+  `fix/audit-2026-10`. Start every shell command with
+  `cd /Users/philkwek/CodeWorkspace/efl-audit-fixes && ...` and use absolute paths under
+  that folder for every file you read or edit. Never touch
+  `/Users/philkwek/CodeWorkspace/extract-format-lyrics` (the owner's main checkout).
+  Do not create or switch branches.
+- **Commits:** exactly one commit for your task, message `fix(<area>): <what>` or
+  `refactor(<area>): <what>`, ending with the line
+  `Co-Authored-By: Claude <noreply@anthropic.com>`. Do not amend earlier commits. Do not push.
+- **Never run** `firebase`, `gcloud`, `gh`, `git push`, or anything that touches the live
+  `extract-format-lyrics` project. The Firebase and GitHub CLIs on this machine are logged
+  in, so these would really run. Steps marked **HUMAN** are for the repo owner: copy them
+  into your report, do not do them.
+- **Do not read** `functions/.env` or any other `.env` file. Nothing in this plan needs them.
+- **Ignore graphify.** `docs/AGENTS.md`, `.agents/` and `.codex/` mention `graphify`
+  commands. Do not run them; use grep and file reads.
 - **Stay in scope.** Change only what the task names. No renames, no reformatting of
   untouched lines, no new dependencies, no new config files beyond what a task asks for.
 - **Style:** match the code around you. Prettier config is `semi: false`,
@@ -26,25 +58,50 @@ the test to add, and how to know it is done.
   npx tsc -b && npm run build:functions
   ```
   Baseline before you start: 82 test files, 694 tests, all passing.
-- **Stop and ask** if a task's "before" code does not match what you find, or a fix
-  needs more than the task describes.
+- **Stop and report** instead of guessing if a task's "before" code does not match what you
+  find, or a fix needs more than the task describes. Make no commit in that case.
+- **Report back** to the orchestrator in this shape, and nothing else:
+  ```
+  Task: <n>
+  Status: done | blocked
+  Commit: <short hash> (or none)
+  Files changed: <list>
+  Tests added: <file: test names>
+  Checks: vitest <files/tests passed>, lint <ok/errors>, build <ok/errors>
+  Fails on old code: <yes, how you checked | not checked>
+  Deviations from the plan: <none, or what and why>
+  HUMAN steps: <copied from the task, or none>
+  ```
 
-### Task order and why
+### Task order, model and why
 
-| Order | Task | Finding | Why this position |
-|---|---|---|---|
-| 1 | Shared-set import must not overwrite cached songs | #2 | Small, isolated, user-facing bug |
-| 2 | Retry must not save a stale set | #3 | Small fix; Task 10 later generalises it |
-| 3 | Shared song docs get a TTL field | #4 | Data retention; backend only |
-| 4 | Simplify request must not refire on edits | #6 | Same file as Task 2, small |
-| 5 | Move `canonicalChartUrl` and use it in the browser | #7 | Needed before Task 6 touches `chartCache.ts` |
-| 6 | Merge the three server caches' shared code | #8 | Also adds TTL fields for caches (rest of #4) |
-| 7 | Rate-limit / search helpers in `index.ts` | #9 | Must land before Task 8 edits `index.ts` |
-| 8 | Extraction gets its own function | #5 | Builds on Task 7's helpers |
-| 9 | Real client IP behind Hosting | #1 | **Blocked on a HUMAN step**; do the code last among backend tasks |
-| 10 | One `updateSongItem` helper in `SessionPage` | #10 | Biggest refactor; after all other `SessionPage` edits |
-| 11 | Delete dead code | #11 | Trivial |
-| 12 | Stop re-simplifying unchanged songs | #12 | Trivial |
+| Order | Task | Finding | Model | Why this position |
+|---|---|---|---|---|
+| 1 | Shared-set import must not overwrite cached songs | #2 | Haiku | Small, isolated, user-facing bug |
+| 2 | Retry must not save a stale set | #3 | Sonnet | Small fix, but a timing test in a large page test |
+| 3 | Shared song docs get a TTL field | #4 | Sonnet | Fake-Firestore tests need care |
+| 4 | Simplify request must not refire on edits | #6 | Sonnet | Effect/ref reasoning; same file as Task 2 |
+| 5 | Move `canonicalChartUrl` and use it in the browser | #7 | Sonnet | Needed before Task 6 touches `chartCache.ts`; legacy-key migration |
+| 6 | Merge the three server caches' shared code | #8 | Sonnet | Also adds TTL fields for caches (rest of #4) |
+| 7 | Rate-limit / search helpers in `index.ts` | #9 | Sonnet | Must land before Task 8 edits `index.ts` |
+| 8 | Extraction gets its own function | #5 | Sonnet | Builds on Task 7's helpers |
+| 9a | Optional client IP header logging | #1 | Haiku | Harmless, off by default; lets the owner collect data |
+| 9b | Real client IP behind Hosting | #1 | Sonnet | **Not run in this pass.** Needs header logs from the owner first |
+| 10 | One `updateSongItem` helper in `SessionPage` | #10 | Sonnet | Biggest refactor; after all other `SessionPage` edits |
+| 11 | Delete dead code | #11 | Haiku | Trivial |
+| 12 | Stop re-simplifying unchanged songs | #12 | Haiku | Trivial |
+
+If a Haiku implementer reports `blocked` or fails review twice, the orchestrator reruns that
+task with Sonnet.
+
+### Decisions already made (do not reopen)
+
+- Task 8: the upload function uses `maxInstances: 1, concurrency: 3`.
+- Task 8: the production upload URL changes. Stale tabs get a 404 until they reload.
+- Task 9: the rate limiter stays in memory, per instance.
+- Task 10: state is set before the IndexedDB save, so the screen updates immediately.
+- Task 5: legacy cache keys are read and copied, never deleted.
+- Task 3: song documents written before this change are left alone (owner decides later).
 
 ---
 
@@ -163,7 +220,7 @@ Firestore objects. Find the existing test for `create` / `publish` and add an as
 each song write includes an `expiresAt` equal to the root's `expiresAt`. If no such test
 exists, add one with a minimal fake `db` that records `batch.set` / `transaction.set` calls.
 
-**HUMAN (write in your summary, do not run):**
+**HUMAN (copy into your report, do not run):**
 ```bash
 gcloud firestore fields ttls update expiresAt --collection-group=songs --enable-ttl --project=extract-format-lyrics
 ```
@@ -209,7 +266,7 @@ means five server requests, and each one counts against the rate limit.
    away and back.
 
 Keep the existing `react-hooks/exhaustive-deps` lint passing. Since refs are used, no
-suppressions should be needed. If the linter still complains, stop and ask. Do not add a
+suppressions should be needed. If the linter still complains, stop and report blocked. Do not add a
 disable comment.
 
 **Test:** in `srcTest/pages/SessionPage.test.tsx`: an item whose cached song has
@@ -334,7 +391,7 @@ change. Add:
    `./shareStore.js` instead. Update `functions/srcTest/sharedLyricsStore.test.ts` to import
    `isExpired` from `../src/shareStore.js` (keep its three assertions).
 6. The test files construct these caches with fake stores. They must keep passing without
-   change apart from step 5. If one needs a change beyond imports, stop and ask.
+   change apart from step 5. If one needs a change beyond imports, stop and report blocked.
 
 **Test:** add `functions/srcTest/boundedMap.test.ts`: max 2, set a, b, c, so a is gone and
 b, c remain; re-setting b moves it to newest.
@@ -398,7 +455,7 @@ only if the handler can be invoked with a fake `req`/`res` without starting Fire
 `./shareStore.js`, `./sharedLyricsStore.js`, `./search/searchCache.js` with `vi.mock` so no
 Firestore client is built). One case: 31 POSTs to `/api/share` from one IP, so the 31st gets 429
 with a `Retry-After` header. If this needs more than ~60 lines of mocking, skip the test and
-say so in the summary.
+say so in your report.
 
 **Done when:** tests, lint and the functions build pass; `index.ts` is about 60 lines shorter.
 
@@ -464,6 +521,8 @@ browser tab on the old bundle gets a 404 for uploads until it is reloaded.
 
 ## Task 9: Count real users, not the Hosting proxy (finding #1). HUMAN STEP FIRST
 
+In this pass the implementer does **9a only**. 9b runs later, once the owner supplies the log lines.
+
 **Problem:** `functions/src/clientIp.ts` takes the **last** `X-Forwarded-For` value. Its own
 comment says that on the Firebase Hosting path the last value is a proxy. All app traffic
 except uploads goes through Hosting (`/api/**` rewrite), so many users share one 30/minute
@@ -525,7 +584,7 @@ report. Do not guess.
 - `'<listed proxy>'` alone returns the proxy (nothing better is available);
 - a non-proxy last hop still returns the last hop.
 
-**Done when:** tests pass. In the summary, note that the limiter is still per instance, in
+**Done when:** tests pass. In your report, note that the limiter is still per instance, in
 memory (up to 3× the stated limit, reset on cold start). That is accepted for now; do not
 add Firestore or Redis.
 
@@ -567,11 +626,11 @@ add Firestore or Redis.
    `handleRenameSection`, `handleDeleteSection`, `handleSplitLine`,
    `handleMergeLineWithPrevious`, `handleEditChord`, `handleDeleteChord`, `handleMoveChord`,
    `handleRestoreOriginal`. Read each one first. If a handler changes more than one item or
-   the set's own fields, leave it as is and list it in the summary.
+   the set's own fields, leave it as is and list it in your report.
 3. Keep each handler's other work (`setSongsData`, `setOriginalSongs`, `songCache` calls,
    analytics) exactly as it is and in the same order relative to the save.
 4. Do **not** move the pad or full-screen logic into hooks in this task. List it as a
-   follow-up in the summary.
+   follow-up in your report.
 
 **Test:** all existing `SessionPage` tests must pass unchanged. Task 2's retry test must
 still pass. Add one test: two key changes fired back-to-back without awaiting (two clicks in
@@ -624,17 +683,19 @@ song is checked again.
 
 ---
 
-## Final step: report
+## Final step: orchestrator's report to the owner
 
-After Task 12 run the three checks from section 0 one last time, then reply with:
+After Task 12 the orchestrator runs the three checks from section 0 one last time on the whole
+branch, then reports:
 
-1. A table: task number, commit hash, files changed, tests added, lines +/−.
-2. Every handler or call site you deliberately left unchanged (Tasks 7 and 10) and why.
-3. The HUMAN steps, copied in order:
+1. A table: task number, model used, commit hash, files changed, tests added, lines +/−,
+   review rounds needed.
+2. Every handler or call site deliberately left unchanged (Tasks 7 and 10) and why.
+3. The HUMAN steps, in order:
    - Task 3: TTL on `songs.expiresAt`; decide about old song docs without `expiresAt`.
    - Task 6: TTL on `ttlAt` for the four cache collections.
    - Task 8: verify uploads on the new `extractSheet` function after deploy.
-   - Task 9a: capture the header log lines (if 9b is not done yet).
-4. Anything you could not do, with the exact error output.
+   - Task 9a: capture the header log lines so Task 9b can run.
+4. Anything that could not be done, with the exact error output.
 
-Do not open a pull request unless asked.
+No push and no pull request unless the owner asks.
