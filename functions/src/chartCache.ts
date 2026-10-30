@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import type { Song } from './types.js'
-import { checkUrl } from './urls.js'
+import { canonicalChartUrl, checkUrl } from './urls.js'
 
 /** Bump when the normalized Song schema or adapter output changes. */
 export const CHART_CACHE_VERSION = 'chart-v2'
@@ -13,34 +13,6 @@ export const MAX_CACHED_CHART_BYTES = 700_000
 
 const CHARTS_COLLECTION = 'sourceCharts'
 const ALIASES_COLLECTION = 'chartAliases'
-
-const TRACKING_PARAMS = new Set([
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'fbclid',
-  'gclid',
-  'ref',
-  'referrer',
-])
-
-/**
- * Canonical chart URL. Host case, tracking parameters and fragments are
- * ignored; meaningful parameters such as UG `version` and `simplified` remain.
- */
-export function canonicalChartUrl(input: string): string {
-  const url = new URL(input)
-  url.hash = ''
-  url.hostname = url.hostname.toLowerCase()
-  const params = [...url.searchParams.entries()]
-    .filter(([key]) => !TRACKING_PARAMS.has(key.toLowerCase()))
-    .sort(([a], [b]) => a.localeCompare(b))
-  url.search = ''
-  for (const [key, value] of params) url.searchParams.append(key, value)
-  return url.toString()
-}
 
 export interface ChartCacheEntry {
   v: 1

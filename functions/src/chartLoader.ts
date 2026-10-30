@@ -1,8 +1,8 @@
 import type { Song } from './types.js'
 import { FetchError, safeFetchHtml } from './safeFetch.js'
-import { checkUrl, siteForHost } from './urls.js'
+import { canonicalChartUrl, checkUrl, siteForHost } from './urls.js'
 import { scrapeSingleUrl } from './scraper.js'
-import { canonicalChartUrl, chartCache, type ChartCache } from './chartCache.js'
+import { chartCache, type ChartCache } from './chartCache.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
 export interface ChartLoaderDeps {

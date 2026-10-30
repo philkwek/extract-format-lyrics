@@ -87,3 +87,31 @@ export function validateUrls(inputs: string[]): UrlBatch {
   }
   return { valid, invalid }
 }
+
+const TRACKING_PARAMS = new Set([
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'fbclid',
+  'gclid',
+  'ref',
+  'referrer',
+])
+
+/**
+ * Canonical chart URL. Host case, tracking parameters and fragments are
+ * ignored; meaningful parameters such as UG `version` and `simplified` remain.
+ */
+export function canonicalChartUrl(input: string): string {
+  const url = new URL(input)
+  url.hash = ''
+  url.hostname = url.hostname.toLowerCase()
+  const params = [...url.searchParams.entries()]
+    .filter(([key]) => !TRACKING_PARAMS.has(key.toLowerCase()))
+    .sort(([a], [b]) => a.localeCompare(b))
+  url.search = ''
+  for (const [key, value] of params) url.searchParams.append(key, value)
+  return url.toString()
+}

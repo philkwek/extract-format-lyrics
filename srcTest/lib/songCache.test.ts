@@ -7,6 +7,15 @@ describe('normalizeSongUrl', () => {
     const url = 'https://tabs.ultimate-guitar.com/song?utm_source=twitter&utm_medium=social#verse-1'
     expect(normalizeSongUrl(url)).toBe('https://tabs.ultimate-guitar.com/song')
   })
+
+  it('treats ref and utm_term like the server does', () => {
+    const bare = 'https://tabs.ultimate-guitar.com/song'
+    expect(normalizeSongUrl(`${bare}?ref=home&utm_term=x`)).toBe(normalizeSongUrl(bare))
+  })
+
+  it('leaves upload ids unchanged', () => {
+    expect(normalizeSongUrl('upload://upload-123-0-abc')).toBe('upload://upload-123-0-abc')
+  })
 })
 
 describe('SongCache', () => {
@@ -19,6 +28,29 @@ describe('SongCache', () => {
     originalKey: 'G',
     sections: [],
   }
+
+  it('finds a song saved under the legacy key and copies it to the new key', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    const url = 'https://tabs.ultimate-guitar.com/x?b=1&a=2'
+    const legacy = { ...sampleSong, sourceUrl: url }
+    memory.set(`song:${url}`, legacy)
+
+    expect((await cache.getSong(url))?.title).toBe('Amazing Grace')
+
+    expect(memory.get('song:https://tabs.ultimate-guitar.com/x?a=2&b=1')).toEqual(legacy)
+    expect(memory.has(`song:${url}`)).toBe(true)
+  })
 
   it('persists and retrieves song via fake store', async () => {
     const memory = new Map<string, unknown>()

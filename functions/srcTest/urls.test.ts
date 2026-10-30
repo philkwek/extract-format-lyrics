@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkUrl, isAllowedHost, splitUrls, validateUrls } from '../src/urls'
+import { canonicalChartUrl, checkUrl, isAllowedHost, splitUrls, validateUrls } from '../src/urls'
 
 describe('splitUrls', () => {
   it('splits on newlines, spaces and commas', () => {
@@ -59,5 +59,15 @@ describe('validateUrls', () => {
     expect(r.valid).toHaveLength(1)
     expect(r.invalid).toHaveLength(1)
     expect(r.invalid[0].reason).toMatch(/not supported/)
+  })
+})
+
+describe('canonicalChartUrl', () => {
+  it('keeps version and simplification parameters but drops tracking', () => {
+    expect(
+      canonicalChartUrl(
+        'https://TABS.ultimate-guitar.com/tab/song?simplified=1&utm_source=x&version=2#top'
+      )
+    ).toBe('https://tabs.ultimate-guitar.com/tab/song?simplified=1&version=2')
   })
 })
