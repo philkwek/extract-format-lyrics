@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
@@ -212,7 +212,7 @@ describe('SessionPage full screen mode', () => {
     })
     expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Upload sheet' }).getAttribute('aria-selected')).toBe(
-      'true'
+      'true',
     )
   })
 
@@ -291,6 +291,26 @@ describe('SessionPage full screen mode', () => {
     } finally {
       vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
     }
+  })
+
+  it('saves two edits fired back-to-back in one save', async () => {
+    vi.mocked(sessionStore.updateSession).mockClear()
+
+    render(<TestHarness />)
+
+    const select = (await screen.findAllByLabelText('Transpose song'))[0]
+    const simplifyButton = screen.getByRole('button', { name: 'Simplify' })
+    act(() => {
+      fireEvent.change(select, { target: { value: 'A' } })
+      fireEvent.click(simplifyButton)
+    })
+
+    await waitFor(() => {
+      expect(sessionStore.updateSession).toHaveBeenCalledTimes(2)
+    })
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.songs[0].targetKey).toBe('A')
+    expect(saved.songs[0].simplified).toBe(true)
   })
 
   it('does not restart the simplify request when the song is edited', async () => {
