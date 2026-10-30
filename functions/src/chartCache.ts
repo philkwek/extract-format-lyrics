@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
-import { getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
+import type { Firestore } from 'firebase-admin/firestore'
+import { BoundedMap } from './boundedMap.js'
+import { database, documentId, ttlAt } from './firestore.js'
 import type { Song } from './types.js'
 import { canonicalChartUrl, checkUrl } from './urls.js'
 
@@ -35,15 +35,6 @@ export interface ChartCacheStore {
   setAlias(key: string, entry: ChartAliasEntry): Promise<void>
 }
 
-function database(): Firestore {
-  if (getApps().length === 0) initializeApp()
-  return getFirestore()
-}
-
-function documentId(key: string): string {
-  return createHash('sha256').update(key).digest('hex')
-}
-
 /** Admin-only Firestore store. Rules deny browser reads and writes. */
 export class FirestoreChartCacheStore implements ChartCacheStore {
   constructor(private readonly db: Firestore = database()) {}
@@ -54,7 +45,10 @@ export class FirestoreChartCacheStore implements ChartCacheStore {
   }
 
   async setChart(key: string, entry: ChartCacheEntry): Promise<void> {
-    await this.db.collection(CHARTS_COLLECTION).doc(documentId(key)).set(entry)
+    await this.db
+      .collection(CHARTS_COLLECTION)
+      .doc(documentId(key))
+      .set({ ...entry, ttlAt: ttlAt(entry.expiresAt) })
   }
 
   async getAlias(key: string): Promise<ChartAliasEntry | null> {
@@ -63,7 +57,10 @@ export class FirestoreChartCacheStore implements ChartCacheStore {
   }
 
   async setAlias(key: string, entry: ChartAliasEntry): Promise<void> {
-    await this.db.collection(ALIASES_COLLECTION).doc(documentId(key)).set(entry)
+    await this.db
+      .collection(ALIASES_COLLECTION)
+      .doc(documentId(key))
+      .set({ ...entry, ttlAt: ttlAt(entry.expiresAt) })
   }
 }
 
@@ -74,11 +71,6 @@ interface ChartCacheOptions {
   aliasTtlMs?: number
   maxEntries?: number
   parserVersion?: string
-}
-
-interface MemoryChartEntry {
-  key: string
-  entry: ChartCacheEntry
 }
 
 function isValidChartEntry(
@@ -138,16 +130,15 @@ export class ChartCache {
   private readonly now: () => number
   private readonly chartTtlMs: number
   private readonly aliasTtlMs: number
-  private readonly maxEntries: number
   private readonly parserVersion: string
-  private readonly memory = new Map<string, MemoryChartEntry>()
+  private readonly memory: BoundedMap<ChartCacheEntry>
 
   constructor(options: ChartCacheOptions = {}) {
     this.store = options.store
     this.now = options.now ?? (() => Date.now())
     this.chartTtlMs = options.chartTtlMs ?? CHART_CACHE_TTL_MS
     this.aliasTtlMs = options.aliasTtlMs ?? CHART_ALIAS_TTL_MS
-    this.maxEntries = Math.max(1, options.maxEntries ?? CHART_CACHE_MAX_ENTRIES)
+    this.memory = new BoundedMap(Math.max(1, options.maxEntries ?? CHART_CACHE_MAX_ENTRIES))
     this.parserVersion = options.parserVersion ?? CHART_CACHE_VERSION
   }
 
@@ -156,24 +147,14 @@ export class ChartCache {
     return this.store
   }
 
-  private memorySet(key: string, entry: ChartCacheEntry): void {
-    this.memory.delete(key)
-    this.memory.set(key, { key, entry })
-    while (this.memory.size > this.maxEntries) {
-      const oldest = this.memory.keys().next().value
-      if (oldest === undefined) break
-      this.memory.delete(oldest)
-    }
-  }
-
   private cachedMemory(key: string): ChartCacheEntry | null {
-    const item = this.memory.get(key)
-    if (!item) return null
-    if (!isValidChartEntry(item.entry, this.now(), this.parserVersion)) {
+    const entry = this.memory.get(key)
+    if (!entry) return null
+    if (!isValidChartEntry(entry, this.now(), this.parserVersion)) {
       this.memory.delete(key)
       return null
     }
-    return item.entry
+    return entry
   }
 
   /** Reads by canonical URL. Cache reads still require an allow-listed URL. */
@@ -209,7 +190,7 @@ export class ChartCache {
     try {
       const persisted = await this.persistentStore().getChart(key)
       if (!persisted || !isValidChartEntry(persisted, this.now(), this.parserVersion)) return null
-      this.memorySet(key, persisted)
+      this.memory.set(key, persisted)
       return persisted.song
     } catch {
       return null
@@ -243,7 +224,7 @@ export class ChartCache {
     }
     if (JSON.stringify(entry).length > MAX_CACHED_CHART_BYTES) return
 
-    this.memorySet(final, entry)
+    this.memory.set(final, entry)
     try {
       await this.persistentStore().setChart(final, entry)
       if (requested !== final) {

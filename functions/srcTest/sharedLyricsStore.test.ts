@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Firestore } from 'firebase-admin/firestore'
 import {
   derivePublicationId,
-  isLyricsExpired,
   isSharedLyricsPayload,
   MAX_SHARED_LYRICS_SONGS,
   SharedLyricsStore,
   verifyPublicationSecret,
 } from '../src/sharedLyricsStore.js'
+import { isExpired } from '../src/shareStore.js'
 import type { SharedLyricsPayload } from '../src/types.js'
 
 interface MockDocSnapshot {
@@ -165,9 +165,9 @@ describe('shared lyrics store and validation', () => {
 
   it('treats exact expiry boundaries accurately', () => {
     const now = new Date('2026-10-15T12:00:00.000Z')
-    expect(isLyricsExpired(new Date(now), now)).toBe(true)
-    expect(isLyricsExpired(new Date(now.getTime() - 1000), now)).toBe(true)
-    expect(isLyricsExpired(new Date(now.getTime() + 1), now)).toBe(false)
+    expect(isExpired(new Date(now), now)).toBe(true)
+    expect(isExpired(new Date(now.getTime() - 1000), now)).toBe(true)
+    expect(isExpired(new Date(now.getTime() + 1), now)).toBe(false)
   })
 
   it('performs ordered retrieval and persists only chord-free whitelisted fields', async () => {

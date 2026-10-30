@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
-import { getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
+import type { Firestore } from 'firebase-admin/firestore'
+import { BoundedMap } from '../boundedMap.js'
+import { database, documentId, ttlAt } from '../firestore.js'
 import type { SearchCandidate, SearchSourceStatus } from './types.js'
 
 /**
@@ -53,19 +53,6 @@ export function isCachedSearchEntry(value: unknown, now = Date.now()): value is 
   )
 }
 
-interface MemoryEntry extends CachedSearchEntry {
-  key: string
-}
-
-function database(): Firestore {
-  if (getApps().length === 0) initializeApp()
-  return getFirestore()
-}
-
-function documentId(key: string): string {
-  return createHash('sha256').update(key).digest('hex')
-}
-
 /**
  * Firestore-backed cache shared between instances. Collection rules deny all
  * browser access; only the Admin SDK used by the function can read it.
@@ -84,7 +71,10 @@ export class FirestoreSearchCacheStore implements SearchCacheStore {
   }
 
   async set(key: string, entry: CachedSearchEntry): Promise<void> {
-    await this.db.collection(COLLECTION).doc(documentId(key)).set(entry)
+    await this.db
+      .collection(COLLECTION)
+      .doc(documentId(key))
+      .set({ ...entry, ttlAt: ttlAt(entry.expiresAt) })
   }
 }
 
@@ -115,9 +105,8 @@ export class SearchCache {
   private readonly now: () => number
   private readonly completeTtlMs: number
   private readonly partialTtlMs: number
-  private readonly maxEntries: number
   private readonly version: string
-  private readonly memory = new Map<string, MemoryEntry>()
+  private readonly memory: BoundedMap<CachedSearchEntry>
   private readonly inFlight = new Map<string, Promise<SearchCacheLookup>>()
 
   constructor(options: SearchCacheOptions = {}) {
@@ -125,7 +114,7 @@ export class SearchCache {
     this.now = options.now ?? (() => Date.now())
     this.completeTtlMs = options.completeTtlMs ?? SEARCH_CACHE_TTL_MS
     this.partialTtlMs = options.partialTtlMs ?? PARTIAL_SEARCH_CACHE_TTL_MS
-    this.maxEntries = Math.max(1, options.maxEntries ?? SEARCH_CACHE_MAX_ENTRIES)
+    this.memory = new BoundedMap(Math.max(1, options.maxEntries ?? SEARCH_CACHE_MAX_ENTRIES))
     this.version = options.version ?? SEARCH_CACHE_VERSION
   }
 
@@ -139,16 +128,6 @@ export class SearchCache {
     return entry
   }
 
-  private memorySet(key: string, entry: CachedSearchEntry): void {
-    this.memory.delete(key)
-    this.memory.set(key, { ...entry, key })
-    while (this.memory.size > this.maxEntries) {
-      const oldest = this.memory.keys().next().value
-      if (oldest === undefined) break
-      this.memory.delete(oldest)
-    }
-  }
-
   private persistentStore(): SearchCacheStore {
     this.store ??= new FirestoreSearchCacheStore()
     return this.store
@@ -160,7 +139,7 @@ export class SearchCache {
     try {
       const persisted = await this.persistentStore().get(key)
       if (!persisted || !isCachedSearchEntry(persisted, this.now())) return null
-      this.memorySet(key, persisted)
+      this.memory.set(key, persisted)
       return persisted
     } catch {
       // Persistent cache failures degrade to a normal upstream search.
@@ -178,7 +157,7 @@ export class SearchCache {
       ...data,
       expiresAt: this.now() + ttl,
     }
-    this.memorySet(key, entry)
+    this.memory.set(key, entry)
     // Partial or failed-site results are short-lived and instance-local only.
     if (!data.partial) {
       try {

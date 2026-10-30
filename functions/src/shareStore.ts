@@ -1,5 +1,5 @@
-import { getApps, initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore'
+import { database } from './firestore.js'
 import type {
   ChordPlacement,
   Line,
@@ -18,11 +18,6 @@ export type SharedSetLookup =
   | { kind: 'found'; snapshot: SharedSetSnapshot; expiresAt: Date }
   | { kind: 'expired' }
   | { kind: 'missing' }
-
-function database(): Firestore {
-  if (getApps().length === 0) initializeApp()
-  return getFirestore()
-}
 
 const SECTION_TYPES: ReadonlySet<string> = new Set<SectionType>([
   'Intro',
@@ -162,7 +157,13 @@ export function isExpired(expiresAt: Date | null, now: Date): boolean {
 }
 
 export class ShareStore {
-  constructor(private readonly db: Firestore = database(), private readonly now: () => Date = () => new Date()) {}
+  private readonly db: Firestore
+  private readonly now: () => Date
+
+  constructor(db: Firestore = database(), now: () => Date = () => new Date()) {
+    this.db = db
+    this.now = now
+  }
 
   async create(snapshot: SharedSetSnapshot): Promise<{ id: string; expiresAt: Date }> {
     const createdAt = this.now()
