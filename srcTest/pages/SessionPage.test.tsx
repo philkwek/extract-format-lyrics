@@ -155,7 +155,7 @@ describe('SessionPage full screen mode', () => {
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Edit Set' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
   })
 
   it('groups set sharing behind one Share modal with both link generators', async () => {
@@ -185,35 +185,92 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
   })
 
-  it('groups arrange, add song and upload under Edit Set', async () => {
+  it('Add Song opens the add-song modal', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Set' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Song' }))
 
-    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
+    const heading = screen.getByRole('heading', { name: 'Add song' })
+    expect(heading).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Paste links' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Upload sheet' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Arrange setlist' })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Upload sheet' }))
-    expect(screen.getByRole('button', { name: /Extract with Gemini/ })).toBeTruthy()
+    const dialog = heading.closest('[role="dialog"]') as HTMLElement
+    expect(dialog).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: 'Arrange setlist' })).toBeNull()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Arrange setlist' }))
-    const arrangeHeading = await screen.findByRole('heading', { name: 'Arrange Setlist' })
-    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
+  it('does not show Arrange setlist with a single song', async () => {
+    render(<TestHarness />)
 
-    const arrangeDialog = arrangeHeading.closest('[role="dialog"]') as HTMLElement
-    expect(arrangeDialog).toBeTruthy()
-    fireEvent.click(within(arrangeDialog).getByRole('button', { name: 'Done' }))
+    await screen.findByRole('button', { name: 'Add Song' })
 
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Arrange Setlist' })).toBeNull()
-    })
-    expect(screen.getByRole('heading', { name: 'Edit set' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Upload sheet' }).getAttribute('aria-selected')).toBe(
-      'true',
-    )
+    expect(screen.queryByRole('button', { name: 'Arrange setlist' })).toBeNull()
+  })
+
+  it('Arrange setlist on the song-tab row opens the drawer', async () => {
+    const twoSongSession = {
+      ...fixtures.session,
+      songs: [
+        {
+          entryId: 'entry-a',
+          url: 'https://example.test/broken',
+          status: 'error',
+          errorMessage: 'Boom',
+        },
+        { ...fixtures.session.songs[0], entryId: 'entry-b' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
+
+    try {
+      render(<TestHarness />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Arrange setlist' }))
+
+      const arrangeHeading = await screen.findByRole('heading', { name: 'Arrange Setlist' })
+      const arrangeDialog = arrangeHeading.closest('[role="dialog"]') as HTMLElement
+      expect(arrangeDialog).toBeTruthy()
+
+      fireEvent.click(within(arrangeDialog).getByRole('button', { name: 'Done' }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Arrange Setlist' })).toBeNull()
+      })
+    } finally {
+      vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    }
+  })
+
+  it('hides Arrange setlist in full screen', async () => {
+    const twoSongSession = {
+      ...fixtures.session,
+      songs: [
+        {
+          entryId: 'entry-a',
+          url: 'https://example.test/broken',
+          status: 'error',
+          errorMessage: 'Boom',
+        },
+        { ...fixtures.session.songs[0], entryId: 'entry-b' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
+
+    try {
+      render(<TestHarness />)
+
+      await screen.findByRole('button', { name: 'Arrange setlist' })
+
+      fireEvent.click(screen.getByRole('button', { name: /full screen/i }))
+
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Arrange setlist' })).toBeNull()
+      })
+    } finally {
+      vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    }
   })
 
   it('exits full screen with Escape', async () => {

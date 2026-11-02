@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { FileUp, Link2, ListOrdered, Search } from 'lucide-react'
+import { FileUp, Link2, Search } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
 import type { Song } from '../types/song'
 import { Button, SegmentedControl } from './ui'
@@ -14,7 +14,6 @@ interface EditSetModalProps {
   isOpen: boolean
   onClose: () => void
   session: Session
-  onArrange: () => void
   onSessionUpdated: (session: Session, firstNewIndex: number) => void | Promise<void>
   onImportUploadedSongs: (songs: Song[]) => void | Promise<void>
 }
@@ -23,7 +22,6 @@ export default function EditSetModal({
   isOpen,
   onClose,
   session,
-  onArrange,
   onSessionUpdated,
   onImportUploadedSongs,
 }: EditSetModalProps) {
@@ -39,8 +37,8 @@ export default function EditSetModal({
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Edit set"
-      description="Arrange the setlist, add a song, or upload a chord sheet."
+      title="Add song"
+      description="Search for a song, paste links, or upload a chord sheet."
       size="lg"
       className={mode === 'upload' && isReviewingUpload ? 'h-[88dvh]' : ''}
       footer={
@@ -50,9 +48,9 @@ export default function EditSetModal({
       }
     >
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
           <SegmentedControl
-            label="Edit set mode"
+            label="Add song mode"
             value={mode}
             onChange={setMode}
             options={[
@@ -61,13 +59,6 @@ export default function EditSetModal({
               { value: 'upload', label: 'Upload sheet', icon: <FileUp size={14} /> },
             ]}
           />
-          <Button
-            variant="secondary"
-            icon={<ListOrdered size={14} />}
-            onClick={onArrange}
-          >
-            Arrange setlist
-          </Button>
         </div>
 
         <div className={mode === 'search' ? '' : 'hidden'}>

@@ -4,10 +4,11 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   GripVertical,
   Lightbulb,
+  ListOrdered,
   Maximize2,
   Minimize2,
   Pencil,
-  Settings2,
+  Plus,
   Share2,
   SlidersHorizontal,
   WandSparkles,
@@ -1130,10 +1131,10 @@ export default function SessionPage() {
             <Button
               size="sm"
               variant="secondary"
-              icon={<Settings2 size={14} />}
+              icon={<Plus size={14} />}
               onClick={() => setIsEditSetOpen(true)}
             >
-              Edit Set
+              Add Song
             </Button>
             <Button
               size="sm"
@@ -1155,13 +1156,26 @@ export default function SessionPage() {
         className={
           isFullScreen
             ? 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
-            : ''
+            : 'flex items-start gap-2 border-b border-[var(--ui-border)] pt-1'
         }
       >
+        {!isFullScreen && session.songs.length > 1 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<ListOrdered size={14} />}
+            onClick={() => setIsArrangingSongs(true)}
+            aria-label="Arrange setlist"
+            title="Arrange setlist"
+            className="shrink-0"
+          >
+            <span className="hidden sm:inline">Arrange setlist</span>
+          </Button>
+        )}
         <div
           ref={tabListRef}
           className={`no-scrollbar relative flex space-x-1.5 overflow-x-auto ${
-            isFullScreen ? 'flex-1 py-1.5' : 'border-b border-[var(--ui-border)] px-1 pb-2 pt-1'
+            isFullScreen ? 'flex-1 py-1.5' : 'min-w-0 flex-1 px-1 pb-2'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
@@ -1532,7 +1546,6 @@ export default function SessionPage() {
           isOpen={isEditSetOpen}
           onClose={() => setIsEditSetOpen(false)}
           session={session}
-          onArrange={() => setIsArrangingSongs(true)}
           onSessionUpdated={handleSessionUpdated}
           onImportUploadedSongs={handleImportUploadedSongs}
         />

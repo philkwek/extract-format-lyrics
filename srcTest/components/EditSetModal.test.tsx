@@ -55,7 +55,6 @@ function renderEditSetModal() {
       isOpen
       onClose={vi.fn()}
       session={session}
-      onArrange={vi.fn()}
       onSessionUpdated={vi.fn()}
       onImportUploadedSongs={vi.fn()}
     />,

@@ -43,7 +43,7 @@ Skipping an intro, or using a different section order? Change the song to match 
 
 - Drag sections to change their order on a computer.
 - Use a section's edit button to rename it, or remove sections you don't need.
-- Drag the song tabs to reorder your set. On a phone or tablet, open **Edit Set** and use **Arrange setlist**.
+- Drag the song tabs to reorder your set. On a phone or tablet, tap **Arrange setlist** at the start of the song tabs.
 
 ![Reordering songs and moving sections within a song](docs/readme/arrange.gif)
 
