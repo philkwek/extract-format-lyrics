@@ -293,7 +293,7 @@ export default function ChordKeyboard({
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto pr-0.5 no-scrollbar">
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto overscroll-contain pr-0.5 no-scrollbar">
                 {ADVANCED_QUALITIES.map((q) => {
                   const isCurrent =
                     q.value === 'maj' ? activeQuality === '' : activeQuality === q.value

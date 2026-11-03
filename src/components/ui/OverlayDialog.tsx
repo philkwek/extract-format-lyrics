@@ -120,7 +120,7 @@ export default function OverlayDialog({
                 <X size={18} strokeWidth={2} />
               </IconButton>
             </header>
-            <div className={classes('ui-dialog__content', contentClassName)}>{children}</div>
+            <div className={classes('ui-dialog__content overscroll-contain', contentClassName)}>{children}</div>
             {footer && <footer className="ui-dialog__footer">{footer}</footer>}
           </motion.div>
         </motion.div>
