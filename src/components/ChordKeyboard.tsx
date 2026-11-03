@@ -327,7 +327,7 @@ export default function ChordKeyboard({
               onClick={onDelete}
               title="Cancel out / remove this chord"
             >
-              Delete chord
+              Delete
             </Button>
             {onEditPosition && (
               <Button
