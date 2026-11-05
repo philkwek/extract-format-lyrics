@@ -31,6 +31,14 @@ const DEFAULT_MIN_FONT_SIZE_PX = 11
 const DEFAULT_SAFETY_PX = 8
 const MONOSPACE_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 const COLUMN_COUNTS: SheetColumns[] = [1, 2, 3, 4]
+/**
+ * Safety valve for the measure -> setLayout -> resize -> measure cycle. If the
+ * layout is adjusted this many times inside the window, the inputs are
+ * oscillating (for example a scrollbar appearing and disappearing changes the
+ * width every pass), so stop adjusting until the user changes something real.
+ */
+const MAX_ADJUSTMENTS = 24
+const ADJUSTMENT_WINDOW_MS = 1000
 
 function orderedColumnCounts(preferred: SheetColumns): SheetColumns[] {
   return [preferred, ...COLUMN_COUNTS.filter((column) => column !== preferred)]
@@ -136,6 +144,24 @@ export function selectFitLayout({
   }
 }
 
+/**
+ * Next font size to try after the DOM reports overflow. Height scales roughly
+ * linearly with font size, so jump straight toward the size that should fit
+ * (rounding up so we never undershoot) instead of re-rendering once per pixel.
+ * Always moves at least 1px, never below the floor.
+ */
+export function nextFontSizeAfterOverflow(
+  currentPx: number,
+  floorPx: number,
+  availableHeightPx: number,
+  contentHeightPx: number,
+): number {
+  const ratio =
+    contentHeightPx > 0 && availableHeightPx > 0 ? availableHeightPx / contentHeightPx : 1
+  const proportional = Math.ceil(currentPx * Math.min(1, ratio))
+  return Math.max(floorPx, Math.min(currentPx - 1, proportional))
+}
+
 function measureCharWidthAt16Px(viewport: HTMLElement): number {
   if (typeof document === 'undefined') return 9.6
 
@@ -226,6 +252,8 @@ export function useFitToScreen({
     fitsOnScreen: true,
   }))
   const selectionInputsRef = useRef<FitSelectionInputs | null>(null)
+  const adjustmentTimesRef = useRef<number[]>([])
+  const frozenRef = useRef(false)
 
   const viewportRef = useCallback((node: HTMLDivElement | null) => {
     setViewport(node)
@@ -287,6 +315,37 @@ export function useFitToScreen({
         previousInputs.charWidthAt16Px !== charWidthAt16Px ||
         previousInputs.revision !== revision
 
+      const realInputsChanged =
+        !previousInputs ||
+        previousInputs.sections !== sections ||
+        previousInputs.preferredColumns !== preferredColumns ||
+        previousInputs.preferredFontSizePx !== preferredFontSizePx ||
+        previousInputs.minFontSizePx !== minFontSizePx ||
+        previousInputs.revision !== revision
+      if (realInputsChanged) {
+        frozenRef.current = false
+        adjustmentTimesRef.current = []
+      }
+      if (frozenRef.current) return
+
+      // Returns false (and freezes) when the layout keeps being re-adjusted.
+      const mayAdjust = () => {
+        const now = performance.now()
+        const recent = adjustmentTimesRef.current.filter(
+          (time) => now - time < ADJUSTMENT_WINDOW_MS,
+        )
+        recent.push(now)
+        adjustmentTimesRef.current = recent
+        if (recent.length > MAX_ADJUSTMENTS) {
+          frozenRef.current = true
+          setLayout((previous) =>
+            previous.fitsOnScreen ? { ...previous, fitsOnScreen: false } : previous,
+          )
+          return false
+        }
+        return true
+      }
+
       if (inputsChanged) {
         selectionInputsRef.current = {
           sections,
@@ -313,7 +372,7 @@ export function useFitToScreen({
           layout.fontSizePx !== next.fontSizePx ||
           layout.fitsOnScreen !== next.fitsOnScreen
         if (changed) {
-          setLayout(next)
+          if (mayAdjust()) setLayout(next)
           return
         }
       }
@@ -325,7 +384,7 @@ export function useFitToScreen({
       const overflow =
         sheet.scrollHeight > availableHeightPx + 1 || hasHorizontalOverflow(sheet)
       if (!overflow) {
-        if (!layout.fitsOnScreen) {
+        if (!layout.fitsOnScreen && mayAdjust()) {
           setLayout((previous) => ({ ...previous, fitsOnScreen: true }))
         }
         return
@@ -335,10 +394,19 @@ export function useFitToScreen({
         minFontSizePx,
         Math.max(1, Math.round(preferredFontSizePx)),
       )
+      if (!mayAdjust()) return
       if (layout.fontSizePx > floorFontSizePx) {
+        const nextFontSizePx = hasHorizontalOverflow(sheet)
+          ? layout.fontSizePx - 1
+          : nextFontSizeAfterOverflow(
+              layout.fontSizePx,
+              floorFontSizePx,
+              availableHeightPx,
+              sheet.scrollHeight,
+            )
         setLayout((previous) =>
           previous.fontSizePx === layout.fontSizePx
-            ? { ...previous, fontSizePx: previous.fontSizePx - 1, fitsOnScreen: true }
+            ? { ...previous, fontSizePx: nextFontSizePx, fitsOnScreen: true }
             : previous,
         )
       } else if (layout.fitsOnScreen) {

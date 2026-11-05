@@ -1472,7 +1472,7 @@ export default function SessionPage() {
                 ref={fitViewportRef}
                 className={
                   isFullScreen
-                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 ${
+                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 [scrollbar-gutter:stable] ${
                         fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
                       }`
                     : 'pt-1'
