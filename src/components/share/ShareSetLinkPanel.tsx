@@ -71,7 +71,7 @@ export default function ShareSetLinkPanel({ snapshot }: ShareSetLinkPanelProps) 
           value={shareUrl || (isGenerating ? 'Creating sharing link…' : 'Generate a link when you are ready')}
           className="ui-field select-all px-3 py-2.5 font-mono text-xs"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
           <span
             className={`text-[11px] ${
               error ? 'text-red-600 dark:text-red-300' : 'text-[var(--ui-text-muted)]'
