@@ -35,6 +35,21 @@ describe('handleCors', () => {
     expect(setHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'https://my-app.web.app')
   })
 
+  it('allows the Sets & Sheets custom domains', () => {
+    for (const origin of ['https://setsandsheets.com', 'https://www.setsandsheets.com']) {
+      const req = {
+        method: 'GET',
+        headers: { origin },
+      } as unknown as Request
+
+      const setHeader = vi.fn()
+      const res = { setHeader } as unknown as Response
+
+      handleCors(req, res)
+      expect(setHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', origin)
+    }
+  })
+
   it('does not set Access-Control-Allow-Origin for unknown untrusted origins', () => {
     const req = {
       method: 'GET',
