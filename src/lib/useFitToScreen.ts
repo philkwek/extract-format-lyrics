@@ -318,6 +318,8 @@ export function useFitToScreen({
               ),
         })
       }
+      // Passes exhausted while still overflowing: allow scrolling rather than clip.
+      if (!cancelled && current.fitsOnScreen) commit({ ...current, fitsOnScreen: false })
     })
 
     return () => {
