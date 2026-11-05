@@ -1,99 +1,79 @@
-# Sets & Sheets
+<p align="center">
+  <img src="docs/readme/hero.svg" width="100%" alt="Sets & Sheets — chord sheets, setlists and shared lyrics for musicians">
+</p>
 
-Chords, lyrics and your setlist, all in one place.
+**Chords, lyrics and your setlist, in one place.** Sets & Sheets is a browser-based chord sheet and setlist app for worship teams, cell groups and anyone leading from a guitar. Paste a song, change the key, arrange it the way you play it, and share what your group needs to follow along.
 
-Sets & Sheets is a website for musicians, worship team volunteers and anyone playing guitar for their cell group. Add your songs, change the key, arrange the sections and share what everyone needs to follow along.
-
-If you're leading with just a guitar, you can also play an ambient pad and send the group a lyrics link from the same website. Less switching between apps while you're trying to lead.
-
-**[Open Sets & Sheets](https://setsandsheets.com)** · No account needed.
+**[Open Sets & Sheets →](https://setsandsheets.com)** — no account needed.
 
 ![A song in Sets & Sheets with chords above the lyrics and controls for changing key, sharing and playing a pad](docs/readme/setlist-overview.png)
 
-*The images and GIFs show the website in use. The dark mode screenshot uses demo songs.*
+*A two-song demo set in three columns. The screenshots use original demo lyrics.*
 
-## Get started
+## From link to setlist
 
-1. **Add your songs.** Paste chord sheet links on the home page, or use **Search** to find a song. You can also use **Upload chart** for a PDF or image you already have.
-2. **Put your set together.** Give it a name, add the other songs and arrange them in the order you want.
-3. **Make it work for you.** Change the key, adjust the text size and columns, or edit the chords and sections.
-4. **Share it when you're ready.** Open **Share**, then choose **Share this set** for the musicians or **Share lyrics** for everyone singing along.
+1. **Add your songs.** Paste a link from a supported chord site, search for a song, or upload a PDF or image chart.
+2. **Make the chart fit.** Transpose it, simplify the chords, or edit them by hand.
+3. **Build the set.** Name it, add the other songs, and drag them into the order you'll play.
+4. **Share it.** Send musicians the full set, or send everyone a lyrics-only link.
 
-![Getting started: adding songs and opening a set in Sets & Sheets](docs/readme/getting-started-compact.gif)
+![Adding songs and opening a set in Sets & Sheets](docs/readme/getting-started-compact.gif)
 
 Your sets and edits save in the browser you're using, so you can come back to them later.
 
-## Change the key and simplify chords
+## Prepare the chart
 
-Need a lower key for the singer? Choose a key from **Transpose** and the chords change with it.
+Choose a new key from the **Key** menu and every chord changes with it. **Simplify** uses a simpler chart from the source when one is available, or an automatic version marked **Auto**. Check the result against the arrangement you're playing, as some voicings may change.
 
-For easier chords, try **Simplify**. It uses a simpler chart from the source when available, or an automatic version marked **Auto**. Have a listen and check that it works for your arrangement, as some chords may sound different.
+Turn on **Edit chords** to tap any chord and change, move or delete it. To match your team's arrangement, drag sections into a new order, rename them, or remove the ones you won't play.
 
 ![Changing the song key and switching to simplified chords](docs/readme/simplify-transpose.gif)
 
-## Edit the chords
-
-Need to change a chord for your arrangement? Turn on **Edit chords**, then tap a chord to change it, move it or delete it.
-
 ![Editing a chord and adjusting its position above the lyrics](docs/readme/edit-chord.gif)
 
-## Arrange the song the way you play it
+## Build the set your team plays
 
-Skipping an intro, or using a different section order? Change the song to match your team's arrangement.
+Drag songs to reorder the set on a computer, or tap **Arrange setlist** at the start of the song tabs on a phone or tablet.
 
-- Drag sections to change their order on a computer.
-- Use a section's edit button to rename it, or remove sections you don't need.
-- Drag the song tabs to reorder your set. On a phone or tablet, tap **Arrange setlist** at the start of the song tabs.
+**Share this set** gives your musicians a copy of the songs, including your chord edits, section order, selected keys and simplified-chord choices. They can import it and adjust text size, columns, wrapping and theme for themselves. Set links are a snapshot, so create a new link after you make further changes.
 
 ![Reordering songs and moving sections within a song](docs/readme/arrange.gif)
 
-## Share lyrics with the group
+## Give everyone a screen
 
-For cell group worship, people can open the lyrics on their own phones while you play. They get a simple lyrics view with song tabs and no chords.
+For cell group worship, open **Share → Share lyrics**, check **See Preview**, then choose **Generate link** and **Copy link**. Everyone gets a simple lyrics-only view with song tabs and no chords. Each person chooses the song on their own phone; it doesn't automatically follow the song you're on.
 
-Open **Share**, choose **Share lyrics**, use **See Preview** to check it, then **Generate link** and **Copy link** to send it to your group.
+One link stays with the set. After you change lyrics or section order, choose **Update lyrics** to publish to the same link. Each update renews it for another seven days.
+
+Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
 
 ![Generating a lyrics link and opening the shared lyrics view](docs/readme/share-lyrics.gif)
 
-Each set keeps one reusable lyrics link. If you change the lyrics or section order, click **Update lyrics** to publish the changes to that same link. Each update renews it for another seven days.
+## Fill out the sound
 
-Everyone chooses which song to view on their own device. It doesn't automatically follow the song you're on.
+An ambient pad is a sustained background sound that fills out the music when you're playing with just a guitar. Press **Pad** beside the chord controls to start and stop it.
 
-## Add an ambient pad while you play
-
-An ambient pad is a sustained background sound that can fill out the music when you're playing with just a guitar. Press **Play Ambient Pad** beside the chord controls to start it. Press it again to stop.
-
-**Match Song Key** makes the pad follow the song's selected major key, including when you transpose or switch songs.
-
-Using a capo? Choose **Custom Key** under **Pads Key** and select the key your guitar actually sounds in. For example, if you're playing G shapes with a capo on fret 2, choose **A** for the pad. Your chord sheet can stay in G while the pad plays in A.
+**Match Song** follows the song's selected major key, including when you transpose or switch songs. Using a capo? Open the pad key menu, choose **Custom**, and select the key your guitar actually sounds in. For example, with G shapes and a capo on fret 2, choose **A** for the pad while the chord sheet stays in G.
 
 ![Playing an ambient pad and choosing a custom pad key for use with a capo](docs/readme/ambient.gif)
 
 *The GIF shows the controls; it has no audio. Pads are available for the 12 major keys.*
 
-## Send the set to your musicians
+## Make it comfortable to read
 
-**Share this set** gives your team a copy of the songs, including your chord edits, section order, selected keys and simplified chord choices. They can import it and adjust it for themselves.
-
-Set links last seven days and contain the set as it was when you shared it. If you make more changes, create a new set link. Each musician keeps their own text size, columns, line wrapping and theme.
-
-Both set and lyrics links support up to **15 songs**. Anyone with the link can open it without an account.
-
-## Read it comfortably
-
-Choose one, two or three columns and adjust the text size for your screen. Long chord and lyric lines wrap automatically onto the next row; turn off **Wrap** if you prefer to scroll or split them yourself. Use light mode in a bright room or dark mode when you want less glare.
+Choose one to four columns and set the text size for your screen. Long chord and lyric lines wrap automatically; turn **Wrapped** off if you'd rather scroll or split them yourself. Use light mode in a bright room and dark mode when you want less glare.
 
 ![A demo set in dark mode](docs/readme/dark-mode.png)
 
 Longer songs may still need scrolling, depending on your screen and text size.
 
-## A few things to know
+## Before you rely on it
 
-- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other websites aren't currently supported for link imports. A supported site may sometimes block an import.
-- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it to your set. Some files need AI processing and may ask for a Gemini API key if the website doesn't have one configured.
-- **Saved on this browser:** Sets aren't synced across devices. Use **Share → Share this set** to move a copy to another device. Clearing browser data can remove your saved sets and your ability to update an existing lyrics link.
+- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
+- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it. Some files need AI processing and may ask for a Gemini API key if the site doesn't have one configured.
+- **Saved in this browser:** Sets aren't synced across devices. Use **Share → Share this set** to move a copy, and don't clear browser data if you need to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
-- **Sharing stores a copy online:** Set links include chords and lyrics; lyrics links include lyrics only. Keep the content you share within the permissions you have from its owners.
+- **What gets stored online:** Set links include chords and lyrics; lyrics links include lyrics only. Only share content you have permission to share.
 
 Found something that doesn't work, or have an idea? [Open an issue](https://github.com/philkwek/extract-format-lyrics/issues). Include what you were trying to do and, if relevant, the source link or a screenshot.
 
@@ -102,6 +82,9 @@ Found something that doesn't work, or have an idea? [Open an issue](https://gith
 ## Technical details
 
 The sections below are for running or working on the project yourself. You don't need any of this to use the website.
+
+<details>
+<summary>Stack, local development, deployment and safeguards</summary>
 
 ### Stack and storage
 
@@ -179,3 +162,5 @@ Search/import caching, deadlines, concurrency limits and benchmark reproduction 
 ### Usage analytics
 
 Google Analytics tracks visits and key actions when enabled for production. Visitors can turn it off under **Privacy and usage tracking**. See the [setup and verification guide](docs/analytics.md) for the existing Firebase stream, Actions variables, event definitions, and reporting steps.
+
+</details>
