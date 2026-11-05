@@ -1,14 +1,14 @@
-# Chord Sheets
+# Sets & Sheets
 
 Chords, lyrics and your setlist, all in one place.
 
-Chord Sheets is a website for musicians, worship team volunteers and anyone playing guitar for their cell group. Add your songs, change the key, arrange the sections and share what everyone needs to follow along.
+Sets & Sheets is a website for musicians, worship team volunteers and anyone playing guitar for their cell group. Add your songs, change the key, arrange the sections and share what everyone needs to follow along.
 
 If you're leading with just a guitar, you can also play an ambient pad and send the group a lyrics link from the same website. Less switching between apps while you're trying to lead.
 
-**[Open Chord Sheets](https://extract-format-lyrics.web.app)** · No account needed.
+**[Open Sets & Sheets](https://setsandsheets.com)** · No account needed.
 
-![A song in Chord Sheets with chords above the lyrics and controls for changing key, sharing and playing a pad](docs/readme/setlist-overview.png)
+![A song in Sets & Sheets with chords above the lyrics and controls for changing key, sharing and playing a pad](docs/readme/setlist-overview.png)
 
 *The images and GIFs show the website in use. The dark mode screenshot uses demo songs.*
 
@@ -19,7 +19,7 @@ If you're leading with just a guitar, you can also play an ambient pad and send 
 3. **Make it work for you.** Change the key, adjust the text size and columns, or edit the chords and sections.
 4. **Share it when you're ready.** Open **Share**, then choose **Share this set** for the musicians or **Share lyrics** for everyone singing along.
 
-![Getting started: adding songs and opening a set in Chord Sheets](docs/readme/getting-started-compact.gif)
+![Getting started: adding songs and opening a set in Sets & Sheets](docs/readme/getting-started-compact.gif)
 
 Your sets and edits save in the browser you're using, so you can come back to them later.
 
