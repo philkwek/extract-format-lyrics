@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /session/
+Disallow: /s/
+Disallow: /lyrics/
+
+Sitemap: https://setsandsheets.com/sitemap.xml
