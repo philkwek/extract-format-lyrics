@@ -51,7 +51,7 @@ export function AppShell() {
                 </svg>
               </span>
               <span>
-                <span className="block text-sm font-bold leading-none tracking-[-0.02em]">Chord Sheets</span>
+                <span className="block text-sm font-bold leading-none tracking-[-0.02em]">Sets &amp; Sheets</span>
                 <span className="mt-1 hidden text-[10px] font-medium leading-none text-neutral-500 dark:text-[#999999] sm:block">Developed by Phil</span>
               </span>
             </NavLink>

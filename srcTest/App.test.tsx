@@ -51,7 +51,7 @@ describe('App navigation visibility', () => {
     )
 
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeTruthy()
-    expect(screen.getByText('Chord Sheets')).toBeTruthy()
+    expect(screen.getByText('Sets & Sheets')).toBeTruthy()
     unmount()
 
     render(
@@ -71,7 +71,7 @@ describe('App navigation visibility', () => {
     )
 
     expect(screen.queryByRole('navigation', { name: 'Primary navigation' })).toBeNull()
-    expect(screen.queryByText('Chord Sheets')).toBeNull()
+    expect(screen.queryByText('Sets & Sheets')).toBeNull()
     expect(screen.getByText('Lyrics Viewer Page Content')).toBeTruthy()
   })
 
