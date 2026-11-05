@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Section } from '../types/song'
 import {
   allocateColumnWidths,
@@ -32,13 +33,13 @@ const DEFAULT_SAFETY_PX = 8
 const MONOSPACE_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 const COLUMN_COUNTS: SheetColumns[] = [1, 2, 3, 4]
 /**
- * Safety valve for the measure -> setLayout -> resize -> measure cycle. If the
- * layout is adjusted this many times inside the window, the inputs are
- * oscillating (for example a scrollbar appearing and disappearing changes the
- * width every pass), so stop adjusting until the user changes something real.
+ * Upper bound on DOM-verification passes in one fit run. Font size can only
+ * move down, so a run always terminates; this just guards against pathological
+ * charts. Each pass is a synchronous render + measure, not a React effect loop.
  */
-const MAX_ADJUSTMENTS = 24
-const ADJUSTMENT_WINDOW_MS = 1000
+const MAX_VERIFY_PASSES = 12
+/** Window resizes are coalesced so dragging a window edge refits once. */
+const RESIZE_DEBOUNCE_MS = 150
 
 function orderedColumnCounts(preferred: SheetColumns): SheetColumns[] {
   return [preferred, ...COLUMN_COUNTS.filter((column) => column !== preferred)]
@@ -76,9 +77,7 @@ export function selectFitLayout({
   // SongSheet uses a single-column grid below Tailwind's `sm` breakpoint.
   // Keep the fit candidate set in sync with that responsive layout.
   const maxColumns: SheetColumns = viewportWidthPx < 640 ? 1 : 4
-  const columnOrder = orderedColumnCounts(preferred).filter(
-    (columns) => columns <= maxColumns,
-  )
+  const columnOrder = orderedColumnCounts(preferred).filter((columns) => columns <= maxColumns)
   let fallback: { columns: SheetColumns; height: number } | null = null
 
   const measureColumns = (columns: SheetColumns, fontSizePx: number) => {
@@ -103,9 +102,7 @@ export function selectFitLayout({
     )
     const intrinsicWidths = getColumnDisplayWidths(visiblePartitions)
     const allocatedWidths = allocateColumnWidths(intrinsicWidths, availableWidthCh)
-    const valid = allocatedWidths.every(
-      (width, index) => width + 0.01 >= intrinsicWidths[index],
-    )
+    const valid = allocatedWidths.every((width, index) => width + 0.01 >= intrinsicWidths[index])
     const height = Math.max(
       ...visiblePartitions.map((column) =>
         estimateColumnHeightPx(column, fontSizePx, sectionGapPx),
@@ -183,9 +180,7 @@ function measureCharWidthAt16Px(viewport: HTMLElement): number {
 }
 
 function hasHorizontalOverflow(sheet: HTMLElement): boolean {
-  const lines = sheet.querySelectorAll<HTMLElement>(
-    '[data-lyric-line-key], [data-sheet-line]',
-  )
+  const lines = sheet.querySelectorAll<HTMLElement>('[data-lyric-line-key], [data-sheet-line]')
   for (const line of lines) {
     if (line.scrollWidth > line.clientWidth + 1) return true
   }
@@ -196,11 +191,9 @@ function hasHorizontalOverflow(sheet: HTMLElement): boolean {
 function getViewportContentSize(viewport: HTMLElement) {
   const style = window.getComputedStyle(viewport)
   const paddingX =
-    (Number.parseFloat(style.paddingLeft) || 0) +
-    (Number.parseFloat(style.paddingRight) || 0)
+    (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0)
   const paddingY =
-    (Number.parseFloat(style.paddingTop) || 0) +
-    (Number.parseFloat(style.paddingBottom) || 0)
+    (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0)
 
   return {
     width: Math.max(0, viewport.clientWidth - paddingX),
@@ -219,22 +212,16 @@ export interface UseFitToScreenOptions {
 }
 
 /**
- * Measures the real sheet viewport, selects a fit layout, then verifies the
- * rendered DOM and steps down one font pixel at a time if the estimate was
- * optimistic. The hook never steps below the readable minimum and never clips
- * content; callers can use `layout.fitsOnScreen` to allow scrolling.
+ * Fits the sheet to the screen. A fit run is triggered only by real inputs
+ * (entering full screen, new sections, changed preferences, `revision`, or a
+ * debounced window resize) and never by its own output. Within a run it picks a
+ * layout, then verifies against the rendered DOM and steps the font down until
+ * nothing overflows, using synchronous renders so the run finishes in one task.
+ * Because nothing observes the viewport's size, a scrollbar appearing or the
+ * layout changing the box cannot start another run, so there is no feedback loop.
+ * The hook never steps below the readable minimum and never clips content;
+ * callers can use `layout.fitsOnScreen` to allow scrolling.
  */
-interface FitSelectionInputs {
-  sections: Section[]
-  preferredColumns: SheetColumns
-  preferredFontSizePx: number
-  minFontSizePx: number
-  viewportWidth: number
-  viewportHeight: number
-  charWidthAt16Px: number
-  revision: unknown
-}
-
 export function useFitToScreen({
   enabled,
   sections,
@@ -244,191 +231,108 @@ export function useFitToScreen({
   revision,
 }: UseFitToScreenOptions) {
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
-  const [charWidthAt16Px, setCharWidthAt16Px] = useState(9.6)
+  const [resizeTick, setResizeTick] = useState(0)
   const [layout, setLayout] = useState<FitLayout>(() => ({
     columns: preferredColumns,
     fontSizePx: preferredFontSizePx,
     fitsOnScreen: true,
   }))
-  const selectionInputsRef = useRef<FitSelectionInputs | null>(null)
-  const adjustmentTimesRef = useRef<number[]>([])
-  const frozenRef = useRef(false)
 
   const viewportRef = useCallback((node: HTMLDivElement | null) => {
     setViewport(node)
   }, [])
 
+  // Window resizes are the only size signal, debounced, and only while fitting.
   useLayoutEffect(() => {
-    if (!viewport) return
-
-    const update = () => {
-      const width = viewport.clientWidth
-      const height = viewport.clientHeight
-      setViewportSize((previous) =>
-        previous.width === width && previous.height === height
-          ? previous
-          : { width, height },
-      )
-
-      const measured = measureCharWidthAt16Px(viewport)
-      setCharWidthAt16Px((previous) =>
-        Math.abs(previous - measured) < 0.01 ? previous : measured,
-      )
+    if (!enabled) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onResize = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => setResizeTick((tick) => tick + 1), RESIZE_DEBOUNCE_MS)
     }
-
-    update()
-    const observer =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
-    observer?.observe(viewport)
-    window.addEventListener('resize', update)
-
+    window.addEventListener('resize', onResize)
     return () => {
-      observer?.disconnect()
-      window.removeEventListener('resize', update)
+      clearTimeout(timer)
+      window.removeEventListener('resize', onResize)
     }
-  }, [viewport])
+  }, [enabled])
 
   useLayoutEffect(() => {
-    if (!enabled) {
-      selectionInputsRef.current = null
-      return
-    }
-    if (!viewport) return
+    if (!enabled || !viewport) return
 
     let cancelled = false
     queueMicrotask(() => {
       if (cancelled) return
-      const { width: viewportWidth, height: viewportHeight } =
-        getViewportContentSize(viewport)
+      const { width: viewportWidth, height: viewportHeight } = getViewportContentSize(viewport)
       if (!viewportWidth || !viewportHeight) return
 
-      const previousInputs = selectionInputsRef.current
-      const inputsChanged =
-        !previousInputs ||
-        previousInputs.sections !== sections ||
-        previousInputs.preferredColumns !== preferredColumns ||
-        previousInputs.preferredFontSizePx !== preferredFontSizePx ||
-        previousInputs.minFontSizePx !== minFontSizePx ||
-        previousInputs.viewportWidth !== viewportWidth ||
-        previousInputs.viewportHeight !== viewportHeight ||
-        previousInputs.charWidthAt16Px !== charWidthAt16Px ||
-        previousInputs.revision !== revision
-
-      const realInputsChanged =
-        !previousInputs ||
-        previousInputs.sections !== sections ||
-        previousInputs.preferredColumns !== preferredColumns ||
-        previousInputs.preferredFontSizePx !== preferredFontSizePx ||
-        previousInputs.minFontSizePx !== minFontSizePx ||
-        previousInputs.revision !== revision
-      if (realInputsChanged) {
-        frozenRef.current = false
-        adjustmentTimesRef.current = []
-      }
-      if (frozenRef.current) return
-
-      // Returns false (and freezes) when the layout keeps being re-adjusted.
-      const mayAdjust = () => {
-        const now = performance.now()
-        const recent = adjustmentTimesRef.current.filter(
-          (time) => now - time < ADJUSTMENT_WINDOW_MS,
-        )
-        recent.push(now)
-        adjustmentTimesRef.current = recent
-        if (recent.length > MAX_ADJUSTMENTS) {
-          frozenRef.current = true
+      const floorFontSizePx = Math.min(minFontSizePx, Math.max(1, Math.round(preferredFontSizePx)))
+      let current = selectFitLayout({
+        sections,
+        viewportWidthPx: viewportWidth,
+        viewportHeightPx: viewportHeight,
+        preferredColumns,
+        preferredFontSizePx,
+        minFontSizePx,
+        charWidthAt16Px: measureCharWidthAt16Px(viewport),
+      })
+      const commit = (next: FitLayout) => {
+        current = next
+        flushSync(() =>
           setLayout((previous) =>
-            previous.fitsOnScreen ? { ...previous, fitsOnScreen: false } : previous,
-          )
-          return false
-        }
-        return true
+            previous.columns === next.columns &&
+            previous.fontSizePx === next.fontSizePx &&
+            previous.fitsOnScreen === next.fitsOnScreen
+              ? previous
+              : next,
+          ),
+        )
       }
+      commit(current)
 
-      if (inputsChanged) {
-        selectionInputsRef.current = {
-          sections,
-          preferredColumns,
-          preferredFontSizePx,
-          minFontSizePx,
-          viewportWidth,
-          viewportHeight,
-          charWidthAt16Px,
-          revision,
-        }
+      for (let pass = 0; pass < MAX_VERIFY_PASSES && !cancelled; pass += 1) {
+        const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
+        if (!sheet) return
 
-        const next = selectFitLayout({
-          sections,
-          viewportWidthPx: viewportWidth,
-          viewportHeightPx: viewportHeight,
-          preferredColumns,
-          preferredFontSizePx,
-          minFontSizePx,
-          charWidthAt16Px,
-        })
-        const changed =
-          layout.columns !== next.columns ||
-          layout.fontSizePx !== next.fontSizePx ||
-          layout.fitsOnScreen !== next.fitsOnScreen
-        if (changed) {
-          if (mayAdjust()) setLayout(next)
+        const { height: availableHeightPx } = getViewportContentSize(viewport)
+        const horizontal = hasHorizontalOverflow(sheet)
+        const overflow = sheet.scrollHeight > availableHeightPx + 1 || horizontal
+        if (!overflow) {
+          if (!current.fitsOnScreen) commit({ ...current, fitsOnScreen: true })
           return
         }
-      }
-
-      const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
-      if (!sheet) return
-
-      const { height: availableHeightPx } = getViewportContentSize(viewport)
-      const overflow =
-        sheet.scrollHeight > availableHeightPx + 1 || hasHorizontalOverflow(sheet)
-      if (!overflow) {
-        if (!layout.fitsOnScreen && mayAdjust()) {
-          setLayout((previous) => ({ ...previous, fitsOnScreen: true }))
+        if (current.fontSizePx <= floorFontSizePx) {
+          if (current.fitsOnScreen) commit({ ...current, fitsOnScreen: false })
+          return
         }
-        return
-      }
-
-      const floorFontSizePx = Math.min(
-        minFontSizePx,
-        Math.max(1, Math.round(preferredFontSizePx)),
-      )
-      if (!mayAdjust()) return
-      if (layout.fontSizePx > floorFontSizePx) {
-        const nextFontSizePx = hasHorizontalOverflow(sheet)
-          ? layout.fontSizePx - 1
-          : nextFontSizeAfterOverflow(
-              layout.fontSizePx,
-              floorFontSizePx,
-              availableHeightPx,
-              sheet.scrollHeight,
-            )
-        setLayout((previous) =>
-          previous.fontSizePx === layout.fontSizePx
-            ? { ...previous, fontSizePx: nextFontSizePx, fitsOnScreen: true }
-            : previous,
-        )
-      } else if (layout.fitsOnScreen) {
-        setLayout((previous) => ({ ...previous, fitsOnScreen: false }))
+        commit({
+          ...current,
+          fitsOnScreen: true,
+          fontSizePx: horizontal
+            ? current.fontSizePx - 1
+            : nextFontSizeAfterOverflow(
+                current.fontSizePx,
+                floorFontSizePx,
+                availableHeightPx,
+                sheet.scrollHeight,
+              ),
+        })
       }
     })
 
     return () => {
       cancelled = true
     }
+    // `layout` is deliberately not a dependency: a run must not react to itself.
   }, [
     enabled,
-    layout,
+    viewport,
     sections,
     preferredColumns,
     preferredFontSizePx,
     minFontSizePx,
-    viewport,
-    viewportSize.width,
-    viewportSize.height,
-    charWidthAt16Px,
     revision,
+    resizeTick,
   ])
 
   return {
