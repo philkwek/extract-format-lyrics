@@ -7,8 +7,10 @@ import { sessionStore } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { sessionSongsFromSnapshot } from '../lib/shareSnapshot'
 import { Button, Surface } from '../components/ui'
+import { useSeo } from '../lib/useSeo'
 
 export default function ShareImportPage() {
+  useSeo({ title: 'Shared set | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 

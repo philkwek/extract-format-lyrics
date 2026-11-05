@@ -9,6 +9,7 @@ import LyricsViewerPage from './pages/LyricsViewerPage'
 import { useThemeMode } from './lib/useThemeMode'
 
 import PrivacyPage from './pages/PrivacyPage'
+import NotFoundPage from './pages/NotFoundPage'
 import { trackPage, setTrackingEnabled } from './lib/analytics'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
@@ -85,6 +86,7 @@ export function AppShell() {
               <Route path="/search" element={<SearchPage />} />
               <Route path="/s/:shortId" element={<ShareImportPage />} />
               <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AppErrorBoundary>
         </main>

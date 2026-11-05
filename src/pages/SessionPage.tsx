@@ -64,6 +64,7 @@ import {
 } from '../lib/ambientPadPlayer'
 import { useChromeVisibility } from '../lib/chromeVisibility'
 import { useFitToScreen } from '../lib/useFitToScreen'
+import { useSeo } from '../lib/useSeo'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -77,6 +78,7 @@ interface PositioningChordState {
 }
 
 export default function SessionPage() {
+  useSeo({ title: 'Set list | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()

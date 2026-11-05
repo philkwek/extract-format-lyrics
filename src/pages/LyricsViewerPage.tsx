@@ -9,8 +9,10 @@ import {
 } from '../lib/recentLyricsStore'
 import { Button, Surface } from '../components/ui'
 import LyricsViewerContent from '../components/LyricsViewerContent'
+import { useSeo } from '../lib/useSeo'
 
 export default function LyricsViewerPage() {
+  useSeo({ title: 'Shared lyrics | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 
