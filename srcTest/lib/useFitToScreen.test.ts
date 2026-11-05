@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Section } from '../../src/types/song'
-import { selectFitLayout } from '../../src/lib/useFitToScreen'
+import { nextFontSizeAfterOverflow, selectFitLayout } from '../../src/lib/useFitToScreen'
 
 function makeSection(label: string, lineCount: number, lineText = 'Line text'): Section {
   return {
@@ -158,5 +158,24 @@ describe('selectFitLayout', () => {
     })
 
     expect(result).toEqual({ columns: 4, fontSizePx: 16, fitsOnScreen: true })
+  })
+})
+
+describe('nextFontSizeAfterOverflow', () => {
+  it('jumps toward the size that should fit instead of stepping 1px', () => {
+    // Content is 2x too tall at 20px, so ~10px is the target; floor is 11.
+    expect(nextFontSizeAfterOverflow(20, 11, 500, 1000)).toBe(11)
+    // Content is 20% too tall at 20px -> 17px (ceil of 16.67).
+    expect(nextFontSizeAfterOverflow(20, 11, 500, 600)).toBe(17)
+  })
+
+  it('always moves down by at least 1px and never below the floor', () => {
+    expect(nextFontSizeAfterOverflow(14, 11, 500, 501)).toBe(13)
+    expect(nextFontSizeAfterOverflow(12, 11, 100, 1000)).toBe(11)
+  })
+
+  it('falls back to a 1px step when heights are unusable', () => {
+    expect(nextFontSizeAfterOverflow(14, 11, 0, 0)).toBe(13)
+    expect(nextFontSizeAfterOverflow(14, 11, 500, 0)).toBe(13)
   })
 })

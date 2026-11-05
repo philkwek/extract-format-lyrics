@@ -282,6 +282,30 @@ describe('AmbientPadPlayer', () => {
     expect(player.getState().activeKey).toBe('G')
   })
 
+  it('does not keep every visited key decoded in memory', async () => {
+    const env = createMockAudioEnv()
+    const player = new AmbientPadPlayer({
+      fadeInSec: 2,
+      crossfadeSec: 4,
+      createAudioContext: () => env.ctx,
+      fetchAudioData: env.fetchAudioData,
+    })
+
+    await player.play('G')
+    await player.setKey('C')
+    vi.advanceTimersByTime(4500)
+    await player.setKey('D')
+    vi.advanceTimersByTime(4500)
+
+    // G was decoded first and is no longer audible, so its PCM was released.
+    const cache = (player as unknown as { bufferCache: Map<string, unknown> }).bufferCache
+    expect([...cache.keys()].sort()).toEqual(['C', 'D'])
+
+    // Returning to it re-fetches rather than failing.
+    await player.setKey('G')
+    expect(env.fetchedUrls.at(-1)).toBe('/pads/G.mp3')
+  })
+
   it('fades out and stops the active voice when stop() is called', async () => {
     const env = createMockAudioEnv()
     const player = new AmbientPadPlayer({

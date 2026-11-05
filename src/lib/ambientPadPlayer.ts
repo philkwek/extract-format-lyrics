@@ -209,6 +209,7 @@ export class AmbientPadPlayer {
       const decoded = await ctx.decodeAudioData(arrayBuffer)
       this.bufferCache.set(padKey, decoded)
       this.inflightLoads.delete(padKey)
+      this.evictInactiveBuffers(padKey)
       return decoded
     })().catch((err) => {
       this.inflightLoads.delete(padKey)
@@ -217,6 +218,21 @@ export class AmbientPadPlayer {
 
     this.inflightLoads.set(padKey, promise)
     return promise
+  }
+
+  /**
+   * A decoded 65s stereo pad is ~23MB of PCM, so caching all 12 keys would pin
+   * ~280MB for the life of the tab. Keep only the pads currently audible (the
+   * active voice and any crossfading one) plus the one just loaded; the
+   * compressed MP3s stay in the HTTP cache, so re-decoding is cheap.
+   */
+  private evictInactiveBuffers(justLoaded: PadKey): void {
+    const keep = new Set<PadKey>([justLoaded])
+    if (this.activeVoice) keep.add(this.activeVoice.padKey)
+    for (const voice of this.fadingVoices) keep.add(voice.padKey)
+    for (const key of [...this.bufferCache.keys()]) {
+      if (!keep.has(key)) this.bufferCache.delete(key)
+    }
   }
 
   private fadeOutVoice(voice: ActiveVoice, durationSec: number): void {
