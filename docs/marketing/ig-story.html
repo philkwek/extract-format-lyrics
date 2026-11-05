@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sets & Sheets Story</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet">
+<style>
+/* Hallmark · genre: editorial · macrostructure: Poster (single-sheet, chord-sheet voice) · theme: custom
+ * vibe: "printed chord chart, living-room worship" · tone: utilitarian-warm · anchor hue: 70 (dark) / 250 (light)
+ * display: JetBrains Mono 800 (the sheet face) · body: DM Sans (brand UI face)
+ * enrichment: none (typography only) · nav: none · footer: inline URL + sticker slot
+ * pre-emit critique: P5 H4 E4 S5 R5 V5
+ */
+:root {
+  --color-paper:   oklch(17% 0.010 70);
+  --color-paper-2: oklch(21% 0.012 70);
+  --color-rule:    oklch(33% 0.012 70);
+  --color-muted:   oklch(72% 0.012 75);
+  --color-ink:     oklch(94% 0.012 80);
+  --color-accent:  oklch(80% 0.150 72);
+  --color-strike:  oklch(55% 0.012 70);
+
+  --font-sheet: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --font-body:  'DM Sans', system-ui, sans-serif;
+
+  --space-2xs: 8px; --space-xs: 12px; --space-sm: 16px; --space-md: 24px;
+  --space-lg: 32px; --space-xl: 48px; --space-2xl: 72px;
+  --gutter: 80px;
+  --sheet-cell: 16.8px; /* one character of the 28px mono chord line */
+  --cell: 46.8px; /* one character of the 78px mono headline */
+  --rule: 2px solid var(--color-rule);
+}
+:root[data-theme="light"] {
+  --color-paper:   oklch(97.5% 0.006 230);
+  --color-paper-2: oklch(94% 0.012 200);
+  --color-rule:    oklch(86% 0.025 190);
+  --color-muted:   oklch(45% 0.020 245);
+  --color-ink:     oklch(20% 0.020 250);
+  --color-accent:  oklch(50% 0.110 252);
+  --color-strike:  oklch(66% 0.015 245);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: clip; }
+
+/* 4:5 feed post (?format=post): 1080 x 1350, no Story safe zones or link sticker */
+:root[data-format="post"] { --cell: 39.6px; /* one character of the 66px headline */ }
+[data-format="post"], [data-format="post"] body { height: 1350px; }
+[data-format="post"] .page { padding-top: 174px; }
+[data-format="post"] .mast { top: 82px; }
+[data-format="post"] .lyric { font-size: 66px; }
+[data-format="post"] .chord { height: 32px; }
+[data-format="post"] .chord span { font-size: 30px; }
+[data-format="post"] .lyric + .chord { margin-top: 10px; }
+[data-format="post"] .sheet { margin-top: 22px; }
+[data-format="post"] .section-label { margin-top: 14px; }
+[data-format="post"] .sline { height: 56px; margin-top: 10px; }
+[data-format="post"] .sline .ly { top: 36px; }
+[data-format="post"] .row { padding: 10px 0; }
+[data-format="post"] .close { width: auto; display: flex; justify-content: space-between; align-items: baseline; }
+[data-format="post"] .sticker-slot { display: none; }
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased; position: relative; }
+.page { position: absolute; left: var(--gutter); right: var(--gutter); top: 0; bottom: 0; padding-top: 304px; }
+
+/* Masthead: wordmark left, sheet meta right, one hairline */
+.mast { position: absolute; top: 224px; left: 0; right: 0; display: flex; align-items: baseline;
+  justify-content: space-between; padding-bottom: var(--space-sm); border-bottom: var(--rule); }
+.mark { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+.meta { font-family: var(--font-sheet); font-size: 24px; font-weight: 500; color: var(--color-muted); }
+
+/* Headline set as a chord sheet: chord line above lyric line */
+.hook { font-family: var(--font-sheet); }
+.chord { display: block; position: relative; height: 38px; }
+.chord span { position: absolute; top: 0; left: calc(var(--n) * var(--cell)); font-size: 36px; font-weight: 800;
+  color: var(--color-accent); line-height: 1; }
+.lyric { display: block; font-size: 78px; font-weight: 800; letter-spacing: 0; line-height: 1.05;
+  margin-top: 4px; }
+.lyric + .chord { margin-top: 12px; }
+
+.lede { margin-top: 16px; width: 820px; font-size: 32px; line-height: 1.38;
+  color: var(--color-muted); font-weight: 500; }
+.lede b { color: var(--color-ink); font-weight: 700; }
+
+/* The sheet: mirrors the app's song view (title, key meta, section label, chords over lyric lines).
+ * Lyric lines are placeholder bars: the real lyrics are copyrighted. */
+.sheet { margin-top: 26px; }
+.sheet h2 { font-size: 40px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+.sheet .meta { margin-top: 6px; font-family: var(--font-body); font-size: 23px; }
+.sheet .meta b { color: var(--color-ink); font-weight: 700; }
+.sheet .meta .key { color: var(--color-accent); }
+.section-label { margin-top: 18px; padding-bottom: 10px; border-bottom: var(--rule);
+  font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.sline { position: relative; height: 62px; margin-top: 12px; }
+.sline .ch { position: absolute; top: 0; left: calc(var(--n) * var(--sheet-cell)); font-family: var(--font-sheet);
+  font-size: 28px; font-weight: 800; color: var(--color-accent); line-height: 1; }
+.sline .ly { position: absolute; top: 40px; left: 0; height: 18px; border-radius: 9px; background: var(--color-rule); }
+
+/* Three plain rows, hairline-separated, app's own button names on the right */
+.rows { margin-top: 18px; border-top: var(--rule); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-lg);
+  align-items: baseline; padding: 12px 0; border-bottom: var(--rule); }
+.row h3 { font-size: 32px; font-weight: 800; letter-spacing: -0.6px; }
+.row p { grid-column: 1; margin-top: 6px; font-size: 25px; line-height: 1.35; color: var(--color-muted); font-weight: 500; }
+.row .btn { grid-row: 1; grid-column: 2; font-family: var(--font-sheet); font-size: 24px; font-weight: 700;
+  color: var(--color-accent); }
+
+/* Close: URL left, sticker slot right */
+.close { margin-top: 24px; width: 520px; }
+/* Empty space reserved for Instagram's link sticker */
+.sticker-slot { margin-top: 20px; height: 96px; width: 420px; }
+.url { font-family: var(--font-sheet); font-size: 38px; font-weight: 800; letter-spacing: -1px; }
+.note { margin-top: 6px; font-size: 23px; color: var(--color-muted); font-weight: 500; }
+
+/* Guide overlay (?guide=1) */
+.guide { display: none; }
+body.show-guide .guide { display: block; }
+body.show-guide .sticker-slot { border: 4px dashed oklch(60% 0.22 10); border-radius: 22px; display: grid;
+  place-items: center; color: oklch(60% 0.22 10); font: 700 24px/1 var(--font-body); }
+body.show-guide .sticker-slot::after { content: "Link sticker here"; }
+.safe { position: absolute; left: 0; right: 0; background: oklch(60% 0.2 10 / .18); color: oklch(60% 0.22 10);
+  font: 700 24px/1 var(--font-body); display: grid; place-items: center; }
+.sticker { position: absolute; right: var(--gutter); top: 1506px; width: 400px; height: 92px;
+  border: 4px dashed oklch(60% 0.22 10); border-radius: 22px; color: oklch(60% 0.22 10);
+  font: 700 24px/1 var(--font-body); display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="mast">
+    <div class="mark">Sets &amp; Sheets</div>
+    <div class="meta">Fri · 8pm · CG</div>
+  </header>
+
+  <h1 class="hook">
+    <span class="chord"><span style="--n:0">G</span><span style="--n:8">D</span></span>
+    <span class="lyric">Chords, lyrics,</span>
+    <span class="chord"><span style="--n:0">Em</span><span style="--n:5">C</span></span>
+    <span class="lyric">your setlist.</span>
+    <span class="chord"><span style="--n:0">C</span><span style="--n:7">D</span><span style="--n:11">G</span></span>
+    <span class="lyric">All in one place.</span>
+  </h1>
+
+  <p class="lede">For whoever is leading from a guitar this week.</p>
+
+  <section class="sheet">
+    <h2>Goodness of God</h2>
+    <div class="meta">Original key Ab &nbsp;·&nbsp; <b>Key <span class="key">G</span></b></div>
+    <div class="section-label">Verse 1</div>
+    <div class="sline"><span class="ch" style="--n:0">G</span><span class="ch" style="--n:12">G/B</span><span class="ch" style="--n:24">C</span><span class="ch" style="--n:37">G</span><span class="ly" style="width:700px"></span></div>
+    <div class="sline"><span class="ch" style="--n:0">Em</span><span class="ch" style="--n:13">D</span><span class="ch" style="--n:25">C</span><span class="ch" style="--n:34">D</span><span class="ly" style="width:620px"></span></div>
+  </section>
+
+  <section class="rows">
+    <div class="row">
+      <h3>Share lyrics with a link</h3><span class="btn">Share lyrics</span>
+      <p>Everyone follows along on their own phone.</p>
+    </div>
+    <div class="row">
+      <h3>Need a background pad?</h3><span class="btn">Pad (G)</span>
+      <p>Play ambient pad audio under your guitar, in the song's key.</p>
+    </div>
+    <div class="row">
+      <h3>Stop scrolling mid-song</h3><span class="btn">Full screen</span>
+      <p>Go full screen and most songs fit without scrolling.</p>
+    </div>
+  </section>
+
+  <footer class="close">
+    <div class="url">setsandsheets.com</div>
+    <div class="note">Runs in your browser. No account needed.</div>
+  </footer>
+  <div class="sticker-slot" aria-hidden="true"></div>
+
+</div>
+
+<div class="guide">
+  <div class="safe" style="top:0;height:220px">Top safe zone: IG profile bar</div>
+  <div class="safe" style="bottom:0;height:250px">Bottom safe zone: reply bar</div>
+</div>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
+  if (q.get('format') === 'post') document.documentElement.dataset.format = 'post';
+  if (q.get('guide') === '1') document.body.classList.add('show-guide');
+</script>
+</body>
+</html>

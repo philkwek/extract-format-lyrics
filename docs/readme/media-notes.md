@@ -10,7 +10,7 @@ The screenshots were captured from the local Vite app on 5 November 2026 using C
 
 ## Hero
 
-`hero.svg` is the README hero. It uses the current Sets & Sheets symbol, a real chord-over-lyric specimen from the demo set, setlist tabs, transpose keys and the share action. Render it at GitHub width and check both 900 px and 360 px previews before changing the copy or layout.
+`hero.svg` is the README hero, designed as a printed-songbook broadside: Sets & Sheets masthead, a roman-serif promise, then a hairline-framed chord-sheet block with two song columns, setlist tabs, transpose keys and the share action. The canvas uses 48 px of padding on all four sides. It uses the current symbol and original demo lyrics. Render it at GitHub width and check both 900 px and 360 px previews before changing the copy or layout.
 
 ## User-recorded GIFs
 

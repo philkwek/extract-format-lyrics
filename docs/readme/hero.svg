@@ -1,101 +1,90 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="hero-title hero-desc">
-  <title id="hero-title">Sets &amp; Sheets — chord sheets, setlists and shared lyrics</title>
-  <desc id="hero-desc">A warm parchment hero with the Sets &amp; Sheets name and promise, next to a real chord sheet showing chords above lyrics, a setlist tab row, transpose key chips and a share button.</desc>
+<!-- Hallmark · component: README hero · genre: editorial · macrostructure: Marquee Hero (songbook broadside) · theme: brand-derived custom · paper: light · display: roman serif · accent: cool sea-blue · enrichment: none · nav/footer: n/a -->
+<!-- Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V5 · tokens inlined for GitHub-safe SVG -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="566" viewBox="0 0 1200 566" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Sets &amp; Sheets — chords, lyrics and your setlist</title>
+  <desc id="hero-desc">A printed-songbook hero: Sets &amp; Sheets masthead, a large serif promise, and a hairline-framed chord-sheet band with two song columns, transpose keys and the share action.</desc>
 
-  <defs>
-    <clipPath id="card-clip">
-      <rect x="642" y="50" width="500" height="336" rx="20"/>
-    </clipPath>
-  </defs>
+  <!-- Palette (brand tokens, inlined for GitHub-safe SVG): paper #F8F6F1 · ink #1B1916 · muted #6F6A60 · rule #D8D0C0 · accent #3368A0 -->
 
-  <!-- Canvas -->
-  <rect width="1200" height="440" rx="28" fill="#F8F6F1"/>
-  <rect x="0.5" y="0.5" width="1199" height="439" rx="27.5" fill="none" stroke="#E8E1D4"/>
+  <!-- Paper -->
+  <rect width="1200" height="566" fill="#F8F6F1"/>
+  <rect x="0.5" y="0.5" width="1199" height="565" fill="none" stroke="#E6DFD0"/>
 
-  <!-- Brand -->
-  <g transform="translate(64 52) scale(0.15625)" fill="#3368A0">
+  <!-- Masthead -->
+  <g transform="translate(48 48) scale(0.1328125)" fill="#3368A0">
     <path fill-rule="evenodd" d="M 60 20 H 152 V 64 A 20 20 0 0 0 172 84 H 224 V 208 A 28 28 0 0 1 196 236 H 60 A 28 28 0 0 1 32 208 V 48 A 28 28 0 0 1 60 20 Z M 72 58 H 104 A 8 8 0 0 1 112 66 V 78 A 8 8 0 0 1 104 86 H 72 A 8 8 0 0 1 64 78 V 66 A 8 8 0 0 1 72 58 Z M 72 96 H 172 A 8 8 0 0 1 180 104 V 104 A 8 8 0 0 1 172 112 H 72 A 8 8 0 0 1 64 104 V 104 A 8 8 0 0 1 72 96 Z M 72 140 H 104 A 8 8 0 0 1 112 148 V 160 A 8 8 0 0 1 104 168 H 72 A 8 8 0 0 1 64 160 V 148 A 8 8 0 0 1 72 140 Z M 136 140 H 168 A 8 8 0 0 1 176 148 V 160 A 8 8 0 0 1 168 168 H 136 A 8 8 0 0 1 128 160 V 148 A 8 8 0 0 1 136 140 Z M 72 178 H 184 A 8 8 0 0 1 192 186 V 186 A 8 8 0 0 1 184 194 H 72 A 8 8 0 0 1 64 186 V 186 A 8 8 0 0 1 72 178 Z"/>
     <path d="M 168 20 L 224 76 H 176 A 8 8 0 0 1 168 68 V 20 Z"/>
   </g>
-  <text x="118" y="81" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.4" fill="#1B1916">Sets &amp; Sheets</text>
+  <text x="94" y="73" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="700" letter-spacing="-0.4" fill="#1B1916">Sets &amp; Sheets</text>
 
-  <!-- Promise -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" fill="#1B1916">
-    <text x="64" y="184" font-size="57" font-weight="700" letter-spacing="-1.7">Chords, lyrics</text>
-    <text x="64" y="246" font-size="57" font-weight="700" letter-spacing="-1.7">and your setlist.</text>
+  <text x="1152" y="73" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16.5" font-weight="650" letter-spacing="-0.2" fill="#3368A0">setsandsheets.com</text>
+  <text x="1152" y="90" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="600" letter-spacing="1.2" fill="#6F6A60">NO ACCOUNT NEEDED</text>
+
+  <line x1="48" y1="106" x2="1152" y2="106" stroke="#D8D0C0" stroke-width="1"/>
+
+  <!-- Marquee statement -->
+  <g font-family="'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif" font-size="86" font-weight="700" letter-spacing="-1.3" fill="#1B1916">
+    <text x="48" y="196">Chords, lyrics</text>
+    <text x="48" y="282">and your setlist.</text>
   </g>
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="20.5" fill="#5F5A50">
-    <text x="64" y="304">Paste a chord sheet, change the key, arrange the set,</text>
-    <text x="64" y="332">and share it with your group.</text>
+
+  <!-- Songbook sheet, framed by hairlines -->
+  <line x1="48" y1="326" x2="1152" y2="326" stroke="#D8D0C0" stroke-width="1"/>
+
+  <!-- Setlist row -->
+  <circle cx="48" cy="352" r="4" fill="#3368A0"/>
+  <text x="62" y="356" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="650" fill="#1B1916">Here Together (Demo)</text>
+  <circle cx="246" cy="352" r="3.5" fill="none" stroke="#8A857B" stroke-width="1.2"/>
+  <text x="260" y="356" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="500" fill="#6F6A60">A Quiet Prayer (Demo)</text>
+  <text x="1152" y="356" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="600" letter-spacing="1.2" fill="#6F6A60">2 SONGS · KEY G</text>
+
+  <line x1="48" y1="376" x2="1152" y2="376" stroke="#D8D0C0" stroke-width="1"/>
+
+  <!-- Verse column -->
+  <text x="48" y="402" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="700" letter-spacing="1.6" fill="#6F6A60">VERSE 1</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#3368A0">
+    <text x="48" y="426">G</text>
+    <text x="108" y="426">D/F#</text>
+    <text x="228" y="426">Em7</text>
+    <text x="372" y="426">Cadd9</text>
+    <text x="48" y="470">G</text>
+    <text x="108" y="470">D/F#</text>
+    <text x="264" y="470">Em7</text>
+    <text x="312" y="470">Cadd9</text>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#1B1916">
+    <text x="48" y="448">Here together, we bring our song</text>
+    <text x="48" y="492">With open hearts, we sing along</text>
   </g>
 
-  <!-- Action line -->
-  <text x="64" y="392" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="650" fill="#3368A0">setsandsheets.com</text>
-  <circle cx="263" cy="385" r="2.5" fill="#B8B2A6"/>
-  <text x="280" y="392" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="17.5" fill="#7A7468">No account needed</text>
-
-  <!-- Proof: a real setlist tab row, chord sheet and transpose controls -->
-  <rect x="646" y="58" width="500" height="336" rx="20" fill="#1B1916" opacity="0.06"/>
-  <rect x="642" y="50" width="500" height="336" rx="20" fill="#FFFFFF" stroke="#DCE5E1"/>
-
-  <g clip-path="url(#card-clip)">
-    <!-- Setlist tabs -->
-    <rect x="666" y="72" width="124" height="30" rx="8" fill="#EAF2F8" stroke="#C9DCEA"/>
-    <text x="678" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="650" fill="#255283">Here Together</text>
-    <text x="802" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="500" fill="#8A857B">A Quiet Prayer</text>
-    <text x="1114" y="92" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#A39C8F">2 songs</text>
-
-    <!-- Song heading and key -->
-    <text x="666" y="143" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.3" fill="#1B1916">Here Together</text>
-    <rect x="1010" y="120" width="104" height="26" rx="7" fill="#F6F4EF" stroke="#E7E1D5"/>
-    <text x="1062" y="137" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="600" fill="#6E685C">G · Original</text>
-
-    <!-- Section label -->
-    <g fill="#B8B2A6">
-      <circle cx="668" cy="163" r="1.6"/><circle cx="674" cy="163" r="1.6"/>
-      <circle cx="668" cy="169" r="1.6"/><circle cx="674" cy="169" r="1.6"/>
-      <circle cx="668" cy="175" r="1.6"/><circle cx="674" cy="175" r="1.6"/>
-    </g>
-    <text x="686" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" letter-spacing="1.4" fill="#8A857B">VERSE 1</text>
-
-    <!-- Chords above lyrics -->
-    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#3368A0">
-      <text x="666" y="205">G</text>
-      <text x="778" y="205">D/F#</text>
-      <text x="890" y="205">Em7</text>
-      <text x="1002" y="205">Cadd9</text>
-
-      <text x="666" y="253">G</text>
-      <text x="778" y="253">D/F#</text>
-      <text x="890" y="253">Em7</text>
-      <text x="1002" y="253">Cadd9</text>
-
-      <text x="666" y="301">Em7</text>
-      <text x="778" y="301">Cadd9</text>
-      <text x="890" y="301">G</text>
-    </g>
-    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#2B2925">
-      <text x="666" y="229">Here together, we bring our song</text>
-      <text x="666" y="277">With open hearts, we sing along</text>
-      <text x="666" y="325">Give us grace to pause and know</text>
-    </g>
-
-    <!-- Controls -->
-    <line x1="666" y1="348" x2="1114" y2="348" stroke="#EEE9DF"/>
-    <text x="666" y="372" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="500" fill="#8A857B">Transpose</text>
-    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5" font-weight="600">
-      <rect x="742" y="354" width="26" height="26" rx="7" fill="#F6F4EF"/>
-      <text x="755" y="372" text-anchor="middle" fill="#6F6A60">C</text>
-      <rect x="774" y="354" width="26" height="26" rx="7" fill="#F6F4EF"/>
-      <text x="787" y="372" text-anchor="middle" fill="#6F6A60">D</text>
-      <rect x="806" y="354" width="26" height="26" rx="7" fill="#F6F4EF"/>
-      <text x="819" y="372" text-anchor="middle" fill="#6F6A60">E</text>
-      <rect x="838" y="354" width="26" height="26" rx="7" fill="#3368A0"/>
-      <text x="851" y="372" text-anchor="middle" fill="#FFFFFF">G</text>
-      <rect x="870" y="354" width="26" height="26" rx="7" fill="#F6F4EF"/>
-      <text x="883" y="372" text-anchor="middle" fill="#6F6A60">A</text>
-    </g>
-    <rect x="1002" y="352" width="112" height="28" rx="7" fill="#3368A0"/>
-    <text x="1058" y="371" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="650" fill="#FFFFFF">Share lyrics</text>
+  <!-- Chorus column -->
+  <text x="560" y="402" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="700" letter-spacing="1.6" fill="#6F6A60">CHORUS</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#3368A0">
+    <text x="560" y="426">Cadd9</text>
+    <text x="632" y="426">G</text>
+    <text x="740" y="426">D</text>
+    <text x="560" y="470">G</text>
+    <text x="704" y="470">D</text>
   </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#1B1916">
+    <text x="560" y="448">Let our voices rise as one</text>
+    <text x="560" y="492">Every heart and every song</text>
+  </g>
+
+  <!-- Marginal controls -->
+  <text x="980" y="402" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10.5" font-weight="700" letter-spacing="1.6" fill="#6F6A60">TRANSPOSE</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="500" fill="#6F6A60">
+    <text x="980" y="428">C</text>
+    <text x="1004" y="428">D</text>
+    <text x="1028" y="428">E</text>
+    <text x="1052" y="428" font-weight="700" fill="#3368A0">G</text>
+    <text x="1078" y="428">A</text>
+  </g>
+  <line x1="1050" y1="434" x2="1064" y2="434" stroke="#3368A0" stroke-width="2"/>
+
+  <text x="980" y="460" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="650" fill="#3368A0">SHARE LYRICS →</text>
+  <text x="980" y="484" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#6F6A60">PAD · G</text>
+
+  <!-- Sheet close -->
+  <line x1="48" y1="518" x2="1152" y2="518" stroke="#D8D0C0" stroke-width="1"/>
 </svg>
