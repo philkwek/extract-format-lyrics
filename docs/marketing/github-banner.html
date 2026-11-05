@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sets & Sheets Banner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet">
+<style>
+/* Hallmark · genre: editorial · macrostructure: Poster (chord-sheet voice), 5:1 banner · theme: custom
+ * Same tokens as ig-story.html. 1500 x 300 CSS px, exported at 2x. Theme via ?theme=light|dark.
+ */
+:root {
+  --color-paper:   oklch(17% 0.010 70);
+  --color-rule:    oklch(33% 0.012 70);
+  --color-muted:   oklch(72% 0.012 75);
+  --color-ink:     oklch(94% 0.012 80);
+  --color-accent:  oklch(80% 0.150 72);
+
+  --font-sheet: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --font-body:  'DM Sans', system-ui, sans-serif;
+
+  --pad-x: 64px;
+  --cell: 30px;        /* one character of the 50px mono headline */
+  --sheet-cell: 12px;  /* one character of the 20px mono chord line */
+  --rule: 2px solid var(--color-rule);
+}
+:root[data-theme="light"] {
+  --color-paper:   oklch(97.5% 0.006 230);
+  --color-rule:    oklch(86% 0.025 190);
+  --color-muted:   oklch(45% 0.020 245);
+  --color-ink:     oklch(20% 0.020 250);
+  --color-accent:  oklch(50% 0.110 252);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1500px; height: 300px; overflow: clip; }
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased; padding: 26px var(--pad-x) 0; }
+
+.mast { display: flex; justify-content: space-between; align-items: baseline;
+  padding-bottom: 12px; border-bottom: var(--rule); }
+.mark { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; }
+.url { font-family: var(--font-sheet); font-size: 20px; font-weight: 700; color: var(--color-muted); }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 56px; margin-top: 20px; }
+
+.hook { font-family: var(--font-sheet); }
+.chord { display: block; position: relative; height: 24px; }
+.chord span { position: absolute; top: 0; left: calc(var(--n) * var(--cell)); font-size: 22px; font-weight: 800;
+  color: var(--color-accent); line-height: 1; }
+.lyric { display: block; font-size: 50px; font-weight: 800; line-height: 1.05; margin-top: 2px; }
+.lyric + .chord { margin-top: 10px; }
+
+.sheet { border-left: var(--rule); padding-left: 32px; }
+.sheet h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
+.meta { margin-top: 2px; font-size: 16px; color: var(--color-muted); font-weight: 500; }
+.meta b { color: var(--color-ink); }
+.meta .key { color: var(--color-accent); }
+.section-label { margin-top: 10px; padding-bottom: 6px; border-bottom: var(--rule);
+  font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+.sline { position: relative; height: 38px; margin-top: 8px; }
+.sline .ch { position: absolute; top: 0; left: calc(var(--n) * var(--sheet-cell)); font-family: var(--font-sheet);
+  font-size: 20px; font-weight: 800; color: var(--color-accent); line-height: 1; }
+.sline .ly { position: absolute; top: 27px; left: 0; height: 10px; border-radius: 5px; background: var(--color-rule); }
+</style>
+</head>
+<body>
+  <header class="mast">
+    <div class="mark">Sets &amp; Sheets</div>
+    <div class="url">setsandsheets.com</div>
+  </header>
+
+  <div class="main">
+    <h1 class="hook">
+      <span class="chord"><span style="--n:0">G</span><span style="--n:8">D</span><span style="--n:16">Em</span><span style="--n:21">C</span></span>
+      <span class="lyric">Chords, lyrics, your setlist.</span>
+      <span class="chord"><span style="--n:0">C</span><span style="--n:7">D</span><span style="--n:11">G</span></span>
+      <span class="lyric">All in one place.</span>
+    </h1>
+
+    <section class="sheet">
+      <h2>Goodness of God</h2>
+      <div class="meta">Original key Ab &nbsp;·&nbsp; <b>Key <span class="key">G</span></b></div>
+      <div class="section-label">Verse 1</div>
+      <div class="sline"><span class="ch" style="--n:0">G</span><span class="ch" style="--n:8">G/B</span><span class="ch" style="--n:16">C</span><span class="ch" style="--n:25">G</span><span class="ly" style="width:330px"></span></div>
+      <div class="sline"><span class="ch" style="--n:0">Em</span><span class="ch" style="--n:9">D</span><span class="ch" style="--n:17">C</span><span class="ch" style="--n:23">D</span><span class="ly" style="width:290px"></span></div>
+    </section>
+  </div>
+
+<script>
+  if (new URLSearchParams(location.search).get('theme') === 'light') document.documentElement.dataset.theme = 'light';
+</script>
+</body>
+</html>

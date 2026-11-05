@@ -10,7 +10,9 @@ The screenshots were captured from the local Vite app on 5 November 2026 using C
 
 ## Hero
 
-`hero.svg` is the README hero, designed as a printed-songbook broadside: Sets & Sheets masthead, a roman-serif promise, then a hairline-framed chord-sheet block with two song columns, setlist tabs, transpose keys and the share action. The canvas uses 48 px of padding on all four sides. It uses the current symbol and original demo lyrics. Render it at GitHub width and check both 900 px and 360 px previews before changing the copy or layout.
+The README hero is a 5:1 banner at `docs/marketing/github-banner-dark.png` and `github-banner-light.png` (3000 × 600, rendered at 2× from `docs/marketing/github-banner.html`). GitHub shows the dark version to dark-mode readers through a `<picture>` element. It sets the headline as a chord sheet, with chords over "Chords, lyrics, your setlist. All in one place.", beside a Goodness of God excerpt whose lyric lines are placeholder bars because the lyrics are copyrighted. To change it, edit the HTML and re-render both themes with headless Chrome at `--window-size=1500,300 --force-device-scale-factor=2`.
+
+`hero.svg` is the previous hero, kept as an alternative and no longer embedded in the README.
 
 ## User-recorded GIFs
 

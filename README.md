@@ -1,6 +1,7 @@
-<p align="center">
-  <img src="docs/readme/hero.svg" width="100%" alt="Sets & Sheets — chord sheets, setlists and shared lyrics for musicians">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/marketing/github-banner-dark.png">
+  <img src="docs/marketing/github-banner-light.png" width="100%" alt="Sets & Sheets: chords, lyrics and your setlist, all in one place">
+</picture>
 
 **Chords, lyrics and your setlist, in one place.** Sets & Sheets is a browser-based chord sheet and setlist app for worship teams, cell groups and anyone leading from a guitar. Paste a song, change the key, arrange it the way you play it, and share what your group needs to follow along.
 
