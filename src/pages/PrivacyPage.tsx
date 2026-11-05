@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { setTrackingEnabled, trackingEnabled } from '../lib/analytics'
 import { Button, Surface } from '../components/ui'
+import { useSeo } from '../lib/useSeo'
 
 export default function PrivacyPage() {
+  useSeo({ title: 'Privacy and usage tracking | Sets & Sheets', description: 'How Sets & Sheets uses Google Analytics and how to turn usage tracking off.', path: '/privacy' })
   const navigate = useNavigate()
   const [enabled, setEnabled] = useState(trackingEnabled)
   useEffect(() => {

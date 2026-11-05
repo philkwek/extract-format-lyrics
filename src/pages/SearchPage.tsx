@@ -21,8 +21,10 @@ import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
 import { Button, SegmentedControl, Surface } from '../components/ui'
+import { useSeo } from '../lib/useSeo'
 
 export default function SearchPage() {
+  useSeo({ title: 'Find chord sheets by song or artist | Sets & Sheets', description: 'Search Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net by song title or artist and add the chart to your set.', path: '/search' })
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const targetSessionId = searchParams.get('session')

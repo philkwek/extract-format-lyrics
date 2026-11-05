@@ -42,6 +42,7 @@ import SearchResults from '../components/import/SearchResults'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { SharedSetSnapshot, Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
+import { useSeo } from '../lib/useSeo'
 
 const HOME_TIPS = [
   'Use Edit chords to move, change, or delete chords.',
@@ -53,6 +54,7 @@ const HOME_TIPS = [
 ] as const
 
 export default function HomePage() {
+  useSeo({ title: 'Sets & Sheets – Chord sheets, transposing and worship set lists', description: 'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.', path: '/' })
   const navigate = useNavigate()
   const [homeTip] = useState(() => HOME_TIPS[Math.floor(Math.random() * HOME_TIPS.length)])
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
