@@ -2,7 +2,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
@@ -136,6 +136,15 @@ afterEach(() => {
 function LocationProbe() {
   const loc = useLocation()
   return <output data-testid="loc">{loc.pathname}</output>
+}
+
+function NavProbe() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate('/session/session-2')}>
+      Open second set
+    </button>
+  )
 }
 
 function TestHarness() {
@@ -641,5 +650,118 @@ describe('SessionPage following a live set', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(await screen.findByText(/Link expired/)).toBeTruthy()
     expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('keeps the Follow Host Edits switch out of the live region', async () => {
+    setup()
+    const toggle = await screen.findByRole('switch', { name: 'Follow Host Edits' })
+    const bannerText = screen.getByText(/Following the host.s edits/)
+    const liveRegion = bannerText.closest('[role="status"]') as HTMLElement
+
+    expect(liveRegion).toBeTruthy()
+    expect(within(liveRegion).queryByRole('switch')).toBeNull()
+    expect(liveRegion.textContent).toContain("Following the host's edits")
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+  })
+})
+
+describe('SessionPage removed-by-host songs', () => {
+  const followed = { ...fixtures.session, liveSourceId: 'live-1', followHost: true }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  function renderNavigable() {
+    return render(
+      <ChromeVisibilityContext.Provider value={{ hidden: false, setHidden: vi.fn() }}>
+        <MemoryRouter initialEntries={['/session/session-1']}>
+          <NavProbe />
+          <Routes>
+            <Route path="/session/:sessionId" element={<SessionPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ChromeVisibilityContext.Provider>,
+    )
+  }
+
+  function mockFollow(session: object) {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(session as never)
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('clears a removed-by-host song when the set id changes', async () => {
+    const second = {
+      ...fixtures.session,
+      id: 'session-2',
+      name: 'Second Set',
+      songs: [
+        {
+          entryId: 'entry-s2',
+          url: 'https://example.test/second',
+          title: 'Second Song',
+          status: 'ok',
+        },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockImplementation(async (id: string) => {
+      if (id === 'session-1') return followed as never
+      if (id === 'session-2') return second as never
+      return fixtures.session as never
+    })
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+
+    renderNavigable()
+    await screen.findByRole('switch')
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+
+    await act(async () => {
+      handlers.onUpdate({ ...followed, songs: [] } as never)
+    })
+    await waitFor(() => expect(screen.getByText(/Removed by the host/)).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open second set' }))
+    await waitFor(() => expect(screen.queryByText(/Removed by the host/)).toBeNull())
+    expect(screen.queryByText(/\(removed\)/)).toBeNull()
+  })
+
+  it('wraps tab arrow keys around the tabs actually shown', async () => {
+    const threeSongs = {
+      ...followed,
+      songs: [
+        { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
+        { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
+        { entryId: 'entry-c', url: 'https://example.test/c', title: 'Charlie', status: 'ok' },
+      ],
+    }
+    mockFollow(threeSongs)
+
+    renderAt('/session/session-1')
+    await screen.findByRole('switch')
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+
+    await act(async () => {
+      handlers.onUpdate({ ...threeSongs, songs: threeSongs.songs.slice(1) } as never)
+    })
+    await waitFor(() => expect(screen.getByText(/Removed by the host/)).toBeTruthy())
+
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    fireEvent.keyDown(tabs[2], { key: 'ArrowRight' })
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab')[0].getAttribute('aria-selected')).toBe('true'),
+    )
+    expect(screen.getAllByRole('tab')[0].textContent).toContain('(removed)')
+    expect(screen.queryByText(/Removed by the host/)).toBeTruthy()
   })
 })

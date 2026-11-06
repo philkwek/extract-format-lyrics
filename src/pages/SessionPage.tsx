@@ -262,6 +262,7 @@ export default function SessionPage() {
   useEffect(() => {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
+      setRemovedByHost(null)
       if (!s) {
         setNotFoundId(sessionId)
         return
@@ -1296,9 +1297,10 @@ export default function SessionPage() {
       )}
 
       {!isFullScreen && session.liveSourceId && (
-        <StatusBanner tone="info">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <div className="space-y-0.5">
+        <div className="ui-status ui-status--info">
+          <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            {/* The switch stays outside the live region. */}
+            <div role="status" className="space-y-0.5">
               <p>
                 {followEnded ? (
                   <>
@@ -1325,7 +1327,7 @@ export default function SessionPage() {
               onChange={handleToggleFollow}
             />
           </div>
-        </StatusBanner>
+        </div>
       )}
 
       {/* Session Title Bar */}
@@ -1452,7 +1454,7 @@ export default function SessionPage() {
                     e.preventDefault()
                     selectSong(idx)
                   } else {
-                    const nextIndex = getNextTabIndex(e.key, idx, session.songs.length)
+                    const nextIndex = getNextTabIndex(e.key, idx, shownSongs.length)
                     if (nextIndex === null) return
                     e.preventDefault()
                     selectSong(nextIndex)
@@ -1849,10 +1851,10 @@ export default function SessionPage() {
             badge: `#${idx + 1}`,
           }
         })}
-        onMove={handleReorderSongs}
+        onMove={(from, to) => guard(() => void handleReorderSongs(from, to))}
         onDelete={
           session.songs.length > 1
-            ? (idx) => handleRemoveSong(session.songs[idx].entryId || '')
+            ? (idx) => guard(() => void handleRemoveSong(session.songs[idx].entryId || ''))
             : undefined
         }
         onClose={() => setIsArrangingSongs(false)}
