@@ -44,6 +44,7 @@ import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
 import ShareMenuModal from '../components/ShareMenuModal'
+import LiveShareChip from '../components/share/LiveShareChip'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
@@ -57,8 +58,7 @@ import {
 } from '../lib/sectionFlow'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
-import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
-import type { Song, Section, SharedSetSnapshot } from '../types/song'
+import type { Song, Section } from '../types/song'
 import { Button, IconButton, StatusBanner } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import {
@@ -120,8 +120,6 @@ export default function SessionPage() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const { isDark: themeDark, setMode: setThemeMode } = useThemeMode()
-  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
-  const [shareSnapshotError, setShareSnapshotError] = useState<string | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
@@ -136,7 +134,6 @@ export default function SessionPage() {
     }
   })
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
-  const [isPreparingShare, setIsPreparingShare] = useState(false)
   const [isEditSetOpen, setIsEditSetOpen] = useState(false)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
@@ -519,7 +516,6 @@ export default function SessionPage() {
     fullScreenTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null)
     setIsEditingChords(false)
     setPositioningChord(null)
-    setSharingSnapshot(null)
     setIsShareMenuOpen(false)
     setIsEditSetOpen(false)
     setIsArrangingSongs(false)
@@ -1087,22 +1083,7 @@ export default function SessionPage() {
     }
   }
 
-  const handleOpenShareMenu = async () => {
-    if (isPreparingShare) return
-    setIsPreparingShare(true)
-    setShareSnapshotError(null)
-    try {
-      setSharingSnapshot(await buildSharedSetSnapshot(session))
-    } catch (err) {
-      setSharingSnapshot(null)
-      setShareSnapshotError(
-        err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.',
-      )
-    } finally {
-      setIsPreparingShare(false)
-      setIsShareMenuOpen(true)
-    }
-  }
+  const handleOpenShareMenu = () => setIsShareMenuOpen(true)
 
   const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
 
@@ -1176,6 +1157,7 @@ export default function SessionPage() {
                 <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">
                   {session.name}
                 </h1>
+                <LiveShareChip sessionId={session.id} />
                 <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}>
                   <Pencil size={14} />
                 </IconButton>
@@ -1191,7 +1173,6 @@ export default function SessionPage() {
               variant="secondary"
               icon={<Share2 size={14} />}
               onClick={handleOpenShareMenu}
-              loading={isPreparingShare}
             >
               Share
             </Button>
@@ -1598,8 +1579,6 @@ export default function SessionPage() {
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (
         <ShareMenuModal
-          snapshot={sharingSnapshot}
-          snapshotError={shareSnapshotError}
           session={session}
           songsData={songsData}
           isOpen={isShareMenuOpen}

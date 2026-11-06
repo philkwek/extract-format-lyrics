@@ -67,6 +67,12 @@ vi.mock('../../src/lib/setLinkSync', () => ({
   ensureSetLinkFresh: vi.fn(async () => undefined),
 }))
 
+vi.mock('../../src/lib/liveShareSync', () => ({
+  getLiveShare: vi.fn(async () => null),
+  subscribeLiveShare: vi.fn(() => () => {}),
+  subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
+
 vi.mock('../../src/lib/setLinkImport', () => ({
   importFromSetLinkOnce: vi.fn(),
 }))
@@ -173,14 +179,15 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
   })
 
-  it('groups set sharing behind one Share modal with both link generators', async () => {
+  it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
 
     expect(await screen.findByText('Share this set')).toBeTruthy()
     expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(2)
+    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
   })
 
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {

@@ -214,20 +214,6 @@ async function readShareError(res: Response): Promise<ShareApiError> {
   return new ShareApiError(message, code, res.status, retryAfterSeconds)
 }
 
-export interface CreateShareResult { id: string; expiresAt: string }
-
-export async function createShareApi(snapshot: import('../types/song').SharedSetSnapshot): Promise<CreateShareResult> {
-  const res = await fetch('/api/share', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ snapshot }),
-  })
-  if (!res.ok) {
-    throw await readShareError(res)
-  }
-  return await res.json() as CreateShareResult
-}
-
 export async function getShareApi(id: string): Promise<import('../types/song').SharedSetSnapshot> {
   const res = await fetch(`/api/share/${encodeURIComponent(id)}`)
   if (!res.ok) {

@@ -22,7 +22,6 @@ vi.mock('../../src/lib/api', async () => ({
   ...(await vi.importActual('../../src/lib/api')),
   searchApiStream: vi.fn(),
   scrapeApi: vi.fn(),
-  createShareApi: vi.fn(),
   getShareApi: vi.fn(),
 }))
 

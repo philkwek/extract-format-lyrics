@@ -39,8 +39,7 @@ import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
-import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
-import type { SharedSetSnapshot, Song } from '../types/song'
+import type { Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
 
@@ -70,7 +69,7 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
   const [currentTime] = useState(() => Date.now())
-  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
+  const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -119,15 +118,6 @@ export default function HomePage() {
       setSessions([])
       await clearRecentSharedLyrics()
       setRecentLyrics([])
-    }
-  }
-
-  const handleShareSession = async (session: Session) => {
-    try {
-      setSharingSnapshot(await buildSharedSetSnapshot(session))
-    } catch (err) {
-      const message = err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.'
-      window.alert(message)
     }
   }
 
@@ -352,9 +342,9 @@ export default function HomePage() {
                   <IconButton
                     label="Share setlist"
                     variant="ghost"
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation()
-                      await handleShareSession(session)
+                      setSharingSession(session)
                     }}
                   >
                     <Share2 size={15} />
@@ -461,11 +451,11 @@ export default function HomePage() {
       )}
 
       {/* Share Modal */}
-      {sharingSnapshot && (
+      {sharingSession && (
         <ShareModal
-          snapshot={sharingSnapshot}
-          isOpen={Boolean(sharingSnapshot)}
-          onClose={() => setSharingSnapshot(null)}
+          session={sharingSession}
+          isOpen
+          onClose={() => setSharingSession(null)}
         />
       )}
 

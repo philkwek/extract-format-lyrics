@@ -1,4 +1,3 @@
-import { songCache } from './songCache'
 import type { Session, SessionSongItem } from './sessionStore'
 import type { SharedSetSnapshot, Song } from '../types/song'
 
@@ -41,10 +40,6 @@ export async function createSharedSetSnapshot(
   }))
 
   return { v: 2, name: session.name, songs }
-}
-
-export async function buildSharedSetSnapshot(session: Session): Promise<SharedSetSnapshot> {
-  return createSharedSetSnapshot(session, (url) => songCache.getSong(url))
 }
 
 export function sessionSongsFromSnapshot(snapshot: SharedSetSnapshot): SessionSongItem[] {

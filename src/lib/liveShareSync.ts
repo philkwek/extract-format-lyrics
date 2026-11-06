@@ -196,6 +196,19 @@ export function subscribeLiveShareStatus(
   }
 }
 
+const liveListeners = new Map<string, Set<() => void>>()
+
+/** Fires when a live share starts or stops for this set. */
+export function subscribeLiveShare(sessionId: string, cb: () => void): () => void {
+  let set = liveListeners.get(sessionId)
+  if (!set) liveListeners.set(sessionId, (set = new Set()))
+  set.add(cb)
+  return () => {
+    set.delete(cb)
+    if (set.size === 0) liveListeners.delete(sessionId)
+  }
+}
+
 const liveIdentity = createLiveIdentityAccess()
 
 function createDefaultSync(): SetLinkSync {
@@ -276,6 +289,7 @@ export async function startLiveShare(
     await liveIdentity.remove(sessionId)
     throw new ShareApiError('Could not start the live share. Check your connection and try again.')
   }
+  liveListeners.get(sessionId)?.forEach((cb) => cb())
   return { url: liveUrl(record.publicId), expiresAt: published.expiresAt }
 }
 
@@ -292,4 +306,5 @@ export async function stopLiveShare(sessionId: string): Promise<void> {
   }
   await liveIdentity.remove(sessionId)
   statuses.delete(sessionId)
+  liveListeners.get(sessionId)?.forEach((cb) => cb())
 }
