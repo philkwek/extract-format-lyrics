@@ -76,7 +76,7 @@ describe('ShareMenuModal', () => {
   })
 
   it('offers the live link and a copy for a set opened from a live share', () => {
-    renderModal({ ...session, liveSourceId: 'live-abc', followHost: true })
+    renderModal({ ...session, liveSourceId: 'live-abc' })
 
     expect(screen.getByText('Copy the live link or make your own copy.')).toBeTruthy()
     expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()

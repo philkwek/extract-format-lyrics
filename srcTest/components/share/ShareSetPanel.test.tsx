@@ -43,7 +43,6 @@ const session: Session = {
 const followedSession: Session = {
   ...session,
   liveSourceId: 'live-abc',
-  followHost: true,
   liveRev: 4,
   lastHostHash: 'host-hash',
   songs: [
@@ -215,7 +214,7 @@ describe('ShareSetPanel', () => {
 
     expect(createSession).toHaveBeenCalledTimes(1)
     const [songs, name, options] = createSession.mock.calls[0]
-    expect(name).toBe('Sunday Set')
+    expect(name).toBe('Sunday Set - Copy')
     expect(options).toBeUndefined()
     expect(songs).toEqual(followedSession.songs)
     expect(songs).not.toBe(followedSession.songs)

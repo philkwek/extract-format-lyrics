@@ -191,9 +191,9 @@ describe('liveShareSync', () => {
     expect(env.putManifest).not.toHaveBeenCalled()
   })
 
-  it('does not publish a set that follows a host', async () => {
+  it('does not publish a set opened from a live link', async () => {
     const env = setup()
-    env.emit('created', { ...makeSession(), followHost: true })
+    env.emit('created', { ...makeSession(), liveSourceId: 'live-abc' })
     await env.settle(0)
     await env.settle(10_000)
     expect(env.putSong).not.toHaveBeenCalled()

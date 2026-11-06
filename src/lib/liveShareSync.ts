@@ -157,7 +157,7 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
     ...deps,
     name: 'live-set',
     shouldSync: async (session) =>
-      session.followHost !== true && (await deps.identity.get(session.id)) !== null,
+      !session.liveSourceId && (await deps.identity.get(session.id)) !== null,
     buildPayload: (session) => buildLivePayload(session, deps.getSong),
     publish,
     onSkipped: (sessionId) => deps.onStatus?.(sessionId, 'failing'),

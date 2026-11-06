@@ -38,8 +38,6 @@ export interface Session {
   importedFromLinkId?: string
   /** Live share this set came from, so re-opening the live link finds the existing copy. */
   liveSourceId?: string
-  /** While true the set mirrors the host's live version and publishes nothing itself. */
-  followHost?: boolean
   /** Hash of this set as built from the last host version applied. */
   lastHostHash?: string
   /** Last host manifest revision applied. */
@@ -57,7 +55,6 @@ export type SessionChangeListener = (event: SessionChangeEvent) => void
 export interface CreateSessionOptions {
   importedFromLinkId?: string
   liveSourceId?: string
-  followHost?: boolean
   lastHostHash?: string
   liveRev?: number
 }
@@ -175,7 +172,6 @@ export class SessionStore {
       publicId: identity.publicId,
       ...(options.importedFromLinkId ? { importedFromLinkId: options.importedFromLinkId } : {}),
       ...(options.liveSourceId ? { liveSourceId: options.liveSourceId } : {}),
-      ...(options.followHost !== undefined ? { followHost: options.followHost } : {}),
       ...(options.lastHostHash ? { lastHostHash: options.lastHostHash } : {}),
       ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
       createdAt: now,
@@ -187,6 +183,11 @@ export class SessionStore {
     await this.store.set(SESSIONS_STORAGE_KEY, list)
     this.emit({ type: 'created', sessionId: newSession.id, session: newSession })
     return newSession
+  }
+
+  /** Makes a normal set from this one: same songs and edits, none of the live or link fields. */
+  async createSetCopy(session: Session): Promise<Session> {
+    return this.createSession(structuredClone(session.songs), `${session.name} - Copy`)
   }
 
   async renameSession(id: string, newName: string): Promise<Session | null> {
@@ -208,7 +209,6 @@ export class SessionStore {
       session.publicId ??= existing.publicId
       session.importedFromLinkId ??= existing.importedFromLinkId
       session.liveSourceId ??= existing.liveSourceId
-      session.followHost ??= existing.followHost
       // A save from an older copy of the set must not roll the host revision back.
       if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
         session.liveRev = existing.liveRev

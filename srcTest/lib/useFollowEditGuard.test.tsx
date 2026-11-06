@@ -2,14 +2,18 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useRef } from 'react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { useFollowEditGuard } from '../../src/lib/useFollowEditGuard'
-import { stopFollowing, type FollowController } from '../../src/lib/liveFollow'
+import type { FollowController } from '../../src/lib/liveFollow'
+import { sessionStore } from '../../src/lib/sessionStore'
 
-vi.mock('../../src/lib/liveFollow', () => ({
-  stopFollowing: vi.fn(),
+vi.mock('../../src/lib/sessionStore', () => ({
+  sessionPath: (s: { id: string; publicId?: string }) => `/session/${s.publicId ?? s.id}`,
+  sessionStore: { getSession: vi.fn(), createSetCopy: vi.fn() },
 }))
 
-const stored = { id: 's1', createdAt: 0, name: 'Set', songs: [], followHost: false }
+const stored = { id: 's1', createdAt: 0, name: 'Set', songs: [], liveSourceId: 'live-1' }
+const copy = { id: 's2', createdAt: 0, name: 'Set - Copy', songs: [] }
 
 const controller = {
   stop: vi.fn(),
@@ -19,22 +23,31 @@ const controller = {
 
 const calls: string[] = []
 
-function Harness({ following, onStopped }: { following: boolean; onStopped: () => void }) {
+function Where() {
+  return <p data-testid="loc">{useLocation().pathname}</p>
+}
+
+function Inner({ following }: { following: boolean }) {
   const ref = useRef<FollowController | null>(controller)
   const { guard, dialog } = useFollowEditGuard({
     following,
     sessionId: 's1',
     controllerRef: ref,
-    onStopped: () => {
-      calls.push('adopt')
-      onStopped()
-    },
   })
   return (
     <>
       <button onClick={() => guard(() => calls.push('action'))}>Edit</button>
       {dialog}
+      <Where />
     </>
+  )
+}
+
+function Harness(props: { following: boolean }) {
+  return (
+    <MemoryRouter>
+      <Inner {...props} />
+    </MemoryRouter>
   )
 }
 
@@ -57,38 +70,38 @@ afterEach(() => {
 })
 
 describe('useFollowEditGuard', () => {
-  it('runs the action straight away when not following', () => {
-    render(<Harness following={false} onStopped={() => {}} />)
+  it('runs the action straight away when not live', () => {
+    render(<Harness following={false} />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     expect(calls).toEqual(['action'])
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('asks first when following, and Keep following runs nothing and flushes', async () => {
-    render(<Harness following onStopped={() => {}} />)
+  it('asks first for a live set, and Cancel runs nothing and flushes', async () => {
+    render(<Harness following />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    expect(await screen.findByText('Make this your own copy?')).toBeTruthy()
+    expect(await screen.findByText('Make your own copy?')).toBeTruthy()
     expect(calls).toEqual([])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Keep following' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls).toEqual([])
     expect(controller.flushDeferred).toHaveBeenCalledTimes(1)
-    expect(stopFollowing).not.toHaveBeenCalled()
+    expect(sessionStore.createSetCopy).not.toHaveBeenCalled()
+    expect(screen.getByTestId('loc').textContent).toBe('/')
   })
 
-  it('Edit my copy drops the held update, stops following, then runs the action once', async () => {
-    vi.mocked(stopFollowing).mockResolvedValue(stored)
-    controller.dropDeferred.mockImplementation(() => calls.push('drop'))
-    vi.mocked(stopFollowing).mockImplementation(async () => {
-      calls.push('stop')
-      return stored
-    })
-    render(<Harness following onStopped={() => {}} />)
+  it('Make a copy drops the held update, copies the stored set and opens the copy', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(stored as never)
+    vi.mocked(sessionStore.createSetCopy).mockResolvedValue(copy as never)
+    render(<Harness following />)
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit my copy' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Make a copy' }))
 
-    await waitFor(() => expect(calls).toEqual(['drop', 'stop', 'adopt', 'action']))
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/s2'))
+    expect(sessionStore.createSetCopy).toHaveBeenCalledWith(stored)
+    expect(controller.dropDeferred).toHaveBeenCalledTimes(1)
     expect(controller.flushDeferred).not.toHaveBeenCalled()
+    expect(calls).toEqual([])
   })
 })

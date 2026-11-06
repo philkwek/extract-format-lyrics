@@ -2,6 +2,7 @@ import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import {
+  CopyPlus,
   GripVertical,
   Lightbulb,
   ListOrdered,
@@ -9,6 +10,7 @@ import {
   Minimize2,
   Pencil,
   Plus,
+  Radio,
   Share2,
   SlidersHorizontal,
   WandSparkles,
@@ -59,13 +61,14 @@ import {
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import type { Song, Section } from '../types/song'
-import { Button, IconButton, StatusBanner, Switch } from '../components/ui'
-import OverlayDialog from '../components/ui/OverlayDialog'
+import { Button, IconButton, LivePill, StatusBanner } from '../components/ui'
+import {
+  liveToneButtonClasses,
+  liveToneClasses,
+  type LiveTone,
+} from '../components/ui/liveTone'
 import {
   followLiveSet,
-  hasLocalEdits,
-  resumeFollowing,
-  stopFollowing,
   type FollowController,
   type FollowStatus,
 } from '../lib/liveFollow'
@@ -146,9 +149,6 @@ export default function SessionPage() {
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
   const [isEditSetOpen, setIsEditSetOpen] = useState(false)
   const [followStatus, setFollowStatus] = useState<FollowStatus>('live')
-  const [followBusy, setFollowBusy] = useState(false)
-  const [followError, setFollowError] = useState(false)
-  const [confirmFollow, setConfirmFollow] = useState(false)
   const [removedByHost, setRemovedByHost] = useState<{
     item: SessionSongItem
     song: Song | undefined
@@ -244,20 +244,18 @@ export default function SessionPage() {
     setSession(stored)
   }, [])
 
-  const following = Boolean(session?.liveSourceId && session.followHost === true)
-  const { guard, dialog: editGuardDialog, isOpenRef: guardOpenRef } = useFollowEditGuard({
+  const following = Boolean(session?.liveSourceId)
+  const {
+    guard,
+    dialog: editGuardDialog,
+    isOpenRef: guardOpenRef,
+    makeCopy,
+  } = useFollowEditGuard({
     following,
     sessionId: session?.id,
     controllerRef: followRef,
-    onStopped: (stored) => {
-      adoptSession(stored)
-      if (removedByHost) {
-        setRemovedByHost(null)
-        setSearchParams({ song: Math.max(0, Math.min(activeIndex, stored.songs.length - 1)).toString() })
-      }
-    },
   })
-  const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs || confirmFollow
+  const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs
 
   useEffect(() => {
     if (!sessionId) return
@@ -327,12 +325,7 @@ export default function SessionPage() {
     if (!following || !live) return
     const controller = followLiveSet(live, {
       onUpdate: (next) => onHostUpdateRef.current(next),
-      onStatus: (status) => {
-        setFollowStatus(status)
-        if (status === 'stopped' || status === 'expired') {
-          void stopFollowing(live.id).then((stored) => stored && adoptSession(stored))
-        }
-      },
+      onStatus: setFollowStatus,
       shouldDefer: () => guardOpenRef.current || deferRef.current,
     })
     followRef.current = controller
@@ -340,7 +333,7 @@ export default function SessionPage() {
       controller.stop()
       followRef.current = null
     }
-  }, [following, session?.id, adoptSession, guardOpenRef])
+  }, [following, session?.id, guardOpenRef])
 
   useEffect(() => {
     deferRef.current = setDialogOpen
@@ -1206,47 +1199,24 @@ export default function SessionPage() {
 
   const handleOpenShareMenu = () => setIsShareMenuOpen(true)
 
-  const finishResume = async () => {
-    setConfirmFollow(false)
-    setFollowBusy(true)
-    setFollowError(false)
-    try {
-      const result = await resumeFollowing(session.id)
-      if (result.kind === 'resumed') {
-        adoptSession(result.session)
-        setRemovedByHost(null)
-        setFollowStatus('live')
-        await loadSessionSongs(result.session)
-      } else {
-        setFollowStatus(result.kind === 'stopped' ? 'stopped' : 'expired')
-      }
-    } catch {
-      setFollowError(true)
-    } finally {
-      setFollowBusy(false)
-    }
-  }
-
-  const handleToggleFollow = async (on: boolean) => {
-    if (!on) {
-      followRef.current?.dropDeferred()
-      const stored = await stopFollowing(session.id)
-      if (stored) adoptSession(stored)
-      return
-    }
-    if (await hasLocalEdits(session)) setConfirmFollow(true)
-    else await finishResume()
-  }
-
-  const followEnded = followStatus === 'stopped' || followStatus === 'expired'
-  const followStatusText =
+  const followTone: LiveTone =
+    followStatus === 'stopped' || followStatus === 'expired'
+      ? 'ended'
+      : followStatus === 'reconnecting'
+        ? 'reconnecting'
+        : 'live'
+  const followTitle =
     followStatus === 'stopped'
-      ? 'Sharing stopped'
+      ? 'Live set ended by host'
       : followStatus === 'expired'
-        ? 'Link expired'
-        : followStatus === 'reconnecting'
-          ? 'Reconnecting\u2026'
-          : 'Live'
+        ? 'Live link expired'
+        : 'Live set from host'
+  const followText =
+    followTone === 'ended'
+      ? 'Set no longer updating. Create your own copy to edit.'
+      : followTone === 'reconnecting'
+        ? 'Reconnecting\u2026 The host\u2019s latest changes will show once you\u2019re back online.'
+        : 'You see the host\u2019s changes as they make them. Editing makes your own copy.'
 
   const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
 
@@ -1297,35 +1267,32 @@ export default function SessionPage() {
       )}
 
       {!isFullScreen && session.liveSourceId && (
-        <div className="ui-status ui-status--info">
-          <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            {/* The switch stays outside the live region. */}
-            <div role="status" className="space-y-0.5">
-              <p>
-                {followEnded ? (
-                  <>
-                    <strong>{followStatusText}.</strong> You can keep using this copy.
-                  </>
-                ) : following ? (
-                  <>
-                    Following the host&apos;s edits. Editing this set makes it your own copy.{' '}
-                    <strong>{followStatusText}</strong>
-                  </>
-                ) : (
-                  <>
-                    This is your own copy. Turn on <strong>Follow Host Edits</strong> to get the
-                    host&apos;s changes again.
-                  </>
+        <div
+          className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${liveToneClasses[followTone]}`}
+        >
+          <Radio size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div role="status" className="min-w-0">
+              <p className="flex items-center gap-1.5 font-semibold">
+                {followStatus === 'live' && (
+                  <span
+                    className="h-2 w-2 rounded-full bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400"
+                    aria-hidden="true"
+                  />
                 )}
+                {followTitle}
               </p>
-              {followError && <p>Couldn&apos;t reach the host. Try again.</p>}
+              <p className="text-xs text-[var(--ui-text-muted)]">{followText}</p>
             </div>
-            <Switch
-              label="Follow Host Edits"
-              checked={following && !followEnded}
-              disabled={followEnded || followBusy}
-              onChange={handleToggleFollow}
-            />
+            <Button
+              size="sm"
+              variant="secondary"
+              className={`ml-auto ${liveToneButtonClasses[followTone]}`}
+              icon={<CopyPlus size={14} />}
+              onClick={makeCopy}
+            >
+              Create a copy
+            </Button>
           </div>
         </div>
       )}
@@ -1354,6 +1321,12 @@ export default function SessionPage() {
                 <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">
                   {session.name}
                 </h1>
+                {session.liveSourceId && (
+                  <LivePill tone={followTone}>
+                    <Radio size={11} aria-hidden="true" />
+                    {followTone === 'ended' ? 'Live set ended' : 'Live set'}
+                  </LivePill>
+                )}
                 <LiveShareChip sessionId={session.id} />
                 <IconButton label="Rename set" variant="ghost" onClick={() => guard(handleStartRename)}>
                   <Pencil size={14} />
@@ -1794,27 +1767,6 @@ export default function SessionPage() {
       )}
 
       {editGuardDialog}
-
-      <OverlayDialog
-        isOpen={confirmFollow}
-        onClose={() => setConfirmFollow(false)}
-        title="Follow Host Edits?"
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirmFollow(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={finishResume}>
-              Follow
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-[var(--ui-text)]">
-          Turning this on replaces your changes with the host&apos;s version.
-        </p>
-      </OverlayDialog>
 
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (

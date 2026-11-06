@@ -90,16 +90,14 @@ export async function openLiveShare(
   const existing = await deps.sessions.findByLiveSourceId(liveId)
 
   if (existing) {
-    if (existing.followHost === true) {
-      try {
-        const response = await deps.fetchLive(liveId)
-        if (response.manifest.status === 'stopped') return { kind: 'reused', session: existing }
-        if (response.manifest.rev > (existing.liveRev ?? 0)) {
-          await refreshFromLiveSet(existing, response, deps)
-        }
-      } catch {
-        // Offline or expired: the local copy still opens.
+    try {
+      const response = await deps.fetchLive(liveId)
+      if (response.manifest.status === 'stopped') return { kind: 'reused', session: existing }
+      if (response.manifest.rev > (existing.liveRev ?? 0)) {
+        await refreshFromLiveSet(existing, response, deps)
       }
+    } catch {
+      // Offline or expired: the local copy still opens.
     }
     return { kind: 'reused', session: existing }
   }
@@ -117,7 +115,6 @@ export async function openLiveShare(
   const { name, songs } = await applyLiveSet(response, deps)
   const session = await deps.sessions.createSession(songs, name, {
     liveSourceId: liveId,
-    followHost: true,
     liveRev: response.manifest.rev,
   })
   const { payload } = await buildLivePayload(session, deps.getSong)
@@ -141,51 +138,6 @@ export function openLiveShareOnce(
     inFlight.set(liveId, promise)
   }
   return promise
-}
-
-export async function stopFollowing(
-  sessionId: string,
-  deps: Pick<LiveFollowDeps, 'sessions'> = defaultDeps,
-): Promise<Session | null> {
-  const session = await deps.sessions.getSession(sessionId)
-  if (!session) return null
-  session.followHost = false
-  await deps.sessions.updateSession(session)
-  return session
-}
-
-/** True when the set differs from the last host version applied. */
-export async function hasLocalEdits(
-  session: Session,
-  deps: Pick<LiveFollowDeps, 'getSong'> = defaultDeps,
-): Promise<boolean> {
-  const { payload } = await buildLivePayload(session, deps.getSong)
-  return (payload ? await hashLivePayload(payload) : undefined) !== session.lastHostHash
-}
-
-export type ResumeResult =
-  | { kind: 'resumed'; session: Session }
-  | { kind: 'expired' | 'missing' | 'stopped' }
-
-/** Fetches the host's version, replaces local edits with it and turns following back on. */
-export async function resumeFollowing(
-  sessionId: string,
-  options: { deps?: LiveFollowDeps } = {},
-): Promise<ResumeResult> {
-  const deps = options.deps ?? defaultDeps
-  const session = await deps.sessions.getSession(sessionId)
-  if (!session?.liveSourceId) return { kind: 'missing' }
-  let response: GetLiveSetResult
-  try {
-    response = await deps.fetchLive(session.liveSourceId)
-  } catch (err) {
-    const kind = gone(err)
-    if (kind) return { kind }
-    throw err
-  }
-  if (response.manifest.status === 'stopped') return { kind: 'stopped' }
-  session.followHost = true
-  return { kind: 'resumed', session: await refreshFromLiveSet(session, response, deps) }
 }
 
 function gone(err: unknown): 'expired' | 'missing' | null {
@@ -335,7 +287,7 @@ export function followLiveSet(
             }),
           )
           const latest = await deps.sessions.getSession(session.id)
-          if (stopped || !latest || latest.followHost === false) continue
+          if (stopped || !latest) continue
           const contents = Object.fromEntries(
             manifest.entries.map((e) => [e.contentHash, known.get(e.contentHash)!]),
           )

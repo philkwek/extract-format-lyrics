@@ -80,7 +80,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
     setBusy('create')
     setError(null)
     try {
-      const copy = await sessionStore.createSession(structuredClone(session.songs), session.name)
+      const copy = await sessionStore.createSetCopy(session)
       navigate(sessionPath(copy))
     } catch (err) {
       setError((err as Error).message || 'Could not make a copy. Try again.')

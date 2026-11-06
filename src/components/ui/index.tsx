@@ -7,6 +7,7 @@ import type {
 import { motion, useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { reducedMotionTransition, segmentedSpring } from '../../lib/uiMotion'
+import { liveToneClasses, type LiveTone } from './liveTone'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
 export type ButtonSize = 'sm' | 'md' | 'icon'
@@ -163,43 +164,22 @@ export function StatusBanner({ tone = 'info', icon, className, children, ...prop
   )
 }
 
-
-interface SwitchProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
-  label: string
-  disabled?: boolean
-}
-
-export function Switch({ checked, onChange, label, disabled = false }: SwitchProps) {
+export function LivePill({
+  tone = 'live',
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & { tone?: LiveTone }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-1 text-sm font-semibold text-[var(--ui-text)] outline-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] disabled:cursor-not-allowed disabled:opacity-60"
+    <span
+      className={classes(
+        'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+        liveToneClasses[tone],
+        className,
+      )}
+      {...props}
     >
-      <span>{label}</span>
-      <span
-        aria-hidden="true"
-        className={classes(
-          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors',
-          checked
-            ? 'border-[#3368A0] bg-[#3368A0] dark:border-amber-500 dark:bg-amber-500'
-            : 'border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)]',
-        )}
-      >
-        <span
-          className={classes(
-            'inline-block h-4.5 w-4.5 rounded-full shadow-sm transition-transform',
-            checked
-              ? 'translate-x-5.5 bg-white dark:bg-[#101010]'
-              : 'translate-x-0.5 bg-[#6b7f8f] dark:bg-[#e5e5e5]',
-          )}
-        />
-      </span>
-    </button>
+      {children}
+    </span>
   )
 }

@@ -2,9 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyLiveSet,
   followLiveSet,
-  hasLocalEdits,
-  resumeFollowing,
-  stopFollowing,
   type FollowDeps,
   type FollowStatus,
   openLiveShare,
@@ -103,14 +100,13 @@ function setup(response: () => Promise<GetLiveSetResult>) {
 describe('openLiveShare', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('creates one following set with the host content', async () => {
+  it('creates one live set with the host content', async () => {
     const t = setup(() => liveResponse())
     const r = await openLiveShare(LIVE, { deps: t.deps })
     expect(r.kind).toBe('opened')
     const session = (r as { session: Session }).session
     expect(session).toMatchObject({
       liveSourceId: LIVE,
-      followHost: true,
       liveRev: 3,
       name: 'Sunday',
     })
@@ -143,7 +139,7 @@ describe('openLiveShare', () => {
     expect(await t.store.getAllSessions()).toHaveLength(1)
   })
 
-  it('refreshes a reused following set when the host moved on', async () => {
+  it('refreshes a reused live set when the host moved on', async () => {
     let rev = 3
     const t = setup(() => liveResponse({ rev }))
     await openLiveShare(LIVE, { deps: t.deps })
@@ -152,7 +148,19 @@ describe('openLiveShare', () => {
     expect((second as { session: Session }).session.liveRev).toBe(4)
   })
 
-  it('keeps the local songs when a following set is reused after the host stopped', async () => {
+  it('always refreshes an existing live set when the host moved on', async () => {
+    let rev = 3
+    const t = setup(() => liveResponse({ rev }))
+    const first = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    first.session.songs[0].targetKey = 'A'
+    await t.store.updateSession(first.session)
+    rev = 4
+    const second = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    expect(second.session.liveRev).toBe(4)
+    expect(second.session.songs[0].targetKey).toBe('D')
+  })
+
+  it('keeps the local songs when a live set is reused after the host stopped', async () => {
     const t = setup(() => liveResponse())
     const opened = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
     const songs = structuredClone(opened.session.songs)
@@ -231,7 +239,7 @@ describe('refreshFromLiveSet', () => {
     expect(session).toMatchObject({ id, publicId, name: 'Evening', liveRev: 9 })
     expect(session.songs).toHaveLength(1)
     const saved = await t.store.getSession(id)
-    expect(saved).toMatchObject({ publicId, liveSourceId: LIVE, followHost: true, liveRev: 9 })
+    expect(saved).toMatchObject({ publicId, liveSourceId: LIVE, liveRev: 9 })
     expect(saved?.lastHostHash).not.toBe(undefined)
   })
 })
@@ -253,61 +261,9 @@ describe('stale saves', () => {
     await refreshFromLiveSet(session, await liveResponse({ rev: 7 }), t.deps)
     const newerHash = session.lastHostHash
     stale.songs = stale.songs.slice(1)
-    delete stale.followHost
     await t.store.updateSession(stale)
     const saved = await t.store.getSession(session.id)
-    expect(saved).toMatchObject({ liveRev: 7, lastHostHash: newerHash, followHost: true })
-  })
-})
-
-describe('follow state', () => {
-  it('sees local edits only after a change', async () => {
-    const t = setup(() => liveResponse())
-    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
-    expect(await hasLocalEdits(session, t.deps)).toBe(false)
-    session.songs[0].targetKey = 'A'
-    expect(await hasLocalEdits(session, t.deps)).toBe(true)
-  })
-
-  it('stopFollowing keeps the songs and the host record', async () => {
-    const t = setup(() => liveResponse())
-    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
-    await stopFollowing(session.id, t.deps)
-    const saved = await t.store.getSession(session.id)
-    expect(saved).toMatchObject({ followHost: false, liveRev: 3, liveSourceId: LIVE })
-    expect(saved?.songs).toHaveLength(2)
-  })
-
-  it('resumeFollowing replaces local edits', async () => {
-    let rev = 3
-    const t = setup(() => liveResponse({ rev }))
-    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
-    await stopFollowing(session.id, t.deps)
-    const mine = (await t.store.getSession(session.id))!
-    mine.songs[0].targetKey = 'A'
-    mine.songs.pop()
-    await t.store.updateSession(mine)
-    rev = 4
-    const r = await resumeFollowing(session.id, { deps: t.deps })
-    expect(r.kind).toBe('resumed')
-    const saved = (await t.store.getSession(session.id))!
-    expect(saved).toMatchObject({ followHost: true, liveRev: 4 })
-    expect(saved.songs).toHaveLength(2)
-    expect(saved.songs[0].targetKey).toBe('D')
-    expect(await hasLocalEdits(saved, t.deps)).toBe(false)
-  })
-
-  it('resumeFollowing leaves following off when the share is gone', async () => {
-    const t = setup(() => liveResponse())
-    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
-    await stopFollowing(session.id, t.deps)
-    t.fetchLive.mockResolvedValueOnce(await liveResponse({ status: 'stopped' }))
-    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('stopped')
-    t.fetchLive.mockRejectedValueOnce(new ShareApiError('gone', 'EXPIRED', 410))
-    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('expired')
-    t.fetchLive.mockRejectedValueOnce(new ShareApiError('none', 'NOT_FOUND', 404))
-    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('missing')
-    expect((await t.store.getSession(session.id))?.followHost).toBe(false)
+    expect(saved).toMatchObject({ liveRev: 7, lastHostHash: newerHash })
   })
 })
 

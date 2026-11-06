@@ -5,6 +5,13 @@ import { MemoryRouter } from 'react-router-dom'
 import HomePage from '../../src/pages/HomePage'
 import * as recentLyricsStore from '../../src/lib/recentLyricsStore'
 import * as sessionStoreModule from '../../src/lib/sessionStore'
+import { getLiveShare } from '../../src/lib/liveShareSync'
+
+vi.mock('../../src/lib/liveShareSync', () => ({
+  getLiveShare: vi.fn(async () => null),
+  subscribeLiveShare: vi.fn(() => () => {}),
+  subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -96,5 +103,31 @@ describe('HomePage recent shared lyrics', () => {
       expect(screen.queryByText('Temporary Set')).toBeNull()
       expect(screen.queryByText('Recent shared lyrics')).toBeNull()
     })
+  })
+})
+
+describe('HomePage live set cards', () => {
+  const base = { createdAt: 0, songs: [] }
+
+  it('tells live sets and shared sets from normal sets', async () => {
+    vi.mocked(getLiveShare).mockImplementation(
+      async (id: string) => (id === 'host' ? ({ url: 'u' } as never) : null),
+    )
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1' },
+      { ...base, id: 'host', name: 'Hosted' },
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText('Live set')).toBeTruthy()
+    expect(await screen.findByText('Sharing live')).toBeTruthy()
+    expect(screen.getAllByText('Live set')).toHaveLength(1)
+    expect(screen.getAllByText('Sharing live')).toHaveLength(1)
   })
 })

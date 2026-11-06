@@ -6,8 +6,15 @@ import {
   subscribeLiveShareStatus,
   type LiveShareStatus,
 } from '../../lib/liveShareSync'
+import { LivePill } from '../ui'
 
-export default function LiveShareChip({ sessionId }: { sessionId: string }) {
+export default function LiveShareChip({
+  sessionId,
+  className,
+}: {
+  sessionId: string
+  className?: string
+}) {
   const [isLive, setIsLive] = useState(false)
   const [status, setStatus] = useState<LiveShareStatus>('ok')
 
@@ -31,17 +38,18 @@ export default function LiveShareChip({ sessionId }: { sessionId: string }) {
   }, [sessionId])
 
   if (!isLive) return null
-  const failing = status === 'failing'
+  if (status === 'failing') {
+    return (
+      <LivePill tone="reconnecting" className={className}>
+        <AlertTriangle size={11} aria-hidden="true" />
+        Not updating
+      </LivePill>
+    )
+  }
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-        failing
-          ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
-          : 'border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]'
-      }`}
-    >
-      {failing ? <AlertTriangle size={11} aria-hidden="true" /> : <Radio size={11} aria-hidden="true" />}
-      {failing ? 'Not updating' : 'Live'}
-    </span>
+    <LivePill className={className}>
+      <Radio size={11} aria-hidden="true" />
+      Sharing live
+    </LivePill>
   )
 }
