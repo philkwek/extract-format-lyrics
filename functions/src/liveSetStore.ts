@@ -92,7 +92,8 @@ export function isLiveSetManifestInput(value: unknown): value is LiveSetManifest
     Array.isArray(m.entries) &&
     m.entries.length >= 1 &&
     m.entries.length <= MAX_LIVE_SET_SONGS &&
-    m.entries.every(isLiveSetEntry)
+    m.entries.every(isLiveSetEntry) &&
+    new Set(m.entries.map((e) => e.entryId.trim())).size === m.entries.length
   )
 }
 
@@ -321,15 +322,16 @@ export class LiveSetStore {
     }
   }
 
-  /** Marks the share stopped and clears its entries. Safe to repeat. */
+  /** Marks the share stopped, clears its entries and expires its content. Safe to repeat. */
   async stop(id: string): Promise<{ id: string; rev: number }> {
     const ref = this.db.collection(MANIFESTS).doc(id)
     return this.db.runTransaction(async (transaction) => {
       const now = this.now()
+      const nowTs = Timestamp.fromDate(now)
       const snap = await transaction.get(ref)
+      const songs = await transaction.get(this.db.collection(SONGS).where('liveId', '==', id))
       const existing = snap.exists ? snap.data() : undefined
       const rev = (Number(existing?.rev) || 0) + 1
-      const nowTs = Timestamp.fromDate(now)
       transaction.set(ref, {
         v: 1,
         name: existing?.name ?? '',
@@ -343,6 +345,8 @@ export class LiveSetStore {
         writeDay: existing?.writeDay ?? utcDay(now),
         writeCount: existing?.writeCount ?? 0,
       })
+      // Followers can read content while it has a future expiry, so cut it off too.
+      songs.docs.forEach((doc) => transaction.update(doc.ref, { expiresAt: nowTs }))
       return { id, rev }
     })
   }

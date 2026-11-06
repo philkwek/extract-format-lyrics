@@ -136,6 +136,12 @@ describe('isLiveSetManifestInput', () => {
     expect(isLiveSetManifestInput({ ...manifest, entries: many(MAX_LIVE_SET_SONGS) })).toBe(true)
     expect(isLiveSetManifestInput({ ...manifest, entries: many(MAX_LIVE_SET_SONGS + 1) })).toBe(false)
   })
+
+  it('rejects duplicate entry ids, comparing trimmed', () => {
+    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e2')] })).toBe(true)
+    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e1')] })).toBe(false)
+    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, ' e1 ')] })).toBe(false)
+  })
 })
 
 describe('LiveSetStore.putSong', () => {
@@ -305,6 +311,39 @@ describe('LiveSetStore.stop', () => {
     expect(err.code).toBe('STOPPED')
     expect(await store.putSong(id, hash, content).catch((e) => e.status)).toBe(410)
     expect(await store.stop(id)).toEqual({ id, rev: 3 })
+  })
+
+  it('expires every content doc of the share and leaves other ids alone', async () => {
+    const { db, store, advance } = makeStore()
+    const other: LiveSongContent = { song: { ...song, title: 'Other' } }
+    const otherHash = hashLiveSongContent(other)
+    const otherExpiry = Timestamp.fromDate(new Date('2026-02-01T00:00:00Z'))
+    db.data.set(`liveSetSongs/elsewhere_${otherHash}`, {
+      liveId: 'elsewhere',
+      createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00Z')),
+      expiresAt: otherExpiry,
+    })
+    await store.putSong(id, hash, content)
+    await store.putSong(id, otherHash, other)
+    await store.publish(id, { ...manifest, entries: [entry(hash), entry(otherHash, 'e2')] })
+    advance(10_000)
+    const now = new Date('2026-01-01T12:00:10Z')
+    await store.stop(id)
+    for (const h of [hash, otherHash]) {
+      const doc = db.data.get(`liveSetSongs/${id}_${h}`)!
+      expect((doc.expiresAt as Timestamp).toMillis()).toBeLessThanOrEqual(now.getTime())
+    }
+    expect((db.data.get(`liveSetSongs/elsewhere_${otherHash}`)!.expiresAt as Timestamp).toMillis()).toBe(
+      otherExpiry.toMillis(),
+    )
+    // The manifest itself stays readable so followers see "stopped".
+    expect((db.data.get(`liveSets/${id}`)!.expiresAt as Timestamp).toMillis()).toBeGreaterThan(now.getTime())
+    // Repeating stop keeps the content expired.
+    await store.stop(id)
+    for (const h of [hash, otherHash]) {
+      const doc = db.data.get(`liveSetSongs/${id}_${h}`)!
+      expect((doc.expiresAt as Timestamp).toMillis()).toBeLessThanOrEqual(now.getTime())
+    }
   })
 })
 
