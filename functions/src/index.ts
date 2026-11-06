@@ -28,9 +28,16 @@ import {
   isSharedLyricsPayload,
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
+import {
+  setLinkStore,
+  verifySetLinkSecret,
+  isSetLinkPayload,
+  SetLinkThrottledError,
+  MAX_SET_LINK_SONGS,
+} from './setLinkStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
 import { resolveExtractionModel } from './extractionModel.js'
-import type { SharedLyricsPayload } from './types.js'
+import type { SetLinkPayload, SharedLyricsPayload } from './types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
 
@@ -534,6 +541,81 @@ export const api = onRequest(async (req, res) => {
     return
   }
 
+
+  // Set link endpoints: PUT /api/set-link/:id and GET /api/set-link/:id
+  const setLinkMatch = req.path.match(/^\/(?:api\/)?set-link\/([A-Za-z0-9_-]{22})$/)
+  if (setLinkMatch) {
+    const id = setLinkMatch[1]
+
+    if (req.method === 'PUT') {
+      if (rejectIfLimited(req, res)) return
+
+      const contentLength = Number(req.headers['content-length'] || 0)
+      if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
+        sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Set link data is too large')
+        return
+      }
+
+      const authHeader = (req.headers['authorization'] as string) || ''
+      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      if (!secret) {
+        sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
+        return
+      }
+
+      if (!verifySetLinkSecret(secret, id)) {
+        sendJsonError(res, 403, 'FORBIDDEN', 'Invalid authorization secret for this set link')
+        return
+      }
+
+      const payload = req.body?.payload as SetLinkPayload | undefined
+      if (Array.isArray(payload?.songs) && payload.songs.length > MAX_SET_LINK_SONGS) {
+        sendJsonError(res, 400, 'SONG_LIMIT_EXCEEDED', `Set links are limited to ${MAX_SET_LINK_SONGS} songs`)
+        return
+      }
+      if (!isSetLinkPayload(payload)) {
+        sendJsonError(res, 400, 'BAD_REQUEST', 'Missing or invalid set link payload')
+        return
+      }
+
+      try {
+        const result = await setLinkStore.publish(id, payload)
+        res.status(200).json({ id: result.id, expiresAt: result.expiresAt.toISOString(), unchanged: result.unchanged })
+      } catch (err) {
+        if (err instanceof SetLinkThrottledError) {
+          res.setHeader('Retry-After', String(err.retryAfterSeconds))
+          sendJsonError(res, 429, 'RATE_LIMITED', err.message)
+          return
+        }
+        sendJsonError(res, 500, 'SET_LINK_SAVE_FAILED', (err as Error).message || 'Failed to save set link')
+      }
+      return
+    }
+
+    if (req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store')
+      let result
+      try {
+        result = await setLinkStore.get(id)
+      } catch (err) {
+        sendJsonError(res, 500, 'SET_LINK_LOOKUP_FAILED', (err as Error).message || 'Failed to retrieve set link')
+        return
+      }
+      if (result.kind === 'expired') {
+        sendJsonError(res, 410, 'EXPIRED', 'This set link has expired')
+        return
+      }
+      if (result.kind === 'missing') {
+        sendJsonError(res, 404, 'NOT_FOUND', 'Set link not found')
+        return
+      }
+      res.status(200).json({ id, payload: result.payload, expiresAt: result.expiresAt.toISOString() })
+      return
+    }
+
+    sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only GET and PUT are allowed for /api/set-link/:id')
+    return
+  }
 
   // 404 for unrouted paths
   sendJsonError(res, 404, 'NOT_FOUND', `Cannot ${req.method} ${req.path}`)
