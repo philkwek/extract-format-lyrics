@@ -597,3 +597,14 @@ describe('followLiveSet', () => {
     f.controller.stop()
   })
 })
+
+describe('parseEmulatorHost', () => {
+  it('reads host:port and ignores anything else', async () => {
+    const { parseEmulatorHost } = await import('../../src/lib/liveFollow')
+    expect(parseEmulatorHost('127.0.0.1:8080')).toEqual({ host: '127.0.0.1', port: 8080 })
+    expect(parseEmulatorHost('localhost:9000')).toEqual({ host: 'localhost', port: 9000 })
+    expect(parseEmulatorHost(undefined)).toBeNull()
+    expect(parseEmulatorHost('')).toBeNull()
+    expect(parseEmulatorHost('https://x.test')).toBeNull()
+  })
+})
