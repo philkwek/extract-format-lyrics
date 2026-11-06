@@ -30,6 +30,7 @@ export default function PadControls({
 }: PadControlsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const openedByHover = useRef(false)
   const reduceMotion = useReducedMotion()
   const popoverMotion = getPopoverMotion(Boolean(reduceMotion))
 
@@ -64,7 +65,16 @@ export default function PadControls({
   const ariaLabel = isPadPlaying ? `Playing Pad (${keyDisplay})` : 'Play Ambient Pad'
 
   return (
-    <div ref={containerRef} className="relative inline-flex items-center">
+    <div
+      ref={containerRef}
+      className="relative inline-flex items-center"
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'mouse' && openedByHover.current) {
+          openedByHover.current = false
+          setIsMenuOpen(false)
+        }
+      }}
+    >
       <div
         className={`inline-flex h-8 items-center overflow-hidden rounded-[0.7rem] border transition ${
           isPadPlaying
@@ -102,7 +112,17 @@ export default function PadControls({
         {onChangePadKeyMode && (
           <button
             type="button"
-            onClick={() => setIsMenuOpen((prev) => !prev)}
+            onPointerEnter={(event) => {
+              if (event.pointerType === 'mouse' && !isMenuOpen) {
+                openedByHover.current = true
+                setIsMenuOpen(true)
+              }
+            }}
+            onClick={() => {
+              // A click on a hover-opened menu keeps it open instead of closing it.
+              if (openedByHover.current) openedByHover.current = false
+              else setIsMenuOpen((prev) => !prev)
+            }}
             aria-label="Pad key settings"
             aria-expanded={isMenuOpen}
             title="Pad key settings"
@@ -129,7 +149,7 @@ export default function PadControls({
             animate={popoverMotion.animate}
             exit={popoverMotion.exit}
             transition={popoverMotion.transition}
-            className="ui-popover absolute right-0 top-full z-30 mt-1.5 flex w-[11.25rem] flex-col gap-1.5 p-2"
+            className="ui-popover absolute right-0 top-full z-30 mt-1.5 flex w-[11.25rem] flex-col gap-1.5 p-2 before:absolute before:inset-x-0 before:-top-1.5 before:h-1.5 before:content-['']"
           >
             <SegmentedControl
               label="Pads Key"
