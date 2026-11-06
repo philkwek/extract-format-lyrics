@@ -83,7 +83,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
-- **Live shares expire:** they end 7 days after the host's last change or open.
+- **Live shares expire:** they end 7 days after the host's last change.
 - **Turning on Follow Host Edits** replaces the follower's own changes to that set.
 - **Capo changes:** moving the key for a capo counts as an edit. The set becomes the follower's own copy.
 - **Song limit:** a live share holds up to 30 songs.
