@@ -118,7 +118,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     const tablist = screen.getByRole('tablist', { name: 'Pads Key' })
     expect(tablist.classList.contains('ui-segmented--full')).toBe(true)
     expect(tablist.querySelector('.ui-segmented__thumb')).toBeTruthy()
-    const matchTab = screen.getByRole('tab', { name: 'Match Song' })
+    const matchTab = screen.getByRole('tab', { name: 'Match Key' })
     const customTab = screen.getByRole('tab', { name: 'Custom' })
     expect(matchTab.getAttribute('aria-selected')).toBe('true')
     expect(customTab.getAttribute('aria-selected')).toBe('false')
