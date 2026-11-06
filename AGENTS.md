@@ -49,6 +49,9 @@ dim room. Decisions favour **readability while playing**, then stability, then e
 npm test && npm run test:functions && npm run lint && npm run build && npm run build:functions
 ```
 
+- Changes to `functions/src/*Store.ts`, the caches or `firestore.rules` also need
+  `npm run test:emulator` (runs `functions/srcEmulatorTest/` against the Firestore emulator;
+  needs Java). Stop `dev:backend` first, since both use port 8080.
 - For UI changes, look at the result in a browser in **light and dark mode**, at **phone
   (375px) and tablet widths**. Report anything you could not check.
 
