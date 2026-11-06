@@ -10,7 +10,7 @@ import { Button, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
 
 export default function ShareImportPage() {
-  useSeo({ title: 'Shared set | Sets & Sheets', noindex: true })
+  useSeo({ title: 'Shared Set | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 

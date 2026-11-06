@@ -12,7 +12,7 @@ import LyricsViewerContent from '../components/LyricsViewerContent'
 import { useSeo } from '../lib/useSeo'
 
 export default function LyricsViewerPage() {
-  useSeo({ title: 'Shared lyrics | Sets & Sheets', noindex: true })
+  useSeo({ title: 'Shared Lyrics | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 

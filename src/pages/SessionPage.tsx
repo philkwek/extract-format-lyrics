@@ -83,7 +83,7 @@ interface PositioningChordState {
 }
 
 export default function SessionPage() {
-  useSeo({ title: 'Set list | Sets & Sheets', noindex: true })
+  useSeo({ title: 'Session | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
