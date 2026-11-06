@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildSetLinkPayload,
   createSetLinkSync,
+  createSyncChannel,
   hashSetLinkPayload,
   type SetLinkSyncDeps,
 } from '../../src/lib/setLinkSync'
@@ -344,5 +345,77 @@ describe('setLinkSync', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(env.api).toHaveBeenCalledTimes(0)
     expect(env.identities.has('s1')).toBe(false)
+  })
+})
+
+describe('createSyncChannel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('keeps channels with different names independent', async () => {
+    const listeners = new Set<Listener>()
+    const identity = {
+      get: async () => ({ sessionId: 's1', publicId: 'p'.repeat(22), secret: 'k' }),
+      update: async () => {},
+      remove: async () => {},
+    }
+    const locks: string[] = []
+    const base = {
+      store: { subscribe: (l: Listener) => (listeners.add(l), () => listeners.delete(l)) },
+      identity,
+      buildPayload: buildSetLinkPayload,
+      now: () => Date.now(),
+      timers: {
+        setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+        clearTimeout: (h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      },
+      hash: fakeHash,
+      random: () => 0,
+      withLock: async <T,>(name: string, fn: () => Promise<T>) => (locks.push(name), fn()),
+    }
+    const expiresAt = new Date(Date.now() + 30 * 86400_000).toISOString()
+    const failing = vi.fn(async () => {
+      throw new ShareApiError('boom', undefined, 500)
+    })
+    let release!: () => void
+    const slow = vi.fn(() => new Promise<{ expiresAt: string }>((r) => (release = () => r({ expiresAt }))))
+    createSyncChannel({ ...base, name: 'a', publish: failing }).start()
+    createSyncChannel({ ...base, name: 'b', publish: slow }).start()
+
+    listeners.forEach((l) => l(ev('created', makeSession())))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(failing).toHaveBeenCalledTimes(1)
+    expect(slow).toHaveBeenCalledTimes(1)
+    expect(locks.sort()).toEqual(['a:s1', 'b:s1'])
+
+    // a's failure and b's in-flight publish don't block each other: a retries while b is pending.
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(failing).toHaveBeenCalledTimes(2)
+    expect(slow).toHaveBeenCalledTimes(1)
+    release()
+  })
+
+  it('skips sessions that shouldSync rejects', async () => {
+    const publish = vi.fn(async () => ({ expiresAt: '' }))
+    const listeners = new Set<Listener>()
+    createSyncChannel({
+      name: 'x',
+      store: { subscribe: (l) => (listeners.add(l), () => listeners.delete(l)) },
+      identity: { get: async () => null, update: async () => {}, remove: async () => {} },
+      shouldSync: () => false,
+      buildPayload: buildSetLinkPayload,
+      publish,
+      now: () => Date.now(),
+      timers: { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>) },
+      hash: fakeHash,
+      withLock: async (_n, fn) => fn(),
+    }).start()
+    listeners.forEach((l) => l(ev('created', makeSession())))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(publish).not.toHaveBeenCalled()
   })
 })

@@ -90,8 +90,37 @@ export interface SetLinkSyncIdentity {
   remove(sessionId: string): Promise<void>
 }
 
-export interface SetLinkSyncDeps {
+export interface SyncChannelDeps<P> {
+  /** Names the lock key, state and log prefix, so channels never collide. */
+  name: string
   store: { subscribe(listener: (event: SessionChangeEvent) => void): () => void }
+  identity: SetLinkSyncIdentity
+  /** Sessions that return false are never published on this channel. */
+  shouldSync?: (session: Session) => boolean
+  buildPayload: (session: Session) => { payload: P | null; skippedUploads?: number }
+  publish: (
+    identity: SetLinkIdentityRecord,
+    payload: P,
+    options: { keepalive?: boolean }
+  ) => Promise<{ expiresAt: string }>
+  onPublished?: (info: { payload: P; skippedUploads: number; trigger: SetLinkTrigger }) => void
+  now: () => number
+  timers: {
+    setTimeout: (fn: () => void, ms: number) => unknown
+    clearTimeout: (handle: unknown) => void
+  }
+  hash: (payload: P) => Promise<string>
+  /** Jitter source in [0, 1); injectable for tests. */
+  random?: () => number
+  withLock: <T>(name: string, fn: () => Promise<T>) => Promise<T>
+  /** Only used to flush on page hide; absent in non-DOM environments. */
+  visibility?: {
+    subscribe(onHidden: () => void): () => void
+  }
+}
+
+export interface SetLinkSyncDeps {
+  store: SyncChannelDeps<SetLinkPayload>['store']
   identity: SetLinkSyncIdentity
   api: (
     id: string,
@@ -100,22 +129,15 @@ export interface SetLinkSyncDeps {
     options: { keepalive?: boolean }
   ) => Promise<PutSetLinkResult>
   now: () => number
-  timers: {
-    setTimeout: (fn: () => void, ms: number) => unknown
-    clearTimeout: (handle: unknown) => void
-  }
+  timers: SyncChannelDeps<SetLinkPayload>['timers']
   hash: (payload: SetLinkPayload) => Promise<string>
-  /** Jitter source in [0, 1); injectable for tests. */
   random?: () => number
-  withLock: <T>(name: string, fn: () => Promise<T>) => Promise<T>
+  withLock: SyncChannelDeps<SetLinkPayload>['withLock']
   track: (
     name: 'set_link_published',
     params: { song_count: number; skipped_uploads: number; trigger: SetLinkTrigger }
   ) => void
-  /** Only used to flush on page hide; absent in non-DOM environments. */
-  visibility?: {
-    subscribe(onHidden: () => void): () => void
-  }
+  visibility?: SyncChannelDeps<SetLinkPayload>['visibility']
 }
 
 interface SessionSyncState {
@@ -144,7 +166,7 @@ function nonRetryable(error: unknown): boolean {
   return [400, 401, 403, 413].includes(error.status ?? 0)
 }
 
-export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
+export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
   const states = new Map<string, SessionSyncState>()
   const publishCounts = new Map<string, number>()
 
@@ -207,23 +229,24 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
   ): Promise<void> {
     const session = st.latest
     if (!session) return
-    const { payload, skippedUploads } = buildSetLinkPayload(session)
+    if (deps.shouldSync && !deps.shouldSync(session)) return
+    const { payload, skippedUploads = 0 } = deps.buildPayload(session)
     if (!payload) return
     const hash = await deps.hash(payload)
     const trigger = st.trigger
     const refresh = st.refresh
-    await deps.withLock(`set-link:${sessionId}`, async () => {
+    await deps.withLock(`${deps.name}:${sessionId}`, async () => {
       // Re-read inside the lock so a second tab that already published the same state skips.
       const identity = await deps.identity.get(sessionId)
       if (!identity) return
       if (session.publicId && session.publicId !== identity.publicId) {
         // Publishing would go to an id nobody's URL points at; skip rather than write blindly.
-        console.warn(`[set-link] publicId mismatch for ${sessionId}; not publishing`)
+        console.warn(`[${deps.name}] publicId mismatch for ${sessionId}; not publishing`)
         return
       }
       if (identity.lastPublishedHash === hash && !(refresh && expiresSoon(identity))) return
       st.lastAttemptAt = deps.now()
-      const result = await deps.api(identity.publicId, identity.secret, payload, { keepalive })
+      const result = await deps.publish(identity, payload, { keepalive })
       await deps.identity.update(sessionId, {
         lastPublishedHash: hash,
         expiresAt: result.expiresAt,
@@ -234,13 +257,9 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
       const count = (publishCounts.get(sessionId) ?? 0) + 1
       publishCounts.set(sessionId, count)
       if (import.meta.env?.DEV && import.meta.env.MODE !== 'test') {
-        console.debug(`[set-link] publish #${count} for ${sessionId}`)
+        console.debug(`[${deps.name}] publish #${count} for ${sessionId}`)
       }
-      deps.track('set_link_published', {
-        song_count: payload.songs.length,
-        skipped_uploads: skippedUploads,
-        trigger,
-      })
+      deps.onPublished?.({ payload, skippedUploads, trigger })
     })
   }
 
@@ -357,6 +376,22 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
       }
     },
   }
+}
+
+export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
+  return createSyncChannel<SetLinkPayload>({
+    ...deps,
+    name: 'set-link',
+    buildPayload: buildSetLinkPayload,
+    publish: (identity, payload, options) =>
+      deps.api(identity.publicId, identity.secret, payload, options),
+    onPublished: ({ payload, skippedUploads, trigger }) =>
+      deps.track('set_link_published', {
+        song_count: payload.songs.length,
+        skipped_uploads: skippedUploads,
+        trigger,
+      }),
+  })
 }
 
 function createDefaultSync(): SetLinkSync {
