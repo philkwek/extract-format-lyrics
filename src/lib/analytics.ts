@@ -8,6 +8,15 @@ interface Events {
   song_import: { method: ImportMethod; outcome: Outcome; imported_count: number }
   set_shared: { song_count: number }
   shared_set_imported: { outcome: 'success' | 'error'; imported_count: number }
+  set_link_published: {
+    song_count: number
+    skipped_uploads: number
+    trigger: 'create' | 'update' | 'refresh'
+  }
+  set_link_opened: {
+    outcome: 'imported' | 'reused' | 'expired' | 'missing' | 'error'
+    song_count: number
+  }
   lyrics_published: {
     operation: 'create' | 'update'
     outcome: 'success' | 'error'
@@ -167,9 +176,10 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
   const clean: Record<string, string | number> = {}
   const enumerations: Record<string, readonly string[]> = {
     entry_page: ['home', 'search'],
-    outcome: ['success', 'partial', 'error'],
+    outcome: ['success', 'partial', 'error', 'imported', 'reused', 'expired', 'missing'],
     method: ['search', 'pasted_link', 'upload'],
     operation: ['create', 'update'],
+    trigger: ['create', 'update', 'refresh'],
   }
   const fields: Record<keyof Events, string[]> = {
     song_search: ['entry_page', 'outcome', 'result_count'],
@@ -178,6 +188,8 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
     set_shared: ['song_count'],
     shared_set_imported: ['outcome', 'imported_count'],
     lyrics_published: ['operation', 'outcome', 'song_count'],
+    set_link_published: ['trigger', 'song_count', 'skipped_uploads'],
+    set_link_opened: ['outcome', 'song_count'],
   }
   if (!Object.hasOwn(fields, name)) return
   for (const key of fields[name]) {

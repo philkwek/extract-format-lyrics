@@ -1,6 +1,6 @@
 import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   GripVertical,
   Lightbulb,
@@ -18,11 +18,16 @@ import {
 import {
   makeEntryId,
   sessionStore,
+  sessionPath,
   type PadKeyMode,
   type Session,
   type SessionSongItem,
 } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
+import { ensureSetLinkFresh } from '../lib/setLinkSync'
+import { isSetLinkId } from '../lib/setLinkIdentity'
+import { importFromSetLinkOnce } from '../lib/setLinkImport'
+import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
 import { scrapeApi, simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
 import {
@@ -54,7 +59,7 @@ import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
 import type { Song, Section, SharedSetSnapshot } from '../types/song'
-import { Button, IconButton } from '../components/ui'
+import { Button, IconButton, StatusBanner } from '../components/ui'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import {
   ambientPadPlayer,
@@ -82,6 +87,11 @@ export default function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromSetLink = (location.state as Partial<SetLinkNavState> | null)?.fromSetLink
+  // Keyed by id: after navigating to a new copy, a stale "not found" must not render the import view for it.
+  const [notFoundId, setNotFoundId] = useState<string | null>(null)
+  const [refreshingLink, setRefreshingLink] = useState(false)
 
   const [session, setSession] = useState<Session | null>(null)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
@@ -212,11 +222,22 @@ export default function SessionPage() {
   useEffect(() => {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
-      if (!s) return
+      if (!s) {
+        setNotFoundId(sessionId)
+        return
+      }
+      setNotFoundId(null)
       setSession(s)
+      // Opened by legacy id: show the shareable address instead.
+      if (s.publicId && sessionId !== s.publicId) {
+        navigate(sessionPath(s), { replace: true, state: location.state })
+      }
+      void ensureSetLinkFresh(s)
       await loadSessionSongs(s)
     })
-  }, [sessionId, loadSessionSongs])
+  // location.state is only read to carry it across the one-time address replace.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, loadSessionSongs, navigate])
 
   const currentItem = session?.songs[activeIndex]
   const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
@@ -1017,6 +1038,10 @@ export default function SessionPage() {
     }
   }
 
+  if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
+    return <SetLinkImportView linkId={sessionId} />
+  }
+
   if (!session) {
     return (
       <div className="bg-white dark:bg-[#151515] rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-[#C8DFDB]/50 dark:border-[#282828]">
@@ -1079,6 +1104,24 @@ export default function SessionPage() {
     }
   }
 
+  const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
+
+  const getLatestFromSetLink = async () => {
+    if (!session.importedFromLinkId || refreshingLink) return
+    setRefreshingLink(true)
+    try {
+      const result = await importFromSetLinkOnce(session.importedFromLinkId, {}, true)
+      if (result.kind === 'imported') {
+        navigate(sessionPath(result.session), {
+          replace: true,
+          state: { fromSetLink: { name: result.session.name, failed: result.failed, reused: false } },
+        })
+      }
+    } finally {
+      setRefreshingLink(false)
+    }
+  }
+
   return (
     <div
       className={
@@ -1087,6 +1130,28 @@ export default function SessionPage() {
           : 'ui-surface space-y-5 p-4 sm:p-6'
       }
     >
+      {!isFullScreen && fromSetLink && (
+        <StatusBanner tone="info">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {fromSetLink.reused
+                ? 'You already have a copy of this set. It won\u2019t update when the sender makes changes.'
+                : `This is your own copy of \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.${
+                    fromSetLink.failed > 0 ? ` ${fromSetLink.failed} song(s) couldn\u2019t be loaded.` : ''
+                  }`}
+            </span>
+            <span className="flex gap-2">
+              {fromSetLink.reused && session.importedFromLinkId && (
+                <Button size="sm" variant="secondary" loading={refreshingLink} onClick={getLatestFromSetLink}>
+                  Get the latest version
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>Dismiss</Button>
+            </span>
+          </div>
+        </StatusBanner>
+      )}
+
       {/* Session Title Bar */}
       {!isFullScreen && (
         <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">

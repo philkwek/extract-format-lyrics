@@ -1,5 +1,10 @@
 import { get, set, del } from 'idb-keyval'
 import type { Section } from '../types/song'
+import {
+  getOrCreateSetLinkIdentity,
+  getSetLinkIdentityStore,
+  type SetLinkIdentityStore,
+} from './setLinkIdentity'
 
 export type PadKeyMode = 'match' | 'custom'
 
@@ -27,6 +32,26 @@ export interface Session {
   createdAt: number
   name: string
   songs: SessionSongItem[]
+  /** Unguessable ID used in the shareable URL. Derived from a secret kept in the identity store. */
+  publicId?: string
+  /** Set link this session was imported from, so re-opening the link finds the existing copy. */
+  importedFromLinkId?: string
+}
+
+export interface SessionChangeEvent {
+  type: 'created' | 'updated' | 'deleted'
+  sessionId: string
+  session?: Session
+}
+
+export type SessionChangeListener = (event: SessionChangeEvent) => void
+
+export interface CreateSessionOptions {
+  importedFromLinkId?: string
+}
+
+export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
+  return `/session/${session.publicId ?? session.id}`
 }
 
 const SESSIONS_STORAGE_KEY = 'app_sessions'
@@ -52,9 +77,33 @@ export function formatDefaultSessionName(date: Date = new Date()): string {
 
 export class SessionStore {
   private readonly store: SessionStorageStore
+  private readonly identityStore?: SetLinkIdentityStore
+  private readonly listeners = new Set<SessionChangeListener>()
 
-  constructor(store: SessionStorageStore = defaultStore) {
+  constructor(store: SessionStorageStore = defaultStore, identityStore?: SetLinkIdentityStore) {
     this.store = store
+    this.identityStore = identityStore
+  }
+
+  private identities(): SetLinkIdentityStore {
+    return this.identityStore ?? getSetLinkIdentityStore()
+  }
+
+  subscribe(listener: SessionChangeListener): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  private emit(event: SessionChangeEvent): void {
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(event)
+      } catch (error) {
+        console.error('Session listener failed', error)
+      }
+    }
   }
 
   async getAllSessions(): Promise<Session[]> {
@@ -69,21 +118,45 @@ export class SessionStore {
           changed = true
         }
       }
+      if (!session.publicId) {
+        // Silent migration: no listener events, so nothing is published here.
+        const identity = await getOrCreateSetLinkIdentity(session.id, this.identities())
+        session.publicId = identity.publicId
+        changed = true
+      }
     }
     if (changed) await this.store.set(SESSIONS_STORAGE_KEY, sessions)
     return sessions
   }
 
-  async getSession(id: string): Promise<Session | null> {
+  /** Looks a session up by its local id first, then by its public id. */
+  async getSession(idOrPublicId: string): Promise<Session | null> {
     const list = await this.getAllSessions()
-    return list.find((s) => s.id === id) ?? null
+    return (
+      list.find((s) => s.id === idOrPublicId) ??
+      list.find((s) => s.publicId === idOrPublicId) ??
+      null
+    )
   }
 
-  async createSession(songs: SessionSongItem[], name?: string): Promise<Session> {
+  async findByImportedLinkId(linkId: string): Promise<Session | null> {
+    const list = await this.getAllSessions()
+    return list.find((s) => s.importedFromLinkId === linkId) ?? null
+  }
+
+  async createSession(
+    songs: SessionSongItem[],
+    name?: string,
+    options: CreateSessionOptions = {}
+  ): Promise<Session> {
     const list = await this.getAllSessions()
     const now = Date.now()
+    const id = `session_${now}_${Math.random().toString(36).substring(2, 7)}`
+    const identity = await getOrCreateSetLinkIdentity(id, this.identities())
     const newSession: Session = {
-      id: `session_${now}_${Math.random().toString(36).substring(2, 7)}`,
+      id,
+      publicId: identity.publicId,
+      ...(options.importedFromLinkId ? { importedFromLinkId: options.importedFromLinkId } : {}),
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
@@ -91,6 +164,7 @@ export class SessionStore {
 
     list.unshift(newSession)
     await this.store.set(SESSIONS_STORAGE_KEY, list)
+    this.emit({ type: 'created', sessionId: newSession.id, session: newSession })
     return newSession
   }
 
@@ -109,8 +183,12 @@ export class SessionStore {
     const list = await this.getAllSessions()
     const index = list.findIndex((s) => s.id === session.id)
     if (index >= 0) {
+      const existing = list[index]
+      session.publicId ??= existing.publicId
+      session.importedFromLinkId ??= existing.importedFromLinkId
       list[index] = session
       await this.store.set(SESSIONS_STORAGE_KEY, list)
+      this.emit({ type: 'updated', sessionId: session.id, session })
     }
   }
 
@@ -118,6 +196,9 @@ export class SessionStore {
     const list = await this.getAllSessions()
     const filtered = list.filter((s) => s.id !== id)
     await this.store.set(SESSIONS_STORAGE_KEY, filtered)
+    if (filtered.length !== list.length) {
+      this.emit({ type: 'deleted', sessionId: id })
+    }
   }
 
   async addSongsToSession(

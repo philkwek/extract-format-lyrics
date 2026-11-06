@@ -56,6 +56,9 @@ export default function ShareSetLinkPanel({ snapshot }: ShareSetLinkPanelProps) 
       <StatusBanner tone="info" icon={<Link2 size={16} />}>
         Anyone with the link can recreate this setlist. The link expires automatically after seven days.
       </StatusBanner>
+      <p className="text-xs text-[var(--ui-text-muted)]">
+        Tip: you can also copy this page&rsquo;s address. People who open it get their own copy of the set (it won&rsquo;t update).
+      </p>
 
       <div className="space-y-2">
         <label

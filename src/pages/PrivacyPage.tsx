@@ -58,6 +58,12 @@ export default function PrivacyPage() {
         Your song library and setlists are stored in your browser. Sharing a set or publishing
         lyrics also stores that shared content on our server for the link to work.
       </p>
+      <p>
+        To make a set&rsquo;s address work on other devices, the set name, song titles and artists, song
+        links, and per-song key, pad and simplified settings are stored on our server. They are deleted
+        automatically 7 days after the set was last changed or opened by its creator. Chart edits and
+        uploaded sheets are not stored this way.
+      </p>
       <a className="underline" href="https://policies.google.com/privacy">
         Google’s privacy policy
       </a>

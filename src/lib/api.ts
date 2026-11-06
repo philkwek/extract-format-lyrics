@@ -188,11 +188,14 @@ export async function simplifyApi(url: string, signal?: AbortSignal): Promise<Si
 export class ShareApiError extends Error {
   readonly code?: string
   readonly status?: number
+  /** Seconds from a Retry-After header, when the server sent one. */
+  readonly retryAfterSeconds?: number
 
-  constructor(message: string, code?: string, status?: number) {
+  constructor(message: string, code?: string, status?: number, retryAfterSeconds?: number) {
     super(message)
     this.code = code
     this.status = status
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -206,7 +209,9 @@ async function readShareError(res: Response): Promise<ShareApiError> {
   } catch {
     // Preserve the HTTP fallback.
   }
-  return new ShareApiError(message, code, res.status)
+  const retryAfter = Number(res.headers?.get?.('Retry-After'))
+  const retryAfterSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : undefined
+  return new ShareApiError(message, code, res.status, retryAfterSeconds)
 }
 
 export interface CreateShareResult { id: string; expiresAt: string }
@@ -274,6 +279,48 @@ export async function getSharedLyricsApi(id: string): Promise<GetSharedLyricsRes
   return (await res.json()) as GetSharedLyricsResult
 }
 
+export interface PutSetLinkResult {
+  id: string
+  expiresAt: string
+  unchanged: boolean
+}
+
+export interface GetSetLinkResult {
+  id: string
+  payload: import('../types/song').SetLinkPayload
+  expiresAt: string
+}
+
+export async function putSetLinkApi(
+  id: string,
+  secret: string,
+  payload: import('../types/song').SetLinkPayload,
+  options: { keepalive?: boolean } = {}
+): Promise<PutSetLinkResult> {
+  const res = await fetch(`/api/set-link/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ payload }),
+    ...(options.keepalive ? { keepalive: true } : {}),
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as PutSetLinkResult
+}
+
+export async function getSetLinkApi(id: string): Promise<GetSetLinkResult> {
+  const res = await fetch(`/api/set-link/${encodeURIComponent(id)}`, {
+    headers: { 'Cache-Control': 'no-store' },
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as GetSetLinkResult
+}
 
 export interface ExtractSongsResponse {
   songs: Song[]
