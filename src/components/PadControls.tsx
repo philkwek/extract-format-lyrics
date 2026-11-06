@@ -68,6 +68,12 @@ export default function PadControls({
     <div
       ref={containerRef}
       className="relative inline-flex items-center"
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'mouse' && onChangePadKeyMode && !isMenuOpen) {
+          openedByHover.current = true
+          setIsMenuOpen(true)
+        }
+      }}
       onPointerLeave={(event) => {
         if (event.pointerType === 'mouse' && openedByHover.current) {
           openedByHover.current = false
@@ -112,12 +118,6 @@ export default function PadControls({
         {onChangePadKeyMode && (
           <button
             type="button"
-            onPointerEnter={(event) => {
-              if (event.pointerType === 'mouse' && !isMenuOpen) {
-                openedByHover.current = true
-                setIsMenuOpen(true)
-              }
-            }}
             onClick={() => {
               // A click on a hover-opened menu keeps it open instead of closing it.
               if (openedByHover.current) openedByHover.current = false
@@ -140,6 +140,10 @@ export default function PadControls({
         )}
       </div>
 
+      {isMenuOpen && onChangePadKeyMode && (
+        <div aria-hidden="true" className="absolute inset-x-0 top-full h-3" />
+      )}
+
       <AnimatePresence>
         {isMenuOpen && onChangePadKeyMode && (
           <motion.div
@@ -149,7 +153,7 @@ export default function PadControls({
             animate={popoverMotion.animate}
             exit={popoverMotion.exit}
             transition={popoverMotion.transition}
-            className="ui-popover absolute right-0 top-full z-30 mt-1.5 flex w-[11.25rem] flex-col gap-1.5 p-2 before:absolute before:inset-x-0 before:-top-1.5 before:h-1.5 before:content-['']"
+            className="ui-popover absolute left-1/2 top-full -translate-x-1/2 z-30 mt-1.5 flex w-[11.25rem] flex-col gap-1.5 p-2"
           >
             <SegmentedControl
               label="Pads Key"
@@ -157,7 +161,7 @@ export default function PadControls({
               onChange={onChangePadKeyMode}
               className="ui-segmented--compact ui-segmented--full"
               options={[
-                { value: 'match', label: 'Match Song' },
+                { value: 'match', label: 'Match Key' },
                 { value: 'custom', label: 'Custom' },
               ]}
             />
