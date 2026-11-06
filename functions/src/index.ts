@@ -35,6 +35,16 @@ import {
   SetLinkThrottledError,
   MAX_SET_LINK_SONGS,
 } from './setLinkStore.js'
+import {
+  liveSetStore,
+  verifyLiveSetSecret,
+  isLiveSetManifestInput,
+  LiveSetError,
+  LiveSetThrottledError,
+  LIVE_SET_MAX_CONTENT_BYTES,
+  LIVE_SET_MAX_MANIFEST_BYTES,
+  MAX_LIVE_SET_SONGS,
+} from './liveSetStore.js'
 import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
 import { resolveExtractionModel } from './extractionModel.js'
 import type { SetLinkPayload, SharedLyricsPayload } from './types.js'
@@ -614,6 +624,122 @@ export const api = onRequest(async (req, res) => {
     }
 
     sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only GET and PUT are allowed for /api/set-link/:id')
+    return
+  }
+
+  // Live set endpoints: PUT/GET/DELETE /api/live-set/:id and PUT /api/live-set/:id/song/:hash
+  const liveSetMatch = req.path.match(/^\/(?:api\/)?live-set\/([A-Za-z0-9_-]{22})(?:\/song\/([0-9a-f]{64}))?$/)
+  if (liveSetMatch) {
+    const id = liveSetMatch[1]
+    const songHash = liveSetMatch[2]
+
+    // Sends the error response and returns true when the caller is not allowed to write.
+    const rejectLiveWrite = (maxBytes: number): boolean => {
+      const contentLength = Number(req.headers['content-length'] || 0)
+      if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Live set data is too large')
+        return true
+      }
+      const authHeader = (req.headers['authorization'] as string) || ''
+      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      if (!secret) {
+        sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
+        return true
+      }
+      if (!verifyLiveSetSecret(secret, id)) {
+        sendJsonError(res, 403, 'FORBIDDEN', 'Invalid authorization secret for this live set')
+        return true
+      }
+      return false
+    }
+    const sendLiveError = (err: unknown, fallbackCode: string, fallbackMessage: string): void => {
+      if (err instanceof LiveSetThrottledError) {
+        res.setHeader('Retry-After', String(err.retryAfterSeconds))
+        sendJsonError(res, 429, 'RATE_LIMITED', err.message)
+      } else if (err instanceof LiveSetError) {
+        res.status(err.status).json({ error: { code: err.code, message: err.message, ...err.extra } })
+      } else {
+        sendJsonError(res, 500, fallbackCode, (err as Error).message || fallbackMessage)
+      }
+    }
+
+    if (songHash && req.method === 'PUT') {
+      if (rejectIfLimited(req, res)) return
+      if (rejectLiveWrite(LIVE_SET_MAX_CONTENT_BYTES + 1024)) return
+      try {
+        const result = await liveSetStore.putSong(id, songHash, req.body?.content)
+        res.status(200).json({ id, hash: songHash, created: result.created, expiresAt: result.expiresAt.toISOString() })
+      } catch (err) {
+        sendLiveError(err, 'LIVE_SET_SAVE_FAILED', 'Failed to save song content')
+      }
+      return
+    }
+
+    if (!songHash && req.method === 'PUT') {
+      if (rejectIfLimited(req, res)) return
+      if (rejectLiveWrite(LIVE_SET_MAX_MANIFEST_BYTES)) return
+      const manifest = req.body?.manifest
+      if (Array.isArray(manifest?.entries) && manifest.entries.length > MAX_LIVE_SET_SONGS) {
+        sendJsonError(res, 400, 'SONG_LIMIT_EXCEEDED', `Live sets are limited to ${MAX_LIVE_SET_SONGS} songs`)
+        return
+      }
+      if (!isLiveSetManifestInput(manifest)) {
+        sendJsonError(res, 400, 'BAD_REQUEST', 'Missing or invalid live set manifest')
+        return
+      }
+      try {
+        const result = await liveSetStore.publish(id, manifest)
+        res.status(200).json({
+          id: result.id,
+          rev: result.rev,
+          expiresAt: result.expiresAt.toISOString(),
+          unchanged: result.unchanged,
+        })
+      } catch (err) {
+        sendLiveError(err, 'LIVE_SET_SAVE_FAILED', 'Failed to save live set')
+      }
+      return
+    }
+
+    if (!songHash && req.method === 'DELETE') {
+      if (rejectIfLimited(req, res)) return
+      if (rejectLiveWrite(LIVE_SET_MAX_MANIFEST_BYTES)) return
+      try {
+        const result = await liveSetStore.stop(id)
+        res.status(200).json({ id: result.id, rev: result.rev, status: 'stopped' })
+      } catch (err) {
+        sendLiveError(err, 'LIVE_SET_STOP_FAILED', 'Failed to stop live set')
+      }
+      return
+    }
+
+    if (!songHash && req.method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store')
+      let result
+      try {
+        result = await liveSetStore.get(id)
+      } catch (err) {
+        sendJsonError(res, 500, 'LIVE_SET_LOOKUP_FAILED', (err as Error).message || 'Failed to retrieve live set')
+        return
+      }
+      if (result.kind === 'expired') {
+        sendJsonError(res, 410, 'EXPIRED', 'This live set has expired')
+        return
+      }
+      if (result.kind === 'missing') {
+        sendJsonError(res, 404, 'NOT_FOUND', 'Live set not found')
+        return
+      }
+      res.status(200).json({
+        id,
+        manifest: result.manifest,
+        contents: result.contents,
+        expiresAt: result.expiresAt.toISOString(),
+      })
+      return
+    }
+
+    sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed for this live set path')
     return
   }
 

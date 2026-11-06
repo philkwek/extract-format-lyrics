@@ -114,3 +114,29 @@ export interface SetLinkPayload {
   name: string
   songs: SetLinkSong[]
 }
+
+export interface LiveSetEntry {
+  entryId: string
+  contentHash: string
+  targetKey?: string
+  simplified?: boolean
+  padKeyMode?: 'match' | 'custom'
+  customPadKey?: string
+}
+
+export interface LiveSetManifest {
+  v: 1
+  name: string
+  entries: LiveSetEntry[]
+  status: 'live' | 'stopped'
+  rev: number
+}
+
+/** Immutable song content addressed by its hash. */
+export interface LiveSongContent {
+  song: Song
+  customSections?: Section[]
+  customFlow?: number[]
+  customSimplifiedSections?: Section[]
+  customSimplifiedFlow?: number[]
+}
