@@ -2,12 +2,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
 import { scrapeApi, simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
+import { importFromSetLinkOnce } from '../../src/lib/setLinkImport'
 
 const fixtures = vi.hoisted(() => {
   const sections = [
@@ -51,6 +52,7 @@ const fixtures = vi.hoisted(() => {
 })
 
 vi.mock('../../src/lib/sessionStore', () => ({
+  sessionPath: (s: { id: string; publicId?: string }) => `/session/${s.publicId ?? s.id}`,
   sessionStore: {
     getSession: vi.fn(async () => fixtures.session),
     updateSession: vi.fn(),
@@ -59,6 +61,14 @@ vi.mock('../../src/lib/sessionStore', () => ({
     renameSession: vi.fn(),
   },
   makeEntryId: () => 'entry-2',
+}))
+
+vi.mock('../../src/lib/setLinkSync', () => ({
+  ensureSetLinkFresh: vi.fn(async () => undefined),
+}))
+
+vi.mock('../../src/lib/setLinkImport', () => ({
+  importFromSetLinkOnce: vi.fn(),
 }))
 
 vi.mock('../../src/lib/songCache', () => ({
@@ -102,6 +112,11 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
 })
+
+function LocationProbe() {
+  const loc = useLocation()
+  return <output data-testid="loc">{loc.pathname}</output>
+}
 
 function TestHarness() {
   const [chromeHidden, setChromeHidden] = useState(false)
@@ -404,5 +419,70 @@ describe('SessionPage full screen mode', () => {
     } finally {
       vi.mocked(songCache.getSong).mockImplementation(async () => fixtures.song as never)
     }
+  })
+})
+
+
+const PUBLIC_ID = 'abcdefghijklmnopqrstuv'
+
+function renderAt(entry: string | { pathname: string; state: unknown }) {
+  return render(
+    <ChromeVisibilityContext.Provider value={{ hidden: false, setHidden: vi.fn() }}>
+      <MemoryRouter initialEntries={[entry]}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/session/:sessionId" element={<SessionPage />} />
+        </Routes>
+      </MemoryRouter>
+    </ChromeVisibilityContext.Provider>,
+  )
+}
+
+describe('SessionPage set links', () => {
+  it('shows Session not found for an unknown non-link id', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
+    renderAt('/session/nope')
+    expect(await screen.findByText(/Session not found/)).toBeTruthy()
+    expect(importFromSetLinkOnce).not.toHaveBeenCalled()
+  })
+
+  it('imports an unknown set-link id and navigates to the copy', async () => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async (id: string) =>
+      id === PUBLIC_ID ? null : ({ ...fixtures.session, id: 'copy-1', publicId: 'copypublicidcopypublic1' } as never),
+    )
+    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({
+      kind: 'imported',
+      failed: 1,
+      session: { ...fixtures.session, id: 'copy-1', publicId: 'copypublicidcopypublic1' },
+    } as never)
+    renderAt(`/session/${PUBLIC_ID}`)
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copypublicidcopypublic1'))
+    expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
+    expect(screen.getByText(/1 song\(s\) couldn.t be loaded/)).toBeTruthy()
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+  })
+
+  it('shows the missing card when the link is unavailable', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
+    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({ kind: 'missing' })
+    renderAt(`/session/${PUBLIC_ID}`)
+    expect(await screen.findByText(/hasn.t synced yet/)).toBeTruthy()
+  })
+
+  it('shows the banner from navigation state and dismisses it', async () => {
+    renderAt({
+      pathname: '/session/session-1',
+      state: { fromSetLink: { name: 'Sunday Set', failed: 0, reused: false } },
+    })
+    expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(screen.queryByText(/This is your own copy of/)).toBeNull())
+  })
+
+  it('replaces a legacy id URL with the public id', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValue({ ...fixtures.session, publicId: PUBLIC_ID } as never)
+    renderAt('/session/session-1')
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`))
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
   })
 })
