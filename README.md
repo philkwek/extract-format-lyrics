@@ -16,7 +16,7 @@
 1. **Add your songs.** Paste a link from a supported chord site, search for a song, or upload a PDF or image chart.
 2. **Make the chart fit.** Transpose it, simplify the chords, or edit them by hand.
 3. **Build the set.** Name it, add the other songs, and drag them into the order you'll play.
-4. **Share it.** Send musicians the full set, or send everyone a lyrics-only link.
+4. **Share it.** Send musicians a copy, share the set live, or send everyone a lyrics-only link.
 
 ![Adding songs and opening a set in Sets & Sheets](docs/readme/getting-started-compact.gif)
 
@@ -36,7 +36,13 @@ Turn on **Edit chords** to tap any chord and change, move or delete it. To match
 
 Drag songs to reorder the set on a computer, or tap **Arrange setlist** at the start of the song tabs on a phone or tablet.
 
-**Share this set** gives your musicians a copy of the songs, including your chord edits, section order, selected keys and simplified-chord choices. They can import it and adjust text size, columns, wrapping and theme for themselves. Set links are a snapshot, so create a new link after you make further changes.
+There are two ways to share a set.
+
+**Send a copy** gives your musicians the page address. They open it and get a one-time copy of the songs, names, keys, pad and simplified-chord choices. It doesn't include chord or section edits, or uploaded sheets. It won't change when you do.
+
+**Share live** sends everything: your chord and section edits, uploaded sheets and per-song settings. Musicians who open the link get a live set, and your changes reach them as you make them. If a musician edits anything in a live set, it asks "Make your own copy?" and then makes a copy named after the set with "- Copy" on the end. The live set stays as it is. Choose **Stop sharing** to end a live share.
+
+Older one-off set links (`/s/`) still open until they expire. The app no longer creates them.
 
 ![Reordering songs and moving sections within a song](docs/readme/arrange.gif)
 
@@ -72,9 +78,15 @@ Longer songs may still need scrolling, depending on your screen and text size.
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
 - **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it. Some files need AI processing and may ask for a Gemini API key if the site doesn't have one configured.
-- **Saved in this browser:** Sets aren't synced across devices. Use **Share → Share this set** to move a copy, and don't clear browser data if you need to update an existing lyrics link.
+- **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
-- **What gets stored online:** Set links include chords and lyrics; lyrics links include lyrics only. Only share content you have permission to share.
+- **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
+- **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
+- **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
+- **Live shares expire:** they end 7 days after the host's last change.
+- **Capo changes:** moving the key for a capo counts as an edit. Editing a live set makes a copy.
+- **Song limit:** a live share holds up to 30 songs.
+- **What gets stored online:** Copies and live shares include chords and lyrics; lyrics links include lyrics only. Only share content you have permission to share.
 
 Found something that doesn't work, or have an idea? [Open an issue](https://github.com/philkwek/extract-format-lyrics/issues). Include what you were trying to do and, if relevant, the source link or a screenshot.
 
@@ -93,7 +105,7 @@ The sections below are for running or working on the project yourself. You don't
 - **Local storage:** IndexedDB through `idb-keyval` for songs and sets; browser preferences for display settings.
 - **Backend:** Firebase Cloud Functions, Node.js 22, TypeScript and Cheerio. Selectable-text PDFs use direct extraction where possible; other pages and images use Gemini.
 - **Hosting:** Firebase Hosting serves the app and routes `/api/**` to the backend. Production chart extraction calls the function directly to allow longer requests.
-- **Sharing:** Firestore stores set snapshots in `sharedSets` and reusable lyrics publications in `sharedLyrics`. Lyrics updates require a secret kept in the publishing browser. Display preferences stay local.
+- **Sharing:** Firestore stores set snapshots in `sharedSets`, live shares in `liveSets` and `liveSetSongs`, and reusable lyrics publications in `sharedLyrics`. Lyrics updates require a secret kept in the publishing browser. Display preferences stay local.
 
 ### Run locally
 
@@ -119,7 +131,13 @@ npm run dev:backend
 npm run dev
 ```
 
-The default command starts the Functions emulator only. Sharing also needs a Firestore connection; it isn't a complete local sharing setup. For isolated sharing development, configure and run a Firestore emulator and connect the Admin SDK to it.
+The backend command starts the Functions and Firestore emulators (it needs Java 21 or newer). Shared sets, set links and caches are saved in `.firebase/emulator-data` and kept between runs; delete that folder to start fresh. Nothing touches the live project.
+
+To let the browser follow live sets through the emulator, copy the local emulator lines from `.env.example` into `.env.local`. The project id must be `demo-chords`. Without them, followers still work by polling.
+
+The emulator doesn't delete expired documents (Firestore TTL) and doesn't check for missing indexes.
+
+To test the security rules and the Firestore code against the emulator, stop the backend and run `npm run test:emulator`.
 
 For images or PDFs that need Gemini, configure `GEMINI_API_KEY` for the backend or provide a key through the upload dialog. Keep credentials out of Git.
 
@@ -140,7 +158,7 @@ Frontend tests live in `srcTest/` and mirror the `src/` folder structure. Backen
 For your own deployment:
 
 1. Configure your Firebase project in `.firebaserc` and enable Firestore in Native mode.
-2. Configure Firestore TTL policies on the `expiresAt` field for the `sharedSets`, `sharedLyrics`, `setLinks` and `songs` collection groups (`songs` holds the content of both), and on the `ttlAt` field for `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications`. The backend checks expiry on read; TTL deletes the data later.
+2. Configure Firestore TTL policies on the `expiresAt` field for the `sharedSets`, `sharedLyrics`, `setLinks`, `liveSets`, `liveSetSongs` and `songs` collection groups (`songs` holds the content of both lyrics and set links), and on the `ttlAt` field for `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications`. The backend checks expiry on read; TTL deletes the data later.
 3. Configure the `GEMINI_API_KEY` function secret for chart extraction that needs Gemini.
 4. Build and deploy:
 
@@ -150,7 +168,7 @@ npm run build:functions
 firebase deploy --only hosting,functions,firestore:rules
 ```
 
-The Firestore rules deny direct browser access. The backend uses Admin credentials to read and write shared content.
+The Firestore rules deny direct browser access, except that browsers may read (get only, no list or write) single documents in `liveSets` and `liveSetSongs`, so followers get live updates. Deploy the rules (`firestore:rules`) together with the new frontend. The backend uses Admin credentials to write shared content.
 
 [The GitHub Actions workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions and Firestore rules. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules.
 

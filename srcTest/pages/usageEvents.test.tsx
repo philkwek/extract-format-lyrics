@@ -7,11 +7,10 @@ import HomePage from '../../src/pages/HomePage'
 import SearchPage from '../../src/pages/SearchPage'
 import PrivacyPage from '../../src/pages/PrivacyPage'
 import ShareImportPage from '../../src/pages/ShareImportPage'
-import ShareModal from '../../src/components/ShareModal'
 import { trackEvent, trackSongImport } from '../../src/lib/analytics'
 import { songCache } from '../../src/lib/songCache'
 import { sessionStore } from '../../src/lib/sessionStore'
-import { scrapeApi, searchApiStream, createShareApi, getShareApi } from '../../src/lib/api'
+import { scrapeApi, searchApiStream, getShareApi } from '../../src/lib/api'
 import type { Song } from '../../src/types/song'
 
 const navigate = vi.hoisted(() => vi.fn())
@@ -28,7 +27,6 @@ vi.mock('../../src/lib/api', async () => ({
   ...(await vi.importActual('../../src/lib/api')),
   searchApiStream: vi.fn(),
   scrapeApi: vi.fn(),
-  createShareApi: vi.fn(),
   getShareApi: vi.fn(),
 }))
 
@@ -166,31 +164,6 @@ describe('usage events at action boundaries', () => {
     )
     expect(trackEvent).toHaveBeenCalledTimes(1)
     expect(sessionStore.createSession).toHaveBeenCalledTimes(1)
-  })
-
-  it('records set sharing only when link creation succeeds', async () => {
-    vi.mocked(createShareApi)
-      .mockRejectedValueOnce(new Error('Private server failure'))
-      .mockResolvedValueOnce({ id: 'private-link', expiresAt: '2026-10-24T00:00:00Z' })
-    render(
-      <ShareModal
-        snapshot={
-          {
-            v: 2,
-            name: 'Private set',
-            songs: [{ entryId: 'entry-1', song, transpose: 0 }],
-          } as never
-        }
-        isOpen
-        onClose={vi.fn()}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Generate link' }))
-    await screen.findByText('Private server failure')
-    expect(trackEvent).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Generate link' }))
-    await waitFor(() => expect(trackEvent).toHaveBeenCalledWith('set_shared', { song_count: 1 }))
-    expect(trackEvent).toHaveBeenCalledTimes(1)
   })
 
   it('persists privacy choices and displays them after remounting', () => {

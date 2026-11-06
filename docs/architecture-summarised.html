@@ -454,7 +454,7 @@
         <ul>
           <li><code>tsc -b &amp;&amp; vite build</code> produces <code>dist/</code>; the functions package compiles separately to <code>lib/</code> on Node 22.</li>
           <li>Production sheet extraction bypasses the Hosting rewrite and calls the function URL directly, because Hosting ends rewritten requests at 60 seconds.</li>
-          <li>Locally, Vite proxies <code>/api</code> to the Functions emulator under the <code>demo-chords</code> project.</li>
+          <li>Locally, Vite proxies <code>/api</code> to the Functions emulator under the <code>demo-chords</code> project, with the Firestore emulator beside it.</li>
           <li>GitHub Actions lints, tests, builds both halves, then deploys Hosting, Functions and Firestore rules from <code>main</code>.</li>
           <li><code>GEMINI_API_KEY</code> is a function secret; <code>VITE_FIREBASE_*</code> values are public browser identifiers.</li>
         </ul>

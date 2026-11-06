@@ -2,6 +2,7 @@ import { createStore, get, set, del } from 'idb-keyval'
 import { withNamedLock } from './lyricsPublishIdentity'
 
 export const SET_LINK_DOMAIN_SEPARATOR = 'set-link-v1:'
+export const LIVE_SET_DOMAIN_SEPARATOR = 'live-set-v1:'
 const SET_LINK_STORE_NAME = 'app_set_links_db'
 const SET_LINK_STORE_TABLE = 'identities'
 const SET_LINK_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
@@ -79,9 +80,12 @@ function toBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** First 16 bytes of SHA-256("set-link-v1:" + secret), base64url without padding. */
-export async function deriveSetLinkId(secret: string): Promise<string> {
-  const data = new TextEncoder().encode(`${SET_LINK_DOMAIN_SEPARATOR}${secret}`)
+/** First 16 bytes of SHA-256(domain + secret), base64url without padding. */
+export async function deriveSetLinkId(
+  secret: string,
+  domain: string = SET_LINK_DOMAIN_SEPARATOR
+): Promise<string> {
+  const data = new TextEncoder().encode(`${domain}${secret}`)
   const digest = await crypto.subtle.digest('SHA-256', data)
   return toBase64Url(new Uint8Array(digest).slice(0, 16))
 }

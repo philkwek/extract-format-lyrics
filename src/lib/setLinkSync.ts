@@ -30,6 +30,12 @@ export interface BuildSetLinkPayloadResult {
   reason?: 'empty' | 'too_many'
 }
 
+export type SetLinkUnavailableReason = NonNullable<BuildSetLinkPayloadResult['reason']> | 'failed'
+
+export type EnsureFreshResult =
+  | { ok: true }
+  | { ok: false; reason: SetLinkUnavailableReason }
+
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
@@ -90,8 +96,47 @@ export interface SetLinkSyncIdentity {
   remove(sessionId: string): Promise<void>
 }
 
-export interface SetLinkSyncDeps {
+type MaybePromise<T> = T | Promise<T>
+
+export interface SyncChannelDeps<P> {
+  /** Names the lock key, state and log prefix, so channels never collide. */
+  name: string
   store: { subscribe(listener: (event: SessionChangeEvent) => void): () => void }
+  identity: SetLinkSyncIdentity
+  /** Sessions that return false are never published on this channel. */
+  shouldSync?: (session: Session) => boolean | Promise<boolean>
+  buildPayload: (
+    session: Session
+  ) => MaybePromise<{ payload: P | null; skippedUploads?: number; reason?: 'empty' | 'too_many' }>
+  /** Public id the session must carry to be published; absent means no check. */
+  expectedPublicId?: (session: Session) => string | undefined
+  publish: (
+    identity: SetLinkIdentityRecord,
+    payload: P,
+    options: { keepalive?: boolean }
+  ) => Promise<{ expiresAt: string }>
+  /** 'failing' once retries give up or the error can't be retried; 'ok' after a publish. */
+  onStatus?: (sessionId: string, status: 'ok' | 'failing') => void
+  /** Called when buildPayload has nothing to publish, so a channel can report its status. */
+  onSkipped?: (sessionId: string, reason?: 'empty' | 'too_many') => void
+  onPublished?: (info: { payload: P; skippedUploads: number; trigger: SetLinkTrigger }) => void
+  now: () => number
+  timers: {
+    setTimeout: (fn: () => void, ms: number) => unknown
+    clearTimeout: (handle: unknown) => void
+  }
+  hash: (payload: P) => Promise<string>
+  /** Jitter source in [0, 1); injectable for tests. */
+  random?: () => number
+  withLock: <T>(name: string, fn: () => Promise<T>) => Promise<T>
+  /** Only used to flush on page hide; absent in non-DOM environments. */
+  visibility?: {
+    subscribe(onHidden: () => void): () => void
+  }
+}
+
+export interface SetLinkSyncDeps {
+  store: SyncChannelDeps<SetLinkPayload>['store']
   identity: SetLinkSyncIdentity
   api: (
     id: string,
@@ -100,22 +145,15 @@ export interface SetLinkSyncDeps {
     options: { keepalive?: boolean }
   ) => Promise<PutSetLinkResult>
   now: () => number
-  timers: {
-    setTimeout: (fn: () => void, ms: number) => unknown
-    clearTimeout: (handle: unknown) => void
-  }
+  timers: SyncChannelDeps<SetLinkPayload>['timers']
   hash: (payload: SetLinkPayload) => Promise<string>
-  /** Jitter source in [0, 1); injectable for tests. */
   random?: () => number
-  withLock: <T>(name: string, fn: () => Promise<T>) => Promise<T>
+  withLock: SyncChannelDeps<SetLinkPayload>['withLock']
   track: (
     name: 'set_link_published',
     params: { song_count: number; skipped_uploads: number; trigger: SetLinkTrigger }
   ) => void
-  /** Only used to flush on page hide; absent in non-DOM environments. */
-  visibility?: {
-    subscribe(onHidden: () => void): () => void
-  }
+  visibility?: SyncChannelDeps<SetLinkPayload>['visibility']
 }
 
 interface SessionSyncState {
@@ -124,7 +162,7 @@ interface SessionSyncState {
   retry?: unknown
   spaced?: unknown
   lastAttemptAt?: number
-  inFlight?: Promise<void>
+  inFlight?: Promise<EnsureFreshResult>
   dirty: boolean
   failures: number
   trigger: SetLinkTrigger
@@ -134,17 +172,17 @@ interface SessionSyncState {
 export interface SetLinkSync {
   start(): () => void
   handleEvent(event: SessionChangeEvent): void
-  ensureFresh(session: Session): Promise<void>
+  ensureFresh(session: Session): Promise<EnsureFreshResult>
   /** Resolves when nothing is in flight; for tests and shutdown. */
   idle(): Promise<void>
 }
 
 function nonRetryable(error: unknown): boolean {
   if (!(error instanceof ShareApiError)) return false
-  return [400, 401, 403, 413].includes(error.status ?? 0)
+  return [400, 401, 403, 410, 413].includes(error.status ?? 0)
 }
 
-export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
+export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
   const states = new Map<string, SessionSyncState>()
   const publishCounts = new Map<string, number>()
 
@@ -173,7 +211,8 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
   }
 
   function scheduleRetry(sessionId: string, st: SessionSyncState, error: unknown): void {
-    if (nonRetryable(error)) return
+    const giveUp = () => deps.onStatus?.(sessionId, 'failing')
+    if (nonRetryable(error)) return giveUp()
     let delay: number
     if (error instanceof ShareApiError && error.status === 429) {
       // Rate limits do not spend the 5xx/network backoff budget.
@@ -181,7 +220,7 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
       if (seconds === undefined) {
         delay = SET_LINK_RATE_LIMIT_DEFAULT_WAIT_MS
       } else if (seconds > SET_LINK_RATE_LIMIT_GIVE_UP_SECONDS) {
-        return // Daily cap: wait for the next real change or open.
+        return giveUp() // Daily cap: wait for the next real change or open.
       } else {
         const jitter = Math.floor((deps.random?.() ?? Math.random()) * SET_LINK_JITTER_MAX_MS)
         delay = Math.max(seconds, 1) * 1000 + jitter
@@ -190,7 +229,7 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
       }
     } else {
       st.failures++
-      if (st.failures > SET_LINK_RETRY_DELAYS_MS.length) return
+      if (st.failures > SET_LINK_RETRY_DELAYS_MS.length) return giveUp()
       delay = SET_LINK_RETRY_DELAYS_MS[st.failures - 1]
     }
     if (st.retry !== undefined) deps.timers.clearTimeout(st.retry)
@@ -204,47 +243,54 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
     sessionId: string,
     st: SessionSyncState,
     keepalive: boolean
-  ): Promise<void> {
+  ): Promise<EnsureFreshResult> {
     const session = st.latest
-    if (!session) return
-    const { payload, skippedUploads } = buildSetLinkPayload(session)
-    if (!payload) return
+    if (!session) return { ok: false, reason: 'failed' }
+    if (deps.shouldSync && !(await deps.shouldSync(session))) {
+      return { ok: false, reason: 'failed' }
+    }
+    const { payload, skippedUploads = 0, reason } = await deps.buildPayload(session)
+    if (!payload) {
+      deps.onSkipped?.(sessionId, reason)
+      return { ok: false, reason: reason ?? 'failed' }
+    }
     const hash = await deps.hash(payload)
     const trigger = st.trigger
     const refresh = st.refresh
-    await deps.withLock(`set-link:${sessionId}`, async () => {
+    return deps.withLock(`${deps.name}:${sessionId}`, async (): Promise<EnsureFreshResult> => {
       // Re-read inside the lock so a second tab that already published the same state skips.
       const identity = await deps.identity.get(sessionId)
-      if (!identity) return
-      if (session.publicId && session.publicId !== identity.publicId) {
+      if (!identity) return { ok: false, reason: 'failed' }
+      const expected = deps.expectedPublicId?.(session)
+      if (expected && expected !== identity.publicId) {
         // Publishing would go to an id nobody's URL points at; skip rather than write blindly.
-        console.warn(`[set-link] publicId mismatch for ${sessionId}; not publishing`)
-        return
+        console.warn(`[${deps.name}] publicId mismatch for ${sessionId}; not publishing`)
+        return { ok: false, reason: 'failed' }
       }
-      if (identity.lastPublishedHash === hash && !(refresh && expiresSoon(identity))) return
+      if (identity.lastPublishedHash === hash && !(refresh && expiresSoon(identity))) {
+        return { ok: true }
+      }
       st.lastAttemptAt = deps.now()
-      const result = await deps.api(identity.publicId, identity.secret, payload, { keepalive })
+      const result = await deps.publish(identity, payload, { keepalive })
       await deps.identity.update(sessionId, {
         lastPublishedHash: hash,
         expiresAt: result.expiresAt,
       })
       st.failures = 0
+      deps.onStatus?.(sessionId, 'ok')
       st.refresh = false
       st.trigger = 'update'
       const count = (publishCounts.get(sessionId) ?? 0) + 1
       publishCounts.set(sessionId, count)
       if (import.meta.env?.DEV && import.meta.env.MODE !== 'test') {
-        console.debug(`[set-link] publish #${count} for ${sessionId}`)
+        console.debug(`[${deps.name}] publish #${count} for ${sessionId}`)
       }
-      deps.track('set_link_published', {
-        song_count: payload.songs.length,
-        skipped_uploads: skippedUploads,
-        trigger,
-      })
+      deps.onPublished?.({ payload, skippedUploads, trigger })
+      return { ok: true }
     })
   }
 
-  function run(sessionId: string, opts: { keepalive: boolean }): Promise<void> {
+  function run(sessionId: string, opts: { keepalive: boolean }): Promise<EnsureFreshResult> {
     const st = stateFor(sessionId)
     if (st.inFlight) {
       st.dirty = true
@@ -262,25 +308,26 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
             void run(sessionId, { keepalive: false })
           }, wait)
         }
-        return Promise.resolve()
+        return Promise.resolve({ ok: false, reason: 'failed' })
       }
     }
     clearTimers(st)
-    const task = (async () => {
-      let failed = false
+    const task = (async (): Promise<EnsureFreshResult> => {
+      let outcome: EnsureFreshResult
       try {
-        await publishOnce(sessionId, st, opts.keepalive)
+        outcome = await publishOnce(sessionId, st, opts.keepalive)
       } catch (error) {
-        failed = true
         st.dirty = false
         scheduleRetry(sessionId, st, error)
+        outcome = { ok: false, reason: 'failed' }
       }
       st.inFlight = undefined
-      if (!failed && st.dirty) {
+      if (outcome.ok && st.dirty) {
         st.dirty = false
         // At most one follow-up per settle; it re-checks the hash and no-ops if unchanged.
-        await run(sessionId, { keepalive: false })
+        return run(sessionId, { keepalive: false })
       }
+      return outcome
     })()
     st.inFlight = task
     return task
@@ -324,16 +371,16 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
     }
   }
 
-  async function ensureFresh(session: Session): Promise<void> {
+  async function ensureFresh(session: Session): Promise<EnsureFreshResult> {
     const st = stateFor(session.id)
     st.latest = session
     st.failures = 0
     st.refresh = true
     if (st.trigger !== 'create') st.trigger = 'refresh'
     try {
-      await run(session.id, { keepalive: false })
+      return await run(session.id, { keepalive: false })
     } catch {
-      // Best effort; run() already schedules retries.
+      return { ok: false, reason: 'failed' }
     }
   }
 
@@ -357,6 +404,24 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
       }
     },
   }
+}
+
+export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
+  return createSyncChannel<SetLinkPayload>({
+    ...deps,
+    name: 'set-link',
+    shouldSync: (session) => !session.liveSourceId,
+    expectedPublicId: (s) => s.publicId,
+    buildPayload: buildSetLinkPayload,
+    publish: (identity, payload, options) =>
+      deps.api(identity.publicId, identity.secret, payload, options),
+    onPublished: ({ payload, skippedUploads, trigger }) =>
+      deps.track('set_link_published', {
+        song_count: payload.songs.length,
+        skipped_uploads: skippedUploads,
+        trigger,
+      }),
+  })
 }
 
 function createDefaultSync(): SetLinkSync {
@@ -411,11 +476,19 @@ export function startSetLinkSync(): () => void {
 }
 
 /** Publishes now (no debounce) if never published, changed, or close to expiring. Never throws. */
-export async function ensureSetLinkFresh(session: Session): Promise<void> {
+export async function ensureSetLinkFresh(session: Session): Promise<EnsureFreshResult> {
   try {
     defaultSync ??= createDefaultSync()
-    await defaultSync.ensureFresh(session)
+    const result = await defaultSync.ensureFresh(session)
+    // 'failed' can also mean "too soon to publish again"; an earlier link may still be good.
+    if (!result.ok && result.reason !== 'failed') return result
+    const identity = await getSetLinkIdentity(session.id, getSetLinkIdentityStore())
+    const expiresAt = identity?.expiresAt ? Date.parse(identity.expiresAt) : NaN
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      return { ok: false, reason: 'failed' }
+    }
+    return { ok: true }
   } catch {
-    // Syncing is best effort.
+    return { ok: false, reason: 'failed' }
   }
 }

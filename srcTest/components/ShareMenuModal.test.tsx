@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import ShareMenuModal from '../../src/components/ShareMenuModal'
 import type { Session } from '../../src/lib/sessionStore'
-import type { SharedSetSnapshot, Song } from '../../src/types/song'
+import type { Song } from '../../src/types/song'
 
 vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
   const actual = await vi.importActual('../../src/lib/lyricsPublishIdentity')
@@ -47,49 +48,42 @@ const session: Session = {
   ],
 }
 
-const snapshot: SharedSetSnapshot = {
-  v: 2,
-  name: session.name,
-  songs: [{ entryId: 'entry-1', song }],
+function renderModal(modalSession: Session) {
+  return render(
+    <MemoryRouter>
+      <ShareMenuModal
+        session={modalSession}
+        songsData={new Map([['entry-1', song]])}
+        isOpen
+        onClose={vi.fn()}
+      />
+    </MemoryRouter>,
+  )
 }
 
 describe('ShareMenuModal', () => {
-  it('shows a generate button for both the set and the lyrics', async () => {
-    render(
-      <ShareMenuModal
-        snapshot={snapshot}
-        session={session}
-        songsData={new Map([['entry-1', song]])}
-        isOpen
-        onClose={vi.fn()}
-      />
-    )
+  it('offers sending a copy for the set and a link for the lyrics', async () => {
+    renderModal(session)
 
     expect(screen.getByText('Share this set')).toBeTruthy()
     expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(2)
-
+    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Share live' })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(1)
     await waitFor(() => {
-      expect(screen.getByText('A link has not been generated yet.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
     })
   })
 
-  it('keeps lyrics sharing available when the set snapshot cannot be prepared', async () => {
-    render(
-      <ShareMenuModal
-        snapshot={null}
-        snapshotError="All songs must finish loading successfully before this set can be shared."
-        session={session}
-        songsData={new Map([['entry-1', song]])}
-        isOpen
-        onClose={vi.fn()}
-      />
-    )
+  it('offers the live link and a copy for a set opened from a live share', () => {
+    renderModal({ ...session, liveSourceId: 'live-abc' })
 
+    expect(screen.getByText('Copy the live link or make your own copy.')).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Create a copy' })).toBeTruthy()
     expect(
-      screen.getByText('All songs must finish loading successfully before this set can be shared.')
+      screen.getByDisplayValue(`${window.location.origin}/live/live-abc`),
     ).toBeTruthy()
-    expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(1)
   })
 })

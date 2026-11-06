@@ -31,6 +31,49 @@ describe('SessionStore', () => {
     expect(await store.getAllSessions()).toEqual([])
   })
 
+  it('copies a live set as a normal set with its songs and edits', async () => {
+    let storedData: unknown = null
+    const fakeStore = {
+      get: vi.fn(async () => storedData),
+      set: vi.fn(async (_: unknown, val: unknown) => {
+        storedData = val
+      }),
+      del: vi.fn(async () => {
+        storedData = null
+      }),
+    }
+    const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
+    const live = await store.createSession(
+      [
+        {
+          entryId: 'e1',
+          url: 'https://x.test/a',
+          title: 'A',
+          status: 'ok',
+          targetKey: 'D',
+          simplified: true,
+          customFlow: [0, 0],
+        },
+      ],
+      'Sunday',
+      { liveSourceId: 'live-1', liveRev: 3, lastHostHash: 'h', importedFromLinkId: 'link-1' },
+    )
+
+    const copy = await store.createSetCopy(live)
+
+    expect(copy.id).not.toBe(live.id)
+    expect(copy.name).toBe('Sunday - Copy')
+    expect(copy.songs).toEqual(live.songs)
+    expect(copy.songs[0]).not.toBe(live.songs[0])
+    expect(copy.songs[0].customFlow).not.toBe(live.songs[0].customFlow)
+    expect(copy.liveSourceId).toBeUndefined()
+    expect(copy.liveRev).toBeUndefined()
+    expect(copy.lastHostHash).toBeUndefined()
+    expect(copy.importedFromLinkId).toBeUndefined()
+    expect(await store.getAllSessions()).toHaveLength(2)
+    expect((await store.getSession(live.id))?.liveSourceId).toBe('live-1')
+  })
+
   it('renames an existing session', async () => {
     let storedData: unknown = null
     const fakeStore = {

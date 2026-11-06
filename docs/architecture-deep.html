@@ -1428,7 +1428,7 @@
         <div class="note">
           <p class="eyebrow">Secrets and environments</p>
           <p>Browser config comes from <code>VITE_FIREBASE_*</code> and is public by design. The Gemini key is a Functions secret. Firestore rules are deployed with the code, so a rules regression is a deploy-time event, not a dashboard-only change.</p>
-          <p>Local sharing is not a complete stack: the Functions emulator alone does not provide Firestore. Use the Firebase Firestore emulator and Admin SDK wiring for isolated sharing work.</p>
+          <p>Locally, <code>npm run dev:backend</code> runs the Functions and Firestore emulators under <code>demo-chords</code>, so sharing works end to end. The emulator does not run TTL deletion or enforce indexes.</p>
         </div>
       </div>
     </section>

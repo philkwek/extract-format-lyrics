@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "npm run build --prefix functions && firebase emulators:start --only functions --project demo-chords",
+    "dev:backend": "npm run build --prefix functions && firebase emulators:start --only functions,firestore --project demo-chords --import .firebase/emulator-data --export-on-exit",
     "dev:all": "concurrently -n \"functions,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "build:functions": "npm run build --prefix functions",
@@ -16,6 +16,7 @@
     "format": "prettier --write src srcTest functions/srcTest",
     "test": "vitest run --passWithNoTests",
     "test:functions": "npm run test --prefix functions",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-chords \"npm run test:emulator --prefix functions\"",
     "bench": "npm run bench --prefix functions",
     "preview": "vite preview"
   },
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.13.3",

@@ -26,19 +26,23 @@ export class SetLinkThrottledError extends Error {
 }
 
 /** Public ID: first 16 bytes of SHA-256("set-link-v1:" + secret), base64url without padding (22 chars). */
-export function derivePublicId(secret: string): string {
+export function derivePublicId(secret: string, domain: string = SET_LINK_DOMAIN_SEPARATOR): string {
   return crypto
     .createHash('sha256')
-    .update(`${SET_LINK_DOMAIN_SEPARATOR}${secret}`)
+    .update(`${domain}${secret}`)
     .digest()
     .subarray(0, 16)
     .toString('base64url')
 }
 
-export function verifySetLinkSecret(secret: string, id: string): boolean {
+export function verifySetLinkSecret(
+  secret: string,
+  id: string,
+  domain: string = SET_LINK_DOMAIN_SEPARATOR,
+): boolean {
   if (!secret || !id) return false
   try {
-    const a = Buffer.from(derivePublicId(secret), 'base64url')
+    const a = Buffer.from(derivePublicId(secret, domain), 'base64url')
     const b = Buffer.from(id, 'base64url')
     if (a.length !== 16 || a.length !== b.length) return false
     return crypto.timingSafeEqual(a, b)

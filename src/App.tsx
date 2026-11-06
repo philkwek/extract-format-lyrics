@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
 import SessionPage from './pages/SessionPage'
 import ShareImportPage from './pages/ShareImportPage'
+import LiveFollowPage from './pages/LiveFollowPage'
 import LyricsViewerPage from './pages/LyricsViewerPage'
 import { useThemeMode } from './lib/useThemeMode'
 
@@ -85,6 +86,7 @@ export function AppShell() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/s/:shortId" element={<ShareImportPage />} />
+              <Route path="/live/:liveId" element={<LiveFollowPage />} />
               <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

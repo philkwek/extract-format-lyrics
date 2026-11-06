@@ -36,6 +36,14 @@ export interface Session {
   publicId?: string
   /** Set link this session was imported from, so re-opening the link finds the existing copy. */
   importedFromLinkId?: string
+  /** Live share this set came from, so re-opening the live link finds the existing copy. */
+  liveSourceId?: string
+  /** Hash of this set as built from the last host version applied. */
+  lastHostHash?: string
+  /** Last host manifest revision applied. */
+  liveRev?: number
+  /** Set once the host stops the live share or its link expires; neither can come back. */
+  liveEnded?: 'stopped' | 'expired'
 }
 
 export interface SessionChangeEvent {
@@ -48,6 +56,9 @@ export type SessionChangeListener = (event: SessionChangeEvent) => void
 
 export interface CreateSessionOptions {
   importedFromLinkId?: string
+  liveSourceId?: string
+  lastHostHash?: string
+  liveRev?: number
 }
 
 export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
@@ -144,6 +155,11 @@ export class SessionStore {
     return list.find((s) => s.importedFromLinkId === linkId) ?? null
   }
 
+  async findByLiveSourceId(liveId: string): Promise<Session | null> {
+    const list = await this.getAllSessions()
+    return list.find((s) => s.liveSourceId === liveId) ?? null
+  }
+
   async createSession(
     songs: SessionSongItem[],
     name?: string,
@@ -157,6 +173,9 @@ export class SessionStore {
       id,
       publicId: identity.publicId,
       ...(options.importedFromLinkId ? { importedFromLinkId: options.importedFromLinkId } : {}),
+      ...(options.liveSourceId ? { liveSourceId: options.liveSourceId } : {}),
+      ...(options.lastHostHash ? { lastHostHash: options.lastHostHash } : {}),
+      ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
@@ -166,6 +185,11 @@ export class SessionStore {
     await this.store.set(SESSIONS_STORAGE_KEY, list)
     this.emit({ type: 'created', sessionId: newSession.id, session: newSession })
     return newSession
+  }
+
+  /** Makes a normal set from this one: same songs and edits, none of the live or link fields. */
+  async createSetCopy(session: Session): Promise<Session> {
+    return this.createSession(structuredClone(session.songs), `${session.name} - Copy`)
   }
 
   async renameSession(id: string, newName: string): Promise<Session | null> {
@@ -186,6 +210,13 @@ export class SessionStore {
       const existing = list[index]
       session.publicId ??= existing.publicId
       session.importedFromLinkId ??= existing.importedFromLinkId
+      session.liveSourceId ??= existing.liveSourceId
+      session.liveEnded ??= existing.liveEnded
+      // A save from an older copy of the set must not roll the host revision back.
+      if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
+        session.liveRev = existing.liveRev
+        session.lastHostHash = existing.lastHostHash
+      }
       list[index] = session
       await this.store.set(SESSIONS_STORAGE_KEY, list)
       this.emit({ type: 'updated', sessionId: session.id, session })

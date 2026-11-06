@@ -1,14 +1,11 @@
-import { AlertTriangle } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
-import type { SharedSetSnapshot, Song } from '../types/song'
-import { Button, StatusBanner } from './ui'
+import type { Song } from '../types/song'
+import { Button } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
-import ShareSetLinkPanel from './share/ShareSetLinkPanel'
+import ShareSetPanel from './share/ShareSetPanel'
 import ShareLyricsLinkPanel from './share/ShareLyricsLinkPanel'
 
 interface ShareMenuModalProps {
-  snapshot: SharedSetSnapshot | null
-  snapshotError?: string | null
   session: Session
   songsData: Map<string, Song>
   isOpen: boolean
@@ -16,21 +13,24 @@ interface ShareMenuModalProps {
 }
 
 export default function ShareMenuModal({
-  snapshot,
-  snapshotError,
   session,
   songsData,
   isOpen,
   onClose,
 }: ShareMenuModalProps) {
   if (!isOpen) return null
+  const isFollowed = Boolean(session.liveSourceId)
 
   return (
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
       title={`Share “${session.name}”`}
-      description="Share the full set with chords, or send everyone a lyrics-only link."
+      description={
+        isFollowed
+          ? 'Copy the live link, make your own copy, or send a lyrics-only link.'
+          : 'Send a copy of the set, share it live, or send a lyrics-only link.'
+      }
       size="lg"
       footer={
         <Button variant="ghost" onClick={onClose}>
@@ -43,16 +43,12 @@ export default function ShareMenuModal({
           <div>
             <h3 className="text-sm font-bold text-[var(--ui-text)]">Share this set</h3>
             <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              Send the full chord sheet, including the set order, keys and musical edits.
+              {isFollowed
+                ? 'Copy the live link or make your own copy.'
+                : 'Send a copy, or let people follow your changes live.'}
             </p>
           </div>
-          {snapshot ? (
-            <ShareSetLinkPanel snapshot={snapshot} />
-          ) : (
-            <StatusBanner tone="error" icon={<AlertTriangle size={16} />}>
-              {snapshotError || 'This set could not be prepared for sharing right now.'}
-            </StatusBanner>
-          )}
+          <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
         </section>
 
         <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { createSharedSetSnapshot, MAX_SHARED_SET_SONGS, sessionSongsFromSnapshot } from '../../src/lib/shareSnapshot'
+import { sessionSongsFromSnapshot, snapshotEntry } from '../../src/lib/shareSnapshot'
 import type { Session } from '../../src/lib/sessionStore'
-import type { Song } from '../../src/types/song'
+import type { SharedSetSnapshot, Song } from '../../src/types/song'
+
+const snapshotOf = (session: Session, song: Song): SharedSetSnapshot => ({
+  v: 2,
+  name: session.name,
+  songs: session.songs.map((item) => snapshotEntry(item, song)),
+})
 
 const sourceSong: Song = {
   id: 'song-1', title: 'Song', artist: 'Artist', sourceUrl: 'https://example.test/song', sourceSite: 'test', originalKey: 'C',
@@ -19,7 +25,7 @@ describe('shared set snapshots', () => {
         { entryId: 'second', url: sourceSong.sourceUrl, status: 'ok', customSections: [], customFlow: [], simplified: false },
       ],
     }
-    const snapshot = await createSharedSetSnapshot(session, async () => sourceSong)
+    const snapshot = snapshotOf(session, sourceSong)
     expect(snapshot.songs.map((entry) => entry.entryId)).toEqual(['first', 'second'])
     expect(snapshot.songs[0].targetKey).toBe('D')
     expect(snapshot.songs[0].padKeyMode).toBe('custom')
@@ -27,14 +33,6 @@ describe('shared set snapshots', () => {
     expect(snapshot.songs[1].customSections).toEqual([])
     expect(snapshot.songs[1].customFlow).toEqual([])
     expect(sessionSongsFromSnapshot(snapshot)).toMatchObject(session.songs)
-  })
-
-  it('rejects sets above the sharing limit before reading songs', async () => {
-    const session: Session = {
-      id: 'set', createdAt: 1, name: 'Large',
-      songs: Array.from({ length: MAX_SHARED_SET_SONGS + 1 }, (_, i) => ({ entryId: String(i), url: `https://example.test/${i}`, status: 'ok' as const })),
-    }
-    await expect(createSharedSetSnapshot(session, async () => sourceSong)).rejects.toThrow('limit of 15 songs')
   })
 
   it('preserves algorithmic simplifiedSource, fallback sections, and custom edits in snapshot', async () => {
@@ -66,7 +64,7 @@ describe('shared set snapshots', () => {
       ],
     }
 
-    const snapshot = await createSharedSetSnapshot(session, async () => algorithmicSong)
+    const snapshot = snapshotOf(session, algorithmicSong)
     expect(snapshot.songs[0].song.simplifiedSource).toBe('algorithmic')
     expect(snapshot.songs[0].song.simplifiedSections).toEqual(algorithmicSong.simplifiedSections)
     expect(snapshot.songs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)

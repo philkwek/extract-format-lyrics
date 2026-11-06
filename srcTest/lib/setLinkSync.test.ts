@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildSetLinkPayload,
   createSetLinkSync,
+  createSyncChannel,
+  ensureSetLinkFresh,
   hashSetLinkPayload,
   type SetLinkSyncDeps,
 } from '../../src/lib/setLinkSync'
@@ -130,6 +132,13 @@ describe('setLinkSync', () => {
     expect(env.api).toHaveBeenCalledTimes(1)
     expect(env.identities.get('s1')?.lastPublishedHash).toBeTruthy()
     expect(env.deps.track).toHaveBeenCalledWith('set_link_published', { song_count: 1, skipped_uploads: 0, trigger: 'create' })
+  })
+
+  it('does not publish a set opened from a live link', async () => {
+    const env = setup()
+    env.emit(ev('created', makeSession({ liveSourceId: 'live-abc' })))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(env.api).not.toHaveBeenCalled()
   })
 
   it('does not write for edits that do not change the payload', async () => {
@@ -280,24 +289,48 @@ describe('setLinkSync', () => {
     const near = setup()
     await seedHash(near, session)
     near.identities.set('s1', { ...near.identities.get('s1')!, expiresAt: new Date(Date.now() + 86400_000).toISOString() })
-    await near.sync.ensureFresh(session)
+    expect(await near.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(near.api).toHaveBeenCalledTimes(1)
     expect(near.deps.track).toHaveBeenCalledWith('set_link_published', expect.objectContaining({ trigger: 'refresh' }))
 
     const fresh = setup()
     await seedHash(fresh, session)
-    await fresh.sync.ensureFresh(session)
+    expect(await fresh.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(fresh.api).toHaveBeenCalledTimes(0)
 
     const never = setup()
-    await never.sync.ensureFresh(session)
+    expect(await never.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(never.api).toHaveBeenCalledTimes(1)
 
     const changed = setup()
     await seedHash(changed, session)
-    await changed.sync.ensureFresh(withKey('G'))
+    expect(await changed.sync.ensureFresh(withKey('G'))).toEqual({ ok: true })
     expect(changed.api).toHaveBeenCalledTimes(1)
+
+    const empty = setup()
+    expect(await empty.sync.ensureFresh(makeSession({ songs: [] }))).toEqual({
+      ok: false,
+      reason: 'empty',
+    })
+    expect(empty.api).not.toHaveBeenCalled()
+
+    const many = setup()
+    const songs = Array.from({ length: 31 }, (_, i) => ({
+      entryId: `e${i}`,
+      url: 'https://x.test/a',
+      status: 'ok' as const,
+    }))
+    expect(await many.sync.ensureFresh(makeSession({ songs }))).toEqual({
+      ok: false,
+      reason: 'too_many',
+    })
+    expect(many.api).not.toHaveBeenCalled()
+
+    const broken = setup()
+    broken.api.mockRejectedValue(new ShareApiError('no', 'FORBIDDEN', 403))
+    expect(await broken.sync.ensureFresh(session)).toEqual({ ok: false, reason: 'failed' })
   })
+
 
   it('saving bookkeeping triggers no session events', async () => {
     const data = new Map<string, unknown>()
@@ -344,5 +377,94 @@ describe('setLinkSync', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(env.api).toHaveBeenCalledTimes(0)
     expect(env.identities.has('s1')).toBe(false)
+  })
+})
+
+describe('ensureSetLinkFresh', () => {
+  it('reports why a set link cannot be published', async () => {
+    expect(await ensureSetLinkFresh(makeSession({ id: 'fresh-empty', songs: [] }))).toEqual({
+      ok: false,
+      reason: 'empty',
+    })
+    const songs = Array.from({ length: 31 }, (_, i) => ({
+      entryId: `e${i}`,
+      url: 'https://x.test/a',
+      status: 'ok' as const,
+    }))
+    expect(
+      await ensureSetLinkFresh(makeSession({ id: 'fresh-many', songs })),
+    ).toEqual({ ok: false, reason: 'too_many' })
+  })
+})
+
+describe('createSyncChannel', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('keeps channels with different names independent', async () => {
+    const listeners = new Set<Listener>()
+    const identity = {
+      get: async () => ({ sessionId: 's1', publicId: 'p'.repeat(22), secret: 'k' }),
+      update: async () => {},
+      remove: async () => {},
+    }
+    const locks: string[] = []
+    const base = {
+      store: { subscribe: (l: Listener) => (listeners.add(l), () => listeners.delete(l)) },
+      identity,
+      buildPayload: buildSetLinkPayload,
+      now: () => Date.now(),
+      timers: {
+        setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+        clearTimeout: (h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      },
+      hash: fakeHash,
+      random: () => 0,
+      withLock: async <T,>(name: string, fn: () => Promise<T>) => (locks.push(name), fn()),
+    }
+    const expiresAt = new Date(Date.now() + 30 * 86400_000).toISOString()
+    const failing = vi.fn(async () => {
+      throw new ShareApiError('boom', undefined, 500)
+    })
+    let release!: () => void
+    const slow = vi.fn(() => new Promise<{ expiresAt: string }>((r) => (release = () => r({ expiresAt }))))
+    createSyncChannel({ ...base, name: 'a', publish: failing }).start()
+    createSyncChannel({ ...base, name: 'b', publish: slow }).start()
+
+    listeners.forEach((l) => l(ev('created', makeSession())))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(failing).toHaveBeenCalledTimes(1)
+    expect(slow).toHaveBeenCalledTimes(1)
+    expect(locks.sort()).toEqual(['a:s1', 'b:s1'])
+
+    // a's failure and b's in-flight publish don't block each other: a retries while b is pending.
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(failing).toHaveBeenCalledTimes(2)
+    expect(slow).toHaveBeenCalledTimes(1)
+    release()
+  })
+
+  it('skips sessions that shouldSync rejects', async () => {
+    const publish = vi.fn(async () => ({ expiresAt: '' }))
+    const listeners = new Set<Listener>()
+    createSyncChannel({
+      name: 'x',
+      store: { subscribe: (l) => (listeners.add(l), () => listeners.delete(l)) },
+      identity: { get: async () => null, update: async () => {}, remove: async () => {} },
+      shouldSync: () => false,
+      buildPayload: buildSetLinkPayload,
+      publish,
+      now: () => Date.now(),
+      timers: { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>) },
+      hash: fakeHash,
+      withLock: async (_n, fn) => fn(),
+    }).start()
+    listeners.forEach((l) => l(ev('created', makeSession())))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(publish).not.toHaveBeenCalled()
   })
 })

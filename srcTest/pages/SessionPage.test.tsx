@@ -2,13 +2,17 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
 import { scrapeApi, simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
 import { importFromSetLinkOnce } from '../../src/lib/setLinkImport'
+import {
+  followLiveSet,
+  type FollowHandlers,
+} from '../../src/lib/liveFollow'
 
 const fixtures = vi.hoisted(() => {
   const sections = [
@@ -59,12 +63,23 @@ vi.mock('../../src/lib/sessionStore', () => ({
     removeSongFromSession: vi.fn(),
     reorderSongsInSession: vi.fn(),
     renameSession: vi.fn(),
+    createSetCopy: vi.fn(),
   },
   makeEntryId: () => 'entry-2',
 }))
 
 vi.mock('../../src/lib/setLinkSync', () => ({
   ensureSetLinkFresh: vi.fn(async () => undefined),
+}))
+
+vi.mock('../../src/lib/liveShareSync', () => ({
+  getLiveShare: vi.fn(async () => null),
+  subscribeLiveShare: vi.fn(() => () => {}),
+  subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
+
+vi.mock('../../src/lib/liveFollow', () => ({
+  followLiveSet: vi.fn(),
 }))
 
 vi.mock('../../src/lib/setLinkImport', () => ({
@@ -116,6 +131,15 @@ afterEach(() => {
 function LocationProbe() {
   const loc = useLocation()
   return <output data-testid="loc">{loc.pathname}</output>
+}
+
+function NavProbe() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate('/session/session-2')}>
+      Open second set
+    </button>
+  )
 }
 
 function TestHarness() {
@@ -173,14 +197,15 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
   })
 
-  it('groups set sharing behind one Share modal with both link generators', async () => {
+  it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
 
     expect(await screen.findByText('Share this set')).toBeTruthy()
     expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Generate link' })).toHaveLength(2)
+    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
   })
 
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
@@ -484,5 +509,312 @@ describe('SessionPage set links', () => {
     renderAt('/session/session-1')
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`))
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+  })
+})
+
+
+describe('SessionPage following a live set', () => {
+  const followed = { ...fixtures.session, liveSourceId: 'live-1' }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  function setup(session: object = followed) {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(session as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+    renderAt('/session/session-1')
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('shows the live banner with the live status and no switch', async () => {
+    setup()
+    expect(await screen.findByText(/Live set from host/)).toBeTruthy()
+    expect(screen.getByText(/Editing makes your own copy/)).toBeTruthy()
+    expect(screen.queryByText('Live')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Create a copy' })).toBeTruthy()
+    expect(screen.queryByRole('switch')).toBeNull()
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalledTimes(1))
+  })
+
+  it('shows a Live set chip for a live set only', async () => {
+    setup()
+    expect(await screen.findByText('Live set')).toBeTruthy()
+    cleanup()
+    setup(fixtures.session)
+    await screen.findByRole('button', { name: 'Add Song' })
+    expect(screen.queryByText('Live set')).toBeNull()
+  })
+
+  it('shows the status in words', async () => {
+    setup()
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+    act(() => handlers.onStatus('reconnecting'))
+    expect(await screen.findByText(/^Reconnecting\u2026/)).toBeTruthy()
+    expect(screen.getByText('Live set from host')).toBeTruthy()
+    act(() => handlers.onStatus('expired'))
+    expect(await screen.findByText('Live link expired')).toBeTruthy()
+    expect(screen.getByText('Set no longer updating. Create your own copy to edit.')).toBeTruthy()
+  })
+
+  it('makes a copy from the banner button', async () => {
+    setup()
+    const copy = { ...fixtures.session, id: 'session-copy', name: 'Copy' }
+    vi.mocked(sessionStore.createSetCopy).mockResolvedValue(copy as never)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create a copy' }))
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/session-copy'))
+    expect(sessionStore.createSetCopy).toHaveBeenCalledWith(followed)
+  })
+
+  it('does not show the banner for a set that is not live', async () => {
+    setup(fixtures.session)
+    await screen.findByRole('button', { name: 'Add Song' })
+    expect(screen.queryByText(/Live set from host/)).toBeNull()
+  })
+
+  it('announces the follow state in a live region without the button', async () => {
+    setup()
+    const title = await screen.findByText(/Live set from host/)
+    const liveRegion = title.closest('[role="status"]')
+    expect(liveRegion).toBeTruthy()
+    expect(liveRegion?.contains(screen.getByRole('button', { name: 'Create a copy' }))).toBe(false)
+  })
+
+  it('asks before chord editing and makes a copy when confirmed', async () => {
+    setup()
+    const copy = { ...fixtures.session, id: 'session-copy', name: 'Copy' }
+    vi.mocked(sessionStore.createSetCopy).mockResolvedValue(copy as never)
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit chords' }))
+    expect(await screen.findByText('Make your own copy?')).toBeTruthy()
+    expect(screen.queryByText(/Chord editing active/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make a copy' }))
+
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/session-copy'))
+    expect(sessionStore.createSetCopy).toHaveBeenCalledWith(followed)
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+    expect(controller.dropDeferred).toHaveBeenCalled()
+  })
+
+  it('leaves the host key in place when Cancel is chosen', async () => {
+    setup()
+    const select = (await screen.findAllByLabelText('Transpose song'))[0] as HTMLSelectElement
+    const hostKey = select.value
+    fireEvent.change(select, { target: { value: 'A' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect((screen.getAllByLabelText('Transpose song')[0] as HTMLSelectElement).value).toBe(hostKey)
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+    expect(sessionStore.createSetCopy).not.toHaveBeenCalled()
+    expect(controller.flushDeferred).toHaveBeenCalled()
+  })
+
+  it('does not ask for columns or font size', async () => {
+    setup()
+    await screen.findByText(/Live set from host/)
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Increase song font size' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows a set that already ended without connecting', async () => {
+    setup({ ...followed, liveEnded: 'stopped' })
+    expect(await screen.findByText('Live set ended by host')).toBeTruthy()
+    expect(followLiveSet).not.toHaveBeenCalled()
+  })
+
+  it('still asks before edits when the host stops sharing', async () => {
+    setup()
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+    act(() => handlers.onStatus('stopped'))
+
+    expect(await screen.findByText('Live set ended by host')).toBeTruthy()
+    expect(screen.getByText('Live set ended')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit chords' }))
+    expect(await screen.findByText('Make your own copy?')).toBeTruthy()
+  })
+})
+
+describe('SessionPage removed-by-host songs', () => {
+  const followed = { ...fixtures.session, liveSourceId: 'live-1' }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  function renderNavigable() {
+    return render(
+      <ChromeVisibilityContext.Provider value={{ hidden: false, setHidden: vi.fn() }}>
+        <MemoryRouter initialEntries={['/session/session-1']}>
+          <NavProbe />
+          <Routes>
+            <Route path="/session/:sessionId" element={<SessionPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ChromeVisibilityContext.Provider>,
+    )
+  }
+
+  function mockFollow(session: object) {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(session as never)
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('clears a removed-by-host song when the set id changes', async () => {
+    const second = {
+      ...fixtures.session,
+      id: 'session-2',
+      name: 'Second Set',
+      songs: [
+        {
+          entryId: 'entry-s2',
+          url: 'https://example.test/second',
+          title: 'Second Song',
+          status: 'ok',
+        },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockImplementation(async (id: string) => {
+      if (id === 'session-1') return followed as never
+      if (id === 'session-2') return second as never
+      return fixtures.session as never
+    })
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+
+    renderNavigable()
+    await screen.findByText(/Live set from host/)
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+
+    await act(async () => {
+      handlers.onUpdate({ ...followed, songs: [] } as never)
+    })
+    await waitFor(() => expect(screen.getByText(/Removed by the host/)).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open second set' }))
+    await waitFor(() => expect(screen.queryByText(/Removed by the host/)).toBeNull())
+    expect(screen.queryByText(/\(removed\)/)).toBeNull()
+  })
+
+  it('wraps tab arrow keys around the tabs actually shown', async () => {
+    const threeSongs = {
+      ...followed,
+      songs: [
+        { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
+        { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
+        { entryId: 'entry-c', url: 'https://example.test/c', title: 'Charlie', status: 'ok' },
+      ],
+    }
+    mockFollow(threeSongs)
+
+    renderAt('/session/session-1')
+    await screen.findByText(/Live set from host/)
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+
+    await act(async () => {
+      handlers.onUpdate({ ...threeSongs, songs: threeSongs.songs.slice(1) } as never)
+    })
+    await waitFor(() => expect(screen.getByText(/Removed by the host/)).toBeTruthy())
+
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    fireEvent.keyDown(tabs[2], { key: 'ArrowRight' })
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab')[0].getAttribute('aria-selected')).toBe('true'),
+    )
+    expect(screen.getAllByRole('tab')[0].textContent).toContain('(removed)')
+    expect(screen.queryByText(/Removed by the host/)).toBeTruthy()
+  })
+})
+
+describe('SessionPage host change notice', () => {
+  const twoSongs = {
+    ...fixtures.session,
+    liveSourceId: 'live-1',
+    songs: [
+      { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
+      { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
+    ],
+  }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  const announced = (text: string) =>
+    screen.getAllByRole('status').some((el) => el.textContent === `Host: ${text}`)
+
+  async function open() {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+    renderAt('/session/session-1')
+    await screen.findByText(/Live set from host/)
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('says nothing when the set opens', async () => {
+    await open()
+    expect(screen.queryByText(/^Host:/)).toBeNull()
+  })
+
+  it('says what the host changed and opens that song on Show', async () => {
+    await open()
+    const songs = [twoSongs.songs[0], { ...twoSongs.songs[1], targetKey: 'A' }]
+    await act(async () => handlers.onUpdate({ ...twoSongs, songs } as never))
+
+    await waitFor(() => expect(announced('“Bravo” is now in A')).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab')[1].getAttribute('aria-selected')).toBe('true'),
+    )
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Show' })).toBeNull())
+    expect(announced('“Bravo” is now in A')).toBe(false)
+  })
+
+  it('adds a quick second change to the same notice', async () => {
+    await open()
+    const keyed = [twoSongs.songs[0], { ...twoSongs.songs[1], targetKey: 'A' }]
+    await act(async () => handlers.onUpdate({ ...twoSongs, songs: keyed } as never))
+    await act(async () =>
+      handlers.onUpdate({ ...twoSongs, name: 'Youth', songs: keyed } as never),
+    )
+
+    await waitFor(() =>
+      expect(announced('“Bravo” is now in A. Renamed the set to “Youth”')).toBe(
+        true,
+      ),
+    )
+  })
+
+  it('closes on Dismiss', async () => {
+    await open()
+    await act(async () =>
+      handlers.onUpdate({ ...twoSongs, songs: [twoSongs.songs[0]] } as never),
+    )
+    await waitFor(() => expect(announced('Removed “Bravo”')).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(announced('Removed “Bravo”')).toBe(false))
   })
 })

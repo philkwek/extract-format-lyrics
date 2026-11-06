@@ -2,6 +2,7 @@ import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import {
+  CopyPlus,
   GripVertical,
   Lightbulb,
   ListOrdered,
@@ -9,6 +10,7 @@ import {
   Minimize2,
   Pencil,
   Plus,
+  Radio,
   Share2,
   SlidersHorizontal,
   WandSparkles,
@@ -44,6 +46,8 @@ import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
 import ShareMenuModal from '../components/ShareMenuModal'
+import LiveShareChip from '../components/share/LiveShareChip'
+import HostChangeToast, { type HostNote } from '../components/share/HostChangeToast'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
@@ -57,9 +61,25 @@ import {
 } from '../lib/sectionFlow'
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
-import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
-import type { Song, Section, SharedSetSnapshot } from '../types/song'
-import { Button, IconButton, StatusBanner } from '../components/ui'
+import type { Song, Section } from '../types/song'
+import { Button, IconButton, LivePill, StatusBanner } from '../components/ui'
+import {
+  liveToneButtonClasses,
+  liveToneClasses,
+  type LiveTone,
+} from '../components/ui/liveTone'
+import {
+  followLiveSet,
+  type FollowController,
+  type FollowStatus,
+} from '../lib/liveFollow'
+import { useFollowEditGuard } from '../lib/useFollowEditGuard'
+import {
+  describeHostChanges,
+  mergeHostChanges,
+  summarizeHostChanges,
+  type HostChange,
+} from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import {
   ambientPadPlayer,
@@ -120,8 +140,6 @@ export default function SessionPage() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const { isDark: themeDark, setMode: setThemeMode } = useThemeMode()
-  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
-  const [shareSnapshotError, setShareSnapshotError] = useState<string | null>(null)
   const [draggedSongIdx, setDraggedSongIdx] = useState<number | null>(null)
   const [dragOverSongIdx, setDragOverSongIdx] = useState<number | null>(null)
   const [isEditingChords, setIsEditingChords] = useState(false)
@@ -136,8 +154,18 @@ export default function SessionPage() {
     }
   })
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
-  const [isPreparingShare, setIsPreparingShare] = useState(false)
   const [isEditSetOpen, setIsEditSetOpen] = useState(false)
+  const [followStatus, setFollowStatus] = useState<FollowStatus>('live')
+  const [removedByHost, setRemovedByHost] = useState<{
+    item: SessionSongItem
+    song: Song | undefined
+    index: number
+  } | null>(null)
+  const followRef = useRef<FollowController | null>(null)
+  const viewRef = useRef({ activeIndex: 0, shown: [] as SessionSongItem[], songs: new Map<string, Song>() })
+  const deferRef = useRef(false)
+  const onHostUpdateRef = useRef<(next: Session) => void>(() => {})
+  const [hostChanges, setHostChanges] = useState<HostChange[] | null>(null)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
@@ -219,9 +247,29 @@ export default function SessionPage() {
     setOriginalSongs(origMap)
   }, [])
 
+  const adoptSession = useCallback((stored: Session) => {
+    sessionRef.current = stored
+    setSession(stored)
+  }, [])
+
+  const following = Boolean(session?.liveSourceId)
+  const {
+    guard,
+    dialog: editGuardDialog,
+    isOpenRef: guardOpenRef,
+    makeCopy,
+  } = useFollowEditGuard({
+    following,
+    sessionId: session?.id,
+    controllerRef: followRef,
+  })
+  const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs
+
   useEffect(() => {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
+      setRemovedByHost(null)
+      setHostChanges(null)
       if (!s) {
         setNotFoundId(sessionId)
         return
@@ -239,13 +287,70 @@ export default function SessionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, loadSessionSongs, navigate])
 
-  const currentItem = session?.songs[activeIndex]
-  const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
+  const shownSongs = useMemo(() => {
+    const songs = session?.songs ?? []
+    if (!removedByHost) return songs
+    const at = Math.min(removedByHost.index, songs.length)
+    return [...songs.slice(0, at), removedByHost.item, ...songs.slice(at)]
+  }, [session?.songs, removedByHost])
+  const currentItem = shownSongs[activeIndex]
+  const isRemovedItem = (item: SessionSongItem) =>
+    removedByHost !== null && item.entryId === removedByHost.item.entryId
+  const songForItem = (item: SessionSongItem) =>
+    songsData.get(item.entryId || item.url) ?? (isRemovedItem(item) ? removedByHost?.song : undefined)
   const currentSong = currentItem ? songForItem(currentItem) : null
 
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    viewRef.current = { activeIndex, shown: shownSongs, songs: songsData }
+  }, [activeIndex, shownSongs, songsData])
+
+  useEffect(() => {
+    onHostUpdateRef.current = (next) => {
+      const { activeIndex: at, shown, songs } = viewRef.current
+      const current = shown[at]
+      const before = sessionRef.current
+      const changes = before ? describeHostChanges(before, next) : []
+      if (changes.length) setHostChanges((prev) => mergeHostChanges(prev ?? [], changes))
+      adoptSession(next)
+      void loadSessionSongs(next)
+      if (!current) return
+      const nextIndex = next.songs.findIndex((item) => item.entryId === current.entryId)
+      if (nextIndex >= 0) {
+        setRemovedByHost(null)
+        if (nextIndex !== at) setSearchParams({ song: nextIndex.toString() }, { replace: true })
+      } else {
+        setRemovedByHost((prev) =>
+          prev?.item.entryId === current.entryId
+            ? prev
+            : { item: current, song: songs.get(current.entryId || current.url), index: at },
+        )
+      }
+    }
+  }, [adoptSession, loadSessionSongs, setSearchParams])
+
+  useEffect(() => {
+    const live = sessionRef.current
+    if (!following || !live || live.liveEnded) return
+    const controller = followLiveSet(live, {
+      onUpdate: (next) => onHostUpdateRef.current(next),
+      onStatus: setFollowStatus,
+      shouldDefer: () => guardOpenRef.current || deferRef.current,
+    })
+    followRef.current = controller
+    return () => {
+      controller.stop()
+      followRef.current = null
+    }
+  }, [following, session?.id, guardOpenRef])
+
+  useEffect(() => {
+    deferRef.current = setDialogOpen
+    if (!setDialogOpen) followRef.current?.flushDeferred()
+  }, [setDialogOpen])
 
   useEffect(() => {
     originalSongsRef.current = originalSongs
@@ -357,19 +462,46 @@ export default function SessionPage() {
     if (currentSong && currentItem && session) {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
       setPrefsRevision((revision) => revision + 1)
-      if (newPrefs.simplified !== currentItem.simplified) {
-        void updateSongItem(currentItem.entryId, (item) => ({
-          ...item,
-          simplified: newPrefs.simplified,
-        }))
+      if (Boolean(newPrefs.simplified) !== Boolean(currentItem.simplified)) {
+        guard(() => {
+          void updateSongItem(currentItem.entryId, (item) => ({
+            ...item,
+            simplified: newPrefs.simplified,
+          }))
+        })
       }
     }
   }
 
   const selectSong = (index: number) => {
     setPositioningChord(null)
-    setSearchParams({ song: index.toString() })
+    let target = index
+    if (removedByHost) {
+      const removedAt = Math.min(removedByHost.index, session?.songs.length ?? 0)
+      if (index !== removedAt) {
+        setRemovedByHost(null)
+        if (index > removedAt) target = index - 1
+      }
+    }
+    setSearchParams({ song: target.toString() })
   }
+
+  const selectSongRef = useRef(selectSong)
+  useEffect(() => {
+    selectSongRef.current = selectSong
+  })
+  const dismissHostNote = useCallback(() => setHostChanges(null), [])
+  const hostNote = useMemo<HostNote | null>(() => {
+    const summary = hostChanges && summarizeHostChanges(hostChanges)
+    if (!summary) return null
+    const index = summary.songKey
+      ? shownSongs.findIndex((item) => (item.entryId || item.url) === summary.songKey)
+      : -1
+    return {
+      text: summary.text,
+      onShow: index >= 0 && index !== activeIndex ? () => selectSongRef.current(index) : undefined,
+    }
+  }, [hostChanges, shownSongs, activeIndex])
 
   const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
     setSession(updatedSession)
@@ -519,7 +651,6 @@ export default function SessionPage() {
     fullScreenTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null)
     setIsEditingChords(false)
     setPositioningChord(null)
-    setSharingSnapshot(null)
     setIsShareMenuOpen(false)
     setIsEditSetOpen(false)
     setIsArrangingSongs(false)
@@ -733,7 +864,8 @@ export default function SessionPage() {
   const handleTabDrop = (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault()
     if (draggedSongIdx !== null && draggedSongIdx !== targetIdx) {
-      handleReorderSongs(draggedSongIdx, targetIdx)
+      const from = draggedSongIdx
+      guard(() => void handleReorderSongs(from, targetIdx))
     }
     setDraggedSongIdx(null)
     setDragOverSongIdx(null)
@@ -1038,6 +1170,13 @@ export default function SessionPage() {
     }
   }
 
+  const guardedSelectKey = (key: string) => guard(() => void handleSelectKey(key))
+  const guardedResetKey = () => guard(() => void handleResetKey())
+  const guardedChangePadKeyMode = (mode: PadKeyMode) =>
+    guard(() => void handleChangePadKeyMode(mode))
+  const guardedSelectCustomPadKey = (key: PadKey) =>
+    guard(() => void handleSelectCustomPadKey(key))
+
   if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
     return <SetLinkImportView linkId={sessionId} />
   }
@@ -1087,22 +1226,27 @@ export default function SessionPage() {
     }
   }
 
-  const handleOpenShareMenu = async () => {
-    if (isPreparingShare) return
-    setIsPreparingShare(true)
-    setShareSnapshotError(null)
-    try {
-      setSharingSnapshot(await buildSharedSetSnapshot(session))
-    } catch (err) {
-      setSharingSnapshot(null)
-      setShareSnapshotError(
-        err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.',
-      )
-    } finally {
-      setIsPreparingShare(false)
-      setIsShareMenuOpen(true)
-    }
-  }
+  const handleOpenShareMenu = () => setIsShareMenuOpen(true)
+
+  const shownFollowStatus = session.liveEnded ?? followStatus
+  const followTone: LiveTone =
+    shownFollowStatus === 'stopped' || shownFollowStatus === 'expired'
+      ? 'ended'
+      : shownFollowStatus === 'reconnecting'
+        ? 'reconnecting'
+        : 'live'
+  const followTitle =
+    shownFollowStatus === 'stopped'
+      ? 'Live set ended by host'
+      : shownFollowStatus === 'expired'
+        ? 'Live link expired'
+        : 'Live set from host'
+  const followText =
+    followTone === 'ended'
+      ? 'Set no longer updating. Create your own copy to edit.'
+      : followTone === 'reconnecting'
+        ? 'Reconnecting\u2026 The host\u2019s latest changes will show once you\u2019re back online.'
+        : 'You see the host\u2019s changes as they make them. Editing makes your own copy.'
 
   const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
 
@@ -1152,6 +1296,37 @@ export default function SessionPage() {
         </StatusBanner>
       )}
 
+      {!isFullScreen && session.liveSourceId && (
+        <div
+          className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${liveToneClasses[followTone]}`}
+        >
+          <Radio size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div role="status" className="min-w-0">
+              <p className="flex items-center gap-1.5 font-semibold">
+                {shownFollowStatus === 'live' && (
+                  <span
+                    className="h-2 w-2 rounded-full bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400"
+                    aria-hidden="true"
+                  />
+                )}
+                {followTitle}
+              </p>
+              <p className="text-xs text-[var(--ui-text-muted)]">{followText}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className={`ml-auto ${liveToneButtonClasses[followTone]}`}
+              icon={<CopyPlus size={14} />}
+              onClick={makeCopy}
+            >
+              Create a copy
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Session Title Bar */}
       {!isFullScreen && (
         <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1176,7 +1351,14 @@ export default function SessionPage() {
                 <h1 className="truncate text-lg font-bold tracking-[-0.025em] text-[var(--ui-text)]">
                   {session.name}
                 </h1>
-                <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}>
+                {session.liveSourceId && (
+                  <LivePill tone={followTone}>
+                    <Radio size={11} aria-hidden="true" />
+                    {followTone === 'ended' ? 'Live set ended' : 'Live set'}
+                  </LivePill>
+                )}
+                <LiveShareChip sessionId={session.id} />
+                <IconButton label="Rename set" variant="ghost" onClick={() => guard(handleStartRename)}>
                   <Pencil size={14} />
                 </IconButton>
               </div>
@@ -1191,7 +1373,6 @@ export default function SessionPage() {
               variant="secondary"
               icon={<Share2 size={14} />}
               onClick={handleOpenShareMenu}
-              loading={isPreparingShare}
             >
               Share
             </Button>
@@ -1199,7 +1380,7 @@ export default function SessionPage() {
               size="sm"
               variant="secondary"
               icon={<Plus size={14} />}
-              onClick={() => setIsEditSetOpen(true)}
+              onClick={() => guard(() => setIsEditSetOpen(true))}
             >
               Add Song
             </Button>
@@ -1231,7 +1412,7 @@ export default function SessionPage() {
             size="sm"
             variant="secondary"
             icon={<ListOrdered size={14} />}
-            onClick={() => setIsArrangingSongs(true)}
+            onClick={() => guard(() => setIsArrangingSongs(true))}
             aria-label="Arrange setlist"
             title="Arrange setlist"
             className="shrink-0"
@@ -1247,15 +1428,16 @@ export default function SessionPage() {
           role="tablist"
           aria-label="Songs in setlist"
         >
-          {session.songs.map((item, idx) => {
+          {shownSongs.map((item, idx) => {
             const isActive = idx === activeIndex
             const song = songForItem(item)
             const label =
               song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
+            const tabLabel = isRemovedItem(item) ? `${label} (removed)` : label
             const isDragging = draggedSongIdx === idx
             const isOver =
               dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
-            const canDrag = !isFullScreen && session.songs.length > 1
+            const canDrag = !isFullScreen && session.songs.length > 1 && !removedByHost
 
             return (
               <div
@@ -1275,7 +1457,7 @@ export default function SessionPage() {
                     e.preventDefault()
                     selectSong(idx)
                   } else {
-                    const nextIndex = getNextTabIndex(e.key, idx, session.songs.length)
+                    const nextIndex = getNextTabIndex(e.key, idx, shownSongs.length)
                     if (nextIndex === null) return
                     e.preventDefault()
                     selectSong(nextIndex)
@@ -1326,13 +1508,13 @@ export default function SessionPage() {
                         : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
                   }`}
                 />
-                <span className="truncate max-w-[140px]">{label}</span>
-                {!isFullScreen && session.songs.length > 1 && (
+                <span className="truncate max-w-[140px]">{tabLabel}</span>
+                {!isFullScreen && session.songs.length > 1 && !isRemovedItem(item) && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleRemoveSong(item.entryId || '')
+                      guard(() => handleRemoveSong(item.entryId || ''))
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     title="Remove song from setlist"
@@ -1361,6 +1543,12 @@ export default function SessionPage() {
         )}
       </div>
 
+      {currentItem && isRemovedItem(currentItem) && (
+        <StatusBanner tone="warning">
+          Removed by the host. This song stays here until you move to another song.
+        </StatusBanner>
+      )}
+
       {/* Main Song Content */}
       {currentItem && (
         <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
@@ -1377,7 +1565,7 @@ export default function SessionPage() {
                   {currentItem.errorMessage || 'Unknown extraction error'}
                 </p>
                 <button
-                  onClick={() => handleRetry(currentItem)}
+                  onClick={() => guard(() => void handleRetry(currentItem))}
                   disabled={retryingUrls.has(currentItem.url)}
                   className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
                 >
@@ -1392,7 +1580,7 @@ export default function SessionPage() {
                 className={
                   isFullScreen
                     ? 'shrink-0 border-b border-[#C8DFDB] px-3 pb-1.5 pt-1.5 dark:border-[#282828]'
-                    : 'space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]'
+                    : 'space-y-1.5 pb-2 border-b border-[#C8DFDB] dark:border-[#282828]'
                 }
               >
                 {isFullScreen ? (
@@ -1403,8 +1591,8 @@ export default function SessionPage() {
                           song={displayedSong}
                           currentKey={currentKey}
                           offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                          onResetKey={handleResetKey}
-                          onSelectKey={handleSelectKey}
+                          onResetKey={guardedResetKey}
+                          onSelectKey={guardedSelectKey}
                           variant="fullscreen"
                         />
                         <div
@@ -1419,8 +1607,8 @@ export default function SessionPage() {
                         <TransposeSelector
                           originalKey={displayedSong.originalKey}
                           currentKey={currentKey}
-                          onSelectKey={handleSelectKey}
-                          onReset={handleResetKey}
+                          onSelectKey={guardedSelectKey}
+                          onReset={guardedResetKey}
                           compact
                         />
                         {canSimplify && (
@@ -1452,8 +1640,8 @@ export default function SessionPage() {
                           customPadKey={customPadKey}
                           isPadPlaying={padState.isPlaying}
                           isPadLoading={padState.isLoading}
-                          onChangePadKeyMode={handleChangePadKeyMode}
-                          onSelectCustomPadKey={handleSelectCustomPadKey}
+                          onChangePadKeyMode={guardedChangePadKeyMode}
+                          onSelectCustomPadKey={guardedSelectCustomPadKey}
                           onTogglePad={handleTogglePad}
                           variant="fullscreen"
                         />
@@ -1503,7 +1691,7 @@ export default function SessionPage() {
                         currentItem?.customSections !== undefined ||
                         currentItem?.customSimplifiedSections !== undefined ||
                         isEditingChords
-                          ? handleRestoreOriginal
+                          ? () => guard(() => void handleRestoreOriginal())
                           : undefined
                       }
                       isEditingChords={isEditingChords}
@@ -1512,20 +1700,23 @@ export default function SessionPage() {
                       isPadLoading={padState.isLoading}
                       originalKey={displayedSong.originalKey}
                       currentKey={currentKey}
-                      onSelectKey={handleSelectKey}
-                      onResetKey={handleResetKey}
+                      onSelectKey={guardedSelectKey}
+                      onResetKey={guardedResetKey}
                       padKeyMode={padKeyMode}
                       customPadKey={customPadKey}
-                      onChangePadKeyMode={handleChangePadKeyMode}
-                      onSelectCustomPadKey={handleSelectCustomPadKey}
+                      onChangePadKeyMode={guardedChangePadKeyMode}
+                      onSelectCustomPadKey={guardedSelectCustomPadKey}
                       onTogglePad={handleTogglePad}
                       onToggleEditChords={() => {
-                        setIsEditingChords((prev) => {
-                          if (prev) {
-                            setPositioningChord(null)
-                          }
-                          return !prev
-                        })
+                        const toggle = () =>
+                          setIsEditingChords((prev) => {
+                            if (prev) {
+                              setPositioningChord(null)
+                            }
+                            return !prev
+                          })
+                        if (isEditingChords) toggle()
+                        else guard(toggle)
                       }}
                     />
                   </>
@@ -1561,25 +1752,35 @@ export default function SessionPage() {
                   onDeleteSection={
                     isFullScreen
                       ? undefined
-                      : (idx) => {
-                          setPositioningChord(null)
-                          handleDeleteSection(idx)
-                        }
+                      : (idx) =>
+                          guard(() => {
+                            setPositioningChord(null)
+                            void handleDeleteSection(idx)
+                          })
                   }
                   onReorderSections={
                     isFullScreen
                       ? undefined
-                      : (from, to) => {
-                          setPositioningChord(null)
-                          handleReorderSections(from, to)
-                        }
+                      : (from, to) =>
+                          guard(() => {
+                            setPositioningChord(null)
+                            void handleReorderSections(from, to)
+                          })
                   }
-                  onRenameSection={isFullScreen ? undefined : handleRenameSection}
-                  onEditChord={handleEditChord}
-                  onDeleteChord={handleDeleteChord}
-                  onStartEditPosition={handleStartEditPosition}
-                  onSplitLine={handleSplitLine}
-                  onMergeLineWithPrevious={handleMergeLineWithPrevious}
+                  onRenameSection={isFullScreen ? undefined : (index, label) => guard(() => void handleRenameSection(index, label))}
+                  onEditChord={(section, line, chord, value) =>
+                    guard(() => void handleEditChord(section, line, chord, value))
+                  }
+                  onDeleteChord={(section, line, chord) =>
+                    guard(() => void handleDeleteChord(section, line, chord))
+                  }
+                  onStartEditPosition={(target) => guard(() => handleStartEditPosition(target))}
+                  onSplitLine={(section, line, at) =>
+                    guard(() => void handleSplitLine(section, line, at))
+                  }
+                  onMergeLineWithPrevious={(section, line) =>
+                    guard(() => void handleMergeLineWithPrevious(section, line))
+                  }
                   onLyricOverflowChange={setHasLyricOverflow}
                   wrapLines={prefs.wrapLines}
                 />
@@ -1595,11 +1796,11 @@ export default function SessionPage() {
         </div>
       )}
 
+      {editGuardDialog}
+
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (
         <ShareMenuModal
-          snapshot={sharingSnapshot}
-          snapshotError={shareSnapshotError}
           session={session}
           songsData={songsData}
           isOpen={isShareMenuOpen}
@@ -1632,10 +1833,10 @@ export default function SessionPage() {
             badge: `#${idx + 1}`,
           }
         })}
-        onMove={handleReorderSongs}
+        onMove={(from, to) => guard(() => void handleReorderSongs(from, to))}
         onDelete={
           session.songs.length > 1
-            ? (idx) => handleRemoveSong(session.songs[idx].entryId || '')
+            ? (idx) => guard(() => void handleRemoveSong(session.songs[idx].entryId || ''))
             : undefined
         }
         onClose={() => setIsArrangingSongs(false)}
@@ -1685,6 +1886,9 @@ export default function SessionPage() {
           onCancel={handleCancelPosition}
         />
       )}
+
+      {/* Last, so it sits above the other bottom popovers. */}
+      <HostChangeToast note={hostNote} onDismiss={dismissHostNote} />
     </div>
   )
 }

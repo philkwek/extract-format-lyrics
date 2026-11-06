@@ -117,10 +117,10 @@ export default function DisplayControls({
         className={
           isFullScreen
             ? 'flex flex-wrap items-center justify-start gap-x-3 gap-y-2'
-            : 'flex flex-wrap items-center justify-between gap-x-3 gap-y-2'
+            : 'flex flex-wrap items-center lg:justify-between gap-x-3 gap-y-4 justify-center'
         }
       >
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mr-auto">
           <div className="flex items-center gap-1.5">
             {isFullScreen && onToggleFit && (
               <Button

@@ -5,6 +5,13 @@ import { MemoryRouter } from 'react-router-dom'
 import HomePage from '../../src/pages/HomePage'
 import * as recentLyricsStore from '../../src/lib/recentLyricsStore'
 import * as sessionStoreModule from '../../src/lib/sessionStore'
+import { getLiveShare } from '../../src/lib/liveShareSync'
+
+vi.mock('../../src/lib/liveShareSync', () => ({
+  getLiveShare: vi.fn(async () => null),
+  subscribeLiveShare: vi.fn(() => () => {}),
+  subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -96,5 +103,103 @@ describe('HomePage recent shared lyrics', () => {
       expect(screen.queryByText('Temporary Set')).toBeNull()
       expect(screen.queryByText('Recent shared lyrics')).toBeNull()
     })
+  })
+})
+
+describe('HomePage live set cards', () => {
+  const base = { createdAt: 0, songs: [] }
+
+  it('tells live sets and shared sets from normal sets', async () => {
+    vi.mocked(getLiveShare).mockImplementation(
+      async (id: string) => (id === 'host' ? ({ url: 'u' } as never) : null),
+    )
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1' },
+      { ...base, id: 'host', name: 'Hosted' },
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText('Live set')).toBeTruthy()
+    expect(await screen.findByText('Sharing live')).toBeTruthy()
+    expect(screen.getAllByText('Live set')).toHaveLength(1)
+    expect(screen.getAllByText('Sharing live')).toHaveLength(1)
+  })
+
+  it('marks a live set the host has ended', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1', liveEnded: 'stopped' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText('Live set ended')).toBeTruthy()
+    expect(screen.queryByText('Live set')).toBeNull()
+  })
+})
+
+describe('HomePage set card actions', () => {
+  const base = { createdAt: 0, songs: [] }
+
+  it('asks before deleting a set', async () => {
+    const getAll = vi
+      .spyOn(sessionStoreModule.sessionStore, 'getAllSessions')
+      .mockResolvedValue([{ ...base, id: 'n', name: 'Normal' }] as never)
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByLabelText('Delete session'))
+    expect(del).not.toHaveBeenCalled()
+
+    getAll.mockResolvedValue([])
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('n'))
+  })
+
+  it('keeps the set when delete is cancelled', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByLabelText('Delete session'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(del).not.toHaveBeenCalled()
+  })
+
+  it('does not let a live set be renamed', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1' },
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    await screen.findByText('Followed')
+    expect(screen.getAllByLabelText('Rename set')).toHaveLength(1)
   })
 })

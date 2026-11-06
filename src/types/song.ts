@@ -9,6 +9,9 @@ export type {
   SharedLyricsSection,
   SharedLyricsSong,
   SharedLyricsPayload,
+  LiveSetEntry,
+  LiveSetManifest,
+  LiveSongContent,
 } from '../../functions/src/types'
 
 
@@ -29,3 +32,9 @@ export interface SetLinkPayload {
   name: string
   songs: SetLinkSong[]
 }
+
+/** What a host sends for a live set manifest; the server adds status and rev. */
+export type LiveSetManifestInput = Pick<
+  import('../../functions/src/types').LiveSetManifest,
+  'v' | 'name' | 'entries'
+>

@@ -8,6 +8,7 @@ import {
   Link2,
   ListMusic,
   Pencil,
+  Radio,
   Search,
   Share2,
   Trash2,
@@ -39,9 +40,10 @@ import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
-import { buildSharedSetSnapshot, ShareSnapshotError } from '../lib/shareSnapshot'
-import type { SharedSetSnapshot, Song } from '../types/song'
-import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
+import LiveShareChip from '../components/share/LiveShareChip'
+import type { Song } from '../types/song'
+import { Button, IconButton, LivePill, SegmentedControl, Surface } from '../components/ui'
+import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
 
 export default function HomePage() {
@@ -70,7 +72,8 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
   const [currentTime] = useState(() => Date.now())
-  const [sharingSnapshot, setSharingSnapshot] = useState<SharedSetSnapshot | null>(null)
+  const [sharingSession, setSharingSession] = useState<Session | null>(null)
+  const [deletingSession, setDeletingSession] = useState<Session | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -95,8 +98,8 @@ export default function HomePage() {
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])
 
-  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleDeleteSession = async (id: string) => {
+    setDeletingSession(null)
     await sessionStore.deleteSession(id)
     const updated = await sessionStore.getAllSessions()
     setSessions(updated)
@@ -119,15 +122,6 @@ export default function HomePage() {
       setSessions([])
       await clearRecentSharedLyrics()
       setRecentLyrics([])
-    }
-  }
-
-  const handleShareSession = async (session: Session) => {
-    try {
-      setSharingSnapshot(await buildSharedSetSnapshot(session))
-    } catch (err) {
-      const message = err instanceof ShareSnapshotError ? err.message : 'Unable to prepare this set for sharing.'
-      window.alert(message)
     }
   }
 
@@ -337,13 +331,29 @@ export default function HomePage() {
                 }}
                 role="link"
                 tabIndex={0}
-                className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
+                className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
+                  session.liveSourceId && !session.liveEnded
+                    ? 'border-emerald-300 hover:border-emerald-600 dark:border-emerald-400/30 dark:hover:border-emerald-400'
+                    : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)]'
+                }`}
               >
                 <div>
-                  <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={16} /></span>
+                  {session.liveSourceId ? (
+                    <span className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${session.liveEnded ? 'bg-[var(--ui-surface-raised)] text-[var(--ui-text-muted)]' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400'}`}><Radio size={16} aria-hidden="true" /></span>
+                  ) : (
+                    <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={16} /></span>
+                  )}
                   <h3 className="truncate text-sm font-bold text-[var(--ui-text)] transition-colors group-hover:text-[#3368A0] dark:group-hover:text-amber-400">
                     {session.name}
                   </h3>
+                  {session.liveSourceId ? (
+                    <LivePill className="mt-1" tone={session.liveEnded ? 'ended' : 'live'}>
+                      <Radio size={11} aria-hidden="true" />
+                      {session.liveEnded ? 'Live set ended' : 'Live set'}
+                    </LivePill>
+                  ) : (
+                    <LiveShareChip sessionId={session.id} className="mt-1" />
+                  )}
                   <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
                     {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -352,32 +362,37 @@ export default function HomePage() {
                   <IconButton
                     label="Share setlist"
                     variant="ghost"
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation()
-                      await handleShareSession(session)
+                      setSharingSession(session)
                     }}
                   >
                     <Share2 size={15} />
                   </IconButton>
-                  <IconButton
-                    label="Rename set"
-                    variant="ghost"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      const newName = window.prompt('Rename set:', session.name)
-                      if (newName && newName.trim()) {
-                        await sessionStore.renameSession(session.id, newName.trim())
-                        const updated = await sessionStore.getAllSessions()
-                        setSessions(updated)
-                      }
-                    }}
-                  >
-                    <Pencil size={15} />
-                  </IconButton>
+                  {!session.liveSourceId && (
+                    <IconButton
+                      label="Rename set"
+                      variant="ghost"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const newName = window.prompt('Rename set:', session.name)
+                        if (newName && newName.trim()) {
+                          await sessionStore.renameSession(session.id, newName.trim())
+                          const updated = await sessionStore.getAllSessions()
+                          setSessions(updated)
+                        }
+                      }}
+                    >
+                      <Pencil size={15} />
+                    </IconButton>
+                  )}
                   <IconButton
                     label="Delete session"
                     variant="danger"
-                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeletingSession(session)
+                    }}
                   >
                     <Trash2 size={15} />
                   </IconButton>
@@ -461,13 +476,39 @@ export default function HomePage() {
       )}
 
       {/* Share Modal */}
-      {sharingSnapshot && (
+      {sharingSession && (
         <ShareModal
-          snapshot={sharingSnapshot}
-          isOpen={Boolean(sharingSnapshot)}
-          onClose={() => setSharingSnapshot(null)}
+          session={sharingSession}
+          isOpen
+          onClose={() => setSharingSession(null)}
         />
       )}
+
+      <OverlayDialog
+        isOpen={deletingSession !== null}
+        onClose={() => setDeletingSession(null)}
+        title="Delete this set?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingSession(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deletingSession && void handleDeleteSession(deletingSession.id)}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          {deletingSession?.liveSourceId
+            ? `"${deletingSession.name}" will be removed from this device. The live set itself is not changed.`
+            : `"${deletingSession?.name}" will be deleted. This can't be undone.`}
+        </p>
+      </OverlayDialog>
 
       {/* Upload SongSelect Sheet Modal */}
       <UploadSheetModal

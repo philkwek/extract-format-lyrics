@@ -1,25 +1,23 @@
-import type { SharedSetSnapshot } from '../types/song'
+import type { Session } from '../lib/sessionStore'
 import { Button } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
-import ShareSetLinkPanel from './share/ShareSetLinkPanel'
+import ShareSetPanel from './share/ShareSetPanel'
 
 interface ShareModalProps {
-  snapshot: SharedSetSnapshot
+  session: Session
   isOpen: boolean
   onClose: () => void
 }
 
-export default function ShareModal({ snapshot, isOpen, onClose }: ShareModalProps) {
+export default function ShareModal({ session, isOpen, onClose }: ShareModalProps) {
   if (!isOpen) return null
 
   return (
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
-      title={`Share “${snapshot.name}”`}
-      description={`Create a private snapshot link for ${snapshot.songs.length} song${
-        snapshot.songs.length === 1 ? '' : 's'
-      }. Musical edits and transpositions are included.`}
+      title={`Share “${session.name}”`}
+      description="Send a copy of the set, or share it live."
       size="sm"
       footer={
         <Button variant="ghost" onClick={onClose}>
@@ -27,7 +25,7 @@ export default function ShareModal({ snapshot, isOpen, onClose }: ShareModalProp
         </Button>
       }
     >
-      <ShareSetLinkPanel snapshot={snapshot} />
+      <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
     </OverlayDialog>
   )
 }
