@@ -123,14 +123,16 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
           <p className="text-xs text-[var(--ui-text-muted)]">
             This is the same as copying this page&rsquo;s address.
           </p>
-          <Button
-            variant="primary"
-            icon={copied ? <Check size={15} /> : <Copy size={15} />}
-            onClick={handleCopyCopy}
-            loading={busy === 'copy'}
-          >
-            {copied ? 'Copied' : 'Copy link'}
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              icon={copied ? <Check size={15} /> : <Copy size={15} />}
+              onClick={handleCopyCopy}
+              loading={busy === 'copy'}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -164,7 +166,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
                   Expires {new Date(expiresAt).toLocaleString()}
                 </p>
               )}
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
                 <Button
                   variant="primary"
                   icon={copied ? <Check size={15} /> : <Copy size={15} />}
@@ -178,14 +180,16 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
               </div>
             </div>
           ) : (
-            <Button
-              variant="primary"
-              icon={<Radio size={15} />}
-              onClick={handleStart}
-              loading={busy === 'start'}
-            >
-              Start live share
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                icon={<Radio size={15} />}
+                onClick={handleStart}
+                loading={busy === 'start'}
+              >
+                Start live share
+              </Button>
+            </div>
           )}
         </div>
       )}
