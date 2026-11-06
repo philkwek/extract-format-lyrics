@@ -1580,7 +1580,7 @@ export default function SessionPage() {
                 className={
                   isFullScreen
                     ? 'shrink-0 border-b border-[#C8DFDB] px-3 pb-1.5 pt-1.5 dark:border-[#282828]'
-                    : 'space-y-1.5 pb-3 border-b border-[#C8DFDB] dark:border-[#282828]'
+                    : 'space-y-1.5 pb-2 border-b border-[#C8DFDB] dark:border-[#282828]'
                 }
               >
                 {isFullScreen ? (
