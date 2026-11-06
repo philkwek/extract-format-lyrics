@@ -322,7 +322,7 @@ export default function SessionPage() {
 
   useEffect(() => {
     const live = sessionRef.current
-    if (!following || !live) return
+    if (!following || !live || live.liveEnded) return
     const controller = followLiveSet(live, {
       onUpdate: (next) => onHostUpdateRef.current(next),
       onStatus: setFollowStatus,
@@ -1199,16 +1199,17 @@ export default function SessionPage() {
 
   const handleOpenShareMenu = () => setIsShareMenuOpen(true)
 
+  const shownFollowStatus = session.liveEnded ?? followStatus
   const followTone: LiveTone =
-    followStatus === 'stopped' || followStatus === 'expired'
+    shownFollowStatus === 'stopped' || shownFollowStatus === 'expired'
       ? 'ended'
-      : followStatus === 'reconnecting'
+      : shownFollowStatus === 'reconnecting'
         ? 'reconnecting'
         : 'live'
   const followTitle =
-    followStatus === 'stopped'
+    shownFollowStatus === 'stopped'
       ? 'Live set ended by host'
-      : followStatus === 'expired'
+      : shownFollowStatus === 'expired'
         ? 'Live link expired'
         : 'Live set from host'
   const followText =
@@ -1274,7 +1275,7 @@ export default function SessionPage() {
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div role="status" className="min-w-0">
               <p className="flex items-center gap-1.5 font-semibold">
-                {followStatus === 'live' && (
+                {shownFollowStatus === 'live' && (
                   <span
                     className="h-2 w-2 rounded-full bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400"
                     aria-hidden="true"

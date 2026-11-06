@@ -330,14 +330,14 @@ export default function HomePage() {
                 role="link"
                 tabIndex={0}
                 className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
-                  session.liveSourceId
+                  session.liveSourceId && !session.liveEnded
                     ? 'border-emerald-300 hover:border-emerald-600 dark:border-emerald-400/30 dark:hover:border-emerald-400'
                     : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)]'
                 }`}
               >
                 <div>
                   {session.liveSourceId ? (
-                    <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400"><Radio size={16} aria-hidden="true" /></span>
+                    <span className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${session.liveEnded ? 'bg-[var(--ui-surface-raised)] text-[var(--ui-text-muted)]' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400'}`}><Radio size={16} aria-hidden="true" /></span>
                   ) : (
                     <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={16} /></span>
                   )}
@@ -345,9 +345,9 @@ export default function HomePage() {
                     {session.name}
                   </h3>
                   {session.liveSourceId ? (
-                    <LivePill className="mt-1">
+                    <LivePill className="mt-1" tone={session.liveEnded ? 'ended' : 'live'}>
                       <Radio size={11} aria-hidden="true" />
-                      Live set
+                      {session.liveEnded ? 'Live set ended' : 'Live set'}
                     </LivePill>
                   ) : (
                     <LiveShareChip sessionId={session.id} className="mt-1" />

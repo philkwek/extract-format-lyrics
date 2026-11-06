@@ -623,6 +623,12 @@ describe('SessionPage following a live set', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('shows a set that already ended without connecting', async () => {
+    setup({ ...followed, liveEnded: 'stopped' })
+    expect(await screen.findByText('Live set ended by host')).toBeTruthy()
+    expect(followLiveSet).not.toHaveBeenCalled()
+  })
+
   it('still asks before edits when the host stops sharing', async () => {
     setup()
     await waitFor(() => expect(followLiveSet).toHaveBeenCalled())

@@ -130,4 +130,19 @@ describe('HomePage live set cards', () => {
     expect(screen.getAllByText('Live set')).toHaveLength(1)
     expect(screen.getAllByText('Sharing live')).toHaveLength(1)
   })
+
+  it('marks a live set the host has ended', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1', liveEnded: 'stopped' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText('Live set ended')).toBeTruthy()
+    expect(screen.queryByText('Live set')).toBeNull()
+  })
 })

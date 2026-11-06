@@ -425,6 +425,15 @@ describe('followLiveSet', () => {
     f.controller.stop()
   })
 
+  it('saves on the set that the live share ended', async () => {
+    const f = await follow()
+    const manifest = await f.manifestAt(4)
+    f.emit({ ...manifest, status: 'stopped', entries: [] })
+    await settle()
+    expect((await f.store.getSession(f.session.id))?.liveEnded).toBe('stopped')
+    f.controller.stop()
+  })
+
   it('ignores the rev 0 placeholder', async () => {
     const f = await follow()
     f.emit(await f.manifestAt(0))

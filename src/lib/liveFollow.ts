@@ -258,6 +258,14 @@ export function followLiveSet(
     if (stopped || status === next) return
     status = next
     handlers.onStatus(next)
+    if (next === 'stopped' || next === 'expired') void markEnded(next)
+  }
+
+  async function markEnded(ended: 'stopped' | 'expired') {
+    const latest = await deps.sessions.getSession(session.id)
+    if (latest && latest.liveEnded !== ended) {
+      await deps.sessions.updateSession({ ...latest, liveEnded: ended })
+    }
   }
 
   const fail = (err: unknown) => {

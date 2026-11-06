@@ -42,6 +42,8 @@ export interface Session {
   lastHostHash?: string
   /** Last host manifest revision applied. */
   liveRev?: number
+  /** Set once the host stops the live share or its link expires; neither can come back. */
+  liveEnded?: 'stopped' | 'expired'
 }
 
 export interface SessionChangeEvent {
@@ -209,6 +211,7 @@ export class SessionStore {
       session.publicId ??= existing.publicId
       session.importedFromLinkId ??= existing.importedFromLinkId
       session.liveSourceId ??= existing.liveSourceId
+      session.liveEnded ??= existing.liveEnded
       // A save from an older copy of the set must not roll the host revision back.
       if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
         session.liveRev = existing.liveRev
