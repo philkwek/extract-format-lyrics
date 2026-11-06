@@ -367,21 +367,23 @@ export default function HomePage() {
                   >
                     <Share2 size={15} />
                   </IconButton>
-                  <IconButton
-                    label="Rename set"
-                    variant="ghost"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      const newName = window.prompt('Rename set:', session.name)
-                      if (newName && newName.trim()) {
-                        await sessionStore.renameSession(session.id, newName.trim())
-                        const updated = await sessionStore.getAllSessions()
-                        setSessions(updated)
-                      }
-                    }}
-                  >
-                    <Pencil size={15} />
-                  </IconButton>
+                  {!session.liveSourceId && (
+                    <IconButton
+                      label="Rename set"
+                      variant="ghost"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const newName = window.prompt('Rename set:', session.name)
+                        if (newName && newName.trim()) {
+                          await sessionStore.renameSession(session.id, newName.trim())
+                          const updated = await sessionStore.getAllSessions()
+                          setSessions(updated)
+                        }
+                      }}
+                    >
+                      <Pencil size={15} />
+                    </IconButton>
+                  )}
                   <IconButton
                     label="Delete session"
                     variant="danger"
