@@ -55,7 +55,8 @@ export default function ShareMenuModal({
           <div>
             <h3 className="text-sm font-bold text-[var(--ui-text)]">Share lyrics</h3>
             <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              Send a lyrics-only view with song tabs and no chords. The link can be updated later.
+              Send a lyrics-only view with song tabs and no chords. Changes you make update it
+              automatically.
             </p>
           </div>
           <ShareLyricsLinkPanel session={session} songsData={songsData} />

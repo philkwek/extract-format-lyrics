@@ -4,6 +4,7 @@ import {
   generateUpdateSecret,
   getLyricsPublicationIdentity,
   getOrCreateLyricsPublicationIdentity,
+  hashSharedLyricsPayload,
   publishLyricsForSession,
   withLyricsPublicationLock,
   deleteLyricsPublicationIdentity,
@@ -113,6 +114,7 @@ describe('lyrics publication identity and persistence', () => {
 
     const stored1 = await getLyricsPublicationIdentity('test-session-renew')
     expect(stored1?.expiresAt).toBe(result1.expiresAt)
+    expect(stored1?.lastPublishedHash).toBe(await hashSharedLyricsPayload(mockPayload))
 
     // Simulate link expiration and re-publishing later
     const futureExpiry = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString()
