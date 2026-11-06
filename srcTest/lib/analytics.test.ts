@@ -147,7 +147,7 @@ describe('optional Analytics', () => {
     await flush()
     await vi.waitFor(() => expect(mock.logEvent).toHaveBeenCalledTimes(1))
     analytics.setTrackingEnabled(false)
-    analytics.trackEvent('set_shared', { song_count: 1 })
+    analytics.trackEvent('live_share_started', { song_count: 1 })
     expect((window as unknown as Record<string, unknown>)['ga-disable-G-TEST123']).toBe(true)
     await vi.waitFor(() => expect(mock.collection).toHaveBeenCalledWith(expect.anything(), false))
     expect(mock.logEvent).toHaveBeenCalledTimes(1)

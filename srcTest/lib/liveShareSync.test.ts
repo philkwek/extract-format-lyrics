@@ -7,6 +7,7 @@ import {
   type LiveIdentityRecord,
   type LiveShareSyncDeps,
 } from '../../src/lib/liveShareSync'
+import { trackEvent } from '../../src/lib/analytics'
 import { deleteLiveSetApi, LiveSetMissingContentError, ShareApiError } from '../../src/lib/api'
 import {
   resetSetLinkIdentityStore,
@@ -15,6 +16,7 @@ import {
 import type { Session } from '../../src/lib/sessionStore'
 import type { Song } from '../../src/types/song'
 
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('../../src/lib/api', async (orig) => ({
   ...(await orig<typeof import('../../src/lib/api')>()),
   deleteLiveSetApi: vi.fn(async () => {}),
@@ -207,6 +209,7 @@ describe('stopLiveShare', () => {
       del: async (k) => void memory.delete(k),
     })
     vi.mocked(deleteLiveSetApi).mockReset()
+    vi.mocked(trackEvent).mockClear()
   })
   afterEach(() => resetSetLinkIdentityStore())
 
@@ -215,12 +218,14 @@ describe('stopLiveShare', () => {
     await stopLiveShare('s1')
     expect(deleteLiveSetApi).toHaveBeenCalledWith('p'.repeat(22), 'k')
     expect(memory.has('live:s1')).toBe(false)
+    expect(trackEvent).toHaveBeenCalledWith('live_share_stopped', {})
   })
 
   it('keeps the identity when the network fails', async () => {
     vi.mocked(deleteLiveSetApi).mockRejectedValue(new TypeError('offline'))
     await expect(stopLiveShare('s1')).rejects.toThrow('offline')
     expect(memory.has('live:s1')).toBe(true)
+    expect(trackEvent).not.toHaveBeenCalledWith('live_share_stopped', {})
   })
 })
 

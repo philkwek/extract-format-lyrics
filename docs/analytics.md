@@ -50,13 +50,15 @@ For local configuration, copy `.env.example` to `.env.local`; keep tracking disa
 | `song_search` | Completed search: `entry_page=home|search`, `outcome=success|error`, `result_count` |
 | `search_timing` | Completed search latency: `entry_page`, `outcome`, `result_count`, bounded `duration_ms`; never includes the query |
 | `song_import` | Completed import/save, or failed extraction/save: `method=search|pasted_link|upload`, `outcome=success|partial|error`, `imported_count` |
-| `set_shared` | Share link created successfully: `song_count` |
+| `live_share_started` | Live share started successfully: `song_count` |
+| `live_share_stopped` | Live share stopped successfully; no extra fields |
+| `live_share_followed` | Live share link opened: `outcome=opened|reused|expired|missing|stopped|error` |
 | `shared_set_imported` | Shared-set import completed or failed: `outcome=success|error`, `imported_count` |
 | `lyrics_published` | Publish/update completed or failed: `operation=create|update`, `outcome=success|error`, `song_count` |
 
 Search and pasted-link imports work from both the home and search pages. Uploads work from the home page and an existing set. Cached imports count like freshly fetched imports. Failed items in a pasted batch do not count as imported songs; a mixed result is `partial`. Validating empty/invalid-only input is not an import attempt. Chart extraction is not a successful import until the user confirms and the songs are saved.
 
-Pages are grouped as `/`, `/search`, `/session`, `/s`, `/lyrics`, `/privacy`, and `/other`. Song selection and different set/link IDs within one group do not send additional page views. Query strings and hashes are excluded. Referrers retain only an external origin or a grouped internal page. Campaign query parameters are deliberately excluded; acquisition uses referring domains and GA's available attribution rather than custom UTM reporting.
+Pages are grouped as `/`, `/search`, `/session`, `/s`, `/live`, `/lyrics`, `/privacy`, and `/other`. Song selection and different set/link IDs within one group do not send additional page views. Query strings and hashes are excluded. Referrers retain only an external origin or a grouped internal page. Campaign query parameters are deliberately excluded; acquisition uses referring domains and GA's available attribution rather than custom UTM reporting.
 
 Custom payloads allow only fixed values and nonnegative integer counts. They exclude song text/titles, search terms, filenames, source URLs, set names, link/session IDs, API keys, and raw errors. Config-level sanitized page values also cover automatically collected SDK events. This relies on keeping Enhanced Measurement disabled in the console.
 

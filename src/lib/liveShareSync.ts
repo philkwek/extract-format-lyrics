@@ -25,6 +25,7 @@ import {
 import { withNamedLock } from './lyricsPublishIdentity'
 import { snapshotEntry } from './shareSnapshot'
 import { songCache } from './songCache'
+import { trackEvent } from './analytics'
 
 export const LIVE_SHARE_MAX_SONGS = SET_LINK_MAX_SONGS
 
@@ -290,6 +291,7 @@ export async function startLiveShare(
     throw new ShareApiError('Could not start the live share. Check your connection and try again.')
   }
   liveListeners.get(sessionId)?.forEach((cb) => cb())
+  trackEvent('live_share_started', { song_count: session.songs.length })
   return { url: liveUrl(record.publicId), expiresAt: published.expiresAt }
 }
 
@@ -307,4 +309,5 @@ export async function stopLiveShare(sessionId: string): Promise<void> {
   await liveIdentity.remove(sessionId)
   statuses.delete(sessionId)
   liveListeners.get(sessionId)?.forEach((cb) => cb())
+  trackEvent('live_share_stopped', {})
 }
