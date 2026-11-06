@@ -11,6 +11,7 @@
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,hosting",
     "test": "vitest run --passWithNoTests",
+    "test:emulator": "vitest run --config vitest.emulator.config.ts",
     "bench": "vitest run --config vitest.benchmark.config.ts"
   },
   "dependencies": {
