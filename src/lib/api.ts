@@ -322,6 +322,101 @@ export async function getSetLinkApi(id: string): Promise<GetSetLinkResult> {
   return (await res.json()) as GetSetLinkResult
 }
 
+export interface PutLiveSetResult {
+  id: string
+  rev: number
+  expiresAt: string
+  unchanged: boolean
+}
+
+export interface PutLiveSetSongResult {
+  id: string
+  hash: string
+  created: boolean
+  expiresAt: string
+}
+
+export interface GetLiveSetResult {
+  id: string
+  manifest: import('../types/song').LiveSetManifest
+  contents: Record<string, import('../types/song').LiveSongContent>
+  expiresAt: string
+}
+
+/** The server needs these content docs before it accepts the manifest. */
+export class LiveSetMissingContentError extends ShareApiError {
+  readonly missing: string[]
+
+  constructor(missing: string[]) {
+    super('Some song content has not been uploaded', 'MISSING_CONTENT', 409)
+    this.missing = missing
+  }
+}
+
+function liveSetHeaders(secret: string): Record<string, string> {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` }
+}
+
+export async function putLiveSetSongApi(
+  id: string,
+  secret: string,
+  hash: string,
+  content: import('../types/song').LiveSongContent
+): Promise<PutLiveSetSongResult> {
+  const res = await fetch(
+    `/api/live-set/${encodeURIComponent(id)}/song/${encodeURIComponent(hash)}`,
+    { method: 'PUT', headers: liveSetHeaders(secret), body: JSON.stringify({ content }) }
+  )
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as PutLiveSetSongResult
+}
+
+export async function putLiveSetManifestApi(
+  id: string,
+  secret: string,
+  manifest: import('../types/song').LiveSetManifestInput,
+  options: { keepalive?: boolean } = {}
+): Promise<PutLiveSetResult> {
+  const res = await fetch(`/api/live-set/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: liveSetHeaders(secret),
+    body: JSON.stringify({ manifest }),
+    ...(options.keepalive ? { keepalive: true } : {}),
+  })
+  if (!res.ok) {
+    if (res.status === 409) {
+      const data = await res.json().catch(() => null)
+      if (data?.error?.code === 'MISSING_CONTENT' && Array.isArray(data.error.missing)) {
+        throw new LiveSetMissingContentError(data.error.missing)
+      }
+    }
+    throw await readShareError(res)
+  }
+  return (await res.json()) as PutLiveSetResult
+}
+
+export async function deleteLiveSetApi(id: string, secret: string): Promise<void> {
+  const res = await fetch(`/api/live-set/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${secret}` },
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+}
+
+export async function getLiveSetApi(id: string): Promise<GetLiveSetResult> {
+  const res = await fetch(`/api/live-set/${encodeURIComponent(id)}`, {
+    headers: { 'Cache-Control': 'no-store' },
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+  return (await res.json()) as GetLiveSetResult
+}
+
 export interface ExtractSongsResponse {
   songs: Song[]
 }

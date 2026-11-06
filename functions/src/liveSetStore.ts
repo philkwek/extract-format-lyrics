@@ -11,6 +11,7 @@ import {
   SET_LINK_DAILY_WRITE_CAP,
   MAX_SET_LINK_SONGS,
 } from './setLinkStore.js'
+import { canonicalLiveSongContent, sanitizeLiveSongContent } from './liveSetContent.js'
 import type { LiveSetEntry, LiveSetManifest, LiveSongContent } from './types.js'
 
 export const MAX_LIVE_SET_SONGS = MAX_SET_LINK_SONGS
@@ -120,43 +121,13 @@ export function isLiveSongContent(value: unknown): value is LiveSongContent {
   )
 }
 
-/** Rebuilds the content from whitelisted fields only. */
-export function sanitizeLiveSongContent(content: LiveSongContent): LiveSongContent {
-  const clean: LiveSongContent = { song: content.song }
-  if (content.customSections !== undefined) clean.customSections = content.customSections
-  if (content.customFlow !== undefined) clean.customFlow = content.customFlow
-  if (content.customSimplifiedSections !== undefined) {
-    clean.customSimplifiedSections = content.customSimplifiedSections
-  }
-  if (content.customSimplifiedFlow !== undefined) {
-    clean.customSimplifiedFlow = content.customSimplifiedFlow
-  }
-  return clean
-}
-
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  if (value && typeof value === 'object') {
-    const obj = value as Record<string, unknown>
-    const fields = Object.keys(obj)
-      .filter((k) => obj[k] !== undefined)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`)
-    return `{${fields.join(',')}}`
-  }
-  return JSON.stringify(value)
-}
-
 /**
- * SHA-256 hex of the compact JSON of {song, customSections, customFlow,
+ * SHA-256 hex of the canonical JSON of {song, customSections, customFlow,
  * customSimplifiedSections, customSimplifiedFlow}: object keys sorted at every
  * depth, undefined fields left out, array order kept.
  */
 export function hashLiveSongContent(content: LiveSongContent): string {
-  return crypto
-    .createHash('sha256')
-    .update(canonicalJson(sanitizeLiveSongContent(content)))
-    .digest('hex')
+  return crypto.createHash('sha256').update(canonicalLiveSongContent(content)).digest('hex')
 }
 
 export function hashLiveSetManifest(manifest: LiveSetManifestInput): string {

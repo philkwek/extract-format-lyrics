@@ -6,7 +6,7 @@ export const MAX_SHARED_SET_SONGS = 15
 
 export class ShareSnapshotError extends Error {}
 
-function snapshotEntry(item: SessionSongItem, song: Song) {
+export function snapshotEntry(item: SessionSongItem, song: Song) {
   return {
     entryId: item.entryId || (() => { throw new ShareSnapshotError('Set entry is missing an identifier. Please reload and try again.') })(),
     song,

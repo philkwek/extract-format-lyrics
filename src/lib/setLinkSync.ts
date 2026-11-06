@@ -90,19 +90,27 @@ export interface SetLinkSyncIdentity {
   remove(sessionId: string): Promise<void>
 }
 
+type MaybePromise<T> = T | Promise<T>
+
 export interface SyncChannelDeps<P> {
   /** Names the lock key, state and log prefix, so channels never collide. */
   name: string
   store: { subscribe(listener: (event: SessionChangeEvent) => void): () => void }
   identity: SetLinkSyncIdentity
   /** Sessions that return false are never published on this channel. */
-  shouldSync?: (session: Session) => boolean
-  buildPayload: (session: Session) => { payload: P | null; skippedUploads?: number }
+  shouldSync?: (session: Session) => boolean | Promise<boolean>
+  buildPayload: (
+    session: Session
+  ) => MaybePromise<{ payload: P | null; skippedUploads?: number }>
+  /** Public id the session must carry to be published; absent means no check. */
+  expectedPublicId?: (session: Session) => string | undefined
   publish: (
     identity: SetLinkIdentityRecord,
     payload: P,
     options: { keepalive?: boolean }
   ) => Promise<{ expiresAt: string }>
+  /** 'failing' once retries give up or the error can't be retried; 'ok' after a publish. */
+  onStatus?: (sessionId: string, status: 'ok' | 'failing') => void
   onPublished?: (info: { payload: P; skippedUploads: number; trigger: SetLinkTrigger }) => void
   now: () => number
   timers: {
@@ -163,7 +171,7 @@ export interface SetLinkSync {
 
 function nonRetryable(error: unknown): boolean {
   if (!(error instanceof ShareApiError)) return false
-  return [400, 401, 403, 413].includes(error.status ?? 0)
+  return [400, 401, 403, 410, 413].includes(error.status ?? 0)
 }
 
 export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
@@ -195,7 +203,8 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
   }
 
   function scheduleRetry(sessionId: string, st: SessionSyncState, error: unknown): void {
-    if (nonRetryable(error)) return
+    const giveUp = () => deps.onStatus?.(sessionId, 'failing')
+    if (nonRetryable(error)) return giveUp()
     let delay: number
     if (error instanceof ShareApiError && error.status === 429) {
       // Rate limits do not spend the 5xx/network backoff budget.
@@ -203,7 +212,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
       if (seconds === undefined) {
         delay = SET_LINK_RATE_LIMIT_DEFAULT_WAIT_MS
       } else if (seconds > SET_LINK_RATE_LIMIT_GIVE_UP_SECONDS) {
-        return // Daily cap: wait for the next real change or open.
+        return giveUp() // Daily cap: wait for the next real change or open.
       } else {
         const jitter = Math.floor((deps.random?.() ?? Math.random()) * SET_LINK_JITTER_MAX_MS)
         delay = Math.max(seconds, 1) * 1000 + jitter
@@ -212,7 +221,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
       }
     } else {
       st.failures++
-      if (st.failures > SET_LINK_RETRY_DELAYS_MS.length) return
+      if (st.failures > SET_LINK_RETRY_DELAYS_MS.length) return giveUp()
       delay = SET_LINK_RETRY_DELAYS_MS[st.failures - 1]
     }
     if (st.retry !== undefined) deps.timers.clearTimeout(st.retry)
@@ -229,8 +238,8 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
   ): Promise<void> {
     const session = st.latest
     if (!session) return
-    if (deps.shouldSync && !deps.shouldSync(session)) return
-    const { payload, skippedUploads = 0 } = deps.buildPayload(session)
+    if (deps.shouldSync && !(await deps.shouldSync(session))) return
+    const { payload, skippedUploads = 0 } = await deps.buildPayload(session)
     if (!payload) return
     const hash = await deps.hash(payload)
     const trigger = st.trigger
@@ -239,7 +248,8 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
       // Re-read inside the lock so a second tab that already published the same state skips.
       const identity = await deps.identity.get(sessionId)
       if (!identity) return
-      if (session.publicId && session.publicId !== identity.publicId) {
+      const expected = deps.expectedPublicId?.(session)
+      if (expected && expected !== identity.publicId) {
         // Publishing would go to an id nobody's URL points at; skip rather than write blindly.
         console.warn(`[${deps.name}] publicId mismatch for ${sessionId}; not publishing`)
         return
@@ -252,6 +262,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
         expiresAt: result.expiresAt,
       })
       st.failures = 0
+      deps.onStatus?.(sessionId, 'ok')
       st.refresh = false
       st.trigger = 'update'
       const count = (publishCounts.get(sessionId) ?? 0) + 1
@@ -382,6 +393,7 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
   return createSyncChannel<SetLinkPayload>({
     ...deps,
     name: 'set-link',
+    expectedPublicId: (s) => s.publicId,
     buildPayload: buildSetLinkPayload,
     publish: (identity, payload, options) =>
       deps.api(identity.publicId, identity.secret, payload, options),

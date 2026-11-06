@@ -334,3 +334,25 @@ describe('LiveSetStore.get', () => {
     expect(found).toMatchObject({ kind: 'found', manifest: { status: 'stopped', entries: [], rev: 2 }, contents: {} })
   })
 })
+
+describe('hashLiveSongContent known answer', () => {
+  // The browser test (srcTest/lib/liveShareSync.test.ts) pins the same value.
+  it('matches the shared fixture hash', () => {
+    const fixture = {
+      song: {
+        id: 'demo',
+        title: 'Demo',
+        artist: 'Nobody',
+        sourceUrl: 'https://example.test/demo',
+        sourceSite: 'test',
+        originalKey: 'C',
+        sections: [
+          { type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'la la la', chords: [{ pos: 3, chord: 'G' }] }] },
+        ],
+        flow: [0],
+      },
+      customFlow: [0, 0],
+    } as unknown as Parameters<typeof hashLiveSongContent>[0]
+    expect(hashLiveSongContent(fixture)).toBe('ead3f44b931987e257aa7b2dda593bc2f1c8c7893eee3ab8571958d682598b80')
+  })
+})
