@@ -315,10 +315,13 @@ describe('followLiveSet', () => {
 
   const settle = () => new Promise((r) => setTimeout(r, 30))
 
-  async function follow(options: { listener?: boolean; defer?: () => boolean } = {}) {
+  async function follow(
+    options: { listener?: boolean; defer?: () => boolean; catchUpFails?: boolean } = {},
+  ) {
     const remote = { current: await liveResponse({ rev: 3 }) }
     const t = setup(async () => remote.current)
     const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    if (options.catchUpFails) t.fetchLive.mockRejectedValueOnce(new Error('offline'))
     const table = new Map<string, LiveSongContent>(Object.entries(remote.current.contents))
     let emit: (m: LiveSetManifest) => void = () => {}
     let fail: (e: unknown) => void = () => {}
@@ -477,6 +480,16 @@ describe('followLiveSet', () => {
     visibilityListeners.forEach((l) => l())
     await settle()
     expect(f.fetchLive).toHaveBeenCalledTimes(2)
+    f.controller.stop()
+  })
+
+  it('reports reconnecting when the first catch-up cannot reach the server', async () => {
+    const f = await follow({ listener: false, catchUpFails: true })
+    expect(f.statuses.at(-1)).toBe('reconnecting')
+    f.remote.current = await liveResponse({ rev: 5 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    await settle()
+    expect(f.statuses.at(-1)).toBe('live')
     f.controller.stop()
   })
 

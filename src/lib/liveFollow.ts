@@ -361,9 +361,10 @@ export function followLiveSet(
     try {
       const response = await deps.fetchLive(liveId)
       for (const [hash, content] of Object.entries(response.contents)) known.set(hash, content)
+      if (status === 'reconnecting' && response.manifest.status !== 'stopped') setStatus('live')
       receive(response.manifest)
     } catch (err) {
-      if (gone(err)) fail(err)
+      fail(err)
     }
   }
 
