@@ -42,7 +42,7 @@ never gives someone live access.
 | # | Question | Decision |
 | --- | --- | --- |
 | D1 | How do followers get updates? | **Decided: Firestore realtime listener (`onSnapshot`)** in the browser, with read-only rules on the live collections. It's instant, a follower costs about 1 read per host change, and there's no polling. The alternative is polling `GET /api/live-set/:id` with an ETag every ~10 s. That needs no rules change, but it costs a function call and a Firestore read per poll per follower, even when nothing changed. |
-| D2 | Can a follower transpose or simplify for themselves? | **Decided by the owner:** there's a **Follow Host Edits** toggle, **on by default**. While it's on, the follower gets the host's version (key and simplify included), and only personal view settings change freely. Any edit to the set, transposing for a capo included, first warns that it will make the set their own copy and stop following. Confirming turns the toggle off and applies the edit. See 4.5 and 4.6. |
+| D2 | Can a follower transpose or simplify for themselves? | **Replaced on 2026-11-06 by D5 (section 10). Original decision:** there's a **Follow Host Edits** toggle, **on by default**. While it's on, the follower gets the host's version (key and simplify included), and only personal view settings change freely. Any edit to the set, transposing for a capo included, first warns that it will make the set their own copy and stop following. Confirming turns the toggle off and applies the edit. See 4.5 and 4.6. |
 | D3 | What happens to the old immutable `/s/:id` links? | **Decided: stop creating them, but keep opening them.** `GET /api/share/:id` and `/s/:shortId` keep working until the last link expires (7 days after deploy). Remove `POST /api/share` from the UI now and delete it in a cleanup PR a week later. |
 | D4 | Song limit for live shares | **Decided: 30**, the same as set links. Song content goes in separate docs (4.1), so the old 15-song cap from the snapshot doc size no longer applies. |
 
@@ -357,3 +357,84 @@ Body (rewrite it against the shipped code first):
 >
 > Follows #45 (live set sharing, phase 2).
 
+
+## 10. Revision: no follow toggle, copy on edit (decided 2026-11-06)
+
+The owner found the follow on/off permutations confusing. Phase 2 isn't deployed, so there is
+no stored data to migrate.
+
+### D5 (replaces D2)
+
+- A set opened from a live link is **always a live set**. There is no **Follow Host Edits**
+  switch, no stop, no resume.
+- Any edit to it first asks: editing makes **your own copy**. Confirming creates a normal set
+  named "<name> - Copy" and opens it. The live set is left as it is. The edit that triggered
+  the dialog is not applied to the copy; the musician makes it again there.
+- A stopped or expired live set still asks before edits. It never changes state.
+- Key, capo and **Simplify** changes count as edits. Column count and font size don't.
+- **Create a copy** in the share window uses the same helper and the same "- Copy" name.
+  Copying twice gives "- Copy" again; no numbering.
+
+### Code changes
+
+- Remove `followHost` from `Session` and `CreateSessionOptions`. "Live set" means
+  `liveSourceId` is set. Both sync channels skip sets with a `liveSourceId`.
+- Remove `stopFollowing`, `resumeFollowing`, `hasLocalEdits` and the resume dialog.
+  `followLiveSet` runs for every set with a `liveSourceId`.
+- `useFollowEditGuard`: the dialog's primary button makes the copy and navigates to it;
+  **Cancel** keeps the live set (and flushes deferred host updates as now).
+- New shared helper `createSetCopy(session)` in `sessionStore.ts`: deep copies the songs and
+  per-song edits, adds " - Copy", no live fields.
+- README, PrivacyPage and analytics: drop follow on/off wording and events.
+- Section 9's follow-up issue still applies, minus "turning following off".
+
+### UI: telling live sets from normal sets (green = live)
+
+Green is only for "live". It pairs with the existing light and dark identities:
+
+| Use | Light | Dark |
+| --- | --- | --- |
+| Live text and icon | `text-emerald-800` | `dark:text-emerald-400` |
+| Live tint surface | `bg-emerald-100` | `dark:bg-emerald-400/10` |
+| Live border | `border-emerald-300` | `dark:border-emerald-400/30` |
+| Live dot | `bg-emerald-600` | `dark:bg-emerald-400` |
+
+The follower's banner and chip change with the state, using the same steps in amber
+(reconnecting); ended (stopped or expired) uses the raised surface, border and small shadow. These live in `liveToneClasses` in
+`src/components/ui/index.tsx`.
+
+Status is always in words too, never only colour. The pulsing dot stops under
+`prefers-reduced-motion`. The song sheet (protected) is not touched.
+
+**Set page, live set (follower):**
+
+- A live banner with a **Radio** icon, coloured by state. The title is the indicator:
+  - Live (green, pulsing dot): "Live set from host" / "You see the host's changes as they
+    make them. Editing makes your own copy."
+  - Reconnecting (amber): "Live set from host" / "Reconnecting… The host's latest changes
+    will show once you're back online."
+  - Ended (neutral grey): "Live set ended by host" (or "Live link expired") / "Set no longer
+    updating. Create your own copy to edit."
+  The title and line are the `role="status"` region. On the right, a **Create a copy**
+  button (same as **Make a copy** in the edit dialog).
+- A **Live set** chip next to the set name in the same state colour (**Live set ended** when
+  ended).
+
+**Set page, host sharing live:** `LiveShareChip` turns green with the words **Sharing live**
+(amber **Not updating** stays as is).
+
+**Landing page cards:**
+
+- Live set (follower): green icon tile with **Radio** instead of the list icon, a green
+  border, and a **Live set** pill under the name.
+- Host set that is being shared live: a small green **Sharing live** pill; the rest of the card
+  stays normal.
+- Normal sets and copies: unchanged. Copies are told apart by the "- Copy" name.
+
+### Done when
+
+- No `followHost`, `stopFollowing`, `resumeFollowing` or `hasLocalEdits` left in `src/`.
+- Tests: editing a live set creates "<name> - Copy" with the same songs and edits and opens
+  it; the live set is unchanged; cancel keeps the live set; sync channels skip live sets;
+  landing page shows the live pills.
+- All checks pass; browser check in light and dark at 375 px and tablet width.

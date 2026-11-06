@@ -40,7 +40,7 @@ There are two ways to share a set.
 
 **Send a copy** gives your musicians the page address. They open it and get a one-time copy of the songs, names, keys, pad and simplified-chord choices. It doesn't include chord or section edits, or uploaded sheets. It won't change when you do.
 
-**Share live** sends everything: your chord and section edits, uploaded sheets and per-song settings. Musicians who open the link get the set with **Follow Host Edits** on, so your changes reach them as you make them. If a musician edits anything in the set, it asks "Make this your own copy?" and then stops following. They can turn **Follow Host Edits** back on later, which replaces their own changes. Choose **Stop sharing** to end a live share.
+**Share live** sends everything: your chord and section edits, uploaded sheets and per-song settings. Musicians who open the link get a live set, and your changes reach them as you make them. If a musician edits anything in a live set, it asks "Make your own copy?" and then makes a copy named after the set with "- Copy" on the end. The live set stays as it is. Choose **Stop sharing** to end a live share.
 
 Older one-off set links (`/s/`) still open until they expire. The app no longer creates them.
 
@@ -84,8 +84,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
 - **Live shares expire:** they end 7 days after the host's last change.
-- **Turning on Follow Host Edits** replaces the follower's own changes to that set.
-- **Capo changes:** moving the key for a capo counts as an edit. The set becomes the follower's own copy.
+- **Capo changes:** moving the key for a capo counts as an edit. Editing a live set makes a copy.
 - **Song limit:** a live share holds up to 30 songs.
 - **What gets stored online:** Copies and live shares include chords and lyrics; lyrics links include lyrics only. Only share content you have permission to share.
 
