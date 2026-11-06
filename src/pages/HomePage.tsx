@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FileText,
   FileUp,
-  Lightbulb,
+  Info,
   Link2,
   ListMusic,
   Pencil,
@@ -44,19 +44,9 @@ import type { SharedSetSnapshot, Song } from '../types/song'
 import { Button, IconButton, SegmentedControl, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
 
-const HOME_TIPS = [
-  'Use Edit chords to move, change, or delete chords.',
-  'Share a setlist so everyone gets the same songs and song order.',
-  'Use Arrange setlist to put your songs in the right order.',
-  'Search by song title or artist if you do not have a link.',
-  'Use the key menu near the song title to change the song key.',
-  'If a lyric line is too long, open Edit chords and split it where you want.',
-] as const
-
 export default function HomePage() {
   useSeo({ title: 'Sets & Sheets – Chord sheets, transposing and worship set lists', description: 'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.', path: '/' })
   const navigate = useNavigate()
-  const [homeTip] = useState(() => HOME_TIPS[Math.floor(Math.random() * HOME_TIPS.length)])
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
 
   // Paste mode state
@@ -239,8 +229,13 @@ export default function HomePage() {
     <div className="mx-auto max-w-6xl space-y-7">
       <div className="px-1 pt-2 sm:pt-4">
         <div className="flex items-start gap-3 rounded-2xl border border-[#3368A0]/20 bg-white/70 px-4 py-3 text-sm leading-6 text-neutral-700 shadow-sm backdrop-blur-sm dark:border-amber-400/20 dark:bg-[#1a1a1a]/80 dark:text-[#d4d4d0]">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400" aria-hidden="true"><Lightbulb size={14} /></span>
-          <p><span className="mr-1 font-bold text-[#255283] dark:text-amber-300">Tip:</span>{homeTip}</p>
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400" aria-hidden="true"><Info size={14} /></span>
+          <p>
+            <span className="mr-1 font-bold text-[#255283] dark:text-amber-300">Notice:</span>
+            Sets &amp; Sheets has moved to this new web address! Because of the move, sets you saved
+            on the old address may not show up here. I’m so sorry about that, and I just wanted you
+            to know why they might be missing :&quot;(
+          </p>
         </div>
       </div>
 
