@@ -59,7 +59,17 @@ import {
 import { mergeSectionLyricLineWithPrevious, splitSectionLyricLine } from '../lib/lineSplit'
 import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import type { Song, Section } from '../types/song'
-import { Button, IconButton, StatusBanner } from '../components/ui'
+import { Button, IconButton, StatusBanner, Switch } from '../components/ui'
+import OverlayDialog from '../components/ui/OverlayDialog'
+import {
+  followLiveSet,
+  hasLocalEdits,
+  resumeFollowing,
+  stopFollowing,
+  type FollowController,
+  type FollowStatus,
+} from '../lib/liveFollow'
+import { useFollowEditGuard } from '../lib/useFollowEditGuard'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import {
   ambientPadPlayer,
@@ -135,6 +145,19 @@ export default function SessionPage() {
   })
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
   const [isEditSetOpen, setIsEditSetOpen] = useState(false)
+  const [followStatus, setFollowStatus] = useState<FollowStatus>('live')
+  const [followBusy, setFollowBusy] = useState(false)
+  const [followError, setFollowError] = useState(false)
+  const [confirmFollow, setConfirmFollow] = useState(false)
+  const [removedByHost, setRemovedByHost] = useState<{
+    item: SessionSongItem
+    song: Song | undefined
+    index: number
+  } | null>(null)
+  const followRef = useRef<FollowController | null>(null)
+  const viewRef = useRef({ activeIndex: 0, shown: [] as SessionSongItem[], songs: new Map<string, Song>() })
+  const deferRef = useRef(false)
+  const onHostUpdateRef = useRef<(next: Session) => void>(() => {})
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
@@ -216,6 +239,26 @@ export default function SessionPage() {
     setOriginalSongs(origMap)
   }, [])
 
+  const adoptSession = useCallback((stored: Session) => {
+    sessionRef.current = stored
+    setSession(stored)
+  }, [])
+
+  const following = Boolean(session?.liveSourceId && session.followHost === true)
+  const { guard, dialog: editGuardDialog, isOpenRef: guardOpenRef } = useFollowEditGuard({
+    following,
+    sessionId: session?.id,
+    controllerRef: followRef,
+    onStopped: (stored) => {
+      adoptSession(stored)
+      if (removedByHost) {
+        setRemovedByHost(null)
+        setSearchParams({ song: Math.max(0, Math.min(activeIndex, stored.songs.length - 1)).toString() })
+      }
+    },
+  })
+  const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs || confirmFollow
+
   useEffect(() => {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
@@ -236,13 +279,72 @@ export default function SessionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, loadSessionSongs, navigate])
 
-  const currentItem = session?.songs[activeIndex]
-  const songForItem = (item: SessionSongItem) => songsData.get(item.entryId || item.url)
+  const shownSongs = useMemo(() => {
+    const songs = session?.songs ?? []
+    if (!removedByHost) return songs
+    const at = Math.min(removedByHost.index, songs.length)
+    return [...songs.slice(0, at), removedByHost.item, ...songs.slice(at)]
+  }, [session?.songs, removedByHost])
+  const currentItem = shownSongs[activeIndex]
+  const isRemovedItem = (item: SessionSongItem) =>
+    removedByHost !== null && item.entryId === removedByHost.item.entryId
+  const songForItem = (item: SessionSongItem) =>
+    songsData.get(item.entryId || item.url) ?? (isRemovedItem(item) ? removedByHost?.song : undefined)
   const currentSong = currentItem ? songForItem(currentItem) : null
 
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    viewRef.current = { activeIndex, shown: shownSongs, songs: songsData }
+  }, [activeIndex, shownSongs, songsData])
+
+  useEffect(() => {
+    onHostUpdateRef.current = (next) => {
+      const { activeIndex: at, shown, songs } = viewRef.current
+      const current = shown[at]
+      adoptSession(next)
+      void loadSessionSongs(next)
+      if (!current) return
+      const nextIndex = next.songs.findIndex((item) => item.entryId === current.entryId)
+      if (nextIndex >= 0) {
+        setRemovedByHost(null)
+        if (nextIndex !== at) setSearchParams({ song: nextIndex.toString() }, { replace: true })
+      } else {
+        setRemovedByHost((prev) =>
+          prev?.item.entryId === current.entryId
+            ? prev
+            : { item: current, song: songs.get(current.entryId || current.url), index: at },
+        )
+      }
+    }
+  }, [adoptSession, loadSessionSongs, setSearchParams])
+
+  useEffect(() => {
+    const live = sessionRef.current
+    if (!following || !live) return
+    const controller = followLiveSet(live, {
+      onUpdate: (next) => onHostUpdateRef.current(next),
+      onStatus: (status) => {
+        setFollowStatus(status)
+        if (status === 'stopped' || status === 'expired') {
+          void stopFollowing(live.id).then((stored) => stored && adoptSession(stored))
+        }
+      },
+      shouldDefer: () => guardOpenRef.current || deferRef.current,
+    })
+    followRef.current = controller
+    return () => {
+      controller.stop()
+      followRef.current = null
+    }
+  }, [following, session?.id, adoptSession, guardOpenRef])
+
+  useEffect(() => {
+    deferRef.current = setDialogOpen
+    if (!setDialogOpen) followRef.current?.flushDeferred()
+  }, [setDialogOpen])
 
   useEffect(() => {
     originalSongsRef.current = originalSongs
@@ -354,18 +456,28 @@ export default function SessionPage() {
     if (currentSong && currentItem && session) {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
       setPrefsRevision((revision) => revision + 1)
-      if (newPrefs.simplified !== currentItem.simplified) {
-        void updateSongItem(currentItem.entryId, (item) => ({
-          ...item,
-          simplified: newPrefs.simplified,
-        }))
+      if (Boolean(newPrefs.simplified) !== Boolean(currentItem.simplified)) {
+        guard(() => {
+          void updateSongItem(currentItem.entryId, (item) => ({
+            ...item,
+            simplified: newPrefs.simplified,
+          }))
+        })
       }
     }
   }
 
   const selectSong = (index: number) => {
     setPositioningChord(null)
-    setSearchParams({ song: index.toString() })
+    let target = index
+    if (removedByHost) {
+      const removedAt = Math.min(removedByHost.index, session?.songs.length ?? 0)
+      if (index !== removedAt) {
+        setRemovedByHost(null)
+        if (index > removedAt) target = index - 1
+      }
+    }
+    setSearchParams({ song: target.toString() })
   }
 
   const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
@@ -729,7 +841,8 @@ export default function SessionPage() {
   const handleTabDrop = (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault()
     if (draggedSongIdx !== null && draggedSongIdx !== targetIdx) {
-      handleReorderSongs(draggedSongIdx, targetIdx)
+      const from = draggedSongIdx
+      guard(() => void handleReorderSongs(from, targetIdx))
     }
     setDraggedSongIdx(null)
     setDragOverSongIdx(null)
@@ -1034,6 +1147,13 @@ export default function SessionPage() {
     }
   }
 
+  const guardedSelectKey = (key: string) => guard(() => void handleSelectKey(key))
+  const guardedResetKey = () => guard(() => void handleResetKey())
+  const guardedChangePadKeyMode = (mode: PadKeyMode) =>
+    guard(() => void handleChangePadKeyMode(mode))
+  const guardedSelectCustomPadKey = (key: PadKey) =>
+    guard(() => void handleSelectCustomPadKey(key))
+
   if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
     return <SetLinkImportView linkId={sessionId} />
   }
@@ -1085,6 +1205,48 @@ export default function SessionPage() {
 
   const handleOpenShareMenu = () => setIsShareMenuOpen(true)
 
+  const finishResume = async () => {
+    setConfirmFollow(false)
+    setFollowBusy(true)
+    setFollowError(false)
+    try {
+      const result = await resumeFollowing(session.id)
+      if (result.kind === 'resumed') {
+        adoptSession(result.session)
+        setRemovedByHost(null)
+        setFollowStatus('live')
+        await loadSessionSongs(result.session)
+      } else {
+        setFollowStatus(result.kind === 'stopped' ? 'stopped' : 'expired')
+      }
+    } catch {
+      setFollowError(true)
+    } finally {
+      setFollowBusy(false)
+    }
+  }
+
+  const handleToggleFollow = async (on: boolean) => {
+    if (!on) {
+      followRef.current?.dropDeferred()
+      const stored = await stopFollowing(session.id)
+      if (stored) adoptSession(stored)
+      return
+    }
+    if (await hasLocalEdits(session)) setConfirmFollow(true)
+    else await finishResume()
+  }
+
+  const followEnded = followStatus === 'stopped' || followStatus === 'expired'
+  const followStatusText =
+    followStatus === 'stopped'
+      ? 'Sharing stopped'
+      : followStatus === 'expired'
+        ? 'Link expired'
+        : followStatus === 'reconnecting'
+          ? 'Reconnecting\u2026'
+          : 'Live'
+
   const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
 
   const getLatestFromSetLink = async () => {
@@ -1133,6 +1295,39 @@ export default function SessionPage() {
         </StatusBanner>
       )}
 
+      {!isFullScreen && session.liveSourceId && (
+        <StatusBanner tone="info">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <div className="space-y-0.5">
+              <p>
+                {followEnded ? (
+                  <>
+                    <strong>{followStatusText}.</strong> You can keep using this copy.
+                  </>
+                ) : following ? (
+                  <>
+                    Following the host&apos;s edits. Editing this set makes it your own copy.{' '}
+                    <strong>{followStatusText}</strong>
+                  </>
+                ) : (
+                  <>
+                    This is your own copy. Turn on <strong>Follow Host Edits</strong> to get the
+                    host&apos;s changes again.
+                  </>
+                )}
+              </p>
+              {followError && <p>Couldn&apos;t reach the host. Try again.</p>}
+            </div>
+            <Switch
+              label="Follow Host Edits"
+              checked={following && !followEnded}
+              disabled={followEnded || followBusy}
+              onChange={handleToggleFollow}
+            />
+          </div>
+        </StatusBanner>
+      )}
+
       {/* Session Title Bar */}
       {!isFullScreen && (
         <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1158,7 +1353,7 @@ export default function SessionPage() {
                   {session.name}
                 </h1>
                 <LiveShareChip sessionId={session.id} />
-                <IconButton label="Rename set" variant="ghost" onClick={handleStartRename}>
+                <IconButton label="Rename set" variant="ghost" onClick={() => guard(handleStartRename)}>
                   <Pencil size={14} />
                 </IconButton>
               </div>
@@ -1180,7 +1375,7 @@ export default function SessionPage() {
               size="sm"
               variant="secondary"
               icon={<Plus size={14} />}
-              onClick={() => setIsEditSetOpen(true)}
+              onClick={() => guard(() => setIsEditSetOpen(true))}
             >
               Add Song
             </Button>
@@ -1212,7 +1407,7 @@ export default function SessionPage() {
             size="sm"
             variant="secondary"
             icon={<ListOrdered size={14} />}
-            onClick={() => setIsArrangingSongs(true)}
+            onClick={() => guard(() => setIsArrangingSongs(true))}
             aria-label="Arrange setlist"
             title="Arrange setlist"
             className="shrink-0"
@@ -1228,15 +1423,16 @@ export default function SessionPage() {
           role="tablist"
           aria-label="Songs in setlist"
         >
-          {session.songs.map((item, idx) => {
+          {shownSongs.map((item, idx) => {
             const isActive = idx === activeIndex
             const song = songForItem(item)
             const label =
               song?.title || item.title || item.url.replace(/^https?:\/\//, '').slice(0, 18)
+            const tabLabel = isRemovedItem(item) ? `${label} (removed)` : label
             const isDragging = draggedSongIdx === idx
             const isOver =
               dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
-            const canDrag = !isFullScreen && session.songs.length > 1
+            const canDrag = !isFullScreen && session.songs.length > 1 && !removedByHost
 
             return (
               <div
@@ -1307,13 +1503,13 @@ export default function SessionPage() {
                         : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
                   }`}
                 />
-                <span className="truncate max-w-[140px]">{label}</span>
-                {!isFullScreen && session.songs.length > 1 && (
+                <span className="truncate max-w-[140px]">{tabLabel}</span>
+                {!isFullScreen && session.songs.length > 1 && !isRemovedItem(item) && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleRemoveSong(item.entryId || '')
+                      guard(() => handleRemoveSong(item.entryId || ''))
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     title="Remove song from setlist"
@@ -1342,6 +1538,12 @@ export default function SessionPage() {
         )}
       </div>
 
+      {currentItem && isRemovedItem(currentItem) && (
+        <StatusBanner tone="warning">
+          Removed by the host. This song stays here until you move to another song.
+        </StatusBanner>
+      )}
+
       {/* Main Song Content */}
       {currentItem && (
         <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
@@ -1358,7 +1560,7 @@ export default function SessionPage() {
                   {currentItem.errorMessage || 'Unknown extraction error'}
                 </p>
                 <button
-                  onClick={() => handleRetry(currentItem)}
+                  onClick={() => guard(() => void handleRetry(currentItem))}
                   disabled={retryingUrls.has(currentItem.url)}
                   className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
                 >
@@ -1384,8 +1586,8 @@ export default function SessionPage() {
                           song={displayedSong}
                           currentKey={currentKey}
                           offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                          onResetKey={handleResetKey}
-                          onSelectKey={handleSelectKey}
+                          onResetKey={guardedResetKey}
+                          onSelectKey={guardedSelectKey}
                           variant="fullscreen"
                         />
                         <div
@@ -1400,8 +1602,8 @@ export default function SessionPage() {
                         <TransposeSelector
                           originalKey={displayedSong.originalKey}
                           currentKey={currentKey}
-                          onSelectKey={handleSelectKey}
-                          onReset={handleResetKey}
+                          onSelectKey={guardedSelectKey}
+                          onReset={guardedResetKey}
                           compact
                         />
                         {canSimplify && (
@@ -1433,8 +1635,8 @@ export default function SessionPage() {
                           customPadKey={customPadKey}
                           isPadPlaying={padState.isPlaying}
                           isPadLoading={padState.isLoading}
-                          onChangePadKeyMode={handleChangePadKeyMode}
-                          onSelectCustomPadKey={handleSelectCustomPadKey}
+                          onChangePadKeyMode={guardedChangePadKeyMode}
+                          onSelectCustomPadKey={guardedSelectCustomPadKey}
                           onTogglePad={handleTogglePad}
                           variant="fullscreen"
                         />
@@ -1484,7 +1686,7 @@ export default function SessionPage() {
                         currentItem?.customSections !== undefined ||
                         currentItem?.customSimplifiedSections !== undefined ||
                         isEditingChords
-                          ? handleRestoreOriginal
+                          ? () => guard(() => void handleRestoreOriginal())
                           : undefined
                       }
                       isEditingChords={isEditingChords}
@@ -1493,20 +1695,23 @@ export default function SessionPage() {
                       isPadLoading={padState.isLoading}
                       originalKey={displayedSong.originalKey}
                       currentKey={currentKey}
-                      onSelectKey={handleSelectKey}
-                      onResetKey={handleResetKey}
+                      onSelectKey={guardedSelectKey}
+                      onResetKey={guardedResetKey}
                       padKeyMode={padKeyMode}
                       customPadKey={customPadKey}
-                      onChangePadKeyMode={handleChangePadKeyMode}
-                      onSelectCustomPadKey={handleSelectCustomPadKey}
+                      onChangePadKeyMode={guardedChangePadKeyMode}
+                      onSelectCustomPadKey={guardedSelectCustomPadKey}
                       onTogglePad={handleTogglePad}
                       onToggleEditChords={() => {
-                        setIsEditingChords((prev) => {
-                          if (prev) {
-                            setPositioningChord(null)
-                          }
-                          return !prev
-                        })
+                        const toggle = () =>
+                          setIsEditingChords((prev) => {
+                            if (prev) {
+                              setPositioningChord(null)
+                            }
+                            return !prev
+                          })
+                        if (isEditingChords) toggle()
+                        else guard(toggle)
                       }}
                     />
                   </>
@@ -1542,25 +1747,35 @@ export default function SessionPage() {
                   onDeleteSection={
                     isFullScreen
                       ? undefined
-                      : (idx) => {
-                          setPositioningChord(null)
-                          handleDeleteSection(idx)
-                        }
+                      : (idx) =>
+                          guard(() => {
+                            setPositioningChord(null)
+                            void handleDeleteSection(idx)
+                          })
                   }
                   onReorderSections={
                     isFullScreen
                       ? undefined
-                      : (from, to) => {
-                          setPositioningChord(null)
-                          handleReorderSections(from, to)
-                        }
+                      : (from, to) =>
+                          guard(() => {
+                            setPositioningChord(null)
+                            void handleReorderSections(from, to)
+                          })
                   }
-                  onRenameSection={isFullScreen ? undefined : handleRenameSection}
-                  onEditChord={handleEditChord}
-                  onDeleteChord={handleDeleteChord}
-                  onStartEditPosition={handleStartEditPosition}
-                  onSplitLine={handleSplitLine}
-                  onMergeLineWithPrevious={handleMergeLineWithPrevious}
+                  onRenameSection={isFullScreen ? undefined : (index, label) => guard(() => void handleRenameSection(index, label))}
+                  onEditChord={(section, line, chord, value) =>
+                    guard(() => void handleEditChord(section, line, chord, value))
+                  }
+                  onDeleteChord={(section, line, chord) =>
+                    guard(() => void handleDeleteChord(section, line, chord))
+                  }
+                  onStartEditPosition={(target) => guard(() => handleStartEditPosition(target))}
+                  onSplitLine={(section, line, at) =>
+                    guard(() => void handleSplitLine(section, line, at))
+                  }
+                  onMergeLineWithPrevious={(section, line) =>
+                    guard(() => void handleMergeLineWithPrevious(section, line))
+                  }
                   onLyricOverflowChange={setHasLyricOverflow}
                   wrapLines={prefs.wrapLines}
                 />
@@ -1575,6 +1790,29 @@ export default function SessionPage() {
           )}
         </div>
       )}
+
+      {editGuardDialog}
+
+      <OverlayDialog
+        isOpen={confirmFollow}
+        onClose={() => setConfirmFollow(false)}
+        title="Follow Host Edits?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmFollow(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={finishResume}>
+              Follow
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          Turning this on replaces your changes with the host&apos;s version.
+        </p>
+      </OverlayDialog>
 
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (

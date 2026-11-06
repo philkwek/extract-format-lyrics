@@ -9,6 +9,13 @@ import { sessionStore } from '../../src/lib/sessionStore'
 import { scrapeApi, simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
 import { importFromSetLinkOnce } from '../../src/lib/setLinkImport'
+import {
+  followLiveSet,
+  hasLocalEdits,
+  resumeFollowing,
+  stopFollowing,
+  type FollowHandlers,
+} from '../../src/lib/liveFollow'
 
 const fixtures = vi.hoisted(() => {
   const sections = [
@@ -71,6 +78,13 @@ vi.mock('../../src/lib/liveShareSync', () => ({
   getLiveShare: vi.fn(async () => null),
   subscribeLiveShare: vi.fn(() => () => {}),
   subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
+
+vi.mock('../../src/lib/liveFollow', () => ({
+  followLiveSet: vi.fn(),
+  stopFollowing: vi.fn(),
+  resumeFollowing: vi.fn(),
+  hasLocalEdits: vi.fn(),
 }))
 
 vi.mock('../../src/lib/setLinkImport', () => ({
@@ -491,5 +505,141 @@ describe('SessionPage set links', () => {
     renderAt('/session/session-1')
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`))
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+  })
+})
+
+
+describe('SessionPage following a live set', () => {
+  const followed = { ...fixtures.session, liveSourceId: 'live-1', followHost: true }
+  const own = { ...followed, followHost: false }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  function setup(session: object = followed) {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(session as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+    vi.mocked(stopFollowing).mockResolvedValue(own as never)
+    renderAt('/session/session-1')
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('shows the banner with the switch on and the live status', async () => {
+    setup()
+    const toggle = await screen.findByRole('switch', { name: 'Follow Host Edits' })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByText(/Following the host.s edits/)).toBeTruthy()
+    expect(screen.getByText('Live')).toBeTruthy()
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not show the banner for a set that is not live', async () => {
+    setup(fixtures.session)
+    await screen.findByRole('button', { name: 'Add Song' })
+    expect(screen.queryByRole('switch')).toBeNull()
+  })
+
+  it('asks before chord editing and saves followHost false when confirmed', async () => {
+    setup()
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit chords' }))
+    expect(await screen.findByText('Make this your own copy?')).toBeTruthy()
+    expect(screen.queryByText(/Chord editing active/i)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit my copy' }))
+
+    expect(await screen.findByText(/Chord editing active/i)).toBeTruthy()
+    expect(stopFollowing).toHaveBeenCalledWith('session-1')
+    expect(controller.dropDeferred).toHaveBeenCalled()
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('leaves the host key in place when Keep following is chosen', async () => {
+    setup()
+    const select = (await screen.findAllByLabelText('Transpose song'))[0] as HTMLSelectElement
+    const hostKey = select.value
+    fireEvent.change(select, { target: { value: 'A' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep following' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect((screen.getAllByLabelText('Transpose song')[0] as HTMLSelectElement).value).toBe(hostKey)
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+    expect(controller.flushDeferred).toHaveBeenCalled()
+  })
+
+  it('does not ask for columns or font size', async () => {
+    setup()
+    await screen.findByRole('switch')
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Increase song font size' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(stopFollowing).not.toHaveBeenCalled()
+  })
+
+  it('keeps followHost false in later saves after following is turned off', async () => {
+    setup()
+    fireEvent.click(await screen.findByRole('switch'))
+    await waitFor(() => expect(stopFollowing).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false'),
+    )
+    expect(screen.getByText(/This is your own copy/)).toBeTruthy()
+
+    fireEvent.change((await screen.findAllByLabelText('Transpose song'))[0], {
+      target: { value: 'A' },
+    })
+    await waitFor(() => expect(sessionStore.updateSession).toHaveBeenCalled())
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.followHost).toBe(false)
+    expect(saved.songs[0].targetKey).toBe('A')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('disables the switch when the host stops sharing', async () => {
+    setup()
+    await screen.findByRole('switch')
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+    act(() => handlers.onStatus('stopped'))
+
+    await waitFor(() => expect(stopFollowing).toHaveBeenCalled())
+    const toggle = await screen.findByRole('switch')
+    await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(true))
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(screen.getByText(/Sharing stopped/)).toBeTruthy()
+    expect(screen.getByText(/You can keep using this copy/)).toBeTruthy()
+  })
+
+  it('warns before replacing local edits when following is turned back on', async () => {
+    setup(own)
+    vi.mocked(hasLocalEdits).mockResolvedValue(true)
+    vi.mocked(resumeFollowing).mockResolvedValue({ kind: 'resumed', session: followed } as never)
+
+    fireEvent.click(await screen.findByRole('switch'))
+    expect(await screen.findByText("Turning this on replaces your changes with the host's version.")).toBeTruthy()
+    expect(resumeFollowing).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }))
+    await waitFor(() => expect(resumeFollowing).toHaveBeenCalledWith('session-1'))
+    await waitFor(() =>
+      expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true'),
+    )
+  })
+
+  it('turns following back on without a warning when there are no local edits', async () => {
+    setup(own)
+    vi.mocked(hasLocalEdits).mockResolvedValue(false)
+    vi.mocked(resumeFollowing).mockResolvedValue({ kind: 'expired' })
+
+    fireEvent.click(await screen.findByRole('switch'))
+
+    await waitFor(() => expect(resumeFollowing).toHaveBeenCalled())
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(await screen.findByText(/Link expired/)).toBeTruthy()
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true)
   })
 })

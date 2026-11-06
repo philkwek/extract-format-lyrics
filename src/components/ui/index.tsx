@@ -163,3 +163,43 @@ export function StatusBanner({ tone = 'info', icon, className, children, ...prop
   )
 }
 
+
+interface SwitchProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+  disabled?: boolean
+}
+
+export function Switch({ checked, onChange, label, disabled = false }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="inline-flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-1 text-sm font-semibold text-[var(--ui-text)] outline-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <span>{label}</span>
+      <span
+        aria-hidden="true"
+        className={classes(
+          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors',
+          checked
+            ? 'border-[#3368A0] bg-[#3368A0] dark:border-amber-500 dark:bg-amber-500'
+            : 'border-[var(--ui-border-strong)] bg-[var(--ui-surface-muted)]',
+        )}
+      >
+        <span
+          className={classes(
+            'inline-block h-4.5 w-4.5 rounded-full shadow-sm transition-transform',
+            checked
+              ? 'translate-x-5.5 bg-white dark:bg-[#101010]'
+              : 'translate-x-0.5 bg-[#6b7f8f] dark:bg-[#e5e5e5]',
+          )}
+        />
+      </span>
+    </button>
+  )
+}
