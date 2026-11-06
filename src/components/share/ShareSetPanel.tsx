@@ -96,12 +96,13 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const showLive = canShareLive && mode === 'live'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 flex flex-col">
       {canShareLive && (
         <SegmentedControl
           label="How to share this set"
           value={mode}
           onChange={setMode}
+          className="w-full self-center"
           options={[
             { value: 'copy', label: 'Send a copy' },
             { value: 'live', label: 'Share live' },
