@@ -47,6 +47,7 @@ import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
 import ShareMenuModal from '../components/ShareMenuModal'
 import LiveShareChip from '../components/share/LiveShareChip'
+import HostChangeToast, { type HostNote } from '../components/share/HostChangeToast'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
@@ -73,6 +74,12 @@ import {
   type FollowStatus,
 } from '../lib/liveFollow'
 import { useFollowEditGuard } from '../lib/useFollowEditGuard'
+import {
+  describeHostChanges,
+  mergeHostChanges,
+  summarizeHostChanges,
+  type HostChange,
+} from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import {
   ambientPadPlayer,
@@ -158,6 +165,7 @@ export default function SessionPage() {
   const viewRef = useRef({ activeIndex: 0, shown: [] as SessionSongItem[], songs: new Map<string, Song>() })
   const deferRef = useRef(false)
   const onHostUpdateRef = useRef<(next: Session) => void>(() => {})
+  const [hostChanges, setHostChanges] = useState<HostChange[] | null>(null)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
@@ -261,6 +269,7 @@ export default function SessionPage() {
     if (!sessionId) return
     sessionStore.getSession(sessionId).then(async (s) => {
       setRemovedByHost(null)
+      setHostChanges(null)
       if (!s) {
         setNotFoundId(sessionId)
         return
@@ -303,6 +312,9 @@ export default function SessionPage() {
     onHostUpdateRef.current = (next) => {
       const { activeIndex: at, shown, songs } = viewRef.current
       const current = shown[at]
+      const before = sessionRef.current
+      const changes = before ? describeHostChanges(before, next) : []
+      if (changes.length) setHostChanges((prev) => mergeHostChanges(prev ?? [], changes))
       adoptSession(next)
       void loadSessionSongs(next)
       if (!current) return
@@ -473,6 +485,23 @@ export default function SessionPage() {
     }
     setSearchParams({ song: target.toString() })
   }
+
+  const selectSongRef = useRef(selectSong)
+  useEffect(() => {
+    selectSongRef.current = selectSong
+  })
+  const dismissHostNote = useCallback(() => setHostChanges(null), [])
+  const hostNote = useMemo<HostNote | null>(() => {
+    const summary = hostChanges && summarizeHostChanges(hostChanges)
+    if (!summary) return null
+    const index = summary.songKey
+      ? shownSongs.findIndex((item) => (item.entryId || item.url) === summary.songKey)
+      : -1
+    return {
+      text: summary.text,
+      onShow: index >= 0 && index !== activeIndex ? () => selectSongRef.current(index) : undefined,
+    }
+  }, [hostChanges, shownSongs, activeIndex])
 
   const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
     setSession(updatedSession)
@@ -1857,6 +1886,9 @@ export default function SessionPage() {
           onCancel={handleCancelPosition}
         />
       )}
+
+      {/* Last, so it sits above the other bottom popovers. */}
+      <HostChangeToast note={hostNote} onDismiss={dismissHostNote} />
     </div>
   )
 }

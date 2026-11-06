@@ -4,7 +4,7 @@ import type {
   HTMLAttributes,
   ReactNode,
 } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { reducedMotionTransition, segmentedSpring } from '../../lib/uiMotion'
 import { liveToneClasses, type LiveTone } from './liveTone'
@@ -181,5 +181,53 @@ export function LivePill({
     >
       {children}
     </span>
+  )
+}
+
+interface ToastProps {
+  open: boolean
+  /** Read out by screen readers whenever it changes. */
+  message: string
+  icon?: ReactNode
+  actions?: ReactNode
+  onPause?: () => void
+  onResume?: () => void
+}
+
+/** A short note at the bottom of the screen. It covers nothing in the page layout. */
+export function Toast({ open, message, icon, actions, onPause, onResume }: ToastProps) {
+  const reduceMotion = useReducedMotion()
+  const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-40 flex justify-center px-4">
+      <span role="status" className="sr-only">
+        {open ? message : ''}
+      </span>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={hidden}
+            animate={{ opacity: 1, y: 0 }}
+            exit={hidden}
+            transition={reducedMotionTransition}
+            onMouseEnter={onPause}
+            onMouseLeave={onResume}
+            onFocus={onPause}
+            onBlur={onResume}
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] py-1 pl-3 pr-1 text-sm text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)]"
+          >
+            {icon && (
+              <span aria-hidden="true" className="flex shrink-0">
+                {icon}
+              </span>
+            )}
+            <p aria-hidden="true" className="min-w-0 flex-1 py-1.5 leading-5">
+              {message}
+            </p>
+            {actions}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

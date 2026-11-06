@@ -741,3 +741,80 @@ describe('SessionPage removed-by-host songs', () => {
     expect(screen.queryByText(/Removed by the host/)).toBeTruthy()
   })
 })
+
+describe('SessionPage host change notice', () => {
+  const twoSongs = {
+    ...fixtures.session,
+    liveSourceId: 'live-1',
+    songs: [
+      { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
+      { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
+    ],
+  }
+  const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }
+  let handlers: FollowHandlers
+
+  const announced = (text: string) =>
+    screen.getAllByRole('status').some((el) => el.textContent === `Host: ${text}`)
+
+  async function open() {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    vi.mocked(followLiveSet).mockImplementation((_session, h) => {
+      handlers = h
+      return controller
+    })
+    renderAt('/session/session-1')
+    await screen.findByText(/Live set from host/)
+    await waitFor(() => expect(followLiveSet).toHaveBeenCalled())
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.clearAllMocks()
+  })
+
+  it('says nothing when the set opens', async () => {
+    await open()
+    expect(screen.queryByText(/^Host:/)).toBeNull()
+  })
+
+  it('says what the host changed and opens that song on Show', async () => {
+    await open()
+    const songs = [twoSongs.songs[0], { ...twoSongs.songs[1], targetKey: 'A' }]
+    await act(async () => handlers.onUpdate({ ...twoSongs, songs } as never))
+
+    await waitFor(() => expect(announced('“Bravo” is now in A')).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab')[1].getAttribute('aria-selected')).toBe('true'),
+    )
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Show' })).toBeNull())
+    expect(announced('“Bravo” is now in A')).toBe(false)
+  })
+
+  it('adds a quick second change to the same notice', async () => {
+    await open()
+    const keyed = [twoSongs.songs[0], { ...twoSongs.songs[1], targetKey: 'A' }]
+    await act(async () => handlers.onUpdate({ ...twoSongs, songs: keyed } as never))
+    await act(async () =>
+      handlers.onUpdate({ ...twoSongs, name: 'Youth', songs: keyed } as never),
+    )
+
+    await waitFor(() =>
+      expect(announced('“Bravo” is now in A. Renamed the set to “Youth”')).toBe(
+        true,
+      ),
+    )
+  })
+
+  it('closes on Dismiss', async () => {
+    await open()
+    await act(async () =>
+      handlers.onUpdate({ ...twoSongs, songs: [twoSongs.songs[0]] } as never),
+    )
+    await waitFor(() => expect(announced('Removed “Bravo”')).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(announced('Removed “Bravo”')).toBe(false))
+  })
+})
