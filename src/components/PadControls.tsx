@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AudioLines, ChevronDown } from 'lucide-react'
+import { ChevronDown, Volume2 } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { PAD_KEYS, resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
 import type { PadKeyMode } from '../lib/sessionStore'
@@ -60,7 +60,7 @@ export default function PadControls({
   if (!onTogglePad || (!onChangePadKeyMode && !canPlayPad)) return null
 
   const keyDisplay = effectivePadKey ?? '—'
-  const buttonLabel = isPadPlaying ? `Playing Pad (${keyDisplay})` : `Pad (${keyDisplay})`
+  const buttonLabel = isPadPlaying ? `Playing Pads in ${keyDisplay}` : `Play Pads in ${keyDisplay}`
   const ariaLabel = isPadPlaying ? `Playing Pad (${keyDisplay})` : 'Play Ambient Pad'
 
   return (
@@ -93,7 +93,7 @@ export default function PadControls({
             {isPadLoading ? (
               <span className="ui-spinner" aria-hidden="true" />
             ) : (
-              <AudioLines size={14} />
+              <Volume2 size={14} />
             )}
             <span>{buttonLabel}</span>
           </button>
