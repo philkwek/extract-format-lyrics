@@ -43,6 +43,7 @@ import SearchResults from '../components/import/SearchResults'
 import LiveShareChip from '../components/share/LiveShareChip'
 import type { Song } from '../types/song'
 import { Button, IconButton, LivePill, SegmentedControl, Surface } from '../components/ui'
+import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
 
 export default function HomePage() {
@@ -72,6 +73,7 @@ export default function HomePage() {
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
   const [currentTime] = useState(() => Date.now())
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
+  const [deletingSession, setDeletingSession] = useState<Session | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -96,8 +98,8 @@ export default function HomePage() {
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])
 
-  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleDeleteSession = async (id: string) => {
+    setDeletingSession(null)
     await sessionStore.deleteSession(id)
     const updated = await sessionStore.getAllSessions()
     setSessions(updated)
@@ -387,7 +389,10 @@ export default function HomePage() {
                   <IconButton
                     label="Delete session"
                     variant="danger"
-                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeletingSession(session)
+                    }}
                   >
                     <Trash2 size={15} />
                   </IconButton>
@@ -478,6 +483,32 @@ export default function HomePage() {
           onClose={() => setSharingSession(null)}
         />
       )}
+
+      <OverlayDialog
+        isOpen={deletingSession !== null}
+        onClose={() => setDeletingSession(null)}
+        title="Delete this set?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingSession(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deletingSession && void handleDeleteSession(deletingSession.id)}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          {deletingSession?.liveSourceId
+            ? `"${deletingSession.name}" will be removed from this device. The live set itself is not changed.`
+            : `"${deletingSession?.name}" will be deleted. This can't be undone.`}
+        </p>
+      </OverlayDialog>
 
       {/* Upload SongSelect Sheet Modal */}
       <UploadSheetModal

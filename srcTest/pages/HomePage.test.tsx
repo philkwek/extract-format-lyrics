@@ -146,3 +146,60 @@ describe('HomePage live set cards', () => {
     expect(screen.queryByText('Live set')).toBeNull()
   })
 })
+
+describe('HomePage set card actions', () => {
+  const base = { createdAt: 0, songs: [] }
+
+  it('asks before deleting a set', async () => {
+    const getAll = vi
+      .spyOn(sessionStoreModule.sessionStore, 'getAllSessions')
+      .mockResolvedValue([{ ...base, id: 'n', name: 'Normal' }] as never)
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByLabelText('Delete session'))
+    expect(del).not.toHaveBeenCalled()
+
+    getAll.mockResolvedValue([])
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('n'))
+  })
+
+  it('keeps the set when delete is cancelled', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByLabelText('Delete session'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(del).not.toHaveBeenCalled()
+  })
+
+  it('does not let a live set be renamed', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1' },
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    await screen.findByText('Followed')
+    expect(screen.getAllByLabelText('Rename set')).toHaveLength(1)
+  })
+})
