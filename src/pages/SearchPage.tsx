@@ -8,7 +8,7 @@ import {
   mergePartialSearchCandidates,
   upsertSearchSource,
 } from '../lib/searchResults'
-import { sessionStore, type Session } from '../lib/sessionStore'
+import { sessionStore, sessionPath, type Session } from '../lib/sessionStore'
 import {
   importSources,
   parsePastedSources,
@@ -121,8 +121,8 @@ export default function SearchPage() {
       setAddedUrls((prev) => new Set(prev).add(candidate.url))
       navigate(
         targetSessionId
-          ? `/session/${result.session.id}?song=${result.firstNewIndex}`
-          : `/session/${result.session.id}`
+          ? `${sessionPath(result.session)}?song=${result.firstNewIndex}`
+          : sessionPath(result.session)
       )
     } catch (err) {
       trackSongImport('search', 0, 1)
@@ -159,8 +159,8 @@ export default function SearchPage() {
       trackSongImport('pasted_link', result.imported, tokenCount)
       navigate(
         targetSessionId
-          ? `/session/${result.session.id}?song=${result.firstNewIndex}`
-          : `/session/${result.session.id}`
+          ? `${sessionPath(result.session)}?song=${result.firstNewIndex}`
+          : sessionPath(result.session)
       )
     } catch {
       trackSongImport('pasted_link', 0, tokenCount)
@@ -178,7 +178,7 @@ export default function SearchPage() {
           icon={<ArrowLeft size={15} />}
           onClick={() => {
             if (targetSessionId) {
-              navigate(`/session/${targetSessionId}`)
+              navigate(targetSession ? sessionPath(targetSession) : `/session/${targetSessionId}`)
             } else {
               navigate(-1)
             }

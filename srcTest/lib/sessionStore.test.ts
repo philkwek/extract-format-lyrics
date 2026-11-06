@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SessionStore, type SessionStorageStore } from '../../src/lib/sessionStore'
+import { SessionStore, sessionPath, type SessionStorageStore, type SessionChangeEvent } from '../../src/lib/sessionStore'
+import type { SetLinkIdentityStore } from '../../src/lib/setLinkIdentity'
 
 describe('SessionStore', () => {
   it('creates, lists, and deletes sessions', async () => {
@@ -132,5 +133,72 @@ describe('SessionStore', () => {
     const d5 = new Date(2027, 0, 1, 0, 0)
     expect(formatDefaultSessionName(d5)).toBe('1 January 12am Set')
   })
-})
 
+  describe('public ids and events', () => {
+    function makeStores() {
+      let data: unknown = null
+      const ids = new Map<string, unknown>()
+      const backing = {
+        get: vi.fn(async () => data),
+        set: vi.fn(async (_: unknown, v: unknown) => {
+          data = v
+        }),
+        del: vi.fn(async () => {
+          data = null
+        }),
+      }
+      const identityStore: SetLinkIdentityStore = {
+        get: async <T>(k: string) => ids.get(k) as T | undefined,
+        set: async (k, v) => void ids.set(k, v),
+        del: async (k) => void ids.delete(k),
+      }
+      return {
+        store: new SessionStore(backing as unknown as SessionStorageStore, identityStore),
+        seed: (v: unknown) => {
+          data = v
+        },
+        ids,
+      }
+    }
+
+    it('assigns a publicId on create and looks up by id or publicId', async () => {
+      const { store, ids } = makeStores()
+      const s = await store.createSession([], 'A', { importedFromLinkId: 'LINK' })
+      expect(s.publicId).toMatch(/^[A-Za-z0-9_-]{22}$/)
+      expect(s.importedFromLinkId).toBe('LINK')
+      expect(ids.has(s.id)).toBe(true)
+      expect((await store.getSession(s.publicId!))?.id).toBe(s.id)
+      expect((await store.getSession(s.id))?.id).toBe(s.id)
+      expect((await store.findByImportedLinkId('LINK'))?.id).toBe(s.id)
+      expect(await store.findByImportedLinkId('nope')).toBeNull()
+      expect(sessionPath(s)).toBe(`/session/${s.publicId}`)
+      expect(sessionPath({ id: 'x' })).toBe('/session/x')
+    })
+
+    it('migrates sessions without publicId silently', async () => {
+      const { store, seed } = makeStores()
+      seed([{ id: 'old', createdAt: 1, name: 'Old', songs: [] }])
+      const events = vi.fn()
+      store.subscribe(events)
+      const list = await store.getAllSessions()
+      expect(list[0].publicId).toMatch(/^[A-Za-z0-9_-]{22}$/)
+      expect((await store.getAllSessions())[0].publicId).toBe(list[0].publicId)
+      expect(events).not.toHaveBeenCalled()
+    })
+
+    it('emits created, updated and deleted and supports unsubscribe', async () => {
+      const { store } = makeStores()
+      const events: SessionChangeEvent[] = []
+      const off = store.subscribe((e) => events.push(e))
+      const s = await store.createSession([{ url: 'https://x.test/a', status: 'ok' }])
+      await store.renameSession(s.id, 'New')
+      await store.reorderSongsInSession(s.id, 0, 0)
+      await store.deleteSession(s.id)
+      expect(events.map((e) => e.type)).toEqual(['created', 'updated', 'deleted'])
+      expect(events[1].session?.name).toBe('New')
+      off()
+      await store.createSession([])
+      expect(events).toHaveLength(3)
+    })
+  })
+})

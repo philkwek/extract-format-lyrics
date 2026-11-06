@@ -144,7 +144,11 @@ export async function withLyricsPublicationLock<T>(
   sessionId: string,
   fn: () => Promise<T>
 ): Promise<T> {
-  const lockName = `lyrics-publish:${sessionId}`
+  return withNamedLock(`lyrics-publish:${sessionId}`, fn)
+}
+
+/** Serializes `fn` under a named lock: Web Locks across tabs, in-memory mutex otherwise. */
+export async function withNamedLock<T>(lockName: string, fn: () => Promise<T>): Promise<T> {
   if (typeof navigator !== 'undefined' && navigator.locks?.request) {
     return navigator.locks.request(lockName, () => fn())
   }

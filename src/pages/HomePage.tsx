@@ -20,7 +20,7 @@ import {
   mergePartialSearchCandidates,
   upsertSearchSource,
 } from '../lib/searchResults'
-import { sessionStore, type Session, type SessionSongItem } from '../lib/sessionStore'
+import { sessionStore, sessionPath, type Session, type SessionSongItem } from '../lib/sessionStore'
 import {
   importSources,
   parsePastedSources,
@@ -85,7 +85,7 @@ export default function HomePage() {
     }))
     const newSession = await sessionStore.createSession(sessionSongs)
     trackSongImport('upload', songs.length, songs.length)
-    navigate(`/session/${newSession.id}`)
+    navigate(sessionPath(newSession))
   }
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export default function HomePage() {
         onProgress: setStatuses,
       })
       trackSongImport('pasted_link', result.imported, tokenCount)
-      navigate(`/session/${result.session.id}`)
+      navigate(sessionPath(result.session))
     } catch {
       trackSongImport('pasted_link', 0, tokenCount)
       setGeneralError('Could not save all imported songs. Please try again.')
@@ -217,7 +217,7 @@ export default function HomePage() {
     try {
       const result = await importSources([sourceFromCandidate(candidate)], { requireAll: true })
       trackSongImport('search', result.imported, 1)
-      navigate(`/session/${result.session.id}`)
+      navigate(sessionPath(result.session))
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not create setlist: ${(err as Error).message}`)
@@ -331,9 +331,9 @@ export default function HomePage() {
             {sessions.map((session) => (
               <article
                 key={session.id}
-                onClick={() => navigate(`/session/${session.id}`)}
+                onClick={() => navigate(sessionPath(session))}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') navigate(`/session/${session.id}`)
+                  if (event.key === 'Enter' || event.key === ' ') navigate(sessionPath(session))
                 }}
                 role="link"
                 tabIndex={0}

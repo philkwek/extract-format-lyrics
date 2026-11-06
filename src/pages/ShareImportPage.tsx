@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock3, DownloadCloud } from 'lucide-react'
 import { getShareApi, ShareApiError } from '../lib/api'
-import { sessionStore } from '../lib/sessionStore'
+import { sessionStore, sessionPath } from '../lib/sessionStore'
 import { songCache } from '../lib/songCache'
 import { sessionSongsFromSnapshot } from '../lib/shareSnapshot'
 import { Button, Surface } from '../components/ui'
@@ -45,7 +45,7 @@ export default function ShareImportPage() {
         trackEvent('shared_set_imported', { outcome: 'success', imported_count: sessionSongs.length })
 
         // Navigate to imported session
-        navigate(`/session/${newSession.id}`, { replace: true })
+        navigate(sessionPath(newSession), { replace: true })
       } catch (err) {
         if (!isCancelled) {
           trackEvent('shared_set_imported', { outcome: 'error', imported_count: 0 })
