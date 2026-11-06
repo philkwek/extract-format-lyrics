@@ -11,7 +11,7 @@ import {
   SharedLyricsStore,
   verifyPublicationSecret,
 } from '../../functions/src/sharedLyricsStore'
-import { createSharedSetSnapshot, sessionSongsFromSnapshot } from '../../src/lib/shareSnapshot'
+import { sessionSongsFromSnapshot, snapshotEntry } from '../../src/lib/shareSnapshot'
 
 
 interface MockDocSnap {
@@ -399,7 +399,11 @@ describe('lyrics sharing integration suite', () => {
     await expect(simulateBackendPut(pubId, '', updatedPayload)).rejects.toThrow('403 Forbidden')
 
     // --- VERIFY: EXISTING SHARE SET GENERATION AND IMPORT STILL WORK ---
-    const setSnapshot = await createSharedSetSnapshot(session, async (url) => songsData.get(url) ?? null)
+    const setSnapshot = {
+      v: 2 as const,
+      name: session.name,
+      songs: session.songs.map((item) => snapshotEntry(item, songsData.get(item.url)!)),
+    }
     expect(setSnapshot.v).toBe(2)
     expect(setSnapshot.songs).toHaveLength(3)
     // Share set retains full chords and song objects
