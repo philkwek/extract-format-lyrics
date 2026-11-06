@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import ShareMenuModal from '../../src/components/ShareMenuModal'
 import type { Session } from '../../src/lib/sessionStore'
 import type { Song } from '../../src/types/song'
@@ -47,16 +48,22 @@ const session: Session = {
   ],
 }
 
-describe('ShareMenuModal', () => {
-  it('offers sending a copy for the set and a link for the lyrics', async () => {
-    render(
+function renderModal(modalSession: Session) {
+  return render(
+    <MemoryRouter>
       <ShareMenuModal
-        session={session}
+        session={modalSession}
         songsData={new Map([['entry-1', song]])}
         isOpen
         onClose={vi.fn()}
       />
-    )
+    </MemoryRouter>,
+  )
+}
+
+describe('ShareMenuModal', () => {
+  it('offers sending a copy for the set and a link for the lyrics', async () => {
+    renderModal(session)
 
     expect(screen.getByText('Share this set')).toBeTruthy()
     expect(screen.getByText('Share lyrics')).toBeTruthy()
@@ -66,5 +73,17 @@ describe('ShareMenuModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
     })
+  })
+
+  it('offers the live link and a copy for a set opened from a live share', () => {
+    renderModal({ ...session, liveSourceId: 'live-abc', followHost: true })
+
+    expect(screen.getByText('Copy the live link or make your own copy.')).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Create a copy' })).toBeTruthy()
+    expect(
+      screen.getByDisplayValue(`${window.location.origin}/live/live-abc`),
+    ).toBeTruthy()
   })
 })

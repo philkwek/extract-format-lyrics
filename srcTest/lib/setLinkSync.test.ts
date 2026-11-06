@@ -3,6 +3,7 @@ import {
   buildSetLinkPayload,
   createSetLinkSync,
   createSyncChannel,
+  ensureSetLinkFresh,
   hashSetLinkPayload,
   type SetLinkSyncDeps,
 } from '../../src/lib/setLinkSync'
@@ -288,24 +289,48 @@ describe('setLinkSync', () => {
     const near = setup()
     await seedHash(near, session)
     near.identities.set('s1', { ...near.identities.get('s1')!, expiresAt: new Date(Date.now() + 86400_000).toISOString() })
-    await near.sync.ensureFresh(session)
+    expect(await near.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(near.api).toHaveBeenCalledTimes(1)
     expect(near.deps.track).toHaveBeenCalledWith('set_link_published', expect.objectContaining({ trigger: 'refresh' }))
 
     const fresh = setup()
     await seedHash(fresh, session)
-    await fresh.sync.ensureFresh(session)
+    expect(await fresh.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(fresh.api).toHaveBeenCalledTimes(0)
 
     const never = setup()
-    await never.sync.ensureFresh(session)
+    expect(await never.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(never.api).toHaveBeenCalledTimes(1)
 
     const changed = setup()
     await seedHash(changed, session)
-    await changed.sync.ensureFresh(withKey('G'))
+    expect(await changed.sync.ensureFresh(withKey('G'))).toEqual({ ok: true })
     expect(changed.api).toHaveBeenCalledTimes(1)
+
+    const empty = setup()
+    expect(await empty.sync.ensureFresh(makeSession({ songs: [] }))).toEqual({
+      ok: false,
+      reason: 'empty',
+    })
+    expect(empty.api).not.toHaveBeenCalled()
+
+    const many = setup()
+    const songs = Array.from({ length: 31 }, (_, i) => ({
+      entryId: `e${i}`,
+      url: 'https://x.test/a',
+      status: 'ok' as const,
+    }))
+    expect(await many.sync.ensureFresh(makeSession({ songs }))).toEqual({
+      ok: false,
+      reason: 'too_many',
+    })
+    expect(many.api).not.toHaveBeenCalled()
+
+    const broken = setup()
+    broken.api.mockRejectedValue(new ShareApiError('no', 'FORBIDDEN', 403))
+    expect(await broken.sync.ensureFresh(session)).toEqual({ ok: false, reason: 'failed' })
   })
+
 
   it('saving bookkeeping triggers no session events', async () => {
     const data = new Map<string, unknown>()
@@ -352,6 +377,23 @@ describe('setLinkSync', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(env.api).toHaveBeenCalledTimes(0)
     expect(env.identities.has('s1')).toBe(false)
+  })
+})
+
+describe('ensureSetLinkFresh', () => {
+  it('reports why a set link cannot be published', async () => {
+    expect(await ensureSetLinkFresh(makeSession({ id: 'fresh-empty', songs: [] }))).toEqual({
+      ok: false,
+      reason: 'empty',
+    })
+    const songs = Array.from({ length: 31 }, (_, i) => ({
+      entryId: `e${i}`,
+      url: 'https://x.test/a',
+      status: 'ok' as const,
+    }))
+    expect(
+      await ensureSetLinkFresh(makeSession({ id: 'fresh-many', songs })),
+    ).toEqual({ ok: false, reason: 'too_many' })
   })
 })
 

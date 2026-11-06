@@ -19,13 +19,18 @@ export default function ShareMenuModal({
   onClose,
 }: ShareMenuModalProps) {
   if (!isOpen) return null
+  const isFollowed = Boolean(session.liveSourceId)
 
   return (
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
       title={`Share “${session.name}”`}
-      description="Send a copy of the set, share it live, or send a lyrics-only link."
+      description={
+        isFollowed
+          ? 'Copy the live link, make your own copy, or send a lyrics-only link.'
+          : 'Send a copy of the set, share it live, or send a lyrics-only link.'
+      }
       size="lg"
       footer={
         <Button variant="ghost" onClick={onClose}>
@@ -38,7 +43,9 @@ export default function ShareMenuModal({
           <div>
             <h3 className="text-sm font-bold text-[var(--ui-text)]">Share this set</h3>
             <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              Send a copy, or let people follow your changes live.
+              {isFollowed
+                ? 'Copy the live link or make your own copy.'
+                : 'Send a copy, or let people follow your changes live.'}
             </p>
           </div>
           <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />

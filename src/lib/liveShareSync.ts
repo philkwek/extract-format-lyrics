@@ -63,7 +63,7 @@ export function hashLivePayload(payload: LivePayload): Promise<string> {
 export async function buildLivePayload(
   session: Session,
   getSong: (url: string) => Promise<Song | null>
-): Promise<{ payload: LivePayload | null }> {
+): Promise<{ payload: LivePayload | null; reason?: 'empty' | 'too_many' }> {
   const contents = new Map<string, LiveSongContent>()
   const entries: LiveSetManifestInput['entries'] = []
   for (const item of session.songs) {
@@ -88,7 +88,8 @@ export async function buildLivePayload(
     if (customPadKey !== undefined) entry.customPadKey = customPadKey
     entries.push(entry)
   }
-  if (entries.length === 0 || entries.length > LIVE_SHARE_MAX_SONGS) return { payload: null }
+  if (entries.length === 0) return { payload: null, reason: 'empty' }
+  if (entries.length > LIVE_SHARE_MAX_SONGS) return { payload: null, reason: 'too_many' }
   const name = session.name.trim().slice(0, SET_LINK_NAME_MAX) || 'Untitled set'
   return { payload: { manifest: { v: 1, name, entries }, contents } }
 }
@@ -159,6 +160,7 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
       session.followHost !== true && (await deps.identity.get(session.id)) !== null,
     buildPayload: (session) => buildLivePayload(session, deps.getSong),
     publish,
+    onSkipped: (sessionId) => deps.onStatus?.(sessionId, 'failing'),
     hash: hashLivePayload,
   })
 }
@@ -191,6 +193,7 @@ export function subscribeLiveShareStatus(
   let set = statusListeners.get(sessionId)
   if (!set) statusListeners.set(sessionId, (set = new Set()))
   set.add(cb)
+  cb(statuses.get(sessionId) ?? 'ok')
   return () => {
     set.delete(cb)
     if (set.size === 0) statusListeners.delete(sessionId)
@@ -260,9 +263,14 @@ export function startLiveShareSync(): () => void {
 
 const liveUrl = (publicId: string) => `${window.location.origin}/live/${publicId}`
 
-export async function getLiveShare(sessionId: string): Promise<string | null> {
+export interface LiveShareLink {
+  url: string
+  expiresAt?: string
+}
+
+export async function getLiveShare(sessionId: string): Promise<LiveShareLink | null> {
   const record = await liveIdentity.get(sessionId)
-  return record ? liveUrl(record.publicId) : null
+  return record ? { url: liveUrl(record.publicId), expiresAt: record.expiresAt } : null
 }
 
 /** Creates the live identity, publishes now, and returns the link. */
@@ -284,8 +292,17 @@ export async function startLiveShare(
     return created
   })
   defaultSync ??= createDefaultSync()
-  await defaultSync.ensureFresh(session)
+  const result = await defaultSync.ensureFresh(session)
   const published = await liveIdentity.get(sessionId)
+  if (!result.ok) {
+    if (!published?.expiresAt) await liveIdentity.remove(sessionId)
+    if (result.reason === 'too_many') {
+      throw new ShareApiError('A live share holds up to 30 songs.')
+    }
+    if (result.reason === 'empty') {
+      throw new ShareApiError('Add a song before you share live.')
+    }
+  }
   if (!published?.expiresAt) {
     await liveIdentity.remove(sessionId)
     throw new ShareApiError('Could not start the live share. Check your connection and try again.')
