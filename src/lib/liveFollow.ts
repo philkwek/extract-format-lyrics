@@ -93,6 +93,7 @@ export async function openLiveShare(
     if (existing.followHost === true) {
       try {
         const response = await deps.fetchLive(liveId)
+        if (response.manifest.status === 'stopped') return { kind: 'reused', session: existing }
         if (response.manifest.rev > (existing.liveRev ?? 0)) {
           await refreshFromLiveSet(existing, response, deps)
         }
@@ -295,8 +296,7 @@ export function followLiveSet(
   }
 
   const fail = (err: unknown) => {
-    const code = (err as { code?: string } | null)?.code
-    if (code === 'permission-denied' || gone(err)) {
+    if (gone(err)) {
       setStatus('expired')
       stopPolling()
     } else {
@@ -333,6 +333,8 @@ export function followLiveSet(
           )
           if (stopped) continue
           applied = manifest.rev
+          const used = new Set(manifest.entries.map((e) => e.contentHash))
+          for (const hash of known.keys()) if (!used.has(hash)) known.delete(hash)
           setStatus('live')
           handlers.onUpdate(next)
         } catch (err) {

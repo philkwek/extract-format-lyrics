@@ -47,26 +47,31 @@ async function liveResponse(
   const b: LiveSongContent = { song: song('b') }
   const ha = await hashLiveSongContent(a)
   const hb = await hashLiveSongContent(b)
+  const status = over.status ?? 'live'
   return {
     id: LIVE,
     manifest: {
       v: 1,
       name: 'Sunday',
-      status: over.status ?? 'live',
+      status,
       rev: over.rev ?? 3,
-      entries: [
-        {
-          entryId: 'e-a',
-          contentHash: ha,
-          targetKey: 'D',
-          simplified: true,
-          padKeyMode: 'custom',
-          customPadKey: 'F',
-        },
-        { entryId: 'e-b', contentHash: hb },
-      ],
+      entries:
+        status === 'stopped'
+          ? []
+          : [
+              {
+                entryId: 'e-a',
+                contentHash: ha,
+                targetKey: 'D',
+                simplified: true,
+                padKeyMode: 'custom',
+                customPadKey: 'F',
+              },
+              { entryId: 'e-b', contentHash: hb },
+            ],
     },
-    contents: over.dropContent ? { [ha]: a } : { [ha]: a, [hb]: b },
+    contents:
+      status === 'stopped' ? {} : over.dropContent ? { [ha]: a } : { [ha]: a, [hb]: b },
     expiresAt: new Date(Date.now() + 86400_000).toISOString(),
   }
 }
@@ -145,6 +150,22 @@ describe('openLiveShare', () => {
     rev = 4
     const second = await openLiveShare(LIVE, { deps: t.deps })
     expect((second as { session: Session }).session.liveRev).toBe(4)
+  })
+
+  it('keeps the local songs when a following set is reused after the host stopped', async () => {
+    const t = setup(() => liveResponse())
+    const opened = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    const songs = structuredClone(opened.session.songs)
+
+    t.fetchLive.mockResolvedValue(await liveResponse({ status: 'stopped', rev: 4 }))
+    const second = await openLiveShare(LIVE, { deps: t.deps })
+
+    expect(second.kind).toBe('reused')
+    expect((second as { session: Session }).session.liveRev).toBe(3)
+    expect((second as { session: Session }).session.songs).toEqual(songs)
+    const stored = await t.store.getSession(opened.session.id)
+    expect(stored?.liveRev).toBe(3)
+    expect(stored?.songs).toEqual(songs)
   })
 
   it('opens a reused set offline', async () => {
@@ -404,6 +425,21 @@ describe('followLiveSet', () => {
     f.controller.stop()
   })
 
+  it('forgets content the latest manifest no longer uses', async () => {
+    const f = await follow()
+    f.emit(await f.manifestAt(4, 'c'))
+    await settle()
+    expect(f.getContent).toHaveBeenCalledTimes(1)
+
+    f.emit(await f.manifestAt(5))
+    await settle()
+    f.emit(await f.manifestAt(6, 'c'))
+    await settle()
+
+    expect(f.getContent).toHaveBeenCalledTimes(2)
+    f.controller.stop()
+  })
+
   it('applies only the newest of several quick revs after the current one', async () => {
     const f = await follow()
     let release: () => void = () => {}
@@ -441,9 +477,21 @@ describe('followLiveSet', () => {
     f.controller.stop()
   })
 
-  it('reports expired on permission-denied and does not poll', async () => {
+  it('reports reconnecting and keeps polling on permission-denied', async () => {
     const f = await follow()
     f.fail({ code: 'permission-denied' })
+    expect(f.statuses.at(-1)).toBe('reconnecting')
+    f.remote.current = await liveResponse({ rev: 5 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    await settle()
+    expect(f.fetchLive).toHaveBeenCalledTimes(1)
+    expect(f.statuses.at(-1)).toBe('live')
+    f.controller.stop()
+  })
+
+  it('reports expired when the server says the share is gone', async () => {
+    const f = await follow()
+    f.fail(new ShareApiError('gone', 'EXPIRED', 410))
     expect(f.statuses.at(-1)).toBe('expired')
     await vi.advanceTimersByTimeAsync(90_000)
     expect(f.fetchLive).not.toHaveBeenCalled()
