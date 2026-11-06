@@ -132,7 +132,13 @@ npm run dev:backend
 npm run dev
 ```
 
-The default command starts the Functions emulator only. Sharing also needs a Firestore connection; it isn't a complete local sharing setup. For isolated sharing development, configure and run a Firestore emulator and connect the Admin SDK to it.
+The backend command starts the Functions and Firestore emulators (it needs Java 21 or newer). Shared sets, set links and caches are saved in `.firebase/emulator-data` and kept between runs; delete that folder to start fresh. Nothing touches the live project.
+
+To let the browser follow live sets through the emulator, copy the local emulator lines from `.env.example` into `.env.local`. The project id must be `demo-chords`. Without them, followers still work by polling.
+
+The emulator doesn't delete expired documents (Firestore TTL) and doesn't check for missing indexes.
+
+To test the security rules and the Firestore code against the emulator, stop the backend and run `npm run test:emulator`.
 
 For images or PDFs that need Gemini, configure `GEMINI_API_KEY` for the backend or provide a key through the upload dialog. Keep credentials out of Git.
 
