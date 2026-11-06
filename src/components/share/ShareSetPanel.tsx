@@ -135,8 +135,8 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
       ) : (
         <div className="space-y-3">
           <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
-            People see your chord edits, sections and changes as you make them. They can turn on{' '}
-            <strong>Follow Host Edits</strong> to keep up. The link stops working 7 days after your
+            People see your chord edits, sections and changes as you make them. They follow your
+            edits until they change the set themselves. The link stops working 7 days after your
             last change.
           </p>
           {liveUrl ? (
