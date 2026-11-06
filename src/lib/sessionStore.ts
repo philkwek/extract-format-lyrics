@@ -208,6 +208,12 @@ export class SessionStore {
       session.publicId ??= existing.publicId
       session.importedFromLinkId ??= existing.importedFromLinkId
       session.liveSourceId ??= existing.liveSourceId
+      session.followHost ??= existing.followHost
+      // A save from an older copy of the set must not roll the host revision back.
+      if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
+        session.liveRev = existing.liveRev
+        session.lastHostHash = existing.lastHostHash
+      }
       list[index] = session
       await this.store.set(SESSIONS_STORAGE_KEY, list)
       this.emit({ type: 'updated', sessionId: session.id, session })

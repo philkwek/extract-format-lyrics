@@ -1,6 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyLiveSet,
+  followLiveSet,
+  hasLocalEdits,
+  resumeFollowing,
+  stopFollowing,
+  type FollowDeps,
+  type FollowStatus,
   openLiveShare,
   openLiveShareOnce,
   refreshFromLiveSet,
@@ -9,7 +15,7 @@ import {
 import { buildLivePayload, hashLivePayload, hashLiveSongContent } from '../../src/lib/liveShareSync'
 import { ShareApiError, type GetLiveSetResult } from '../../src/lib/api'
 import { SessionStore, type Session, type SessionStorageStore } from '../../src/lib/sessionStore'
-import type { LiveSongContent, Song } from '../../src/types/song'
+import type { LiveSetManifest, LiveSongContent, Song } from '../../src/types/song'
 
 const LIVE = 'L'.repeat(22)
 
@@ -215,5 +221,318 @@ describe('applyLiveSet', () => {
     const { songs } = await applyLiveSet(await liveResponse(), { saveSong })
     expect(songs.map((s) => s.entryId)).toEqual(['e-a', 'e-b'])
     expect(saveSong).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('stale saves', () => {
+  it('keeps the newer host revision and hash when an older copy is saved', async () => {
+    const t = setup(() => liveResponse({ rev: 3 }))
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    const stale = structuredClone(session)
+    await refreshFromLiveSet(session, await liveResponse({ rev: 7 }), t.deps)
+    const newerHash = session.lastHostHash
+    stale.songs = stale.songs.slice(1)
+    delete stale.followHost
+    await t.store.updateSession(stale)
+    const saved = await t.store.getSession(session.id)
+    expect(saved).toMatchObject({ liveRev: 7, lastHostHash: newerHash, followHost: true })
+  })
+})
+
+describe('follow state', () => {
+  it('sees local edits only after a change', async () => {
+    const t = setup(() => liveResponse())
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    expect(await hasLocalEdits(session, t.deps)).toBe(false)
+    session.songs[0].targetKey = 'A'
+    expect(await hasLocalEdits(session, t.deps)).toBe(true)
+  })
+
+  it('stopFollowing keeps the songs and the host record', async () => {
+    const t = setup(() => liveResponse())
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    await stopFollowing(session.id, t.deps)
+    const saved = await t.store.getSession(session.id)
+    expect(saved).toMatchObject({ followHost: false, liveRev: 3, liveSourceId: LIVE })
+    expect(saved?.songs).toHaveLength(2)
+  })
+
+  it('resumeFollowing replaces local edits', async () => {
+    let rev = 3
+    const t = setup(() => liveResponse({ rev }))
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    await stopFollowing(session.id, t.deps)
+    const mine = (await t.store.getSession(session.id))!
+    mine.songs[0].targetKey = 'A'
+    mine.songs.pop()
+    await t.store.updateSession(mine)
+    rev = 4
+    const r = await resumeFollowing(session.id, { deps: t.deps })
+    expect(r.kind).toBe('resumed')
+    const saved = (await t.store.getSession(session.id))!
+    expect(saved).toMatchObject({ followHost: true, liveRev: 4 })
+    expect(saved.songs).toHaveLength(2)
+    expect(saved.songs[0].targetKey).toBe('D')
+    expect(await hasLocalEdits(saved, t.deps)).toBe(false)
+  })
+
+  it('resumeFollowing leaves following off when the share is gone', async () => {
+    const t = setup(() => liveResponse())
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    await stopFollowing(session.id, t.deps)
+    t.fetchLive.mockResolvedValueOnce(await liveResponse({ status: 'stopped' }))
+    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('stopped')
+    t.fetchLive.mockRejectedValueOnce(new ShareApiError('gone', 'EXPIRED', 410))
+    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('expired')
+    t.fetchLive.mockRejectedValueOnce(new ShareApiError('none', 'NOT_FOUND', 404))
+    expect((await resumeFollowing(session.id, { deps: t.deps })).kind).toBe('missing')
+    expect((await t.store.getSession(session.id))?.followHost).toBe(false)
+  })
+})
+
+describe('followLiveSet', () => {
+  let visibility: 'visible' | 'hidden'
+  let visibilityListeners: Array<() => void>
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    visibility = 'visible'
+    visibilityListeners = []
+    vi.stubGlobal('document', {
+      get visibilityState() {
+        return visibility
+      },
+      addEventListener: (_: string, fn: () => void) => visibilityListeners.push(fn),
+      removeEventListener: (_: string, fn: () => void) => {
+        visibilityListeners = visibilityListeners.filter((l) => l !== fn)
+      },
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  const settle = () => new Promise((r) => setTimeout(r, 30))
+
+  async function follow(options: { listener?: boolean; defer?: () => boolean } = {}) {
+    const remote = { current: await liveResponse({ rev: 3 }) }
+    const t = setup(async () => remote.current)
+    const { session } = (await openLiveShare(LIVE, { deps: t.deps })) as { session: Session }
+    const table = new Map<string, LiveSongContent>(Object.entries(remote.current.contents))
+    let emit: (m: LiveSetManifest) => void = () => {}
+    let fail: (e: unknown) => void = () => {}
+    const unsubscribe = vi.fn()
+    const getContent = vi.fn(async (_: string, hash: string) => table.get(hash) ?? null)
+    const deps: FollowDeps = {
+      ...t.deps,
+      getContent,
+      pollMs: 30_000,
+      subscribeManifest:
+        options.listener === false
+          ? null
+          : vi.fn(async (_id, onNext, onError) => {
+              emit = onNext
+              fail = onError
+              return unsubscribe
+            }),
+    }
+    const statuses: FollowStatus[] = []
+    const updates: number[] = []
+    const handlers = {
+      onUpdate: (s: Session) => void updates.push(s.liveRev ?? -1),
+      onStatus: (s: FollowStatus) => void statuses.push(s),
+      shouldDefer: options.defer,
+    }
+    const controller = followLiveSet(session, handlers, { deps })
+    await settle()
+    updates.length = 0
+    t.fetchLive.mockClear()
+
+    /** A manifest at `rev`, optionally with one more song whose content the table holds. */
+    const manifestAt = async (rev: number, extra?: string): Promise<LiveSetManifest> => {
+      const manifest: LiveSetManifest = structuredClone(remote.current.manifest)
+      manifest.rev = rev
+      if (extra) {
+        const content: LiveSongContent = { song: song(extra) }
+        const contentHash = await hashLiveSongContent(content)
+        table.set(contentHash, content)
+        manifest.entries.push({ entryId: `e-${extra}`, contentHash })
+      }
+      return manifest
+    }
+    return {
+      ...t,
+      session,
+      controller,
+      deps,
+      statuses,
+      updates,
+      getContent,
+      unsubscribe,
+      manifestAt,
+      remote,
+      emit: (m: LiveSetManifest) => emit(m),
+      fail: (e: unknown) => fail(e),
+    }
+  }
+
+  it('applies a newer rev and ignores a stale one', async () => {
+    const f = await follow()
+    f.emit(await f.manifestAt(4))
+    await settle()
+    expect(f.updates).toEqual([4])
+    f.emit(await f.manifestAt(2))
+    f.emit(await f.manifestAt(4))
+    await settle()
+    expect(f.updates).toEqual([4])
+    f.controller.stop()
+  })
+
+  it('fetches only the content it does not have', async () => {
+    const f = await follow()
+    f.emit(await f.manifestAt(4))
+    await settle()
+    expect(f.getContent).not.toHaveBeenCalled()
+    f.emit(await f.manifestAt(5, 'c'))
+    await settle()
+    expect(f.getContent).toHaveBeenCalledTimes(1)
+    expect((await f.store.getSession(f.session.id))?.songs).toHaveLength(3)
+    f.controller.stop()
+  })
+
+  it('applies only the newest of several quick revs after the current one', async () => {
+    const f = await follow()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    f.getContent.mockImplementationOnce(async () => {
+      await gate
+      return { song: song('c') }
+    })
+    f.emit(await f.manifestAt(4, 'c'))
+    await settle()
+    f.emit(await f.manifestAt(5, 'c'))
+    f.emit(await f.manifestAt(6, 'c'))
+    release()
+    await settle()
+    expect(f.updates).toEqual([4, 6])
+    f.controller.stop()
+  })
+
+  it('reports stopped and keeps the last version', async () => {
+    const f = await follow()
+    const manifest = await f.manifestAt(4)
+    f.emit({ ...manifest, status: 'stopped', entries: [] })
+    await settle()
+    expect(f.statuses.at(-1)).toBe('stopped')
+    expect(f.updates).toEqual([])
+    expect((await f.store.getSession(f.session.id))?.songs).toHaveLength(2)
+    f.controller.stop()
+  })
+
+  it('ignores the rev 0 placeholder', async () => {
+    const f = await follow()
+    f.emit(await f.manifestAt(0))
+    await settle()
+    expect(f.updates).toEqual([])
+    f.controller.stop()
+  })
+
+  it('reports expired on permission-denied and does not poll', async () => {
+    const f = await follow()
+    f.fail({ code: 'permission-denied' })
+    expect(f.statuses.at(-1)).toBe('expired')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(f.fetchLive).not.toHaveBeenCalled()
+    f.controller.stop()
+  })
+
+  it('reports expired when a poll says the share is gone', async () => {
+    const f = await follow()
+    f.fetchLive.mockRejectedValue(new ShareApiError('gone', 'EXPIRED', 410))
+    f.fail(new Error('network'))
+    expect(f.statuses.at(-1)).toBe('reconnecting')
+    await vi.advanceTimersByTimeAsync(30_000)
+    await settle()
+    expect(f.statuses.at(-1)).toBe('expired')
+    f.controller.stop()
+  })
+
+  it('polls every 30 seconds after a listener error, and pauses while hidden', async () => {
+    const f = await follow()
+    f.fail(new Error('blocked'))
+    expect(f.statuses.at(-1)).toBe('reconnecting')
+    f.remote.current = await liveResponse({ rev: 5 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    await settle()
+    expect(f.fetchLive).toHaveBeenCalledTimes(1)
+    expect(f.updates).toEqual([5])
+    expect(f.statuses.at(-1)).toBe('live')
+
+    visibility = 'hidden'
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(f.fetchLive).toHaveBeenCalledTimes(1)
+
+    visibility = 'visible'
+    visibilityListeners.forEach((l) => l())
+    await settle()
+    expect(f.fetchLive).toHaveBeenCalledTimes(2)
+    f.controller.stop()
+  })
+
+  it('polls without a listener when Firestore is not configured', async () => {
+    const f = await follow({ listener: false })
+    f.remote.current = await liveResponse({ rev: 6 })
+    await vi.advanceTimersByTimeAsync(30_000)
+    await settle()
+    expect(f.updates).toEqual([6])
+    f.controller.stop()
+  })
+
+  it('stop() unsubscribes and ends polling and in-flight applies', async () => {
+    const f = await follow()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    f.getContent.mockImplementationOnce(async () => {
+      await gate
+      return { song: song('c') }
+    })
+    f.emit(await f.manifestAt(4, 'c'))
+    await settle()
+    f.controller.stop()
+    release()
+    await settle()
+    expect(f.unsubscribe).toHaveBeenCalled()
+    expect(f.updates).toEqual([])
+    expect((await f.store.getSession(f.session.id))?.liveRev).toBe(3)
+    f.fail(new Error('late'))
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(f.fetchLive).not.toHaveBeenCalled()
+  })
+
+  it('holds updates while deferred, then flushes only the latest', async () => {
+    let defer = true
+    const f = await follow({ defer: () => defer })
+    f.emit(await f.manifestAt(4))
+    f.emit(await f.manifestAt(5))
+    await settle()
+    expect(f.updates).toEqual([])
+    defer = false
+    f.controller.flushDeferred()
+    await settle()
+    expect(f.updates).toEqual([5])
+    f.controller.stop()
+  })
+
+  it('drops a held update', async () => {
+    let defer = true
+    const f = await follow({ defer: () => defer })
+    f.emit(await f.manifestAt(4))
+    f.controller.dropDeferred()
+    defer = false
+    f.controller.flushDeferred()
+    await settle()
+    expect(f.updates).toEqual([])
+    f.controller.stop()
   })
 })
