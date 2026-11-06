@@ -36,6 +36,14 @@ export interface Session {
   publicId?: string
   /** Set link this session was imported from, so re-opening the link finds the existing copy. */
   importedFromLinkId?: string
+  /** Live share this set came from, so re-opening the live link finds the existing copy. */
+  liveSourceId?: string
+  /** While true the set mirrors the host's live version and publishes nothing itself. */
+  followHost?: boolean
+  /** Hash of this set as built from the last host version applied. */
+  lastHostHash?: string
+  /** Last host manifest revision applied. */
+  liveRev?: number
 }
 
 export interface SessionChangeEvent {
@@ -48,6 +56,10 @@ export type SessionChangeListener = (event: SessionChangeEvent) => void
 
 export interface CreateSessionOptions {
   importedFromLinkId?: string
+  liveSourceId?: string
+  followHost?: boolean
+  lastHostHash?: string
+  liveRev?: number
 }
 
 export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
@@ -144,6 +156,11 @@ export class SessionStore {
     return list.find((s) => s.importedFromLinkId === linkId) ?? null
   }
 
+  async findByLiveSourceId(liveId: string): Promise<Session | null> {
+    const list = await this.getAllSessions()
+    return list.find((s) => s.liveSourceId === liveId) ?? null
+  }
+
   async createSession(
     songs: SessionSongItem[],
     name?: string,
@@ -157,6 +174,10 @@ export class SessionStore {
       id,
       publicId: identity.publicId,
       ...(options.importedFromLinkId ? { importedFromLinkId: options.importedFromLinkId } : {}),
+      ...(options.liveSourceId ? { liveSourceId: options.liveSourceId } : {}),
+      ...(options.followHost !== undefined ? { followHost: options.followHost } : {}),
+      ...(options.lastHostHash ? { lastHostHash: options.lastHostHash } : {}),
+      ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
@@ -186,6 +207,7 @@ export class SessionStore {
       const existing = list[index]
       session.publicId ??= existing.publicId
       session.importedFromLinkId ??= existing.importedFromLinkId
+      session.liveSourceId ??= existing.liveSourceId
       list[index] = session
       await this.store.set(SESSIONS_STORAGE_KEY, list)
       this.emit({ type: 'updated', sessionId: session.id, session })

@@ -154,8 +154,8 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
   return createSyncChannel<LivePayload>({
     ...deps,
     name: 'live-set',
-    // Task 6b adds "and not following" here.
-    shouldSync: async (session) => (await deps.identity.get(session.id)) !== null,
+    shouldSync: async (session) =>
+      session.followHost !== true && (await deps.identity.get(session.id)) !== null,
     buildPayload: (session) => buildLivePayload(session, deps.getSong),
     publish,
     hash: hashLivePayload,

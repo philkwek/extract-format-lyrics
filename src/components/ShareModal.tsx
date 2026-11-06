@@ -25,7 +25,7 @@ export default function ShareModal({ session, isOpen, onClose }: ShareModalProps
         </Button>
       }
     >
-      <ShareSetPanel session={session} />
+      <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
     </OverlayDialog>
   )
 }

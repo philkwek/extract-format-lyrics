@@ -133,6 +133,13 @@ describe('setLinkSync', () => {
     expect(env.deps.track).toHaveBeenCalledWith('set_link_published', { song_count: 1, skipped_uploads: 0, trigger: 'create' })
   })
 
+  it('does not publish a set that follows a live host', async () => {
+    const env = setup()
+    env.emit(ev('created', makeSession({ followHost: true })))
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(env.api).not.toHaveBeenCalled()
+  })
+
   it('does not write for edits that do not change the payload', async () => {
     const env = setup()
     const base = makeSession()

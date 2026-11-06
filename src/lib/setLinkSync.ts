@@ -393,6 +393,7 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
   return createSyncChannel<SetLinkPayload>({
     ...deps,
     name: 'set-link',
+    shouldSync: (session) => session.followHost !== true,
     expectedPublicId: (s) => s.publicId,
     buildPayload: buildSetLinkPayload,
     publish: (identity, payload, options) =>

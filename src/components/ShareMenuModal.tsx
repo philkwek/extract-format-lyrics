@@ -41,7 +41,7 @@ export default function ShareMenuModal({
               Send a copy, or let people follow your changes live.
             </p>
           </div>
-          <ShareSetPanel session={session} />
+          <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
         </section>
 
         <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">

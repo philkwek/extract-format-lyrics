@@ -155,6 +155,15 @@ describe('liveShareSync', () => {
     expect(env.putManifest).not.toHaveBeenCalled()
   })
 
+  it('does not publish a set that follows a host', async () => {
+    const env = setup()
+    env.emit('created', { ...makeSession(), followHost: true })
+    await env.settle(0)
+    await env.settle(10_000)
+    expect(env.putSong).not.toHaveBeenCalled()
+    expect(env.putManifest).not.toHaveBeenCalled()
+  })
+
   it('stops at 30 songs', async () => {
     const many = (n: number) => Array.from({ length: n }, (_, i) => item(`s${i}`))
     const env = setup()
