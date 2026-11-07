@@ -14,5 +14,10 @@ service cloud.firestore {
     match /liveSetSongs/{docId} {
       allow get: if resource.data.expiresAt > request.time;
     }
+
+    // Lyrics links: browsers may listen to the publication summary, never list or write.
+    match /sharedLyrics/{id} {
+      allow get: if resource.data.expiresAt > request.time;
+    }
   }
 }

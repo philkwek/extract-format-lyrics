@@ -50,7 +50,7 @@ Older one-off set links (`/s/`) still open until they expire. The app no longer 
 
 For cell group worship, open **Share → Share lyrics**, check **See Preview**, then choose **Generate link** and **Copy link**. Everyone gets a simple lyrics-only view with song tabs and no chords. Each person chooses the song on their own phone; it doesn't automatically follow the song you're on.
 
-One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. If an update can't go through, choose **Update lyrics** to try again and see why.
+One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. If an update can't go through, choose **Update lyrics** to try again and see why. Anyone reading the lyrics page gets a short notice when a new song is added.
 
 Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
 
