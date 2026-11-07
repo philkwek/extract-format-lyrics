@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Song, Section, SharedLyricsPayload } from '../../src/types/song'
 import type { Session } from '../../src/lib/sessionStore'
 import { buildSharedLyricsPayload } from '../../src/lib/exportLyrics'
@@ -6,7 +6,9 @@ import {
   getLyricsPublicationIdentity,
   publishLyricsForSession,
   deleteLyricsPublicationIdentity,
+  withNamedLock,
 } from '../../src/lib/lyricsPublishIdentity'
+import { createLyricsIdentityAccess, createLyricsSync } from '../../src/lib/lyricsSync'
 import {
   SharedLyricsStore,
   verifyPublicationSecret,
@@ -413,5 +415,71 @@ describe('lyrics sharing integration suite', () => {
     expect(importedSongs).toHaveLength(3)
     expect(importedSongs[0].customSections).toBeDefined()
     expect(importedSongs[1].simplified).toBe(true)
+  })
+
+  it('auto-publishes an added song to the existing lyrics link', async () => {
+    const session: Session = {
+      id: sessionId,
+      createdAt: currentTime.getTime(),
+      name: 'Sunday Morning Worship',
+      songs: [
+        {
+          entryId: 'entry-1',
+          url: song1.sourceUrl,
+          title: song1.title,
+          artist: song1.artist,
+          status: 'ok',
+        },
+      ],
+    }
+
+    const initialPayload = buildSharedLyricsPayload(session, new Map([[song1.sourceUrl, song1]]))
+    const publish = await publishLyricsForSession(sessionId, initialPayload, simulateBackendPut)
+
+    vi.useFakeTimers()
+    try {
+      const sync = createLyricsSync({
+        store: { subscribe: () => () => {} },
+        identity: createLyricsIdentityAccess(),
+        api: simulateBackendPut,
+        getSong: async (url) =>
+          url === song1.sourceUrl ? song1 : url === song2.sourceUrl ? song2 : null,
+        now: () => currentTime.getTime(),
+        timers: {
+          setTimeout: (fn, ms) => setTimeout(fn, ms),
+          clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+        },
+        withLock: withNamedLock,
+      })
+
+      sync.handleEvent({
+        type: 'updated',
+        sessionId,
+        session: {
+          ...session,
+          songs: [
+            ...session.songs,
+            {
+              entryId: 'entry-2',
+              url: song2.sourceUrl,
+              title: song2.title,
+              artist: song2.artist,
+              status: 'ok',
+            },
+          ],
+        },
+      })
+      await vi.advanceTimersByTimeAsync(2_000)
+      await sync.idle()
+    } finally {
+      vi.useRealTimers()
+    }
+
+    const lookup = await backendStore.get(publish.id)
+    expect(lookup.kind).toBe('found')
+    if (lookup.kind === 'found') {
+      expect(lookup.lyrics.songs).toHaveLength(2)
+      expect(lookup.lyrics.songs[1].title).toBe('Amazing Grace')
+    }
   })
 })

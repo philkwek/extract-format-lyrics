@@ -50,7 +50,7 @@ Older one-off set links (`/s/`) still open until they expire. The app no longer 
 
 For cell group worship, open **Share → Share lyrics**, check **See Preview**, then choose **Generate link** and **Copy link**. Everyone gets a simple lyrics-only view with song tabs and no chords. Each person chooses the song on their own phone; it doesn't automatically follow the song you're on.
 
-One link stays with the set. After you change lyrics or section order, choose **Update lyrics** to publish to the same link. Each update renews it for another seven days.
+One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. If an update can't go through, choose **Update lyrics** to try again and see why. Anyone reading the lyrics page gets a short notice when a new song is added.
 
 Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
 
@@ -168,9 +168,11 @@ npm run build:functions
 firebase deploy --only hosting,functions,firestore:rules
 ```
 
-The Firestore rules deny direct browser access, except that browsers may read (get only, no list or write) single documents in `liveSets` and `liveSetSongs`, so followers get live updates. Deploy the rules (`firestore:rules`) together with the new frontend. The backend uses Admin credentials to write shared content.
+The Firestore rules deny direct browser access, except that browsers may read (get only, no list or write) single documents in `liveSets`, `liveSetSongs` and `sharedLyrics`, so followers and lyrics readers get live updates. Deploy the rules (`firestore:rules`) together with the new frontend. The backend uses Admin credentials to write shared content.
 
-[The GitHub Actions workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions and Firestore rules. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules.
+[The production workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions and Firestore rules. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules.
+
+[The pull request workflow](.github/workflows/ci.yml) runs lint, both test suites and both builds without deploying anything.
 
 ### Backend safeguards
 

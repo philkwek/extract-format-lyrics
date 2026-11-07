@@ -237,7 +237,8 @@ export interface GetSharedLyricsResult {
 export async function putSharedLyricsApi(
   id: string,
   secret: string,
-  payload: import('../types/song').SharedLyricsPayload
+  payload: import('../types/song').SharedLyricsPayload,
+  options: { keepalive?: boolean } = {}
 ): Promise<PutSharedLyricsResult> {
   const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -246,6 +247,7 @@ export async function putSharedLyricsApi(
       Authorization: `Bearer ${secret}`,
     },
     body: JSON.stringify({ payload }),
+    ...(options.keepalive ? { keepalive: true } : {}),
   })
   if (!res.ok) {
     throw await readShareError(res)

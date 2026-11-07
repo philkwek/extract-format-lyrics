@@ -118,7 +118,7 @@ export default function ShareLyricsLinkPanel({
       <div className="space-y-3">
         <StatusBanner tone="info" icon={<Link2 size={16} />}>
           {isPublished
-            ? 'Updates keep this link and renew expiry for seven days.'
+            ? 'Changes publish automatically and renew this link for seven days.'
             : 'Anyone with the link can view lyrics for this setlist. Each publication lasts seven days.'}
         </StatusBanner>
 

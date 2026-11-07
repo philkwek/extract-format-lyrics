@@ -115,7 +115,9 @@ describe('ShareLyricsModal', () => {
     const input = screen.getByRole('textbox') as HTMLInputElement
     expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'create', outcome: 'success', song_count: 1 })
     expect(input.value).toBe('http://localhost/lyrics/pub-test-id')
-    expect(screen.getByText(/Updates keep this link and renew expiry for seven days/i)).toBeTruthy()
+    expect(
+      screen.getByText(/Changes publish automatically and renew this link for seven days/i),
+    ).toBeTruthy()
   })
 
   it('restores existing publication on opening and preserves link on failed update', async () => {

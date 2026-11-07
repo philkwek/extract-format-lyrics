@@ -6,7 +6,16 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  Timestamp,
+  updateDoc,
+} from 'firebase/firestore'
 
 const future = () => Timestamp.fromMillis(Date.now() + 60_000)
 const past = () => Timestamp.fromMillis(Date.now() - 60_000)
@@ -32,6 +41,24 @@ beforeEach(async () => {
     await setDoc(doc(db, 'liveSetSongs/old_a'), { expiresAt: past() })
     await setDoc(doc(db, 'sharedSets/one'), { expiresAt: future() })
     await setDoc(doc(db, 'setLinks/one'), { expiresAt: future() })
+    await setDoc(doc(db, 'sharedLyrics/fresh'), { expiresAt: future() })
+    await setDoc(doc(db, 'sharedLyrics/old'), { expiresAt: past() })
+  })
+})
+
+describe('lyrics share rules', () => {
+  it('lets anyone get an unexpired doc, not an expired one', async () => {
+    const db = env.unauthenticatedContext().firestore()
+    await assertSucceeds(getDoc(doc(db, 'sharedLyrics/fresh')))
+    await assertFails(getDoc(doc(db, 'sharedLyrics/old')))
+  })
+
+  it('denies list, create, update and delete', async () => {
+    const db = env.unauthenticatedContext().firestore()
+    await assertFails(getDocs(collection(db, 'sharedLyrics')))
+    await assertFails(setDoc(doc(db, 'sharedLyrics/new'), { expiresAt: future() }))
+    await assertFails(updateDoc(doc(db, 'sharedLyrics/fresh'), { expiresAt: future() }))
+    await assertFails(deleteDoc(doc(db, 'sharedLyrics/fresh')))
   })
 })
 

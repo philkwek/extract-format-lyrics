@@ -38,7 +38,7 @@ These browser identifiers are public configuration. Never substitute a service a
 | `VITE_FIREBASE_APP_ID` | `1:17000575617:web:af253b7fcd315fe466d380` |
 | `VITE_FIREBASE_MEASUREMENT_ID` | `G-RG5JNFFQVW` |
 
-The production workflow supplies `VITE_FIREBASE_PROJECT_ID=extract-format-lyrics`. Vite embeds these variables during the build: changing an Actions variable requires a new production build/deployment. Local development is always disabled, and PR preview builds receive no Analytics configuration. Production builds also require an exact hostname match. Missing or invalid required configuration disables collection without affecting the site.
+The production workflow supplies `VITE_FIREBASE_PROJECT_ID=extract-format-lyrics`. Vite embeds these variables during the build: changing an Actions variable requires a new production build/deployment. Analytics is disabled in local development and pull request checks. Production builds also require an exact hostname match. Missing or invalid required configuration disables collection without affecting the site.
 
 For local configuration, copy `.env.example` to `.env.local`; keep tracking disabled. To test collection on a non-production host, use a separate test stream and a production-mode build with that hostname explicitly allowlisted. Never broaden the production hostname list to preview wildcards.
 
