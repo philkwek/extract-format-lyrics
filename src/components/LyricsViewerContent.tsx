@@ -151,9 +151,9 @@ export default function LyricsViewerContent({
                 onKeyDown={(e) => handleKeyDownTab(e, index, songs)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none transition ${
                   isActive
-                    ? 'bg-[#3368A0] text-white shadow-sm dark:bg-amber-500 dark:text-[#16120a]'
+                    ? 'bg-ui-accent text-ui-on-accent shadow-sm'
                     : 'bg-black/5 text-neutral-600 hover:bg-black/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10'
-                } focus-visible:ring-2 focus-visible:ring-[#3368A0]/40`}
+                } focus-visible:ring-2 focus-visible:ring-ui-focus`}
               >
                 <span className="opacity-70">{index + 1}.</span>
                 <span className="truncate max-w-[180px] sm:max-w-[240px]">{song.title}</span>

@@ -31,8 +31,8 @@ export default function SongHeader({
             title={isFullScreen ? song.title : undefined}
             className={
               isFullScreen
-                ? 'truncate text-lg font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb]'
-                : 'break-words text-xl font-bold tracking-[-0.025em] text-neutral-900 dark:text-[#ededeb] sm:text-2xl'
+                ? 'truncate text-lg font-bold tracking-[-0.025em] text-ui-text'
+                : 'break-words text-xl font-bold tracking-[-0.025em] text-ui-text sm:text-2xl'
             }
           >
             {song.title}
@@ -62,7 +62,7 @@ export default function SongHeader({
                 href={song.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-medium transition-colors hover:text-[#3368A0] dark:hover:text-amber-400"
+                className="inline-flex items-center gap-1 font-medium transition-colors hover:text-ui-accent-strong"
               >
                 {sourceLabel(song.sourceSite)} <ExternalLink size={11} />
               </a>
@@ -71,7 +71,7 @@ export default function SongHeader({
           {song.capo && (
             <>
               <span aria-hidden="true">•</span>
-              <span className="text-neutral-700 dark:text-[#d4d4d4]">Capo {song.capo}</span>
+              <span className="text-ui-text">Capo {song.capo}</span>
             </>
           )}
         </div>

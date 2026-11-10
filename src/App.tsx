@@ -34,12 +34,12 @@ export function AppShell() {
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
-      <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
+      <div className="app-canvas min-h-screen text-ui-text transition-colors">
         {!isLyricsView && !chromeHidden && (
-          <header data-app-header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
+          <header data-app-header className="sticky top-0 z-30 border-b border-black/5 bg-ui-canvas/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">
-            <NavLink to="/" className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2 text-neutral-900 outline-none transition active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-[#3368A0]/30 dark:text-[#ededeb] dark:focus-visible:ring-amber-400/30">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#3368A0] transition-transform group-hover:scale-[1.04] dark:text-amber-500">
+            <NavLink to="/" className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2 text-ui-text outline-none transition active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ui-focus">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-ui-accent transition-transform group-hover:scale-[1.04]">
                 <svg
                   viewBox="0 0 256 256"
                   className="h-8 w-8 fill-current drop-shadow-[0_1px_2px_rgba(27,25,22,0.12)]"
@@ -54,7 +54,7 @@ export function AppShell() {
               </span>
               <span>
                 <span className="block text-sm font-bold leading-none tracking-[-0.02em]">Sets &amp; Sheets</span>
-                <span className="mt-1 hidden text-[10px] font-medium leading-none text-neutral-500 dark:text-[#999999] sm:block">Developed by Phil</span>
+                <span className="mt-1 hidden text-[10px] font-medium leading-none text-ui-text-muted sm:block">Developed by Phil</span>
               </span>
             </NavLink>
             <nav className="flex items-center gap-1.5" aria-label="Primary navigation">

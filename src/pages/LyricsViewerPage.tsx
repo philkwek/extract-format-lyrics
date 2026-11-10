@@ -200,7 +200,7 @@ export default function LyricsViewerPage() {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-accent/10 text-ui-accent-strong">
             <FileText className="animate-pulse" size={23} />
           </span>
           <div>
@@ -211,8 +211,8 @@ export default function LyricsViewerPage() {
               Retrieving setlist lyrics
             </p>
           </div>
-          <div className="mx-auto h-1.5 max-w-48 overflow-hidden rounded-full bg-[#3368A0]/10 dark:bg-amber-400/10">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-[#3368A0] dark:bg-amber-400" />
+          <div className="mx-auto h-1.5 max-w-48 overflow-hidden rounded-full bg-ui-accent/10">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-ui-accent" />
           </div>
         </Surface>
       </div>
@@ -307,7 +307,7 @@ export default function LyricsViewerPage() {
       <ChangeToast
         note={changeNote}
         onDismiss={() => setChangeNotice(null)}
-        icon={<FileText size={16} className="text-[#3368A0] dark:text-amber-400" />}
+        icon={<FileText size={16} className="text-ui-accent-strong" />}
       />
     </>
   )
