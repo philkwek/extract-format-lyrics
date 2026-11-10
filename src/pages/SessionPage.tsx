@@ -676,7 +676,8 @@ export default function SessionPage() {
     const update = () => {
       frame = 0
       const trigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
-      const headerBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+      const headerBottom =
+        document.querySelector('[data-app-header]')?.getBoundingClientRect().bottom ?? 0
       const rect = trigger?.getBoundingClientRect()
       const hidden = rect !== undefined && rect.height > 0 && rect.bottom <= headerBottom
       setShowFloatingFullScreen(hidden)

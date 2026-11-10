@@ -499,6 +499,7 @@ describe('SessionPage floating full screen button', () => {
       return rect(200)
     }
     header = document.createElement('header')
+    header.dataset.appHeader = ''
     header.getBoundingClientRect = () => rect(63)
     document.body.prepend(header)
     originalScrollTo = window.scrollTo
@@ -632,6 +633,28 @@ describe('SessionPage floating full screen button', () => {
     // Cleanup spies
     scrollToImpl.mockRestore()
     focusSpy.mockRestore()
+  })
+
+  it('uses the app header specifically and ignores a decorative header above it', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    // Add a decorative header above the app header with different bottom
+    const decorativeHeader = document.createElement('header')
+    decorativeHeader.getBoundingClientRect = () => rect(200)
+    document.body.prepend(decorativeHeader)
+
+    // Set trigger bottom to 100 (between app header 63 and decorative header 200)
+    try {
+      setTriggerBottom(100)
+      await scroll()
+
+      // The floating button should NOT appear because app header bottom is 63
+      // (trigger bottom 100 > 63 means trigger is visible)
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    } finally {
+      decorativeHeader.remove()
+    }
   })
 })
 
