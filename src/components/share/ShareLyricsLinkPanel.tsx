@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Eye, FileText, Link2, RefreshCw } from 'lucide-react'
 import type { Session } from '../../lib/sessionStore'
 import type { SharedLyricsPayload, Song } from '../../types/song'
@@ -7,6 +7,7 @@ import {
   getLyricsPublicationIdentity,
   publishLyricsForSession,
 } from '../../lib/lyricsPublishIdentity'
+import { ensureLyricsFresh } from '../../lib/lyricsSync'
 import { trackEvent } from '../../lib/analytics'
 import { Button, StatusBanner } from '../ui'
 import LyricsPreviewModal from '../LyricsPreviewModal'
@@ -30,6 +31,11 @@ export default function ShareLyricsLinkPanel({
   const [previewPayload, setPreviewPayload] = useState<SharedLyricsPayload | null>(null)
 
   const isPublished = Boolean(shareUrl && expiresAt)
+  const sessionRef = useRef(session)
+
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
   useEffect(() => {
     let isCurrent = true
@@ -55,6 +61,22 @@ export default function ShareLyricsLinkPanel({
       isCurrent = false
     }
   }, [session.id])
+
+  useEffect(() => {
+    if (!isPublished) return
+
+    void ensureLyricsFresh(sessionRef.current)
+
+    const handleOnline = () => {
+      void ensureLyricsFresh(sessionRef.current)
+    }
+
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [isPublished])
 
   const handleCopy = async () => {
     try {

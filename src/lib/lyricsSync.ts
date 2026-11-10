@@ -11,7 +11,12 @@ import {
   saveLyricsPublicationIdentity,
   withNamedLock,
 } from './lyricsPublishIdentity'
-import { createSyncChannel, type SetLinkSync, type SyncChannelDeps } from './setLinkSync'
+import {
+  createSyncChannel,
+  type EnsureFreshResult,
+  type SetLinkSync,
+  type SyncChannelDeps,
+} from './setLinkSync'
 
 export type LyricsSyncDeps = Pick<
   SyncChannelDeps<SharedLyricsPayload>,
@@ -129,4 +134,14 @@ export function startLyricsSync(): () => void {
     stopDefault = undefined
   }
   return stopDefault
+}
+
+/** Publishes now (no debounce) if never published, changed, or close to expiring. Never throws. */
+export async function ensureLyricsFresh(session: Session): Promise<EnsureFreshResult> {
+  try {
+    defaultSync ??= createDefaultSync()
+    return await defaultSync.ensureFresh(session)
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
 }
