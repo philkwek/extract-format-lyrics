@@ -57,6 +57,10 @@ describe('subscribeSharedLyrics', () => {
     await vi.waitFor(() => expect(env.onSnapshot).toHaveBeenCalledTimes(1))
 
     expect(env.doc).toHaveBeenCalledWith({}, 'sharedLyrics', 'pub-1')
+    // First snapshot is ignored
+    env.handlers.onNext({ exists: () => true })
+    expect(onUpdate).not.toHaveBeenCalled()
+    // Second snapshot triggers update
     env.handlers.onNext({ exists: () => true })
     expect(onUpdate).toHaveBeenCalledTimes(1)
 
@@ -75,8 +79,12 @@ describe('subscribeSharedLyrics', () => {
     subscribeSharedLyrics('pub-1', { onUpdate })
     await vi.waitFor(() => expect(env.onSnapshot).toHaveBeenCalled())
 
+    // First snapshot (even if missing) is ignored
     env.handlers.onNext({ exists: () => false })
     expect(onUpdate).not.toHaveBeenCalled()
+    // A second snapshot with existing document should call onUpdate
+    env.handlers.onNext({ exists: () => true })
+    expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 
   it('does not subscribe after being stopped before the client loads', async () => {

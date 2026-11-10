@@ -17,6 +17,7 @@ export function subscribeSharedLyrics(
   if (!firebaseConfig()) return () => {}
 
   let stopped = false
+  let first = true
   let unsubscribe: (() => void) | undefined
 
   void (async () => {
@@ -27,6 +28,10 @@ export function subscribeSharedLyrics(
         doc(db as never, 'sharedLyrics', publicationId),
         (snap) => {
           if (stopped) return
+          if (first) {
+            first = false
+            return
+          }
           if (snap.exists()) handlers.onUpdate()
         },
         (error) => {
