@@ -1,12 +1,23 @@
 import { trackSongImport } from '../lib/analytics'
 import { useState, useRef, useEffect } from 'react'
-import { AlertTriangle, ChevronDown, ChevronUp, FileUp, KeyRound } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  FileUp,
+  KeyRound,
+  X,
+} from 'lucide-react'
 import type { Song, Section } from '../types/song'
 import { prepareFilesForExtraction } from '../lib/fileOptimizer'
 import { extractSongsApi } from '../lib/api'
 import { getChordPos, nudgeChord, setChordPos } from '../lib/chordNudge'
 import SongSheet from './SongSheet'
-import { Button, StatusBanner } from './ui'
+import { Button, IconButton, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 
 interface UploadSheetModalProps {
@@ -272,7 +283,7 @@ export default function UploadSheetModal({
                 <div className="font-semibold">Extraction error</div>
                 <div className="mt-0.5 text-xs opacity-90">{errorMessage}</div>
                 {errorMessage.includes('GEMINI_API_KEY') && (
-                  <div className="mt-2 text-xs text-[#3368A0] dark:text-amber-300">
+                  <div className="mt-2 text-xs text-ui-accent-strong">
                     You can paste your free API key from{' '}
                     <a
                       href="https://aistudio.google.com"
@@ -297,16 +308,16 @@ export default function UploadSheetModal({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#C8DFDB] hover:border-[#3368A0] dark:border-[#282828] dark:hover:border-amber-500/70 bg-white hover:bg-neutral-50 dark:bg-[#1a1a1a]/60 dark:hover:bg-[#1a1a1a] transition rounded-xl p-4 sm:p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs"
+                className="border-2 border-dashed border-ui-border hover:border-ui-accent bg-ui-surface hover:bg-ui-surface-muted transition rounded-xl p-4 sm:p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-500/10 dark:text-amber-400">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-accent/10 text-ui-accent-strong">
                   <FileUp size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-neutral-800 dark:text-[#e5e5e5]">
+                  <p className="text-sm font-medium text-ui-text">
                     Click to browse or drop SongSelect PDF / images here
                   </p>
-                  <p className="text-xs text-neutral-500 dark:text-[#999999] mt-1">
+                  <p className="text-xs text-ui-text-muted mt-1">
                     Supports .pdf (multi-page packets supported), .png, .jpg, .jpeg, .webp (up to 10 files)
                   </p>
                 </div>
@@ -323,34 +334,34 @@ export default function UploadSheetModal({
               {/* Selected Files List */}
               {selectedFiles.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider">
+                  <div className="text-xs font-semibold text-ui-text-muted uppercase tracking-wider">
                     Selected Files ({selectedFiles.length})
                   </div>
                   <div className="space-y-2 max-h-28 sm:max-h-48 overflow-y-auto">
                     {selectedFiles.map((file, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-3 bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-lg text-sm text-neutral-800 dark:text-[#e5e5e5] shadow-xs"
+                        className="flex items-center justify-between p-3 bg-ui-surface border border-ui-border rounded-lg text-sm text-ui-text shadow-xs"
                       >
                         <div className="flex items-center gap-3 truncate">
-                          <span className="text-neutral-500 dark:text-neutral-400 font-mono text-xs bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                          <span className="text-ui-text-muted font-mono text-xs bg-ui-surface-muted px-1.5 py-0.5 rounded">
                             {file.type === 'application/pdf' ? 'PDF' : 'IMG'}
                           </span>
                           <span className="truncate">{file.name}</span>
-                          <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                          <span className="text-xs text-ui-text-muted">
                             ({(file.size / 1024).toFixed(0)} KB)
                           </span>
                         </div>
-                        <button
+                        <IconButton
+                          variant="ghost"
+                          label="Remove file"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleRemoveFile(idx)
                           }}
-                          className="text-neutral-400 hover:text-red-600 dark:hover:text-red-400 p-1 text-xs transition cursor-pointer"
-                          title="Remove file"
                         >
-                          ✕
-                        </button>
+                          <X size={14} />
+                        </IconButton>
                       </div>
                     ))}
                   </div>
@@ -364,9 +375,9 @@ export default function UploadSheetModal({
                       value={expectedSongCount}
                       onChange={(e) => setExpectedSongCount(e.target.value)}
                       placeholder="e.g. 4"
-                      className="mt-1.5 block w-full max-w-40 rounded-md border border-[#C8DFDB] bg-white px-2.5 py-1.5 text-sm text-neutral-800 dark:border-[#282828] dark:bg-[#151515] dark:text-[#e5e5e5]"
+                      className="ui-field ui-field--sm mt-1.5 block w-full max-w-40"
                     />
-                    <span className="mt-1 block text-[11px] text-neutral-500 dark:text-neutral-400">
+                    <span className="mt-1 block text-[11px] text-ui-text-muted">
                       We will check all extracted pages and tell you if another pass is needed.
                     </span>
                   </label>
@@ -374,24 +385,24 @@ export default function UploadSheetModal({
               )}
 
               {/* Optional Custom API Key accordion */}
-              <div className="border border-[#C8DFDB] dark:border-[#282828] rounded-lg bg-white dark:bg-[#1a1a1a]/50 p-3 shadow-xs">
+              <div className="border border-ui-border rounded-lg bg-ui-surface p-3 shadow-xs">
                 <button
                   type="button"
                   onClick={() => setShowKeyConfig(!showKeyConfig)}
-                  className="w-full flex items-center justify-between text-xs text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] cursor-pointer"
+                  className="w-full flex items-center justify-between text-xs text-ui-text-muted hover:text-ui-text cursor-pointer"
                 >
                   <span className="flex items-center gap-1.5"><KeyRound size={14} /> Custom Gemini API key (optional)</span>
                   {showKeyConfig ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {showKeyConfig && (
-                  <div className="mt-3 pt-3 border-t border-[#C8DFDB] dark:border-[#282828] space-y-2">
-                    <p className="text-xs text-neutral-500 dark:text-[#999999]">
+                  <div className="mt-3 pt-3 border-t border-ui-border space-y-2">
+                    <p className="text-xs text-ui-text-muted">
                       Optional for selectable-text PDFs. Scanned pages use Gemini; if running locally or using your own personal free quota from{' '}
                       <a
                         href="https://aistudio.google.com"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#3368A0] dark:text-amber-400 underline font-medium"
+                        className="text-ui-accent-strong underline font-medium"
                       >
                         Google AI Studio
                       </a>
@@ -402,7 +413,7 @@ export default function UploadSheetModal({
                       placeholder="AIzaSy..."
                       value={apiKey}
                       onChange={(e) => handleApiKeyChange(e.target.value)}
-                      className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded px-3 py-1.5 text-xs text-neutral-900 dark:text-[#e5e5e5] focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500"
+                      className="ui-field ui-field--sm w-full"
                     />
                   </div>
                 )}
@@ -410,13 +421,13 @@ export default function UploadSheetModal({
 
               {/* Processing Status */}
               {isProcessing && (
-                <div className="p-4 rounded-lg bg-[#3368A0]/10 border border-[#3368A0]/30 dark:bg-amber-950/30 dark:border-amber-900/50 shadow-2xs">
+                <div className="p-4 rounded-lg bg-ui-accent/10 border border-ui-accent/30 shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 shrink-0 border-2 border-[#3368A0] dark:border-amber-400 border-t-transparent" />
-                    <div className="text-sm text-[#255283] dark:text-amber-200 font-medium">{statusMessage}</div>
+                    <div className="animate-spin rounded-full h-5 w-5 shrink-0 border-2 border-ui-accent border-t-transparent" />
+                    <div className="text-sm text-ui-accent-strong font-medium">{statusMessage}</div>
                   </div>
                   <div
-                    className="mt-3 h-2 overflow-hidden rounded-full bg-[#3368A0]/15 dark:bg-amber-100/10"
+                    className="mt-3 h-2 overflow-hidden rounded-full bg-ui-accent/15"
                     role="progressbar"
                     aria-label="PDF extraction progress"
                     aria-valuemin={0}
@@ -424,12 +435,12 @@ export default function UploadSheetModal({
                     aria-valuenow={extractionProgress?.completed}
                   >
                     <div
-                      className={`h-full rounded-full bg-[#3368A0] dark:bg-amber-400 transition-all duration-500 ${extractionProgress ? '' : 'w-full animate-pulse'}`}
+                      className={`h-full rounded-full bg-ui-accent transition-all duration-500 ${extractionProgress ? '' : 'w-full animate-pulse'}`}
                       style={extractionProgress ? { width: `${Math.min(100, (extractionProgress.completed / extractionProgress.total) * 100)}%` } : undefined}
                     />
                   </div>
                   {extractionProgress && (
-                    <div className="mt-1.5 text-right text-xs text-[#255283]/80 dark:text-amber-200/80">
+                    <div className="mt-1.5 text-right text-xs text-ui-accent-strong/80">
                       {Math.min(extractionProgress.completed, extractionProgress.total)} of {extractionProgress.total} pages processed
                     </div>
                   )}
@@ -440,15 +451,15 @@ export default function UploadSheetModal({
             /* Review & Preview View */
             <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
               {/* Songs Tabs */}
-              <div className="flex items-center gap-2 border-b border-[#C8DFDB] dark:border-[#282828] pb-2 overflow-x-auto shrink-0">
+              <div className="flex items-center gap-2 border-b border-ui-border pb-2 overflow-x-auto shrink-0">
                 {extractedSongs.map((song, idx) => (
                   <button
                     key={song.id || idx}
                     onClick={() => setActivePreviewIndex(idx)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 flex items-center gap-2 cursor-pointer shadow-2xs ${
                       activePreviewIndex === idx
-                        ? 'bg-[#3368A0]/15 text-[#255283] border border-[#3368A0]/40 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
-                        : 'bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]'
+                        ? 'bg-ui-accent text-ui-on-accent border border-ui-accent'
+                        : 'bg-ui-surface border border-ui-border text-ui-text-muted hover:text-ui-text'
                     }`}
                   >
                     <span>{song.title || `Song ${idx + 1}`}</span>
@@ -457,7 +468,7 @@ export default function UploadSheetModal({
                         e.stopPropagation()
                         handleRemoveSong(idx)
                       }}
-                      className="text-neutral-400 hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400 text-[10px] ml-1"
+                      className="text-ui-text-muted hover:text-red-600 dark:hover:text-red-400 text-[10px] ml-1"
                       title="Remove song"
                     >
                       ✕
@@ -468,9 +479,9 @@ export default function UploadSheetModal({
 
               {/* Editable Fields for Active Song */}
               {extractedSongs[activePreviewIndex] && (
-                <div className="grid grid-cols-[1fr_1fr_4.5rem] sm:grid-cols-3 gap-2 sm:gap-3 shrink-0 bg-white dark:bg-[#1a1a1a]/60 p-2 sm:p-3 border border-[#C8DFDB] dark:border-[#282828] rounded-lg shadow-xs">
+                <div className="grid grid-cols-[1fr_1fr_4.5rem] sm:grid-cols-3 gap-2 sm:gap-3 shrink-0 bg-ui-surface p-2 sm:p-3 border border-ui-border rounded-lg shadow-xs">
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+                    <label className="text-[11px] font-semibold text-ui-text-muted uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Song Title
                     </label>
                     <input
@@ -479,11 +490,11 @@ export default function UploadSheetModal({
                       onChange={(e) =>
                         handleUpdateSongField(activePreviewIndex, 'title', e.target.value)
                       }
-                      className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded px-2.5 py-1.5 text-xs text-neutral-900 dark:text-[#e5e5e5] focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500"
+                      className="ui-field ui-field--sm w-full"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+                    <label className="text-[11px] font-semibold text-ui-text-muted uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Artist / Composer
                     </label>
                     <input
@@ -492,11 +503,11 @@ export default function UploadSheetModal({
                       onChange={(e) =>
                         handleUpdateSongField(activePreviewIndex, 'artist', e.target.value)
                       }
-                      className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded px-2.5 py-1.5 text-xs text-neutral-900 dark:text-[#e5e5e5] focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500"
+                      className="ui-field ui-field--sm w-full"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 dark:text-[#999999] uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
+                    <label className="text-[11px] font-semibold text-ui-text-muted uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
                       Key
                     </label>
                     <input
@@ -506,7 +517,7 @@ export default function UploadSheetModal({
                         handleUpdateSongField(activePreviewIndex, 'originalKey', e.target.value)
                       }
                       placeholder="e.g. G, Bb, D"
-                      className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded px-2.5 py-1.5 text-xs text-neutral-900 dark:text-[#e5e5e5] focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500"
+                      className="ui-field ui-field--sm w-full"
                     />
                   </div>
                 </div>
@@ -515,8 +526,8 @@ export default function UploadSheetModal({
               {/* Song Preview Render */}
               {extractedSongs[activePreviewIndex] && (
                 <div className="flex flex-col gap-2 flex-1 min-h-0">
-                  <div className="flex-1 min-h-[6rem] border border-[#C8DFDB] dark:border-[#282828] rounded-xl bg-white dark:bg-[#101010] p-3 sm:p-4 overflow-y-auto shadow-xs">
-                    <div className="text-xs text-neutral-500 dark:text-[#999999] mb-2 flex items-center justify-between">
+                  <div className="flex-1 min-h-[6rem] border border-ui-border rounded-xl bg-ui-surface p-3 sm:p-4 overflow-y-auto shadow-xs">
+                    <div className="text-xs text-ui-text-muted mb-2 flex items-center justify-between">
                       <span className="font-semibold uppercase tracking-wider text-[11px]">Layout Preview</span>
                       <span>
                         {extractedSongs[activePreviewIndex].sections.length} unique sections
@@ -532,55 +543,52 @@ export default function UploadSheetModal({
                   </div>
 
                   {/* Chord position adjuster */}
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#C8DFDB] dark:border-[#282828] bg-white dark:bg-[#1a1a1a] px-3 py-2 shadow-xs shrink-0 flex-wrap min-h-[52px]">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-ui-border bg-ui-surface px-3 py-2 shadow-xs shrink-0 flex-wrap min-h-[52px]">
                     {activeSelection && selectedChordName ? (
                       <>
-                        <div className="text-xs text-neutral-600 dark:text-[#999999] min-w-0">
+                        <div className="text-xs text-ui-text-muted min-w-0">
                           Moving{' '}
-                          <span className="font-mono font-bold text-[#255283] dark:text-amber-400">
+                          <span className="font-mono font-bold text-ui-accent-strong">
                             {selectedChordName}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <IconButton
+                            variant="secondary"
+                            label="Move chord left"
                             onClick={() => handleNudge(-1)}
-                            aria-label="Move chord left"
-                            className="w-11 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-base font-bold text-neutral-800 dark:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] active:scale-95 transition cursor-pointer select-none"
                           >
-                            &lt;
-                          </button>
-                          <button
-                            type="button"
+                            <ChevronLeft size={16} />
+                          </IconButton>
+                          <IconButton
+                            variant="secondary"
+                            label="Move chord right"
                             onClick={() => handleNudge(1)}
-                            aria-label="Move chord right"
-                            className="w-11 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-base font-bold text-neutral-800 dark:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] active:scale-95 transition cursor-pointer select-none"
                           >
-                            &gt;
-                          </button>
+                            <ChevronRight size={16} />
+                          </IconButton>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Check size={14} />}
                             onClick={handleConfirmNudge}
-                            className="px-3 h-9 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black transition cursor-pointer"
                           >
-                            ✓ Confirm
-                          </button>
-                          <button
-                            type="button"
+                            Confirm
+                          </Button>
+                          <IconButton
+                            variant="ghost"
+                            label="Cancel and restore position"
                             onClick={handleCancelNudge}
-                            aria-label="Cancel and restore position"
-                            title="Cancel and restore position"
-                            className="w-9 h-9 rounded-lg border border-[#C8DFDB] dark:border-[#282828] text-sm text-neutral-600 dark:text-[#999999] hover:text-red-600 hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
                           >
-                            ✕
-                          </button>
+                            <X size={16} />
+                          </IconButton>
                         </div>
                       </>
                     ) : (
-                      <div className="text-xs text-neutral-500 dark:text-[#999999]">
-                        Chord out of place? Tap it in the preview, then use &lt; &gt; to nudge it.
+                      <div className="text-xs text-ui-text-muted">
+                        Chord out of place? Tap it in the preview, then use the arrows to nudge it.
                       </div>
                     )}
                   </div>
@@ -589,23 +597,20 @@ export default function UploadSheetModal({
 
               {/* Review actions (moved out of the sticky footer, below the chord toolbar) */}
               <div className="flex items-center justify-between gap-3 shrink-0">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<ArrowLeft size={14} />}
                   onClick={() => {
                     setExtractedSongs(null)
                     setSelectedChord(null)
                   }}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer"
                 >
-                  ← Back to Upload
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmImport}
-                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition flex items-center gap-2 cursor-pointer shadow-xs"
-                >
+                  Back to upload
+                </Button>
+                <Button variant="success" onClick={handleConfirmImport}>
                   Import {extractedSongs.length} Song{extractedSongs.length > 1 ? 's' : ''} to Setlist
-                </button>
+                </Button>
               </div>
             </div>
           )}

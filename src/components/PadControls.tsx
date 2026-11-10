@@ -84,7 +84,7 @@ export default function PadControls({
       <div
         className={`inline-flex h-8 items-center overflow-hidden rounded-[0.7rem] border transition ${
           isPadPlaying
-            ? 'border-transparent bg-[var(--ui-accent)] text-white dark:text-[#16120a] shadow-xs'
+            ? 'border-transparent bg-[var(--ui-accent)] text-ui-on-accent shadow-xs'
             : 'border-[var(--ui-border)] bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-2xs hover:border-[var(--ui-border-strong)]'
         }`}
       >
@@ -172,7 +172,7 @@ export default function PadControls({
                   aria-label="Custom pad key"
                   value={resolvedCustomKey}
                   onChange={(e) => onSelectCustomPadKey(e.target.value as PadKey)}
-                  className="h-7 cursor-pointer rounded-[0.55rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 font-mono text-xs font-bold text-[var(--ui-text)] transition hover:border-[var(--ui-border-strong)] focus:border-[var(--ui-accent)] focus:outline-none"
+                  className="ui-field ui-field--sm font-mono font-bold cursor-pointer h-7"
                 >
                   {PAD_KEYS.map((k) => (
                     <option key={k} value={k}>

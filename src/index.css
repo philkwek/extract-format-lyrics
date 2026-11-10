@@ -343,6 +343,7 @@ html.dark body {
 .ui-field:hover { border-color: var(--ui-border-strong); }
 .ui-field:focus { border-color: var(--ui-accent); background: var(--ui-surface-raised); outline: 3px solid var(--ui-focus); outline-offset: 0; }
 .ui-field::placeholder { color: color-mix(in srgb, var(--ui-text-muted) 76%, transparent); }
+.ui-field--sm { min-height: 1.75rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 
 .ui-status {
   display: flex;
