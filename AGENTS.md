@@ -75,7 +75,10 @@ version:
 
 - **Two identities, both first-class.** Light: white canvas, sea blue `#3368A0` (hover
   `#255283`), sage borders `#C8DFDB`. Dark: matte charcoal `#101010` / `#1a1a1a`, text
-  `#e5e5e5`, amber accent (`amber-400`/`amber-500`). Every new class needs its `dark:` pair.
+  `#e5e5e5`, amber accent (`amber-400`/`amber-500`). Every new colour must work in both modes.
+- **Chrome colours use the `ui-*` utilities** (`bg-ui-accent`, `text-ui-text-muted`,
+  `border-ui-border`). Each one already follows dark mode, so it needs no `dark:` pair. No hex
+  colours in `.tsx` outside the song sheet; `srcTest/designTokens.test.ts` checks this.
 - **Restrained, Apple-inspired chrome** without Apple branding. Clear hierarchy, quiet
   surfaces, one primary action per view.
 - **Translucency only for global chrome and overlay backdrops.** Forms, cards and anything

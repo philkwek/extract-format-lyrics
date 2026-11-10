@@ -119,6 +119,14 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 
 ## 5. Reusable Component Patterns
 
+Use the primitives in `src/components/ui/` first: `Button`, `IconButton`, `SegmentedControl`,
+`Surface`, `StatusBanner`, `Toast`, `OverlayDialog`, and `useModalFocus` for any custom dialog
+or drawer. Form fields use the `ui-field` class (`ui-field--sm` for compact ones). Colours use
+the `ui-*` utilities from section 2. Hex colour classes in `.tsx` files are allowed only in the
+protected song sheet; `srcTest/designTokens.test.ts` fails on new ones. The class strings
+quoted in the patterns below are historical; where they show a hex pair, use the matching
+`ui-*` utility.
+
 ### A. Modals & Dialogs
 
 Used in [`ShareModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-lyrics/src/components/ShareModal.tsx) and [`UploadSheetModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-lyrics/src/components/UploadSheetModal.tsx):

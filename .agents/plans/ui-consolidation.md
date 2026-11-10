@@ -1,6 +1,6 @@
 # UI consolidation: one set of colours and controls
 
-Status: Ready · 2026-11-10 (owner decisions recorded in §4)
+Status: Done · 2026-11-10 on branch `refactor/ui-consolidation` (owner decisions in §4)
 Scope: application chrome only (`src/components`, `src/pages`, `src/index.css`). The protected
 song sheet is out of scope.
 
