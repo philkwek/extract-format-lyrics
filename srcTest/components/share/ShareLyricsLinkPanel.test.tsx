@@ -72,10 +72,13 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     // Wait for ensureLyricsFresh to be called
-    await waitFor(() => {
-      expect(mocks.ensureLyricsFresh).toHaveBeenCalled()
-    }, { timeout: 5000 })
-    
+    await waitFor(
+      () => {
+        expect(mocks.ensureLyricsFresh).toHaveBeenCalled()
+      },
+      { timeout: 5000 },
+    )
+
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
   })
 
@@ -83,9 +86,12 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     // Wait for ensureLyricsFresh to be called initially
-    await waitFor(() => {
-      expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
+      },
+      { timeout: 5000 },
+    )
 
     // Dispatch online event
     act(() => {
@@ -93,18 +99,24 @@ describe('ShareLyricsLinkPanel', () => {
     })
 
     // Wait for ensureLyricsFresh to be called again
-    await waitFor(() => {
-      expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(2)
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(2)
+      },
+      { timeout: 5000 },
+    )
   })
 
   it('does not call ensureLyricsFresh after unmount when online is dispatched', async () => {
     const { unmount } = render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     // Wait for ensureLyricsFresh to be called initially
-    await waitFor(() => {
-      expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
-    }, { timeout: 5000 })
+    await waitFor(
+      () => {
+        expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
+      },
+      { timeout: 5000 },
+    )
 
     // Unmount the component
     unmount()
