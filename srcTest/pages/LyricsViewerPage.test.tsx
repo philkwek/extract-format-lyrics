@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LyricsViewerPage from '../../src/pages/LyricsViewerPage'
 import * as api from '../../src/lib/api'
 import type { GetSharedLyricsResult } from '../../src/lib/api'
+import { subscribeSharedLyrics } from '../../src/lib/lyricsLive'
 
 vi.mock('../../src/lib/api', async () => {
   const actual = await vi.importActual('../../src/lib/api')
@@ -13,6 +14,10 @@ vi.mock('../../src/lib/api', async () => {
     getSharedLyricsApi: vi.fn(),
   }
 })
+
+vi.mock('../../src/lib/lyricsLive', () => ({
+  subscribeSharedLyrics: vi.fn(() => vi.fn()),
+}))
 
 beforeAll(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -55,6 +60,29 @@ const mockLyricsData: GetSharedLyricsResult = {
   },
 }
 
+const newSong = {
+  entryId: 'entry-song-4',
+  title: 'New Song',
+  sections: [{ label: 'Verse 1', lines: ['New lyrics'] }],
+}
+const anotherNewSong = {
+  entryId: 'entry-song-5',
+  title: 'Another New Song',
+  sections: [{ label: 'Verse 1', lines: ['More lyrics'] }],
+}
+
+function withExtraSongs(
+  songs: Array<{ entryId: string; title: string; sections: { label: string; lines: string[] }[] }>
+): GetSharedLyricsResult {
+  return {
+    ...mockLyricsData,
+    lyrics: {
+      ...mockLyricsData.lyrics,
+      songs: [...mockLyricsData.lyrics.songs, ...songs],
+    },
+  }
+}
+
 function renderViewer(shortId = 'pub-123') {
   return render(
     <MemoryRouter initialEntries={[`/lyrics/${shortId}`]}>
@@ -64,6 +92,16 @@ function renderViewer(shortId = 'pub-123') {
       </Routes>
     </MemoryRouter>
   )
+}
+
+async function triggerLyricsUpdate() {
+  await waitFor(() => expect(subscribeSharedLyrics).toHaveBeenCalled())
+  const onUpdate = vi.mocked(subscribeSharedLyrics).mock.calls.at(-1)?.[1].onUpdate
+  expect(onUpdate).toBeTruthy()
+  await act(async () => {
+    onUpdate?.()
+    await Promise.resolve()
+  })
 }
 
 describe('LyricsViewerPage', () => {
@@ -237,5 +275,61 @@ describe('LyricsViewerPage', () => {
     const initialLabel = themeButton.getAttribute('aria-label')
     fireEvent.click(themeButton)
     expect(themeButton.getAttribute('aria-label')).not.toBe(initialLabel)
+  })
+
+  it('shows a notice when a new song arrives, and Show opens it', async () => {
+    vi.mocked(api.getSharedLyricsApi)
+      .mockResolvedValueOnce(mockLyricsData)
+      .mockResolvedValueOnce(withExtraSongs([newSong]))
+
+    renderViewer()
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+    expect(screen.getByRole('status').textContent).toBe('')
+
+    await triggerLyricsUpdate()
+
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toBe('Added “New Song”')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }))
+
+    expect(screen.getByRole('tab', { name: /New Song/ }).getAttribute('aria-selected')).toBe(
+      'true'
+    )
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('summarises several new songs without a Show action', async () => {
+    vi.mocked(api.getSharedLyricsApi)
+      .mockResolvedValueOnce(mockLyricsData)
+      .mockResolvedValueOnce(withExtraSongs([newSong, anotherNewSong]))
+
+    renderViewer()
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+
+    await triggerLyricsUpdate()
+
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toBe('Added 2 songs')
+    })
+    expect(screen.queryByRole('button', { name: 'Show' })).toBeNull()
+  })
+
+  it('does not show a notice when the refreshed payload is unchanged', async () => {
+    vi.mocked(api.getSharedLyricsApi).mockResolvedValue(mockLyricsData)
+
+    renderViewer()
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+
+    await triggerLyricsUpdate()
+
+    expect(screen.getByRole('status').textContent).toBe('')
   })
 })

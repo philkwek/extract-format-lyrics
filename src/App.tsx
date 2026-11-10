@@ -36,7 +36,7 @@ export function AppShell() {
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
       <div className="app-canvas min-h-screen text-neutral-900 dark:text-[#e5e5e5] transition-colors">
         {!isLyricsView && !chromeHidden && (
-          <header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
+          <header data-app-header className="sticky top-0 z-30 border-b border-black/5 bg-white/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 dark:bg-[#101010]/78 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">
             <NavLink to="/" className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2 text-neutral-900 outline-none transition active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-[#3368A0]/30 dark:text-[#ededeb] dark:focus-visible:ring-amber-400/30">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#3368A0] transition-transform group-hover:scale-[1.04] dark:text-amber-500">

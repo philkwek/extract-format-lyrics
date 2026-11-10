@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -157,6 +157,19 @@ function TestHarness() {
 }
 
 describe('SessionPage full screen mode', () => {
+  let originalScrollTo: typeof window.scrollTo
+
+  beforeEach(() => {
+    originalScrollTo = window.scrollTo
+    window.scrollTo = vi.fn()
+  })
+
+  afterEach(() => {
+    window.scrollTo = originalScrollTo
+    cleanup()
+    localStorage.clear()
+  })
+
   it('enters full screen, hides set management, and exits with the button', async () => {
     render(<TestHarness />)
 
@@ -447,6 +460,203 @@ describe('SessionPage full screen mode', () => {
   })
 })
 
+
+describe('SessionPage floating full screen button', () => {
+  const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+  let header: HTMLElement
+
+  function rect(bottom: number): DOMRect {
+    return {
+      top: bottom - 32,
+      bottom,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 32,
+      x: 0,
+      y: bottom - 32,
+    } as DOMRect
+  }
+
+  function setTriggerBottom(bottom: number) {
+    const trigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+    expect(trigger).toBeTruthy()
+    trigger!.getBoundingClientRect = () => rect(bottom)
+  }
+
+  async function scroll() {
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'))
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)))
+    })
+  }
+
+  let originalScrollTo: typeof window.scrollTo
+  let originalScrollY: number | undefined
+
+  beforeEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return rect(200)
+    }
+    header = document.createElement('header')
+    header.dataset.appHeader = ''
+    header.getBoundingClientRect = () => rect(63)
+    document.body.prepend(header)
+    originalScrollTo = window.scrollTo
+    originalScrollY = window.scrollY
+    window.scrollTo = vi.fn()
+  })
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect
+    header.remove()
+    window.scrollTo = originalScrollTo
+    if (originalScrollY !== undefined) {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: originalScrollY })
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).scrollY
+    }
+    cleanup()
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('hides while full screen', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+  })
+
+  it('shows once the in-page button is under the header and hides when it returns', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    setTriggerBottom(200)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    })
+  })
+
+  it('does not show when the button is below the viewport', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(900)
+    await scroll()
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+  })
+
+  it('enters full screen from the floating button', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    fireEvent.click(document.querySelector('[data-floating-fullscreen-trigger]') as HTMLElement)
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+    expect(screen.getByRole('button', { name: /exit full screen/i })).toBeTruthy()
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector('[data-fullscreen-trigger]')),
+    )
+  })
+
+  it('restores scroll position on exit and focuses trigger with preventScroll', async () => {
+    // Track scrollTo calls
+    const scrollToCalls: [number, number][] = []
+    const scrollToImpl = vi.fn()
+    scrollToImpl.mockImplementation((x: number, y: number) => {
+      scrollToCalls.push([x, y])
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window.scrollTo as any) = scrollToImpl
+
+    // Spy on focus to verify preventScroll option
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    // Mock window.scrollY to return 800
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      get: () => 800,
+    })
+
+    // Enter full screen - this should save window.scrollY (800)
+    fireEvent.click(document.querySelector('[data-floating-fullscreen-trigger]') as HTMLElement)
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+
+    // Exit full screen - this should call scrollTo
+    fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
+
+    // Wait for the window.setTimeout to complete
+    await waitFor(() => {
+      expect(scrollToCalls).toEqual([[0, 800]])
+    })
+
+    // Verify scrollTo was called with correct arguments
+    expect(scrollToCalls).toEqual([[0, 800]])
+
+    // Verify focus was called with preventScroll: true
+    const exitTrigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+    expect(exitTrigger?.focus).toHaveBeenCalledWith({ preventScroll: true })
+
+    // Cleanup spies
+    scrollToImpl.mockRestore()
+    focusSpy.mockRestore()
+  })
+
+  it('uses the app header specifically and ignores a decorative header above it', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    // Add a decorative header above the app header with different bottom
+    const decorativeHeader = document.createElement('header')
+    decorativeHeader.getBoundingClientRect = () => rect(200)
+    document.body.prepend(decorativeHeader)
+
+    // Set trigger bottom to 100 (between app header 63 and decorative header 200)
+    try {
+      setTriggerBottom(100)
+      await scroll()
+
+      // The floating button should NOT appear because app header bottom is 63
+      // (trigger bottom 100 > 63 means trigger is visible)
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    } finally {
+      decorativeHeader.remove()
+    }
+  })
+})
 
 const PUBLIC_ID = 'abcdefghijklmnopqrstuv'
 

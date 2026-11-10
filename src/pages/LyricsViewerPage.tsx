@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock3, FileText, RefreshCw } from 'lucide-react'
 import { getSharedLyricsApi, ShareApiError, type GetSharedLyricsResult } from '../lib/api'
@@ -8,7 +8,9 @@ import {
   removeRecentSharedLyrics,
 } from '../lib/recentLyricsStore'
 import { Button, Surface } from '../components/ui'
+import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import LyricsViewerContent from '../components/LyricsViewerContent'
+import { subscribeSharedLyrics } from '../lib/lyricsLive'
 import { useSeo } from '../lib/useSeo'
 
 export default function LyricsViewerPage() {
@@ -21,26 +23,71 @@ export default function LyricsViewerPage() {
   const [statusKind, setStatusKind] = useState<'loading' | 'ok' | 'expired' | 'missing' | 'error'>('loading')
   const [lyricsData, setLyricsData] = useState<GetSharedLyricsResult | null>(null)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  const [changeNotice, setChangeNotice] = useState<{
+    publicationId: string
+    note: ChangeNote
+  } | null>(null)
+  const previousSongIdsRef = useRef<Set<string> | null>(null)
+  const appliedPublicationRef = useRef<string | null>(null)
+  const requestGenerationRef = useRef(0)
+
+  const applyLyrics = useCallback((result: GetSharedLyricsResult) => {
+    if (appliedPublicationRef.current !== result.id) {
+      appliedPublicationRef.current = result.id
+      previousSongIdsRef.current = null
+      setChangeNotice(null)
+    }
+
+    setLyricsData(result)
+    setStatusKind('ok')
+    setSelectedEntryId((prev) => {
+      if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
+        return prev
+      }
+      return result.lyrics.songs[0]?.entryId || null
+    })
+
+    const previousIds = previousSongIdsRef.current
+    if (previousIds) {
+      const added = result.lyrics.songs.filter((song) => !previousIds.has(song.entryId))
+      if (added.length === 1) {
+        const song = added[0]
+        setChangeNotice({
+          publicationId: result.id,
+          note: {
+            text: `Added “${song.title}”`,
+            onShow: () => {
+              setSelectedEntryId(song.entryId)
+              window.scrollTo({ top: 0, behavior: 'instant' })
+            },
+          },
+        })
+      } else if (added.length > 1) {
+        setChangeNotice({
+          publicationId: result.id,
+          note: { text: `Added ${added.length} songs` },
+        })
+      }
+    }
+
+    previousSongIdsRef.current = new Set(result.lyrics.songs.map((song) => song.entryId))
+    void saveRecentSharedLyrics(result.id, result.lyrics, result.expiresAt)
+  }, [])
 
   const refreshLyrics = useCallback(
     async (showLoadingSpinner = false) => {
       if (!shortId) return
+      const generation = ++requestGenerationRef.current
       if (showLoadingSpinner) {
         setLoading(true)
       }
       setError(null)
       try {
         const result = await getSharedLyricsApi(shortId)
-        setLyricsData(result)
-        setStatusKind('ok')
-        setSelectedEntryId((prev) => {
-          if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
-            return prev
-          }
-          return result.lyrics.songs[0]?.entryId || null
-        })
-        void saveRecentSharedLyrics(shortId, result.lyrics, result.expiresAt)
+        if (generation !== requestGenerationRef.current) return
+        applyLyrics(result)
       } catch (err) {
+        if (generation !== requestGenerationRef.current) return
         if (err instanceof ShareApiError) {
           if (err.code === 'EXPIRED' || err.status === 410) {
             setStatusKind('expired')
@@ -55,12 +102,12 @@ export default function LyricsViewerPage() {
         setError((err as Error).message || 'Failed to load lyrics')
         setStatusKind('error')
       } finally {
-        if (showLoadingSpinner) {
+        if (showLoadingSpinner && generation === requestGenerationRef.current) {
           setLoading(false)
         }
       }
     },
-    [shortId]
+    [shortId, applyLyrics]
   )
 
   // Initial load
@@ -88,20 +135,13 @@ export default function LyricsViewerPage() {
         setLoading(false)
       }
 
+      const generation = ++requestGenerationRef.current
       try {
         const result = await getSharedLyricsApi(shortId)
-        if (isCancelled) return
-        setLyricsData(result)
-        setStatusKind('ok')
-        setSelectedEntryId((prev) => {
-          if (prev && result.lyrics.songs.some((s) => s.entryId === prev)) {
-            return prev
-          }
-          return result.lyrics.songs[0]?.entryId || null
-        })
-        void saveRecentSharedLyrics(shortId, result.lyrics, result.expiresAt)
+        if (isCancelled || generation !== requestGenerationRef.current) return
+        applyLyrics(result)
       } catch (err) {
-        if (isCancelled) return
+        if (isCancelled || generation !== requestGenerationRef.current) return
         if (err instanceof ShareApiError) {
           if (err.code === 'EXPIRED' || err.status === 410) {
             setStatusKind('expired')
@@ -131,7 +171,7 @@ export default function LyricsViewerPage() {
     return () => {
       isCancelled = true
     }
-  }, [shortId])
+  }, [shortId, applyLyrics])
 
   // Refresh when returning to the browser tab
   useEffect(() => {
@@ -145,6 +185,16 @@ export default function LyricsViewerPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [refreshLyrics])
+
+  // Listen for changes to the publication while the page is open.
+  useEffect(() => {
+    if (!shortId) return
+    return subscribeSharedLyrics(shortId, {
+      onUpdate: () => {
+        void refreshLyrics(false)
+      },
+    })
+  }, [shortId, refreshLyrics])
 
   if (loading) {
     return (
@@ -241,14 +291,24 @@ export default function LyricsViewerPage() {
     )
   }
 
+  const changeNote =
+    changeNotice && changeNotice.publicationId === shortId ? changeNotice.note : null
+
   return (
-    <LyricsViewerContent
-      songs={lyricsData?.lyrics.songs || []}
-      setName={lyricsData?.lyrics.name || 'Shared Lyrics'}
-      selectedEntryId={selectedEntryId}
-      onSelectSong={setSelectedEntryId}
-      onRefresh={() => refreshLyrics(false)}
-      showRefresh={true}
-    />
+    <>
+      <LyricsViewerContent
+        songs={lyricsData?.lyrics.songs || []}
+        setName={lyricsData?.lyrics.name || 'Shared Lyrics'}
+        selectedEntryId={selectedEntryId}
+        onSelectSong={setSelectedEntryId}
+        onRefresh={() => refreshLyrics(false)}
+        showRefresh={true}
+      />
+      <ChangeToast
+        note={changeNote}
+        onDismiss={() => setChangeNotice(null)}
+        icon={<FileText size={16} className="text-[#3368A0] dark:text-amber-400" />}
+      />
+    </>
   )
 }

@@ -10,6 +10,7 @@ export interface LyricsPublicationRecord {
   sessionId: string
   publicationId: string
   updateSecret: string
+  lastPublishedHash?: string
   expiresAt?: string
 }
 
@@ -76,6 +77,15 @@ export async function deriveLyricsPublicationId(secret: string): Promise<string>
     .join('')
 }
 
+/** Stable hash of the lyrics payload, used to skip unchanged automatic updates. */
+export async function hashSharedLyricsPayload(payload: SharedLyricsPayload): Promise<string> {
+  const data = new TextEncoder().encode(JSON.stringify(payload))
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export async function getLyricsPublicationIdentity(
   sessionId: string
 ): Promise<LyricsPublicationRecord | null> {
@@ -120,7 +130,8 @@ export async function getOrCreateLyricsPublicationIdentity(
  */
 export async function recordLyricsPublicationSuccess(
   sessionId: string,
-  expiresAt: string
+  expiresAt: string,
+  lastPublishedHash?: string
 ): Promise<LyricsPublicationRecord> {
   const record = await getLyricsPublicationIdentity(sessionId)
   if (!record) {
@@ -129,6 +140,7 @@ export async function recordLyricsPublicationSuccess(
   const updated: LyricsPublicationRecord = {
     ...record,
     expiresAt,
+    ...(lastPublishedHash !== undefined ? { lastPublishedHash } : {}),
   }
   await saveLyricsPublicationIdentity(updated)
   return updated
@@ -195,8 +207,9 @@ export async function publishLyricsForSession(
 ): Promise<PublishLyricsResult> {
   return withLyricsPublicationLock(sessionId, async () => {
     const identity = await getOrCreateLyricsPublicationIdentity(sessionId)
+    const hash = await hashSharedLyricsPayload(payload)
     const result = await apiPublisher(identity.publicationId, identity.updateSecret, payload)
-    await recordLyricsPublicationSuccess(sessionId, result.expiresAt)
+    await recordLyricsPublicationSuccess(sessionId, result.expiresAt, hash)
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     return {
       id: result.id,

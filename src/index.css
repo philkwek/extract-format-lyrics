@@ -177,6 +177,13 @@ html.dark body {
 .ui-button--primary:hover:not(:disabled) { background: var(--ui-accent-strong); }
 .ui-button--secondary { background: var(--ui-surface-raised); color: var(--ui-text); border-color: var(--ui-border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
 .ui-button--secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 8%, var(--ui-surface-raised)); border-color: var(--ui-border-strong); }
+/* A small floating action, such as the full screen shortcut over a scrolled sheet. */
+.ui-button--floating {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  box-shadow: var(--ui-shadow-lg);
+}
 .ui-button--ghost { background: transparent; color: var(--ui-text-muted); }
 .ui-button--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 9%, transparent); color: var(--ui-text); }
 .ui-button--danger { background: transparent; color: #c43d3d; }
