@@ -1,6 +1,7 @@
 import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   CopyPlus,
   GripVertical,
@@ -90,6 +91,7 @@ import {
 import { useChromeVisibility } from '../lib/chromeVisibility'
 import { useFitToScreen } from '../lib/useFitToScreen'
 import { useSeo } from '../lib/useSeo'
+import { getFloatingActionMotion } from '../lib/uiMotion'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -114,6 +116,7 @@ export default function SessionPage() {
   const [refreshingLink, setRefreshingLink] = useState(false)
 
   const [session, setSession] = useState<Session | null>(null)
+  const hasSession = Boolean(session)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [prefsRevision, setPrefsRevision] = useState(0)
@@ -169,8 +172,11 @@ export default function SessionPage() {
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
+  const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
   const fullScreenTriggerRef = useRef<HTMLElement | null>(null)
   const tabListRef = useRef<HTMLDivElement | null>(null)
+  const reduceMotion = useReducedMotion()
+  const floatingFullScreenMotion = getFloatingActionMotion(Boolean(reduceMotion))
   const { setHidden: setChromeHidden } = useChromeVisibility()
 
   const handleImportUploadedSongs = async (songs: Song[]) => {
@@ -655,9 +661,37 @@ export default function SessionPage() {
     setIsEditSetOpen(false)
     setIsArrangingSongs(false)
     setIsFullScreen(true)
+    setShowFloatingFullScreen(false)
     setShowFullScreenDisplayControls(false)
     setChromeHidden(true)
   }
+
+  useEffect(() => {
+    if (isFullScreen) return
+
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const trigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+      const headerBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+      const rect = trigger?.getBoundingClientRect()
+      const hidden = rect !== undefined && rect.height > 0 && rect.bottom <= headerBottom
+      setShowFloatingFullScreen(hidden)
+    }
+    const schedule = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(update)
+    }
+
+    update()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [isFullScreen, hasSession])
 
   useEffect(
     () => () => {
@@ -1842,38 +1876,64 @@ export default function SessionPage() {
         onClose={() => setIsArrangingSongs(false)}
       />
 
-      {/* Floating Section Customization Helper Tip (First song & first instance only) */}
-      {showSectionEditTip && !isFullScreen && activeIndex === 0 && Boolean(displayedSong) && (
-        <aside
-          role="complementary"
-          aria-label="Section customization tip"
-          className="ui-surface ui-surface--elevated fixed bottom-4 right-4 z-40 flex max-w-xs flex-col gap-2.5 p-3.5 sm:bottom-6 sm:right-6 sm:max-w-sm"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#255283] dark:text-amber-400">
-              <Lightbulb size={14} />
-              <span>Customize sections</span>
-            </div>
-            <IconButton label="Dismiss tip" variant="ghost" onClick={handleDismissSectionEditTip}>
-              <X size={14} />
-            </IconButton>
-          </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-            You can delete duplicate sections with{' '}
-            <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections
-            with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder
-            them anytime by{' '}
-            <strong className="text-neutral-800 dark:text-neutral-100">
-              dragging and dropping
-            </strong>
-            .
-          </p>
-          <div className="flex justify-end pt-0.5">
-            <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
-              Got it
-            </Button>
-          </div>
-        </aside>
+      {/* Floating tips and shortcuts share the bottom-right corner. */}
+      {!isFullScreen && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+          {/* Section Customization Helper Tip (First song & first instance only) */}
+          {showSectionEditTip && activeIndex === 0 && Boolean(displayedSong) && (
+            <aside
+              role="complementary"
+              aria-label="Section customization tip"
+              className="ui-surface ui-surface--elevated pointer-events-auto flex max-w-xs flex-col gap-2.5 p-3.5 sm:max-w-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#255283] dark:text-amber-400">
+                  <Lightbulb size={14} />
+                  <span>Customize sections</span>
+                </div>
+                <IconButton label="Dismiss tip" variant="ghost" onClick={handleDismissSectionEditTip}>
+                  <X size={14} />
+                </IconButton>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                You can delete duplicate sections with{' '}
+                <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections
+                with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder
+                them anytime by{' '}
+                <strong className="text-neutral-800 dark:text-neutral-100">
+                  dragging and dropping
+                </strong>
+                .
+              </p>
+              <div className="flex justify-end pt-0.5">
+                <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
+                  Got it
+                </Button>
+              </div>
+            </aside>
+          )}
+
+          <AnimatePresence>
+            {showFloatingFullScreen && (
+              <motion.div
+                key="floating-full-screen"
+                className="pointer-events-auto"
+                {...floatingFullScreenMotion}
+              >
+                <IconButton
+                  label="Full screen"
+                  title="Fill the window with this chord sheet"
+                  variant="secondary"
+                  className="ui-button--floating"
+                  onClick={(event) => handleEnterFullScreen(event.currentTarget)}
+                  data-floating-fullscreen-trigger
+                >
+                  <Maximize2 size={18} />
+                </IconButton>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       {/* Floating Chord Position Adjustment Toolbar */}

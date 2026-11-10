@@ -52,3 +52,20 @@ export function getPopoverMotion(reduceMotion: boolean) {
         transition: segmentedSpring,
       }
 }
+
+/** A small action that arrives in a corner of the screen, such as a floating shortcut. */
+export function getFloatingActionMotion(reduceMotion: boolean) {
+  return reduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: reducedMotionTransition,
+      }
+    : {
+        initial: { opacity: 0, scale: 0.9, y: 10 },
+        animate: { opacity: 1, scale: 1, y: 0 },
+        exit: { opacity: 0, scale: 0.94, y: 8 },
+        transition: segmentedSpring,
+      }
+}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react'
 import { useState } from 'react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -447,6 +447,113 @@ describe('SessionPage full screen mode', () => {
   })
 })
 
+
+describe('SessionPage floating full screen button', () => {
+  const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+  let header: HTMLElement
+
+  function rect(bottom: number): DOMRect {
+    return {
+      top: bottom - 32,
+      bottom,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 32,
+      x: 0,
+      y: bottom - 32,
+    } as DOMRect
+  }
+
+  function setTriggerBottom(bottom: number) {
+    const trigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+    expect(trigger).toBeTruthy()
+    trigger!.getBoundingClientRect = () => rect(bottom)
+  }
+
+  async function scroll() {
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'))
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve(null)))
+    })
+  }
+
+  beforeEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return rect(200)
+    }
+    header = document.createElement('header')
+    header.getBoundingClientRect = () => rect(63)
+    document.body.prepend(header)
+  })
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect
+    header.remove()
+    cleanup()
+    localStorage.clear()
+  })
+
+  it('hides while full screen', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+  })
+
+  it('shows once the in-page button is under the header and hides when it returns', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    setTriggerBottom(200)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    })
+  })
+
+  it('does not show when the button is below the viewport', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(900)
+    await scroll()
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+  })
+
+  it('enters full screen from the floating button', async () => {
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    fireEvent.click(document.querySelector('[data-floating-fullscreen-trigger]') as HTMLElement)
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+    expect(screen.getByRole('button', { name: /exit full screen/i })).toBeTruthy()
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
+    expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector('[data-fullscreen-trigger]')),
+    )
+  })
+})
 
 const PUBLIC_ID = 'abcdefghijklmnopqrstuv'
 
