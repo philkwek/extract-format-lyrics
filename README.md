@@ -84,6 +84,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
 - **Live shares expire:** they end 7 days after the host's last change.
+- **Deleting a set:** its lyrics link stops updating, but it still opens until it expires.
 - **Capo changes:** moving the key for a capo counts as an edit. Editing a live set makes a copy.
 - **Song limit:** a live share holds up to 30 songs.
 - **What gets stored online:** Copies and live shares include chords and lyrics; lyrics links include lyrics only. Only share content you have permission to share.
