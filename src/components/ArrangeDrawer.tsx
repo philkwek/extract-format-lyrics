@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowDown, ArrowUp, GripHorizontal, Trash2, X } from 'lucide-react'
 import { momentumSpring, reducedMotionTransition } from '../lib/uiMotion'
 import { Button, IconButton } from './ui'
+import { useModalFocus } from './ui/useModalFocus'
 
 export interface ArrangeItem {
   id: string
@@ -21,8 +22,6 @@ interface ArrangeDrawerProps {
   onClose: () => void
 }
 
-const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-
 export default function ArrangeDrawer({
   isOpen,
   title,
@@ -37,6 +36,7 @@ export default function ArrangeDrawer({
   const reduceMotion = useReducedMotion()
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
   const [moveFeedback, setMoveFeedback] = useState<{ itemId: string; direction: 'up' | 'down' } | null>(null)
+  const handlePanelKeyDown = useModalFocus(isOpen, panelRef, onClose)
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 639px)')
@@ -44,26 +44,6 @@ export default function ArrangeDrawer({
     query.addEventListener('change', update)
     return () => query.removeEventListener('change', update)
   }, [])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const frame = window.requestAnimationFrame(() => {
-      panelRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus()
-    })
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.cancelAnimationFrame(frame)
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-      previousFocus?.focus()
-    }
-  }, [isOpen, onClose])
 
   useEffect(() => {
     if (!moveFeedback) return
@@ -76,21 +56,6 @@ export default function ArrangeDrawer({
     if (!item || fromIndex === toIndex) return
     setMoveFeedback({ itemId: item.id, direction: toIndex < fromIndex ? 'up' : 'down' })
     onMove(fromIndex, toIndex)
-  }
-
-  const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Tab' || !panelRef.current) return
-    const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(focusableSelector))
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
   }
 
   return (
@@ -152,7 +117,7 @@ export default function ArrangeDrawer({
                   className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-[#3368A0]/10 px-2 font-mono text-xs font-bold text-[#255283] dark:bg-amber-400/10 dark:text-amber-400">{item.badge || `#${idx + 1}`}</span>
+                    <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-ui-accent/10 px-2 font-mono text-xs font-bold text-ui-accent-strong">{item.badge || `#${idx + 1}`}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{item.title}</p>
                       {item.subtitle && <p className="mt-0.5 truncate text-xs text-[var(--ui-text-muted)]">{item.subtitle}</p>}

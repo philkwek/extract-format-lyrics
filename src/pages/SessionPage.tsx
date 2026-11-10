@@ -1221,11 +1221,11 @@ export default function SessionPage() {
 
   if (!session) {
     return (
-      <div className="bg-white dark:bg-[#151515] rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-[#C8DFDB]/50 dark:border-[#282828]">
+      <div className="bg-ui-surface rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-ui-border">
         Session not found.{' '}
         <button
           onClick={() => navigate('/')}
-          className="text-[#3368A0] dark:text-amber-400 underline cursor-pointer"
+          className="text-ui-accent-strong underline cursor-pointer"
         >
           Return home
         </button>
@@ -1596,19 +1596,20 @@ export default function SessionPage() {
                 <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">
                   Failed to extract chord sheet
                 </h3>
-                <p className="text-xs font-mono text-neutral-600 dark:text-[#999999] break-all">
+                <p className="text-xs font-mono text-ui-text-muted break-all">
                   {currentItem.url}
                 </p>
                 <p className="text-xs text-red-600 dark:text-red-300">
                   {currentItem.errorMessage || 'Unknown extraction error'}
                 </p>
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => guard(() => void handleRetry(currentItem))}
                   disabled={retryingUrls.has(currentItem.url)}
-                  className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-[#1a1a1a] dark:hover:bg-[#252525] dark:border dark:border-[#282828] disabled:opacity-50 text-xs font-medium rounded text-neutral-800 dark:text-[#e5e5e5] transition-colors cursor-pointer"
                 >
                   {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
-                </button>
+                </Button>
               </div>
             </div>
           ) : displayedSong ? (
@@ -1617,8 +1618,8 @@ export default function SessionPage() {
               <div
                 className={
                   isFullScreen
-                    ? 'shrink-0 border-b border-[#C8DFDB] px-3 pb-1.5 pt-1.5 dark:border-[#282828]'
-                    : 'space-y-1.5 pb-2 border-b border-[#C8DFDB] dark:border-[#282828]'
+                    ? 'shrink-0 border-b border-ui-border px-3 pb-1.5 pt-1.5'
+                    : 'space-y-1.5 pb-2 border-b border-ui-border'
                 }
               >
                 {isFullScreen ? (
@@ -1891,7 +1892,7 @@ export default function SessionPage() {
               className="ui-surface ui-surface--elevated pointer-events-auto flex max-w-xs flex-col gap-2.5 p-3.5 sm:max-w-sm"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#255283] dark:text-amber-400">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-ui-accent-strong">
                   <Lightbulb size={14} />
                   <span>Customize sections</span>
                 </div>

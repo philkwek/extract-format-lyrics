@@ -11,6 +11,22 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* Chrome tokens as utilities (bg-ui-accent); inline so they follow :root.dark. */
+@theme inline {
+  --color-ui-canvas: var(--ui-canvas);
+  --color-ui-surface: var(--ui-surface);
+  --color-ui-surface-raised: var(--ui-surface-raised);
+  --color-ui-surface-muted: var(--ui-surface-muted);
+  --color-ui-text: var(--ui-text);
+  --color-ui-text-muted: var(--ui-text-muted);
+  --color-ui-border: var(--ui-border);
+  --color-ui-border-strong: var(--ui-border-strong);
+  --color-ui-accent: var(--ui-accent);
+  --color-ui-accent-strong: var(--ui-accent-strong);
+  --color-ui-on-accent: var(--ui-on-accent);
+  --color-ui-focus: var(--ui-focus);
+}
+
 :root {
   color-scheme: light dark;
 }
@@ -85,6 +101,7 @@ html.dark body {
   --ui-border-strong: rgba(51, 104, 160, 0.32);
   --ui-accent: #3368a0;
   --ui-accent-strong: #255283;
+  --ui-on-accent: #ffffff;
   --ui-focus: rgba(51, 104, 160, 0.36);
   --ui-shadow-sm: 0 1px 2px rgba(34, 40, 39, 0.06), 0 8px 24px rgba(34, 40, 39, 0.04);
   --ui-shadow-lg: 0 22px 70px rgba(20, 25, 24, 0.2), 0 2px 8px rgba(20, 25, 24, 0.12);
@@ -103,6 +120,7 @@ html.dark body {
   --ui-border-strong: rgba(251, 191, 36, 0.3);
   --ui-accent: #f59e0b;
   --ui-accent-strong: #fbbf24;
+  --ui-on-accent: #16120a;
   --ui-focus: rgba(251, 191, 36, 0.34);
   --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2), 0 10px 28px rgba(0, 0, 0, 0.16);
   --ui-shadow-lg: 0 28px 90px rgba(0, 0, 0, 0.56), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -172,8 +190,7 @@ html.dark body {
 .ui-button--sm { min-height: 2rem; padding: 0.4rem 0.7rem; }
 .ui-button--md { min-height: 2.65rem; padding: 0.65rem 0.95rem; }
 .ui-button--icon { width: 2.65rem; height: 2.65rem; padding: 0; }
-.ui-button--primary { background: var(--ui-accent); color: white; box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-accent) 24%, transparent); }
-.dark .ui-button--primary { color: #16120a; }
+.ui-button--primary { background: var(--ui-accent); color: var(--ui-on-accent); box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-accent) 24%, transparent); }
 .ui-button--primary:hover:not(:disabled) { background: var(--ui-accent-strong); }
 .ui-button--secondary { background: var(--ui-surface-raised); color: var(--ui-text); border-color: var(--ui-border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
 .ui-button--secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 8%, var(--ui-surface-raised)); border-color: var(--ui-border-strong); }
@@ -326,6 +343,7 @@ html.dark body {
 .ui-field:hover { border-color: var(--ui-border-strong); }
 .ui-field:focus { border-color: var(--ui-accent); background: var(--ui-surface-raised); outline: 3px solid var(--ui-focus); outline-offset: 0; }
 .ui-field::placeholder { color: color-mix(in srgb, var(--ui-text-muted) 76%, transparent); }
+.ui-field--sm { min-height: 1.75rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 
 .ui-status {
   display: flex;

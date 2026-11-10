@@ -53,23 +53,34 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 
 ---
 
-### Light vs. Dark Mode Mapping
+### Chrome tokens and utilities
 
-| Element | Light Mode | Dark Mode | Tailwind Classes |
+Application chrome uses the `--ui-*` tokens in `src/index.css`. Each one is defined once under
+`:root` and once under `:root.dark`, and `@theme inline` turns it into a Tailwind colour, so one
+class covers both modes. Don't write a light/dark hex pair in a `.tsx` file; raw hex belongs
+only in `src/index.css` and the protected song sheet.
+
+| Element | Light | Dark | Class |
 | :--- | :--- | :--- | :--- |
-| **Page Canvas** | `#FFFFFF` | `#101010` | `bg-white dark:bg-[#101010]` |
-| **Card / Surface** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
-| **Modal / Dialog** | `#FFFFFF` | `#1A1A1A` | `bg-white dark:bg-[#1a1a1a]` |
-| **Elevated Sub-panel** | `#FCFBFA` / `neutral-50` | `#151515` | `bg-neutral-50/60 dark:bg-[#151515]` |
-| **Primary Borders** | `#C8DFDB` | `#282828` | `border-[#C8DFDB] dark:border-[#282828]` |
-| **Input Borders** | `neutral-300` | `#282828` | `border-neutral-300 dark:border-[#282828]` |
-| **Primary Text** | `neutral-900` (`#171717`) | `#E5E5E5` | `text-neutral-900 dark:text-[#e5e5e5]` |
-| **Muted / Subtitle Text** | `neutral-500` / `neutral-600` | `#999999` | `text-neutral-500 dark:text-[#999999]` |
-| **Primary Button** | `#3368A0` (hover `#255283`) | `amber-500` (hover `amber-400`) | `bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black` |
-| **Chord Text** | `#3368A0` | `amber-400` | `text-[#3368A0] dark:text-amber-400 font-bold` |
-| **Active Tab Pill** | `#3368A0` / `#3368A0/15` | `amber-500` / `amber-500/20` | `bg-[#3368A0]/15 text-[#255283] border-[#3368A0]/40 dark:bg-amber-500/20 dark:text-amber-300` |
-| **Success Action** | `emerald-600` | `emerald-500` | `bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:text-black` |
-| **Error Banner** | `red-50` / `border-red-200` | `red-950/60` / `border-red-800` | `bg-red-50 border-red-200 text-red-800 dark:bg-red-950/60 dark:border-red-800 dark:text-red-200` |
+| **Page canvas** | `#FFFFFF` | `#101010` | `bg-ui-canvas` |
+| **Card / surface** | `#FFFFFF` | `#191919` | `bg-ui-surface` (or the `Surface` primitive) |
+| **Raised panel, popover** | `#FFFFFF` | `#1E1E1E` | `bg-ui-surface-raised` |
+| **Muted sub-panel** | `#FAFAFA` | `#141414` | `bg-ui-surface-muted` |
+| **Borders** | `rgba(74,105,106,0.2)` | `rgba(255,255,255,0.09)` | `border-ui-border` |
+| **Hover / emphasised borders** | sea blue 32% | amber 30% | `border-ui-border-strong` |
+| **Primary text** | `#171717` | `#EDEDEB` | `text-ui-text` |
+| **Muted text** | `#686865` | `#A5A5A0` | `text-ui-text-muted` |
+| **Accent fill** | `#3368A0` | `#F59E0B` (amber-500) | `bg-ui-accent` |
+| **Accent hover, accent text and links** | `#255283` | `#FBBF24` (amber-400) | `hover:bg-ui-accent-strong`, `text-ui-accent-strong` |
+| **Text on the accent** | `#FFFFFF` | `#16120A` | `text-ui-on-accent` |
+| **Focus ring** | sea blue 36% | amber 34% | `ring-ui-focus` |
+
+Buttons, fields, banners and dialogs use the primitives in `src/components/ui/` and the
+`.ui-*` classes rather than these utilities directly. Status colours (success, warning,
+error) live in `.ui-status--*` and the `success`/`danger` button variants.
+
+The song sheet keeps its own colours (chord text is `text-[#3368A0] dark:text-amber-400`);
+see section 1.
 
 ---
 
@@ -107,6 +118,14 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 ---
 
 ## 5. Reusable Component Patterns
+
+Use the primitives in `src/components/ui/` first: `Button`, `IconButton`, `SegmentedControl`,
+`Surface`, `StatusBanner`, `Toast`, `OverlayDialog`, and `useModalFocus` for any custom dialog
+or drawer. Form fields use the `ui-field` class (`ui-field--sm` for compact ones). Colours use
+the `ui-*` utilities from section 2. Hex colour classes in `.tsx` files are allowed only in the
+protected song sheet; `srcTest/designTokens.test.ts` fails on new ones. The class strings
+quoted in the patterns below are historical; where they show a hex pair, use the matching
+`ui-*` utility.
 
 ### A. Modals & Dialogs
 

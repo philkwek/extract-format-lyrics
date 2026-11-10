@@ -222,10 +222,10 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-7">
       <div className="px-1 pt-2 sm:pt-4">
-        <div className="flex items-start gap-3 rounded-2xl border border-[#3368A0]/20 bg-white/70 px-4 py-3 text-sm leading-6 text-neutral-700 shadow-sm backdrop-blur-sm dark:border-amber-400/20 dark:bg-[#1a1a1a]/80 dark:text-[#d4d4d0]">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400" aria-hidden="true"><Info size={14} /></span>
+        <div className="flex items-start gap-3 rounded-2xl border border-ui-accent/20 bg-ui-surface/70 px-4 py-3 text-sm leading-6 text-ui-text shadow-sm backdrop-blur-sm">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong" aria-hidden="true"><Info size={14} /></span>
           <p>
-            <span className="mr-1 font-bold text-[#255283] dark:text-amber-300">Notice:</span>
+            <span className="mr-1 font-bold text-ui-accent-strong">Notice:</span>
             Sets &amp; Sheets has moved to this new web address! Because of the move, sets you saved
             on the old address may not show up here. I’m so sorry about that, and I just wanted you
             to know why they might be missing :&quot;(
@@ -316,7 +316,7 @@ export default function HomePage() {
 
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-5 py-10 text-center">
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={19} /></span>
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong"><ListMusic size={19} /></span>
             <p className="text-sm font-semibold text-[var(--ui-text)]">No saved sessions yet</p>
             <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Your next setlist will appear here.</p>
           </div>
@@ -341,9 +341,9 @@ export default function HomePage() {
                   {session.liveSourceId ? (
                     <span className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${session.liveEnded ? 'bg-[var(--ui-surface-raised)] text-[var(--ui-text-muted)]' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400'}`}><Radio size={16} aria-hidden="true" /></span>
                   ) : (
-                    <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400"><ListMusic size={16} /></span>
+                    <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-ui-accent/10 text-ui-accent-strong"><ListMusic size={16} /></span>
                   )}
-                  <h3 className="truncate text-sm font-bold text-[var(--ui-text)] transition-colors group-hover:text-[#3368A0] dark:group-hover:text-amber-400">
+                  <h3 className="truncate text-sm font-bold text-ui-text transition-colors group-hover:text-ui-accent-strong">
                     {session.name}
                   </h3>
                   {session.liveSourceId ? (
@@ -433,7 +433,7 @@ export default function HomePage() {
                 >
                   <div>
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ui-accent/10 text-ui-accent-strong">
                         <FileText size={16} />
                       </span>
                       {isExpired ? (
@@ -446,7 +446,7 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="truncate text-sm font-bold text-[var(--ui-text)] transition-colors group-hover:text-[#3368A0] dark:group-hover:text-amber-400">
+                    <h3 className="truncate text-sm font-bold text-ui-text transition-colors group-hover:text-ui-accent-strong">
                       {item.name}
                     </h3>
                     <p className="mt-1 text-xs text-[var(--ui-text-muted)]">

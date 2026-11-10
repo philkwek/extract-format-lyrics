@@ -62,7 +62,7 @@ export default function LiveFollowPage() {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3368A0]/10 text-[#3368A0] dark:bg-amber-400/10 dark:text-amber-400">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-accent/10 text-ui-accent-strong">
             <Radio className="animate-pulse" size={23} />
           </span>
           <div>

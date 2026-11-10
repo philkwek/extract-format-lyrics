@@ -46,7 +46,7 @@ export default function ImportProgressList({
                 ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                 : status.status === 'error'
                   ? 'text-red-600 dark:text-red-400 font-medium'
-                  : 'text-[#255283] dark:text-amber-400 animate-pulse font-medium'
+                  : 'text-ui-accent-strong animate-pulse font-medium'
             }
           >
             {statusLabel(status)}

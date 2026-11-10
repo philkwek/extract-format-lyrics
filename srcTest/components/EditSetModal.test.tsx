@@ -83,7 +83,7 @@ describe('EditSetModal upload flow', () => {
 
     expect(dialog.className).toContain('h-[88dvh]')
 
-    await user.click(screen.getByRole('button', { name: /Back to Upload/ }))
+    await user.click(screen.getByRole('button', { name: /Back to upload/ }))
     expect(dialog.className).not.toContain('h-[88dvh]')
   })
 })

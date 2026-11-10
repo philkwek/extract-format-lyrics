@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { getDialogMotion, reducedMotionTransition } from '../../lib/uiMotion'
 import { IconButton } from './index'
+import { useModalFocus } from './useModalFocus'
 
 interface OverlayDialogProps {
   isOpen: boolean
@@ -17,15 +18,6 @@ interface OverlayDialogProps {
   contentClassName?: string
   closeOnBackdrop?: boolean
 }
-
-const focusableSelector = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',')
 
 export default function OverlayDialog({
   isOpen,
@@ -44,45 +36,7 @@ export default function OverlayDialog({
   const panelRef = useRef<HTMLDivElement>(null)
   const reduceMotion = useReducedMotion()
   const dialogMotion = getDialogMotion(Boolean(reduceMotion))
-
-  useEffect(() => {
-    if (!isOpen) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const frame = window.requestAnimationFrame(() => {
-      const first = panelRef.current?.querySelector<HTMLElement>(focusableSelector)
-      first?.focus()
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      document.body.style.overflow = previousOverflow
-      previousFocus?.focus()
-    }
-  }, [isOpen])
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation()
-      onClose()
-      return
-    }
-    if (event.key !== 'Tab' || !panelRef.current) return
-
-    const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(focusableSelector))
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }
+  const handleKeyDown = useModalFocus(isOpen, panelRef, onClose)
 
   return (
     <AnimatePresence>
