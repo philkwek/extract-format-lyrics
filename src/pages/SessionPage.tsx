@@ -174,6 +174,7 @@ export default function SessionPage() {
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
   const fullScreenTriggerRef = useRef<HTMLElement | null>(null)
+  const fullScreenScrollYRef = useRef(0)
   const tabListRef = useRef<HTMLDivElement | null>(null)
   const reduceMotion = useReducedMotion()
   const floatingFullScreenMotion = getFloatingActionMotion(Boolean(reduceMotion))
@@ -649,12 +650,14 @@ export default function SessionPage() {
       const trigger = storedTrigger?.isConnected
         ? storedTrigger
         : document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
-      trigger?.focus()
+      trigger?.focus({ preventScroll: true })
+      window.scrollTo(0, fullScreenScrollYRef.current)
     }, 0)
   }, [setChromeHidden])
 
   const handleEnterFullScreen = (trigger?: HTMLElement | null) => {
     fullScreenTriggerRef.current = trigger ?? (document.activeElement as HTMLElement | null)
+    fullScreenScrollYRef.current = window.scrollY
     setIsEditingChords(false)
     setPositioningChord(null)
     setIsShareMenuOpen(false)

@@ -157,6 +157,19 @@ function TestHarness() {
 }
 
 describe('SessionPage full screen mode', () => {
+  let originalScrollTo: typeof window.scrollTo
+
+  beforeEach(() => {
+    originalScrollTo = window.scrollTo
+    window.scrollTo = vi.fn()
+  })
+
+  afterEach(() => {
+    window.scrollTo = originalScrollTo
+    cleanup()
+    localStorage.clear()
+  })
+
   it('enters full screen, hides set management, and exits with the button', async () => {
     render(<TestHarness />)
 
@@ -478,6 +491,9 @@ describe('SessionPage floating full screen button', () => {
     })
   }
 
+  let originalScrollTo: typeof window.scrollTo
+  let originalScrollY: number | undefined
+
   beforeEach(() => {
     HTMLElement.prototype.getBoundingClientRect = function () {
       return rect(200)
@@ -485,13 +501,24 @@ describe('SessionPage floating full screen button', () => {
     header = document.createElement('header')
     header.getBoundingClientRect = () => rect(63)
     document.body.prepend(header)
+    originalScrollTo = window.scrollTo
+    originalScrollY = window.scrollY
+    window.scrollTo = vi.fn()
   })
 
   afterEach(() => {
     HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect
     header.remove()
+    window.scrollTo = originalScrollTo
+    if (originalScrollY !== undefined) {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: originalScrollY })
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).scrollY
+    }
     cleanup()
     localStorage.clear()
+    vi.clearAllMocks()
   })
 
   it('hides while full screen', async () => {
@@ -552,6 +579,59 @@ describe('SessionPage floating full screen button', () => {
     await waitFor(() =>
       expect(document.activeElement).toBe(document.querySelector('[data-fullscreen-trigger]')),
     )
+  })
+
+  it('restores scroll position on exit and focuses trigger with preventScroll', async () => {
+    // Track scrollTo calls
+    const scrollToCalls: [number, number][] = []
+    const scrollToImpl = vi.fn()
+    scrollToImpl.mockImplementation((x: number, y: number) => {
+      scrollToCalls.push([x, y])
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window.scrollTo as any) = scrollToImpl
+
+    // Spy on focus to verify preventScroll option
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Full screen' })
+
+    setTriggerBottom(40)
+    await scroll()
+    await waitFor(() => {
+      expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeTruthy()
+    })
+
+    // Mock window.scrollY to return 800
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      get: () => 800,
+    })
+
+    // Enter full screen - this should save window.scrollY (800)
+    fireEvent.click(document.querySelector('[data-floating-fullscreen-trigger]') as HTMLElement)
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
+
+    // Exit full screen - this should call scrollTo
+    fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
+    expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
+
+    // Wait for the window.setTimeout to complete
+    await waitFor(() => {
+      expect(scrollToCalls).toEqual([[0, 800]])
+    })
+
+    // Verify scrollTo was called with correct arguments
+    expect(scrollToCalls).toEqual([[0, 800]])
+
+    // Verify focus was called with preventScroll: true
+    const exitTrigger = document.querySelector<HTMLElement>('[data-fullscreen-trigger]')
+    expect(exitTrigger?.focus).toHaveBeenCalledWith({ preventScroll: true })
+
+    // Cleanup spies
+    scrollToImpl.mockRestore()
+    focusSpy.mockRestore()
   })
 })
 
