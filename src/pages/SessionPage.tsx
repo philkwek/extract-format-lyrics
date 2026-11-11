@@ -1513,7 +1513,7 @@ export default function SessionPage() {
               {session.songs.length} song(s) in setlist
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
             {!linkPreview && (
               <Button
                 size="sm"
