@@ -118,19 +118,23 @@ describe('SetLinkImportView', () => {
 
       await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copy-pub'))
       expect(JSON.parse(screen.getByTestId('state').textContent ?? '{}')).toEqual({
-        fromSetLink: { kind: 'offline', name: 'My Copy' },
+        fromSetLink: { kind, name: 'My Copy' },
       })
     },
   )
 
-  it('opens the saved copy when the link throws', async () => {
-    vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(new Error('offline'))
+  it('logs the error and opens the saved copy when the link throws', async () => {
+    const error = new Error('offline')
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(error)
     findSavedCopy.mockResolvedValueOnce(savedCopy as never)
     renderView()
 
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copy-pub'))
     expect(JSON.parse(screen.getByTestId('state').textContent ?? '{}')).toEqual({
-      fromSetLink: { kind: 'offline', name: 'My Copy' },
+      fromSetLink: { kind: 'error', name: 'My Copy' },
     })
+    expect(logError).toHaveBeenCalledWith('Could not open set link', error)
+    logError.mockRestore()
   })
 })

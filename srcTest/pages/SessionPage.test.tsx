@@ -863,6 +863,7 @@ describe('SessionPage set links', () => {
 
   it('falls back to a saved copy when the link cannot load', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {})
     vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(new Error('offline'))
     vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
 
@@ -872,6 +873,15 @@ describe('SessionPage set links', () => {
       expect(screen.getByTestId('loc').textContent).toBe(`/session/${savedCopy.publicId}`),
     )
     expect(await screen.findByText('Couldn’t load the latest version')).toBeTruthy()
+    expect(screen.getByText('Showing your saved copy of the shared set.')).toBeTruthy()
+  })
+
+  it('says the link expired when its saved copy opens instead', async () => {
+    renderAt({
+      pathname: '/session/session-1',
+      state: { fromSetLink: { kind: 'expired', name: 'Sunday Set' } },
+    })
+    expect(await screen.findByText('This set link has expired')).toBeTruthy()
     expect(screen.getByText('Showing your saved copy of the shared set.')).toBeTruthy()
   })
 

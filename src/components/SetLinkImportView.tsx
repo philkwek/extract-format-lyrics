@@ -8,8 +8,11 @@ import { Button, Surface } from './ui'
 
 type ViewState = 'loading' | 'expired' | 'missing' | 'empty' | 'error'
 
+/** Why a saved copy opened instead of the latest version of the link. */
+export type SetLinkFallback = 'expired' | 'missing' | 'empty' | 'error'
+
 export interface SetLinkNavState {
-  fromSetLink: { kind: 'saved' | 'updated' | 'offline'; name: string }
+  fromSetLink: { kind: 'saved' | 'updated' | SetLinkFallback; name: string }
 }
 
 interface Props {
@@ -29,11 +32,11 @@ export default function SetLinkImportView({ linkId, onPreview }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    const openSavedCopy = async (): Promise<boolean> => {
+    const openSavedCopy = async (reason: SetLinkFallback): Promise<boolean> => {
       const copy = await sessionStore.findByImportedLinkId(linkId)
       if (!copy || cancelled) return false
       trackEvent('set_link_opened', { outcome: 'copy', song_count: copy.songs.length })
-      const nav: SetLinkNavState = { fromSetLink: { kind: 'offline', name: copy.name } }
+      const nav: SetLinkNavState = { fromSetLink: { kind: reason, name: copy.name } }
       navigate(sessionPath(copy), { replace: true, state: nav })
       return true
     }
@@ -50,12 +53,13 @@ export default function SetLinkImportView({ linkId, onPreview }: Props) {
           onPreviewRef.current(result.preview, copy)
           return
         }
-        if (await openSavedCopy()) return
+        if (await openSavedCopy(result.kind)) return
         trackEvent('set_link_opened', { outcome: result.kind, song_count: 0 })
         if (!cancelled) setState(result.kind)
       })
-      .catch(async () => {
-        if (cancelled || (await openSavedCopy())) return
+      .catch(async (err) => {
+        console.error('Could not open set link', err)
+        if (cancelled || (await openSavedCopy('error'))) return
         trackEvent('set_link_opened', { outcome: 'error', song_count: 0 })
         if (!cancelled) setState('error')
       })

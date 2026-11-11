@@ -38,7 +38,10 @@ import {
   savePreviewAsNew,
   type SetLinkPreview,
 } from '../lib/setLinkImport'
-import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
+import SetLinkImportView, {
+  type SetLinkFallback,
+  type SetLinkNavState,
+} from '../components/SetLinkImportView'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
@@ -112,6 +115,13 @@ interface PositioningChordState {
   chord: string
   startPos: number
   currentPos: number
+}
+
+const FALLBACK_TITLES: Record<SetLinkFallback, string> = {
+  expired: 'This set link has expired',
+  missing: 'This set link no longer exists',
+  empty: 'None of the songs could be loaded',
+  error: 'Couldn\u2019t load the latest version',
 }
 
 function describeLinkChanges({
@@ -1324,6 +1334,10 @@ export default function SessionPage() {
     if (updated) adoptSession(updated)
   }
 
+  const fallbackTitle =
+    fromSetLink && fromSetLink.kind !== 'saved' && fromSetLink.kind !== 'updated'
+      ? FALLBACK_TITLES[fromSetLink.kind]
+      : null
   const savedCopy = linkPreview?.copy ?? null
   const previewChanges =
     linkPreview && savedCopy?.linkSnapshot
@@ -1405,23 +1419,15 @@ export default function SessionPage() {
       {!isFullScreen && fromSetLink && (
         <StatusBanner
           tone="info"
-          icon={
-            fromSetLink.kind === 'offline' ? <CloudOff size={16} /> : <CheckCircle2 size={16} />
-          }
-          title={
-            fromSetLink.kind === 'offline'
-              ? 'Couldn\u2019t load the latest version'
-              : fromSetLink.kind === 'updated'
-                ? 'Copy Updated'
-                : 'Set Saved'
-          }
+          icon={fallbackTitle ? <CloudOff size={16} /> : <CheckCircle2 size={16} />}
+          title={fallbackTitle ?? (fromSetLink.kind === 'updated' ? 'Copy Updated' : 'Set Saved')}
           actions={
             <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
               Dismiss
             </Button>
           }
         >
-          {fromSetLink.kind === 'offline'
+          {fallbackTitle
             ? 'Showing your saved copy of the shared set.'
             : fromSetLink.kind === 'updated'
               ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
