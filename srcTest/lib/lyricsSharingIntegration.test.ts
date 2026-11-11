@@ -247,7 +247,6 @@ describe('lyrics sharing integration suite', () => {
           url: song1.sourceUrl,
           title: song1.title,
           artist: song1.artist,
-          status: 'ok',
           customSections: item1CustomSections,
         },
         {
@@ -255,7 +254,6 @@ describe('lyrics sharing integration suite', () => {
           url: song2.sourceUrl,
           title: song2.title,
           artist: song2.artist,
-          status: 'ok',
           simplified: true,
         },
         {
@@ -263,7 +261,6 @@ describe('lyrics sharing integration suite', () => {
           url: song1.sourceUrl,
           title: 'A Mighty Fortress (Reprise)',
           artist: song1.artist,
-          status: 'ok',
           customSections: item3CustomSections,
         },
       ],
@@ -428,7 +425,6 @@ describe('lyrics sharing integration suite', () => {
           url: song1.sourceUrl,
           title: song1.title,
           artist: song1.artist,
-          status: 'ok',
         },
       ],
     }
@@ -464,7 +460,6 @@ describe('lyrics sharing integration suite', () => {
               url: song2.sourceUrl,
               title: song2.title,
               artist: song2.artist,
-              status: 'ok',
             },
           ],
         },

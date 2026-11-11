@@ -84,7 +84,6 @@ export default function HomePage() {
       url: s.sourceUrl,
       title: s.title,
       artist: s.artist,
-      status: 'ok',
     }))
     const newSession = await sessionStore.createSession(sessionSongs)
     trackSongImport('upload', songs.length, songs.length)
@@ -145,6 +144,10 @@ export default function HomePage() {
         onProgress: setStatuses,
       })
       trackSongImport('pasted_link', result.imported, tokenCount)
+      if (!result.session) {
+        setGeneralError('None of these links could be added. Check the details below.')
+        return
+      }
       navigate(sessionPath(result.session))
     } catch {
       trackSongImport('pasted_link', 0, tokenCount)
@@ -211,7 +214,7 @@ export default function HomePage() {
     try {
       const result = await importSources([sourceFromCandidate(candidate)], { requireAll: true })
       trackSongImport('search', result.imported, 1)
-      navigate(sessionPath(result.session))
+      if (result.session) navigate(sessionPath(result.session))
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not create setlist: ${(err as Error).message}`)

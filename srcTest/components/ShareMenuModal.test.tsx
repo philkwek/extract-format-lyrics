@@ -43,7 +43,6 @@ const session: Session = {
       url: song.sourceUrl,
       title: song.title,
       artist: song.artist,
-      status: 'ok',
     },
   ],
 }

@@ -8,14 +8,19 @@ import {
 
 export type PadKeyMode = 'match' | 'custom'
 
+export interface ImportFailure {
+  url: string
+  reason: string
+}
+
+export const MAX_IMPORT_FAILURES = 30
+
 export interface SessionSongItem {
   /** Stable per-occurrence ID. This permits the same source song more than once. */
   entryId?: string
   url: string
   title?: string
   artist?: string
-  status: 'ok' | 'error' | 'loading'
-  errorMessage?: string
   customSections?: Section[]
   customFlow?: number[]
   customSimplifiedSections?: Section[]
@@ -44,6 +49,8 @@ export interface Session {
   liveRev?: number
   /** Set once the host stops the live share or its link expires; neither can come back. */
   liveEnded?: 'stopped' | 'expired'
+  /** Links that failed to import; shown until dismissed, never copied or shared. */
+  importFailures?: ImportFailure[]
 }
 
 export interface SessionChangeEvent {
@@ -59,13 +66,30 @@ export interface CreateSessionOptions {
   liveSourceId?: string
   lastHostHash?: string
   liveRev?: number
+  importFailures?: ImportFailure[]
 }
 
 export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
   return `/session/${session.publicId ?? session.id}`
 }
 
+/** Appends failures, keeping the newest entry per url, capped at MAX_IMPORT_FAILURES. */
+export function mergeImportFailures(
+  existing: ImportFailure[] | undefined,
+  added: ImportFailure[],
+): ImportFailure[] | undefined {
+  const byUrl = new Map<string, ImportFailure>()
+  for (const failure of [...(existing ?? []), ...added]) {
+    byUrl.delete(failure.url)
+    byUrl.set(failure.url, failure)
+  }
+  const merged = [...byUrl.values()].slice(-MAX_IMPORT_FAILURES)
+  return merged.length > 0 ? merged : undefined
+}
+
 const SESSIONS_STORAGE_KEY = 'app_sessions'
+
+type LegacySongItem = SessionSongItem & { status?: string; errorMessage?: string }
 
 export interface SessionStorageStore {
   get: typeof get
@@ -123,6 +147,23 @@ export class SessionStore {
     // Lightweight migration for sessions made before per-entry IDs existed.
     let changed = false
     for (const session of sessions) {
+      // Sets saved before songs were guaranteed readable: failed rows become import failures.
+      const legacy = session.songs as LegacySongItem[]
+      if (legacy.some((item) => 'status' in item || 'errorMessage' in item)) {
+        const failed = legacy.filter((item) => item.status === 'error' && item.url)
+        session.songs = legacy.filter((item) => item.status !== 'error')
+        for (const item of session.songs as LegacySongItem[]) {
+          delete item.status
+          delete item.errorMessage
+        }
+        if (failed.length > 0) {
+          session.importFailures = mergeImportFailures(
+            session.importFailures,
+            failed.map((item) => ({ url: item.url, reason: item.errorMessage || 'Import failed' })),
+          )
+        }
+        changed = true
+      }
       for (const item of session.songs) {
         if (!item.entryId) {
           item.entryId = makeEntryId()
@@ -169,6 +210,7 @@ export class SessionStore {
     const now = Date.now()
     const id = `session_${now}_${Math.random().toString(36).substring(2, 7)}`
     const identity = await getOrCreateSetLinkIdentity(id, this.identities())
+    const importFailures = mergeImportFailures(undefined, options.importFailures ?? [])
     const newSession: Session = {
       id,
       publicId: identity.publicId,
@@ -176,6 +218,7 @@ export class SessionStore {
       ...(options.liveSourceId ? { liveSourceId: options.liveSourceId } : {}),
       ...(options.lastHostHash ? { lastHostHash: options.lastHostHash } : {}),
       ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
+      ...(importFailures ? { importFailures } : {}),
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
@@ -234,14 +277,26 @@ export class SessionStore {
 
   async addSongsToSession(
     sessionId: string,
-    songs: SessionSongItem[]
+    songs: SessionSongItem[],
+    failures: ImportFailure[] = [],
   ): Promise<{ session: Session; firstNewIndex: number } | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
     const firstNewIndex = session.songs.length
+    if (songs.length === 0) return { session, firstNewIndex }
     session.songs.push(...songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })))
+    session.importFailures = mergeImportFailures(session.importFailures, failures)
     await this.updateSession(session)
     return { session, firstNewIndex }
+  }
+
+  async dismissImportFailures(sessionId: string): Promise<Session | null> {
+    const session = await this.getSession(sessionId)
+    if (!session) return null
+    if (!session.importFailures?.length) return session
+    delete session.importFailures
+    await this.updateSession(session)
+    return session
   }
 
   async removeSongFromSession(sessionId: string, entryId: string): Promise<Session | null> {

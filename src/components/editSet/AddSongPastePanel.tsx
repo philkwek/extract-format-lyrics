@@ -51,16 +51,16 @@ export default function AddSongPastePanel({
       })
       trackSongImport('pasted_link', result.imported, tokenCount)
       setPasteText('')
-      if (result.imported > 0) {
+      if (result.session && result.imported > 0) {
         setSuccessMessage(
           result.imported === 1
             ? 'Song added to the set.'
             : `${result.imported} songs added to the set.`
         )
+        await onSessionUpdated(result.session, result.firstNewIndex)
       } else {
         setError('No songs could be added. Check the import details below.')
       }
-      await onSessionUpdated(result.session, result.firstNewIndex)
     } catch (err) {
       trackSongImport('pasted_link', 0, tokenCount)
       setError((err as Error).message || 'Could not add songs. Please try again.')

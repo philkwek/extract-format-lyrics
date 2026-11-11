@@ -1,11 +1,12 @@
 import { getSetLinkApi, ShareApiError } from './api'
-import { importSources, type ImportProgress } from './setlistImport'
+import { loadSources, type ImportProgress } from './setlistImport'
 import { sessionStore, type Session, type SessionSongItem } from './sessionStore'
 import type { SetLinkPayload } from '../types/song'
 
 export type SetLinkImportResult =
   | { kind: 'reused'; session: Session }
-  | { kind: 'imported'; session: Session; failed: number }
+  | { kind: 'imported'; session: Session }
+  | { kind: 'empty' }
   | { kind: 'expired' }
   | { kind: 'missing' }
 
@@ -15,7 +16,7 @@ export interface SetLinkImportOptions {
   force?: boolean
   deps?: {
     fetchLink: (id: string) => Promise<{ payload: SetLinkPayload }>
-    importSources: typeof importSources
+    loadSources: typeof loadSources
     sessions: Pick<typeof sessionStore, 'findByImportedLinkId' | 'createSession'>
   }
 }
@@ -29,7 +30,7 @@ export async function importFromSetLink(
   options: SetLinkImportOptions = {},
 ): Promise<SetLinkImportResult> {
   const fetchLink = options.deps?.fetchLink ?? getSetLinkApi
-  const runImport = options.deps?.importSources ?? importSources
+  const runLoad = options.deps?.loadSources ?? loadSources
   const sessions = options.deps?.sessions ?? sessionStore
 
   if (!options.force) {
@@ -53,41 +54,36 @@ export async function importFromSetLink(
     options.onProgress?.(`Loading songs (${done} of ${total})...`)
   }
 
-  // importSources scrapes + caches; we capture its items instead of letting it
-  // create the session, because we need to add the per-song settings first.
-  let captured: SessionSongItem[] = []
-  await runImport(
+  const loaded = await runLoad(
     payload.songs.map((song) => ({ url: song.url, title: song.title, artist: song.artist })),
-    {
-      ignoreFailureCache: true,
-      onProgress,
-      deps: {
-        sessions: {
-          createSession: async (items: SessionSongItem[]) => {
-            captured = items
-            return { id: '', createdAt: 0, name: '', songs: items }
-          },
-          addSongsToSession: async () => null,
-        },
-      },
-    },
+    { ignoreFailureCache: true, onProgress },
   )
 
-  const items: SessionSongItem[] = captured.map((item, index) => {
+  // Outcomes stay aligned with payload.songs, so a failed song never shifts
+  // another song's settings.
+  const items: SessionSongItem[] = loaded.outcomes.flatMap((outcome, index) => {
+    if (!outcome.item) return []
     const song = payload.songs[index]
-    return {
-      ...item,
-      entryId: song.entryId,
-      ...(song.targetKey !== undefined ? { targetKey: song.targetKey } : {}),
-      ...(song.simplified !== undefined ? { simplified: song.simplified } : {}),
-      ...(song.padKeyMode !== undefined ? { padKeyMode: song.padKeyMode } : {}),
-      ...(song.customPadKey !== undefined ? { customPadKey: song.customPadKey } : {}),
-    }
+    return [
+      {
+        ...outcome.item,
+        entryId: song.entryId,
+        ...(song.targetKey !== undefined ? { targetKey: song.targetKey } : {}),
+        ...(song.simplified !== undefined ? { simplified: song.simplified } : {}),
+        ...(song.padKeyMode !== undefined ? { padKeyMode: song.padKeyMode } : {}),
+        ...(song.customPadKey !== undefined ? { customPadKey: song.customPadKey } : {}),
+      },
+    ]
   })
 
+  if (items.length === 0) return { kind: 'empty' }
+
   options.onProgress?.('Saving your copy...')
-  const session = await sessions.createSession(items, payload.name, { importedFromLinkId: linkId })
-  return { kind: 'imported', session, failed: items.filter((i) => i.status === 'error').length }
+  const session = await sessions.createSession(items, payload.name, {
+    importedFromLinkId: linkId,
+    importFailures: loaded.failures,
+  })
+  return { kind: 'imported', session }
 }
 
 /** Forces a brand-new copy from the link's current contents. */

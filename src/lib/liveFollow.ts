@@ -33,10 +33,12 @@ export async function applyLiveSet(
   deps: Pick<LiveFollowDeps, 'saveSong'> = defaultDeps,
 ): Promise<{ name: string; songs: SessionSongItem[] }> {
   const { manifest, contents } = response
+  for (const entry of manifest.entries) {
+    if (!contents[entry.contentHash]) throw new Error('Live set content is missing for a song')
+  }
   const present: SharedSetSnapshot['songs'] = []
   for (const entry of manifest.entries) {
     const content = contents[entry.contentHash]
-    if (!content) continue
     await deps.saveSong(content.song)
     present.push({
       entryId: entry.entryId,
@@ -51,19 +53,7 @@ export async function applyLiveSet(
       simplified: entry.simplified,
     })
   }
-  const mapped = sessionSongsFromSnapshot({ v: 2, name: manifest.name, songs: present })
-  let next = 0
-  const songs = manifest.entries.map((entry): SessionSongItem =>
-    contents[entry.contentHash]
-      ? mapped[next++]
-      : {
-          entryId: entry.entryId,
-          url: '',
-          title: 'Song unavailable',
-          status: 'error',
-          errorMessage: 'The host’s version of this song could not be loaded.',
-        },
-  )
+  const songs = sessionSongsFromSnapshot({ v: 2, name: manifest.name, songs: present })
   return { name: manifest.name, songs }
 }
 

@@ -48,7 +48,6 @@ const getSong = async (url: string): Promise<Song | null> =>
 const item = (name: string, over: Partial<SessionSongItem> = {}): SessionSongItem => ({
   entryId: `e-${name}`,
   url: `https://x.test/${name}`,
-  status: 'ok',
   ...over,
 })
 
@@ -125,16 +124,17 @@ describe('buildLyricsSyncPayload', () => {
     expect(payload?.songs[0].sections[0].lines).toEqual(['Lyrics for a'])
   })
 
-  it('skips empty, oversized, unready and missing sets', async () => {
+  it('skips empty and oversized sets', async () => {
     expect((await buildLyricsSyncPayload(makeSession([]), getSong)).reason).toBe('empty')
 
     const many = Array.from({ length: MAX_SHARED_LYRICS_SONGS + 1 }, (_, i) => item(`s${i}`))
     expect((await buildLyricsSyncPayload(makeSession(many), getSong)).reason).toBe('too_many')
+  })
 
-    const loading = makeSession([item('a', { status: 'loading' })])
-    expect((await buildLyricsSyncPayload(loading, getSong)).payload).toBeNull()
-
-    expect((await buildLyricsSyncPayload(makeSession(), async () => null)).payload).toBeNull()
+  it('rejects when a song is missing from the cache', async () => {
+    await expect(
+      buildLyricsSyncPayload(makeSession([item('a')]), async () => null),
+    ).rejects.toThrow('Song not found in cache: https://x.test/a')
   })
 })
 

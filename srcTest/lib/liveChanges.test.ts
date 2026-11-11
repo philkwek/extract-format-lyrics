@@ -10,7 +10,6 @@ const song = (id: string, over: Partial<SessionSongItem> = {}): SessionSongItem 
   entryId: id,
   url: `https://example.test/${id}`,
   title: id.toUpperCase(),
-  status: 'ok',
   ...over,
 })
 const set = (songs: SessionSongItem[], name = 'Sunday'): Session => ({

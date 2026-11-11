@@ -61,7 +61,6 @@ const song = (n: string): Song => ({
 const item = (n: string, over: Record<string, unknown> = {}) => ({
   entryId: `e-${n}`,
   url: `https://x.test/${n}`,
-  status: 'ok' as const,
   ...over,
 })
 

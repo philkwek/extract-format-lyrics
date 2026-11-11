@@ -1,6 +1,12 @@
 import { scrapeApi, type SearchCandidate } from './api'
 import { songCache, type SongCache } from './songCache'
-import { sessionStore, type Session, type SessionSongItem, type SessionStore } from './sessionStore'
+import {
+  sessionStore,
+  type ImportFailure,
+  type Session,
+  type SessionSongItem,
+  type SessionStore,
+} from './sessionStore'
 import { splitUrls, validateUrls } from '../../functions/src/urls'
 import type { Song } from '../types/song'
 
@@ -32,12 +38,12 @@ export interface ParsedPastedSources {
 
 export interface ImportSourceDeps {
   cache: Pick<SongCache, 'getSong' | 'saveSong' | 'recordFailed' | 'getFailed'>
-  sessions: Pick<SessionStore, 'createSession' | 'addSongsToSession'>
+  /** Only needed when the import persists; loadSources ignores it. */
+  sessions?: Pick<SessionStore, 'createSession' | 'addSongsToSession'>
   scrape: typeof scrapeApi
 }
 
-export interface ImportSourcesOptions {
-  targetSessionId?: string
+export interface LoadSourcesOptions {
   invalidInputs?: InvalidImportInput[]
   requireAll?: boolean
   chunkSize?: number
@@ -47,16 +53,33 @@ export interface ImportSourcesOptions {
   deps?: Partial<ImportSourceDeps>
 }
 
-export interface ImportSourcesResult {
-  session: Session
-  items: SessionSongItem[]
-  imported: number
-  attempted: number
-  firstNewIndex: number
-  failures: Array<{ url: string; reason: string }>
+export interface ImportSourcesOptions extends LoadSourcesOptions {
+  targetSessionId?: string
 }
 
-interface LoadOutcome {
+export interface ImportOutcome {
+  url: string
+  item?: SessionSongItem
+  reason?: string
+}
+
+export interface LoadSourcesResult {
+  /** One per source, in source order. */
+  outcomes: ImportOutcome[]
+  /** Songs that loaded, in source order. */
+  items: SessionSongItem[]
+  /** Failed sources and invalid inputs. */
+  failures: ImportFailure[]
+  imported: number
+  attempted: number
+}
+
+export interface ImportSourcesResult extends LoadSourcesResult {
+  session: Session | null
+  firstNewIndex: number
+}
+
+interface LoadedSource {
   song?: Song
   reason?: string
 }
@@ -85,18 +108,17 @@ export function sourceFromCandidate(candidate: SearchCandidate): ImportSource {
 }
 
 /**
- * Imports one or more chord-sheet sources into a new or existing setlist.
+ * Loads every source into a song item or a failure, without touching the session store.
  *
- * The pipeline is intentionally shared by paste imports and search results:
- * validate/cache lookup -> scrape uncached URLs in chunks -> persist once.
+ * The pipeline is shared by paste imports and set links:
+ * cache lookup -> scrape uncached URLs in chunks -> report each source's outcome.
  */
-export async function importSources(
+export async function loadSources(
   sources: ImportSource[],
-  options: ImportSourcesOptions = {}
-): Promise<ImportSourcesResult> {
-  const deps: ImportSourceDeps = {
+  options: LoadSourcesOptions = {}
+): Promise<LoadSourcesResult> {
+  const deps = {
     cache: options.deps?.cache ?? songCache,
-    sessions: options.deps?.sessions ?? sessionStore,
     scrape: options.deps?.scrape ?? scrapeApi,
   }
   const invalidInputs = options.invalidInputs ?? []
@@ -108,7 +130,7 @@ export async function importSources(
       message: input.reason,
     })),
   ]
-  const outcomes: LoadOutcome[] = new Array(sources.length)
+  const loaded: LoadedSource[] = new Array(sources.length)
   const uncached: Array<{ source: ImportSource; index: number }> = []
 
   const emitProgress = () => options.onProgress?.(statuses.map((status) => ({ ...status })))
@@ -123,7 +145,7 @@ export async function importSources(
     const source = sources[index]
     const cached = await deps.cache.getSong(source.url)
     if (cached) {
-      outcomes[index] = { song: cached }
+      loaded[index] = { song: cached }
       updateStatus(source.url, { status: 'cached', message: 'Loaded from cache' })
       emitProgress()
       continue
@@ -140,8 +162,8 @@ export async function importSources(
       }
     }
     if (recentFailure) {
-      const reason = `Recent attempt failed: ${recentFailure}. Retry to try again.`
-      outcomes[index] = { reason }
+      const reason = `Recent attempt failed: ${recentFailure}. Try again in a minute.`
+      loaded[index] = { reason }
       updateStatus(source.url, { status: 'error', message: reason })
       emitProgress()
       continue
@@ -167,11 +189,11 @@ export async function importSources(
         if (result?.status === 'ok' && result.song) {
           try {
             await deps.cache.saveSong(result.song, source.url)
-            outcomes[index] = { song: result.song }
+            loaded[index] = { song: result.song }
             updateStatus(source.url, { status: 'done', message: undefined })
           } catch (err) {
             const reason = errorMessage(err, 'Could not save song')
-            outcomes[index] = { reason }
+            loaded[index] = { reason }
             updateStatus(source.url, { status: 'error', message: reason })
           }
         } else {
@@ -181,84 +203,90 @@ export async function importSources(
           } catch {
             // Failure markers are best-effort; the import result is still valid.
           }
-          outcomes[index] = { reason }
+          loaded[index] = { reason }
           updateStatus(source.url, { status: 'error', message: reason })
         }
       }
     } catch (err) {
       const reason = errorMessage(err, 'Network error')
       for (const { source, index } of chunk) {
-        outcomes[index] = { reason }
+        loaded[index] = { reason }
         updateStatus(source.url, { status: 'error', message: reason })
       }
     }
     emitProgress()
   }
 
-  const failures = outcomes.flatMap((outcome, index) =>
-    outcome.song ? [] : [{ url: sources[index].url, reason: outcome.reason || 'Import failed' }]
-  )
-  const allFailures = [
-    ...failures,
-    ...invalidInputs.map((input) => ({ url: input.input, reason: input.reason })),
-  ]
-
-  if (options.requireAll && allFailures.length > 0) {
-    throw new Error(allFailures[0].reason)
-  }
-
-  const items: SessionSongItem[] = sources.map((source, index) => {
-    const outcome = outcomes[index]
-    if (outcome.song) {
-      return {
-        url: outcome.song.sourceUrl,
-        title: source.title ?? outcome.song.title,
-        artist: source.artist ?? outcome.song.artist,
-        status: 'ok',
-      }
+  const outcomes: ImportOutcome[] = sources.map((source, index) => {
+    const outcome = loaded[index]
+    if (!outcome.song) {
+      return { url: source.url, reason: outcome.reason || 'Import failed' }
     }
     return {
       url: source.url,
-      title: source.title,
-      artist: source.artist,
-      status: 'error',
-      errorMessage: outcome.reason || 'Import failed',
+      item: {
+        url: outcome.song.sourceUrl,
+        title: source.title ?? outcome.song.title,
+        artist: source.artist ?? outcome.song.artist,
+      },
     }
   })
+  const items = outcomes.flatMap((outcome) => (outcome.item ? [outcome.item] : []))
+  const failures: ImportFailure[] = [
+    ...outcomes.flatMap((outcome) =>
+      outcome.item ? [] : [{ url: outcome.url, reason: outcome.reason || 'Import failed' }]
+    ),
+    ...invalidInputs.map((input) => ({ url: input.input, reason: input.reason })),
+  ]
 
-  for (const invalid of invalidInputs) {
-    items.push({
-      url: invalid.input,
-      status: 'error',
-      errorMessage: invalid.reason,
-    })
+  if (options.requireAll && failures.length > 0) {
+    throw new Error(failures[0].reason)
   }
 
-  const imported = outcomes.filter((outcome) => outcome.song).length
-  const attempted = sources.length + invalidInputs.length
+  return {
+    outcomes,
+    items,
+    failures,
+    imported: items.length,
+    attempted: sources.length + invalidInputs.length,
+  }
+}
+
+/**
+ * Imports one or more chord-sheet sources into a new or existing setlist.
+ *
+ * Loading is done by loadSources; this function performs the single session write.
+ * A set is never created for an import where no song loaded.
+ */
+export async function importSources(
+  sources: ImportSource[],
+  options: ImportSourcesOptions = {}
+): Promise<ImportSourcesResult> {
+  const loaded = await loadSources(sources, options)
+  const sessions = options.deps?.sessions ?? sessionStore
 
   if (options.targetSessionId) {
-    const appended = await deps.sessions.addSongsToSession(options.targetSessionId, items)
+    const appended = await sessions.addSongsToSession(
+      options.targetSessionId,
+      loaded.items,
+      loaded.failures
+    )
     if (!appended) throw new Error('Setlist is unavailable')
     return {
+      ...loaded,
       session: appended.session,
-      items,
-      imported,
-      attempted,
       firstNewIndex: appended.firstNewIndex,
-      failures,
     }
   }
 
-  const session = await deps.sessions.createSession(items)
-  return {
-    session,
-    items,
-    imported,
-    attempted,
-    firstNewIndex: 0,
-    failures,
+  if (loaded.items.length === 0) {
+    return { ...loaded, session: null, firstNewIndex: 0 }
   }
+
+  const session = await sessions.createSession(loaded.items, undefined, {
+    importFailures: loaded.failures,
+  })
+  return { ...loaded, session, firstNewIndex: 0 }
 }
 
 function errorMessage(err: unknown, fallback: string): string {

@@ -100,7 +100,7 @@ export default function AddSongSearchPanel({
       })
       trackSongImport('search', result.imported, 1)
       setAddedUrls((previous) => new Set(previous).add(candidate.url))
-      await onSessionUpdated(result.session, result.firstNewIndex)
+      if (result.session) await onSessionUpdated(result.session, result.firstNewIndex)
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not add song: ${(err as Error).message}`)

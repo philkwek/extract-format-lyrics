@@ -45,7 +45,6 @@ export function buildSetLinkPayload(session: Session): BuildSetLinkPayloadResult
   const songs: SetLinkSong[] = []
   let skippedUploads = 0
   for (const item of session.songs) {
-    if (item.status === 'error') continue
     if (!item.url || !isHttpUrl(item.url)) {
       if (item.url?.startsWith('upload://')) skippedUploads++
       continue
@@ -249,7 +248,16 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
     if (deps.shouldSync && !(await deps.shouldSync(session))) {
       return { ok: false, reason: 'failed' }
     }
-    const { payload, skippedUploads = 0, reason } = await deps.buildPayload(session)
+    let built: Awaited<ReturnType<SyncChannelDeps<P>['buildPayload']>>
+    try {
+      built = await deps.buildPayload(session)
+    } catch (error) {
+      // A payload that can't be built won't fix itself by retrying; report it and wait for a change.
+      console.warn(`[${deps.name}] buildPayload failed for ${sessionId}`, error)
+      deps.onStatus?.(sessionId, 'failing')
+      return { ok: false, reason: 'failed' }
+    }
+    const { payload, skippedUploads = 0, reason } = built
     if (!payload) {
       deps.onSkipped?.(sessionId, reason)
       return { ok: false, reason: reason ?? 'failed' }

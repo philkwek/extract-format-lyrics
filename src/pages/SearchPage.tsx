@@ -119,6 +119,7 @@ export default function SearchPage() {
       })
       trackSongImport('search', result.imported, 1)
       setAddedUrls((prev) => new Set(prev).add(candidate.url))
+      if (!result.session) return
       navigate(
         targetSessionId
           ? `${sessionPath(result.session)}?song=${result.firstNewIndex}`
@@ -157,6 +158,10 @@ export default function SearchPage() {
         onProgress: setPasteStatuses,
       })
       trackSongImport('pasted_link', result.imported, tokenCount)
+      if (!result.session || result.imported === 0) {
+        setPasteError('None of these links could be added. Check the details below.')
+        return
+      }
       navigate(
         targetSessionId
           ? `${sessionPath(result.session)}?song=${result.firstNewIndex}`

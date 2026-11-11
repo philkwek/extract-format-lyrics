@@ -46,6 +46,7 @@ describe('SearchPage import wiring', () => {
     vi.mocked(importSources).mockResolvedValue({
       session: { id: 'session-1', createdAt: 0, name: 'Sunday Set', songs: [] },
       items: [],
+      outcomes: [],
       imported: 1,
       attempted: 1,
       firstNewIndex: 3,
@@ -244,6 +245,7 @@ describe('SearchPage import wiring', () => {
     vi.mocked(importSources).mockResolvedValue({
       session: { id: 'new-session', createdAt: 0, name: 'New Set', songs: [] },
       items: [],
+      outcomes: [],
       imported: 1,
       attempted: 1,
       firstNewIndex: 0,

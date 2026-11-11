@@ -51,7 +51,6 @@ const mockSession: Session = {
       url: mockSong.sourceUrl,
       title: mockSong.title,
       artist: mockSong.artist,
-      status: 'ok',
     },
   ],
 }
