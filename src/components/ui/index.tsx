@@ -159,7 +159,7 @@ export function StatusBanner({ tone = 'info', icon, className, children, ...prop
       {...props}
     >
       {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
-      <div>{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   )
 }

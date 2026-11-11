@@ -1360,7 +1360,7 @@ export default function SessionPage() {
               </p>
               {previewChanges && <p className="text-xs">{previewChanges}</p>}
             </div>
-            <span className="flex flex-wrap gap-2">
+            <span className="ml-auto flex flex-wrap justify-end gap-2">
               {savedCopy ? (
                 <>
                   <Button
@@ -1403,7 +1403,7 @@ export default function SessionPage() {
                   ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
                   : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
             </span>
-            <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={dismissSetLinkBanner}>
               Dismiss
             </Button>
           </div>
@@ -1428,7 +1428,12 @@ export default function SessionPage() {
                 ))}
               </ul>
             </div>
-            <Button size="sm" variant="ghost" onClick={handleDismissImportFailures}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto"
+              onClick={handleDismissImportFailures}
+            >
               Dismiss
             </Button>
           </div>
