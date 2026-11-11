@@ -16,3 +16,10 @@ export const liveToneButtonClasses: Record<LiveTone, string> = {
   reconnecting: 'ui-button--reconnecting',
   ended: '',
 }
+
+/** The banner's status dot: pulses while the set is still following the host. */
+export const liveDotClasses: Record<LiveTone, string> = {
+  live: 'bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400',
+  reconnecting: 'bg-amber-500 motion-safe:animate-pulse dark:bg-amber-400',
+  ended: 'bg-[var(--ui-text-muted)]',
+}

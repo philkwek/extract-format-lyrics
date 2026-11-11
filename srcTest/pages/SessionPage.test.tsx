@@ -692,7 +692,7 @@ describe('SessionPage set links', () => {
     renderAt(`/session/${PUBLIC_ID}`)
 
     expect(
-      await screen.findByText('This is a preview. Save it to keep it in your sets.'),
+      await screen.findByText('This is a shared set. Save to keep it on your device.'),
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
@@ -728,7 +728,7 @@ describe('SessionPage set links', () => {
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
-    await screen.findByText('This is a preview. Save it to keep it in your sets.')
+    await screen.findByText('This is a shared set. Save to keep it on your device.')
     const select = (await screen.findAllByLabelText('Transpose song'))[0]
     fireEvent.change(select, { target: { value: 'A' } })
 

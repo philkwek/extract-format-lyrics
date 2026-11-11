@@ -64,9 +64,10 @@ describe('UI primitives', () => {
       </StatusBanner>,
     )
 
-    const banner = screen.getByRole('status')
-    expect(banner.textContent).toBe('Set savedIt won’t update.Dismiss')
-    expect(banner.hasAttribute('title')).toBe(false)
+    const message = screen.getByRole('status')
+    expect(message.textContent).toBe('Set savedIt won’t update.')
+    expect(message.contains(screen.getByRole('button', { name: 'Dismiss' }))).toBe(false)
+    expect(message.closest('[title]')).toBeNull()
   })
 
   it('updates segmented selection with accessible tab state', async () => {

@@ -75,6 +75,7 @@ import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import type { Song, Section } from '../types/song'
 import { Button, IconButton, LivePill, StatusBanner } from '../components/ui'
 import {
+  liveDotClasses,
   liveToneButtonClasses,
   liveToneClasses,
   type LiveTone,
@@ -1451,34 +1452,25 @@ export default function SessionPage() {
       )}
 
       {!isFullScreen && session.liveSourceId && (
-        <div
-          className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${liveToneClasses[followTone]}`}
-        >
-          <Radio size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div role="status" className="min-w-0">
-              <p className="flex items-center gap-1.5 font-semibold">
-                {shownFollowStatus === 'live' && (
-                  <span
-                    className="h-2 w-2 rounded-full bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400"
-                    aria-hidden="true"
-                  />
-                )}
-                {followTitle}
-              </p>
-              <p className="text-xs text-[var(--ui-text-muted)]">{followText}</p>
-            </div>
+        <StatusBanner
+          tone={null}
+          className={liveToneClasses[followTone]}
+          icon={<span className={`h-2.5 w-2.5 rounded-full ${liveDotClasses[followTone]}`} />}
+          title={followTitle}
+          actions={
             <Button
               size="sm"
               variant="secondary"
-              className={`ml-auto ${liveToneButtonClasses[followTone]}`}
+              className={liveToneButtonClasses[followTone]}
               icon={<CopyPlus size={14} />}
               onClick={makeCopy}
             >
               Create a copy
             </Button>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-[var(--ui-text-muted)]">{followText}</p>
+        </StatusBanner>
       )}
 
       {/* Session Title Bar */}

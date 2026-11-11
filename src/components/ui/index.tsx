@@ -147,7 +147,8 @@ export function Surface({ as: Component = 'section', elevated = false, className
 export type StatusTone = 'info' | 'success' | 'warning' | 'error'
 
 interface StatusBannerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
-  tone?: StatusTone
+  /** null leaves the colours to className, e.g. the live set tones. */
+  tone?: StatusTone | null
   icon?: ReactNode
   /** Short bold heading shown above the message. */
   title?: ReactNode
@@ -165,12 +166,8 @@ export function StatusBanner({
   ...props
 }: StatusBannerProps) {
   return (
-    <div
-      role={tone === 'error' ? 'alert' : 'status'}
-      className={classes('ui-status', `ui-status--${tone}`, className)}
-      {...props}
-    >
-      <div className="ui-status__message">
+    <div className={classes('ui-status', tone && `ui-status--${tone}`, className)} {...props}>
+      <div role={tone === 'error' ? 'alert' : 'status'} className="ui-status__message">
         {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
         <div className="min-w-0 flex-1">
           {title && <p className="font-semibold">{title}</p>}
