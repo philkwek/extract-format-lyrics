@@ -544,7 +544,11 @@ describe('uniqueSetName', () => {
     expect(uniqueSetName('Sunday - Copy #1', ['Sunday', 'Sunday - Copy #1'])).toBe(
       'Sunday - Copy #2',
     )
-    expect(uniqueSetName('Sunday - Copy', ['Sunday'])).toBe('Sunday - Copy #1')
+    expect(uniqueSetName('Sunday - Copy', ['Sunday', 'Sunday - Copy'])).toBe('Sunday - Copy #1')
+  })
+
+  it('keeps a copy-style name that does not clash', () => {
+    expect(uniqueSetName('Sunday - Copy #2', ['Sunday'])).toBe('Sunday - Copy #2')
   })
 
   it('fills gaps in the numbering', () => {

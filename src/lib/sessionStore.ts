@@ -97,8 +97,8 @@ export function mergeImportFailures(
 
 /** Picks a copy name that avoids existing sets, filling gaps in the numbering. */
 export function uniqueSetName(name: string, existingNames: string[]): string {
+  if (!existingNames.includes(name)) return name
   const base = name.replace(/ - Copy(?: #\d+)?$/, '').trim()
-  if (!existingNames.includes(base)) return base
   let n = 1
   while (existingNames.includes(`${base} - Copy #${n}`)) n += 1
   return `${base} - Copy #${n}`
