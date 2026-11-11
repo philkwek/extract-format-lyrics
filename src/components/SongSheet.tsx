@@ -766,7 +766,7 @@ export default function SongSheet({
                           onDeleteSection(originalIndex)
                         }}
                         title={`Delete ${section.label || 'this section'}`}
-                        className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-neutral-200 dark:hover:bg-[#252525] transition-colors cursor-pointer ml-2 shrink-0"
+                        className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors cursor-pointer ml-2 shrink-0"
                       >
                         ✕
                       </button>
