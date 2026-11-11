@@ -644,7 +644,7 @@ describe('SessionPage set links', () => {
       },
     ],
     failures: [],
-    snapshot: [{ entryId: 'entry-1', url: fixtures.song.sourceUrl }],
+    snapshot: [{ entryId: 'entry-1' }],
   }
   const savedCopy = {
     ...fixtures.session,
@@ -735,8 +735,8 @@ describe('SessionPage set links', () => {
     const copy = {
       ...savedCopy,
       linkSnapshot: [
-        { entryId: 'entry-1', url: fixtures.song.sourceUrl, targetKey: 'G' },
-        { entryId: 'entry-2', url: 'https://example.test/second' },
+        { entryId: 'entry-1', targetKey: 'G' },
+        { entryId: 'entry-2' },
       ],
     }
     const changedPreview = {
@@ -747,9 +747,9 @@ describe('SessionPage set links', () => {
         { entryId: 'entry-3', url: 'https://example.test/third', title: 'Third Song' },
       ],
       snapshot: [
-        { entryId: 'entry-1', url: fixtures.song.sourceUrl, targetKey: 'A' },
-        { entryId: 'entry-2', url: 'https://example.test/second' },
-        { entryId: 'entry-3', url: 'https://example.test/third' },
+        { entryId: 'entry-1', targetKey: 'A' },
+        { entryId: 'entry-2' },
+        { entryId: 'entry-3' },
       ],
     }
     mockLinkSessions({ [copy.publicId]: copy })
@@ -797,6 +797,17 @@ describe('SessionPage set links', () => {
     )
   })
 
+  it('names what it compared when nothing was added, removed or re-keyed', async () => {
+    const copy = { ...savedCopy, linkSnapshot: preview.snapshot }
+    mockLinkSessions({ [copy.publicId]: copy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(copy as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+
+    expect(await screen.findByText('No songs added, removed or re-keyed.')).toBeTruthy()
+  })
+
   it('does not show a change line for a saved copy without a snapshot', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
@@ -808,7 +819,7 @@ describe('SessionPage set links', () => {
       await screen.findByText('You saved a copy of this set before.'),
     ).toBeTruthy()
     expect(screen.queryByText(/Since you saved it/)).toBeNull()
-    expect(screen.queryByText(/Nothing has changed/)).toBeNull()
+    expect(screen.queryByText(/re-keyed/)).toBeNull()
   })
 
   it('shows preview failures and dismisses them without saving that', async () => {

@@ -140,7 +140,7 @@ function describeLinkChanges({
   ].filter(Boolean)
   return parts.length > 0
     ? `Since you saved it: ${parts.join(', ')}.`
-    : 'Nothing has changed since you saved it.'
+    : 'No songs added, removed or re-keyed.'
 }
 
 export default function SessionPage() {

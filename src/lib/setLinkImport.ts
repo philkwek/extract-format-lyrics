@@ -43,9 +43,8 @@ function itemsFromOutcomes(outcomes: ImportOutcome[], songs: SetLinkSong[]): Ses
 }
 
 function snapshotFromSongs(songs: SetLinkSong[]): LinkSnapshotEntry[] {
-  return songs.map(({ entryId, url, targetKey }) => ({
+  return songs.map(({ entryId, targetKey }) => ({
     entryId,
-    url,
     ...(targetKey !== undefined ? { targetKey } : {}),
   }))
 }

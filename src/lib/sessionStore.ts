@@ -15,7 +15,6 @@ export interface ImportFailure {
 
 export interface LinkSnapshotEntry {
   entryId: string
-  url: string
   targetKey?: string
 }
 

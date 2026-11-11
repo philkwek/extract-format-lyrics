@@ -104,8 +104,8 @@ describe('loadSetLinkPreview', () => {
         ],
         failures: [],
         snapshot: [
-          { entryId: 'e1', url: 'https://a.test/1', targetKey: 'A' },
-          { entryId: 'e2', url: 'https://a.test/2' },
+          { entryId: 'e1', targetKey: 'A' },
+          { entryId: 'e2' },
         ],
       },
     })
@@ -196,8 +196,8 @@ const preview: SetLinkPreview = {
   items: [{ entryId: 'e1', url: 'https://a.test/1', title: 'One', targetKey: 'A' }],
   failures: [{ url: 'https://a.test/2', reason: 'nope' }],
   snapshot: [
-    { entryId: 'e1', url: 'https://a.test/1', targetKey: 'A' },
-    { entryId: 'e2', url: 'https://a.test/2' },
+    { entryId: 'e1', targetKey: 'A' },
+    { entryId: 'e2' },
   ],
 }
 
@@ -229,21 +229,21 @@ describe('savePreviewAsNew', () => {
 describe('diffLinkSnapshot', () => {
   it('counts added, removed and key changes by entryId', () => {
     const saved = [
-      { entryId: 'a', url: 'https://a.test/1', targetKey: 'G' },
-      { entryId: 'b', url: 'https://a.test/2' },
-      { entryId: 'c', url: 'https://a.test/3' },
+      { entryId: 'a', targetKey: 'G' },
+      { entryId: 'b' },
+      { entryId: 'c' },
     ]
     const latest = [
-      { entryId: 'a', url: 'https://a.test/1', targetKey: 'A' },
-      { entryId: 'b', url: 'https://a.test/2', targetKey: 'C' },
-      { entryId: 'd', url: 'https://a.test/4' },
+      { entryId: 'a', targetKey: 'A' },
+      { entryId: 'b', targetKey: 'C' },
+      { entryId: 'd' },
     ]
 
     expect(diffLinkSnapshot(saved, latest)).toEqual({ added: 1, removed: 1, keyChanged: 2 })
   })
 
   it('returns zeros for a copy saved before snapshots existed', () => {
-    expect(diffLinkSnapshot(undefined, [{ entryId: 'a', url: 'https://a.test/1' }])).toEqual({
+    expect(diffLinkSnapshot(undefined, [{ entryId: 'a' }])).toEqual({
       added: 0,
       removed: 0,
       keyChanged: 0,

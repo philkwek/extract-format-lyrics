@@ -247,7 +247,7 @@ describe('SessionStore', () => {
 
     it('stores a link snapshot on create', async () => {
       const { store } = makeStores()
-      const snapshot = [{ entryId: 'e1', url: 'https://x.test/a', targetKey: 'G' }]
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
       const s = await store.createSession([{ url: 'https://x.test/a' }], 'A', {
         linkSnapshot: snapshot,
       })
@@ -258,7 +258,7 @@ describe('SessionStore', () => {
 
     it('keeps an existing link snapshot when updating a session without one', async () => {
       const { store, seed } = makeStores()
-      const snapshot = [{ entryId: 'e1', url: 'https://x.test/a', targetKey: 'G' }]
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
       seed([
         {
           id: 'old',
@@ -488,7 +488,7 @@ describe('SessionStore', () => {
           importFailures: [{ url: 'https://x.test/old-bad', reason: 'Old' }],
         },
       )
-      const snapshot = [{ entryId: 'e1', url: 'https://x.test/new', targetKey: 'G' }]
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
 
       const replaced = await store.replaceSongsFromLink(
         session.id,

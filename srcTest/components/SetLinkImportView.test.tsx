@@ -33,7 +33,7 @@ const preview = {
     },
   ],
   failures: [],
-  snapshot: [{ entryId: 'entry-1', url: 'https://example.test/great-are-you-lord' }],
+  snapshot: [{ entryId: 'entry-1' }],
 }
 
 const savedCopy = {
