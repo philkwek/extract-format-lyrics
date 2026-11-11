@@ -13,6 +13,11 @@ export interface ImportFailure {
   reason: string
 }
 
+export interface LinkSnapshotEntry {
+  entryId: string
+  targetKey?: string
+}
+
 export const MAX_IMPORT_FAILURES = 30
 
 export interface SessionSongItem {
@@ -51,6 +56,8 @@ export interface Session {
   liveEnded?: 'stopped' | 'expired'
   /** Links that failed to import; shown until dismissed, never copied or shared. */
   importFailures?: ImportFailure[]
+  /** The set link when this copy was saved; used to show what the sender changed since. */
+  linkSnapshot?: LinkSnapshotEntry[]
 }
 
 export interface SessionChangeEvent {
@@ -67,6 +74,7 @@ export interface CreateSessionOptions {
   lastHostHash?: string
   liveRev?: number
   importFailures?: ImportFailure[]
+  linkSnapshot?: LinkSnapshotEntry[]
 }
 
 export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
@@ -85,6 +93,15 @@ export function mergeImportFailures(
   }
   const merged = [...byUrl.values()].slice(-MAX_IMPORT_FAILURES)
   return merged.length > 0 ? merged : undefined
+}
+
+/** Picks a copy name that avoids existing sets, filling gaps in the numbering. */
+export function uniqueSetName(name: string, existingNames: string[]): string {
+  if (!existingNames.includes(name)) return name
+  const base = name.replace(/ - Copy(?: #\d+)?$/, '').trim()
+  let n = 1
+  while (existingNames.includes(`${base} - Copy #${n}`)) n += 1
+  return `${base} - Copy #${n}`
 }
 
 const SESSIONS_STORAGE_KEY = 'app_sessions'
@@ -219,6 +236,7 @@ export class SessionStore {
       ...(options.lastHostHash ? { lastHostHash: options.lastHostHash } : {}),
       ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
       ...(importFailures ? { importFailures } : {}),
+      ...(options.linkSnapshot ? { linkSnapshot: options.linkSnapshot } : {}),
       createdAt: now,
       name: name || formatDefaultSessionName(new Date(now)),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
@@ -232,7 +250,25 @@ export class SessionStore {
 
   /** Makes a normal set from this one: same songs and edits, none of the live or link fields. */
   async createSetCopy(session: Session): Promise<Session> {
-    return this.createSession(structuredClone(session.songs), `${session.name} - Copy`)
+    const names = (await this.getAllSessions()).map((existing) => existing.name)
+    return this.createSession(structuredClone(session.songs), uniqueSetName(session.name, names))
+  }
+
+  async replaceSongsFromLink(
+    sessionId: string,
+    songs: SessionSongItem[],
+    linkSnapshot: LinkSnapshotEntry[],
+    importFailures: ImportFailure[],
+  ): Promise<Session | null> {
+    const session = await this.getSession(sessionId)
+    if (!session) return null
+    session.songs = songs
+    session.linkSnapshot = linkSnapshot
+    const failures = mergeImportFailures(undefined, importFailures)
+    if (failures) session.importFailures = failures
+    else delete session.importFailures
+    await this.updateSession(session)
+    return session
   }
 
   async renameSession(id: string, newName: string): Promise<Session | null> {
@@ -255,6 +291,7 @@ export class SessionStore {
       session.importedFromLinkId ??= existing.importedFromLinkId
       session.liveSourceId ??= existing.liveSourceId
       session.liveEnded ??= existing.liveEnded
+      session.linkSnapshot ??= existing.linkSnapshot
       // A save from an older copy of the set must not roll the host revision back.
       if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
         session.liveRev = existing.liveRev

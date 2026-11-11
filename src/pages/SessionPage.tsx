@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
+  AlertTriangle,
+  CheckCircle2,
+  CloudOff,
   CopyPlus,
+  Link2,
   GripVertical,
   Lightbulb,
   ListOrdered,
@@ -29,8 +33,16 @@ import {
 import { songCache } from '../lib/songCache'
 import { ensureSetLinkFresh } from '../lib/setLinkSync'
 import { isSetLinkId } from '../lib/setLinkIdentity'
-import { importFromSetLinkOnce } from '../lib/setLinkImport'
-import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
+import {
+  diffLinkSnapshot,
+  savePreviewAsNew,
+  type SetLinkPreview,
+} from '../lib/setLinkImport'
+import SetLinkImportView, {
+  type SetLinkFallback,
+  type SetLinkNavState,
+} from '../components/SetLinkImportView'
+import OverlayDialog from '../components/ui/OverlayDialog'
 import { simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
 import {
@@ -49,6 +61,7 @@ import TransposeSelector from '../components/TransposeSelector'
 import ShareMenuModal from '../components/ShareMenuModal'
 import LiveShareChip from '../components/share/LiveShareChip'
 import HostChangeToast, { type HostNote } from '../components/share/HostChangeToast'
+import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
@@ -65,6 +78,7 @@ import ChordPositionToolbar from '../components/ChordPositionToolbar'
 import type { Song, Section } from '../types/song'
 import { Button, IconButton, LivePill, StatusBanner } from '../components/ui'
 import {
+  liveDotClasses,
   liveToneButtonClasses,
   liveToneClasses,
   type LiveTone,
@@ -104,6 +118,32 @@ interface PositioningChordState {
   currentPos: number
 }
 
+const FALLBACK_TITLES: Record<SetLinkFallback, string> = {
+  expired: 'This set link has expired',
+  missing: 'This set link no longer exists',
+  empty: 'None of the songs could be loaded',
+  error: 'Couldn\u2019t load the latest version',
+}
+
+function describeLinkChanges({
+  added,
+  removed,
+  keyChanged,
+}: {
+  added: number
+  removed: number
+  keyChanged: number
+}): string {
+  const parts = [
+    added ? `${added} song${added === 1 ? '' : 's'} added` : '',
+    removed ? `${removed} removed` : '',
+    keyChanged ? `${keyChanged} key${keyChanged === 1 ? '' : 's'} changed` : '',
+  ].filter(Boolean)
+  return parts.length > 0
+    ? `Since you saved it: ${parts.join(', ')}.`
+    : 'No songs added, removed or re-keyed.'
+}
+
 export default function SessionPage() {
   useSeo({ title: 'Session | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -113,7 +153,13 @@ export default function SessionPage() {
   const fromSetLink = (location.state as Partial<SetLinkNavState> | null)?.fromSetLink
   // Keyed by id: after navigating to a new copy, a stale "not found" must not render the import view for it.
   const [notFoundId, setNotFoundId] = useState<string | null>(null)
-  const [refreshingLink, setRefreshingLink] = useState(false)
+  const [linkPreview, setLinkPreview] = useState<{
+    preview: SetLinkPreview
+    copy: Session | null
+  } | null>(null)
+  const [savingPreview, setSavingPreview] = useState(false)
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false)
+  const [previewError, setPreviewError] = useState<ChangeNote | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
@@ -256,6 +302,20 @@ export default function SessionPage() {
   }, [])
 
   const following = Boolean(session?.liveSourceId)
+  const handleSavePreview = useCallback(async () => {
+    if (!linkPreview) return
+    setSavingPreview(true)
+    try {
+      const saved = await savePreviewAsNew(linkPreview.preview, !linkPreview.copy)
+      const nav: SetLinkNavState = { fromSetLink: { kind: 'saved', name: saved.name } }
+      navigate(sessionPath(saved), { replace: true, state: nav })
+    } catch (err) {
+      console.error('Could not save the shared set', err)
+      setPreviewError({ text: 'Couldn\u2019t save the set. Try again.' })
+    } finally {
+      setSavingPreview(false)
+    }
+  }, [linkPreview, navigate])
   const {
     guard,
     dialog: editGuardDialog,
@@ -265,6 +325,7 @@ export default function SessionPage() {
     following,
     sessionId: session?.id,
     controllerRef: followRef,
+    onSavePreview: linkPreview ? handleSavePreview : undefined,
   })
   const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs
 
@@ -273,7 +334,9 @@ export default function SessionPage() {
     sessionStore.getSession(sessionId).then(async (s) => {
       setRemovedByHost(null)
       setHostChanges(null)
+      setLinkPreview(null)
       if (!s) {
+        setSession(null)
         setNotFoundId(sessionId)
         return
       }
@@ -1178,7 +1241,23 @@ export default function SessionPage() {
     guard(() => void handleSelectCustomPadKey(key))
 
   if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
-    return <SetLinkImportView linkId={sessionId} />
+    return (
+      <SetLinkImportView
+        linkId={sessionId}
+        onPreview={(preview, copy) => {
+          const previewSession: Session = {
+            id: preview.linkId,
+            createdAt: 0,
+            name: preview.name,
+            songs: preview.items,
+            ...(preview.failures.length > 0 ? { importFailures: preview.failures } : {}),
+          }
+          setLinkPreview({ preview, copy })
+          adoptSession(previewSession)
+          void loadSessionSongs(previewSession)
+        }}
+      />
+    )
   }
 
   if (!session) {
@@ -1252,23 +1331,46 @@ export default function SessionPage() {
 
   const importFailures = session.importFailures ?? []
   const handleDismissImportFailures = async () => {
+    if (linkPreview) {
+      adoptSession({ ...session, importFailures: undefined })
+      return
+    }
     const updated = await sessionStore.dismissImportFailures(session.id)
     if (updated) adoptSession(updated)
   }
 
-  const getLatestFromSetLink = async () => {
-    if (!session.importedFromLinkId || refreshingLink) return
-    setRefreshingLink(true)
+  const fallbackTitle =
+    fromSetLink && fromSetLink.kind !== 'saved' && fromSetLink.kind !== 'updated'
+      ? FALLBACK_TITLES[fromSetLink.kind]
+      : null
+  const savedCopy = linkPreview?.copy ?? null
+  const previewChanges =
+    linkPreview && savedCopy?.linkSnapshot
+      ? describeLinkChanges(diffLinkSnapshot(savedCopy.linkSnapshot, linkPreview.preview.snapshot))
+      : null
+
+  const handleUpdateCopy = async () => {
+    if (!linkPreview || !savedCopy) return
+    setSavingPreview(true)
     try {
-      const result = await importFromSetLinkOnce(session.importedFromLinkId, {}, true)
-      if (result.kind === 'imported') {
-        navigate(sessionPath(result.session), {
-          replace: true,
-          state: { fromSetLink: { name: result.session.name, reused: false } },
-        })
+      const updated = await sessionStore.replaceSongsFromLink(
+        savedCopy.id,
+        linkPreview.preview.items,
+        linkPreview.preview.snapshot,
+        linkPreview.preview.failures,
+      )
+      if (updated) {
+        const nav: SetLinkNavState = { fromSetLink: { kind: 'updated', name: updated.name } }
+        navigate(sessionPath(updated), { replace: true, state: nav })
+      } else {
+        setPreviewError({ text: 'Couldn\u2019t find your saved copy. Use Save as new instead.' })
       }
+    } catch (err) {
+      console.error('Could not update the saved copy', err)
+      setPreviewError({ text: 'Couldn\u2019t update your copy. Try again.' })
     } finally {
-      setRefreshingLink(false)
+      setSavingPreview(false)
+      setConfirmingUpdate(false)
     }
   }
 
@@ -1280,80 +1382,120 @@ export default function SessionPage() {
           : 'ui-surface space-y-5 p-4 sm:p-6'
       }
     >
-      {!isFullScreen && fromSetLink && (
-        <StatusBanner tone="info">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              {fromSetLink.reused
-                ? 'You already have a copy of this set. It won\u2019t update when the sender makes changes.'
-                : `This is your own copy of \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
-            </span>
-            <span className="flex gap-2">
-              {fromSetLink.reused && session.importedFromLinkId && (
-                <Button size="sm" variant="secondary" loading={refreshingLink} onClick={getLatestFromSetLink}>
-                  Get the latest version
+      {!isFullScreen && linkPreview && (
+        <StatusBanner
+          tone="info"
+          icon={<Link2 size={16} />}
+          title="Read-Only Preview"
+          actions={
+            savedCopy ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  loading={savingPreview}
+                  onClick={() => setConfirmingUpdate(true)}
+                >
+                  Update my copy
                 </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>Dismiss</Button>
-            </span>
-          </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={savingPreview}
+                  onClick={() => void handleSavePreview()}
+                >
+                  Save as new
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => navigate(sessionPath(savedCopy))}>
+                  Open my copy
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                loading={savingPreview}
+                onClick={() => void handleSavePreview()}
+              >
+                Save
+              </Button>
+            )
+          }
+        >
+          <p>
+            {savedCopy
+              ? 'You saved a copy of this set before.'
+              : 'This is a shared set. Save to keep it on your device.'}
+          </p>
+          {previewChanges && <p className="mt-1 text-xs">{previewChanges}</p>}
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && fromSetLink && (
+        <StatusBanner
+          tone="info"
+          icon={fallbackTitle ? <CloudOff size={16} /> : <CheckCircle2 size={16} />}
+          title={fallbackTitle ?? (fromSetLink.kind === 'updated' ? 'Copy Updated' : 'Set Saved')}
+          actions={
+            <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
+              Dismiss
+            </Button>
+          }
+        >
+          {fallbackTitle
+            ? 'Showing your saved copy of the shared set.'
+            : fromSetLink.kind === 'updated'
+              ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
+              : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
         </StatusBanner>
       )}
 
       {!isFullScreen && importFailures.length > 0 && (
-        <StatusBanner tone="warning">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 space-y-1">
-              <p>
-                {importFailures.length === 1
-                  ? 'This link couldn’t be added:'
-                  : `These ${importFailures.length} links couldn’t be added:`}
-              </p>
-              <ul className="space-y-0.5 text-xs">
-                {importFailures.map((failure) => (
-                  <li key={failure.url}>
-                    <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
-                    {failure.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <StatusBanner
+          tone="warning"
+          icon={<AlertTriangle size={16} />}
+          title={
+            importFailures.length === 1
+              ? 'This link couldn’t be added'
+              : `These ${importFailures.length} links couldn’t be added`
+          }
+          actions={
             <Button size="sm" variant="ghost" onClick={handleDismissImportFailures}>
               Dismiss
             </Button>
-          </div>
+          }
+        >
+          <ul className="mt-1 space-y-0.5 text-xs">
+            {importFailures.map((failure) => (
+              <li key={failure.url}>
+                <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
+                {failure.reason}
+              </li>
+            ))}
+          </ul>
         </StatusBanner>
       )}
 
       {!isFullScreen && session.liveSourceId && (
-        <div
-          className={`flex items-start gap-3 rounded-xl border p-3 text-sm ${liveToneClasses[followTone]}`}
-        >
-          <Radio size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div role="status" className="min-w-0">
-              <p className="flex items-center gap-1.5 font-semibold">
-                {shownFollowStatus === 'live' && (
-                  <span
-                    className="h-2 w-2 rounded-full bg-emerald-600 motion-safe:animate-pulse dark:bg-emerald-400"
-                    aria-hidden="true"
-                  />
-                )}
-                {followTitle}
-              </p>
-              <p className="text-xs text-[var(--ui-text-muted)]">{followText}</p>
-            </div>
+        <StatusBanner
+          tone={null}
+          className={liveToneClasses[followTone]}
+          icon={<span className={`h-2.5 w-2.5 rounded-full ${liveDotClasses[followTone]}`} />}
+          title={followTitle}
+          actions={
             <Button
               size="sm"
               variant="secondary"
-              className={`ml-auto ${liveToneButtonClasses[followTone]}`}
+              className={liveToneButtonClasses[followTone]}
               icon={<CopyPlus size={14} />}
               onClick={makeCopy}
             >
               Create a copy
             </Button>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-[var(--ui-text-muted)]">{followText}</p>
+        </StatusBanner>
       )}
 
       {/* Session Title Bar */}
@@ -1396,15 +1538,17 @@ export default function SessionPage() {
               {session.songs.length} song(s) in setlist
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<Share2 size={14} />}
-              onClick={handleOpenShareMenu}
-            >
-              Share
-            </Button>
+          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            {!linkPreview && (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Share2 size={14} />}
+                onClick={handleOpenShareMenu}
+              >
+                Share
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -1796,6 +1940,27 @@ export default function SessionPage() {
       )}
 
       {editGuardDialog}
+      <OverlayDialog
+        isOpen={confirmingUpdate}
+        onClose={() => setConfirmingUpdate(false)}
+        title="Update your copy?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingUpdate(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" loading={savingPreview} onClick={() => void handleUpdateCopy()}>
+              Update
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          Your copy will be replaced with this version of the shared set. Changes you made to your
+          copy will be lost.
+        </p>
+      </OverlayDialog>
 
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (
@@ -1914,6 +2079,11 @@ export default function SessionPage() {
 
       {/* Last, so it sits above the other bottom popovers. */}
       <HostChangeToast note={hostNote} onDismiss={dismissHostNote} />
+      <ChangeToast
+        note={previewError}
+        onDismiss={() => setPreviewError(null)}
+        icon={<AlertTriangle size={16} />}
+      />
     </div>
   )
 }

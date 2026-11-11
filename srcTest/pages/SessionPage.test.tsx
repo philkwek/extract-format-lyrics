@@ -8,7 +8,7 @@ import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
 import { simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
-import { importFromSetLinkOnce } from '../../src/lib/setLinkImport'
+import { loadSetLinkPreview, savePreviewAsNew } from '../../src/lib/setLinkImport'
 import {
   followLiveSet,
   type FollowHandlers,
@@ -62,8 +62,11 @@ vi.mock('../../src/lib/sessionStore', () => ({
     removeSongFromSession: vi.fn(),
     reorderSongsInSession: vi.fn(),
     renameSession: vi.fn(),
+    createSession: vi.fn(),
     createSetCopy: vi.fn(),
     dismissImportFailures: vi.fn(),
+    findByImportedLinkId: vi.fn(),
+    replaceSongsFromLink: vi.fn(),
   },
   makeEntryId: () => 'entry-2',
 }))
@@ -82,9 +85,16 @@ vi.mock('../../src/lib/liveFollow', () => ({
   followLiveSet: vi.fn(),
 }))
 
-vi.mock('../../src/lib/setLinkImport', () => ({
-  importFromSetLinkOnce: vi.fn(),
-}))
+vi.mock('../../src/lib/setLinkImport', async () => {
+  const actual = await vi.importActual<typeof import('../../src/lib/setLinkImport')>(
+    '../../src/lib/setLinkImport',
+  )
+  return {
+    loadSetLinkPreview: vi.fn(),
+    savePreviewAsNew: vi.fn(),
+    diffLinkSnapshot: actual.diffLinkSnapshot,
+  }
+})
 
 vi.mock('../../src/lib/songCache', () => ({
   songCache: {
@@ -622,43 +632,274 @@ function renderAt(entry: string | { pathname: string; state: unknown }) {
 }
 
 describe('SessionPage set links', () => {
+  const preview = {
+    linkId: PUBLIC_ID,
+    name: 'Shared Sunday',
+    items: [
+      {
+        entryId: 'entry-1',
+        url: fixtures.song.sourceUrl,
+        title: fixtures.song.title,
+        artist: fixtures.song.artist,
+      },
+    ],
+    failures: [],
+    snapshot: [{ entryId: 'entry-1' }],
+  }
+  const savedCopy = {
+    ...fixtures.session,
+    id: 'copy-1',
+    publicId: 'copypublicidcopypublic1',
+    importedFromLinkId: PUBLIC_ID,
+  }
+
+  beforeEach(() => {
+    vi.mocked(sessionStore.getSession).mockReset()
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    vi.mocked(sessionStore.createSession).mockClear()
+    vi.mocked(sessionStore.dismissImportFailures).mockClear()
+    vi.mocked(loadSetLinkPreview).mockReset()
+    vi.mocked(sessionStore.findByImportedLinkId).mockReset()
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValue(null)
+    vi.mocked(savePreviewAsNew).mockReset()
+    vi.mocked(sessionStore.replaceSongsFromLink).mockReset()
+    vi.mocked(songCache.getSong).mockResolvedValue(fixtures.song as never)
+  })
+
+  function mockLinkSessions(byId: Record<string, unknown>) {
+    vi.mocked(sessionStore.getSession).mockImplementation(
+      async (id: string) => (id === PUBLIC_ID ? null : (byId[id] ?? null)) as never,
+    )
+  }
+
   it('shows Session not found for an unknown non-link id', async () => {
     vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
     renderAt('/session/nope')
     expect(await screen.findByText(/Session not found/)).toBeTruthy()
-    expect(importFromSetLinkOnce).not.toHaveBeenCalled()
+    expect(loadSetLinkPreview).not.toHaveBeenCalled()
   })
 
-  it('imports an unknown set-link id and navigates to the copy', async () => {
-    const copy = {
+  it('opens a link as a preview without saving it', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+
+    expect(
+      await screen.findByText('This is a shared set. Save to keep it on your device.'),
+    ).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+    expect(sessionStore.createSession).not.toHaveBeenCalled()
+  })
+
+  it('saves a preview as a new set and opens it', async () => {
+    const saved = {
       ...fixtures.session,
-      id: 'copy-1',
-      publicId: 'copypublicidcopypublic1',
-      importFailures: [{ url: 'https://example.test/gone', reason: 'Page not found' }],
+      id: 'saved-1',
+      publicId: 'savedpublicidsavedpub',
+      name: 'Shared Sunday',
     }
-    vi.mocked(sessionStore.getSession).mockImplementation(async (id: string) =>
-      id === PUBLIC_ID ? null : (copy as never),
+    mockLinkSessions({ [saved.publicId]: saved })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(savePreviewAsNew).mockResolvedValueOnce(saved as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loc').textContent).toBe('/session/savedpublicidsavedpub'),
     )
-    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({
-      kind: 'imported',
-      session: copy,
+    expect(savePreviewAsNew).toHaveBeenCalledWith(preview, true)
+    expect(await screen.findByText(/Saved to your sets as/)).toBeTruthy()
+    expect(screen.getByText(/“Shared Sunday”/)).toBeTruthy()
+  })
+
+  it('asks to save the preview before an edit and does not save the edit', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    await screen.findByText('This is a shared set. Save to keep it on your device.')
+    const select = (await screen.findAllByLabelText('Transpose song'))[0]
+    fireEvent.change(select, { target: { value: 'A' } })
+
+    expect(await screen.findByText('Save to your sets?')).toBeTruthy()
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  it('updates the saved copy from the preview after confirmation', async () => {
+    const copy = {
+      ...savedCopy,
+      linkSnapshot: [
+        { entryId: 'entry-1', targetKey: 'G' },
+        { entryId: 'entry-2' },
+      ],
+    }
+    const changedPreview = {
+      ...preview,
+      items: [
+        preview.items[0],
+        { entryId: 'entry-2', url: 'https://example.test/second', title: 'Second Song' },
+        { entryId: 'entry-3', url: 'https://example.test/third', title: 'Third Song' },
+      ],
+      snapshot: [
+        { entryId: 'entry-1', targetKey: 'A' },
+        { entryId: 'entry-2' },
+        { entryId: 'entry-3' },
+      ],
+    }
+    mockLinkSessions({ [copy.publicId]: copy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({
+      kind: 'preview',
+      preview: changedPreview,
     } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(copy as never)
+    vi.mocked(sessionStore.replaceSongsFromLink).mockResolvedValueOnce(copy as never)
+
     renderAt(`/session/${PUBLIC_ID}`)
-    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copypublicidcopypublic1'))
-    expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
-    expect(screen.getByText(/This link couldn.t be added/)).toBeTruthy()
+
+    expect(
+      await screen.findByText('You saved a copy of this set before.'),
+    ).toBeTruthy()
+    expect(screen.getByText('Since you saved it: 1 song added, 1 key changed.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save as new' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open my copy' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update my copy' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Update' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loc').textContent).toBe(`/session/${copy.publicId}`),
+    )
+    expect(sessionStore.replaceSongsFromLink).toHaveBeenCalledWith(
+      'copy-1',
+      changedPreview.items,
+      changedPreview.snapshot,
+      changedPreview.failures,
+    )
+    expect(await screen.findByText(/Your copy now matches the shared set/)).toBeTruthy()
+  })
+
+  it('saves as a plain set when a copy is already saved', async () => {
+    const saved = { ...fixtures.session, id: 'saved-2', publicId: 'savedpublicidsavedpu2' }
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy, [saved.publicId]: saved })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(savePreviewAsNew).mockResolvedValueOnce(saved as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save as new' }))
+
+    await waitFor(() => expect(savePreviewAsNew).toHaveBeenCalledWith(preview, false))
+  })
+
+  it('tells the person when saving the preview fails', async () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(savePreviewAsNew).mockRejectedValueOnce(new Error('quota'))
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    expect(await screen.findAllByText('Couldn’t save the set. Try again.')).not.toHaveLength(0)
+    expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`)
+    logError.mockRestore()
+  })
+
+  it('tells the person when the saved copy is gone', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(sessionStore.replaceSongsFromLink).mockResolvedValueOnce(null)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Update my copy' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Update' }))
+
+    expect(
+      await screen.findAllByText('Couldn’t find your saved copy. Use Save as new instead.'),
+    ).not.toHaveLength(0)
+  })
+
+  it('saves as new only once on a double tap', async () => {
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(savePreviewAsNew).mockReturnValueOnce(new Promise(() => {}))
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    const button = await screen.findByRole('button', { name: 'Save as new' })
+    fireEvent.click(button)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save as new', busy: true }))
+
+    expect(savePreviewAsNew).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the saved copy from the preview banner', async () => {
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Open my copy' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loc').textContent).toBe(`/session/${savedCopy.publicId}`),
+    )
+  })
+
+  it('names what it compared when nothing was added, removed or re-keyed', async () => {
+    const copy = { ...savedCopy, linkSnapshot: preview.snapshot }
+    mockLinkSessions({ [copy.publicId]: copy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(copy as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+
+    expect(await screen.findByText('No songs added, removed or re-keyed.')).toBeTruthy()
+  })
+
+  it('does not show a change line for a saved copy without a snapshot', async () => {
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+
+    expect(
+      await screen.findByText('You saved a copy of this set before.'),
+    ).toBeTruthy()
+    expect(screen.queryByText(/Since you saved it/)).toBeNull()
+    expect(screen.queryByText(/re-keyed/)).toBeNull()
+  })
+
+  it('shows preview failures and dismisses them without saving that', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({
+      kind: 'preview',
+      preview: {
+        ...preview,
+        failures: [{ url: 'https://example.test/gone', reason: 'Page not found' }],
+      },
+    } as never)
+    vi.mocked(sessionStore.dismissImportFailures).mockResolvedValueOnce(fixtures.session as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    expect(await screen.findByText(/This link couldn.t be added/)).toBeTruthy()
     expect(screen.getByText('https://example.test/gone')).toBeTruthy()
-    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+    await waitFor(() => expect(screen.queryByText(/This link couldn.t be added/)).toBeNull())
+    expect(sessionStore.dismissImportFailures).not.toHaveBeenCalled()
   })
 
-  it('shows the empty card when no song in the link loads', async () => {
-    vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
-    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({ kind: 'empty' })
-    renderAt(`/session/${PUBLIC_ID}`)
-    expect(await screen.findByText('None of the songs could be loaded')).toBeTruthy()
-  })
-
-  it('dismisses the failed links banner and saves that', async () => {
+  it('dismisses the failed links banner on a saved set and saves that', async () => {
     const withFailures = {
       ...fixtures.session,
       importFailures: [{ url: 'https://example.test/gone', reason: 'Page not found' }],
@@ -673,25 +914,59 @@ describe('SessionPage set links', () => {
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
   })
 
+  it('shows the empty card when no song in the link loads', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'empty' } as never)
+    renderAt(`/session/${PUBLIC_ID}`)
+    expect(await screen.findByText('None of the songs could be loaded')).toBeTruthy()
+  })
+
   it('shows the missing card when the link is unavailable', async () => {
-    vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
-    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({ kind: 'missing' })
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'missing' } as never)
     renderAt(`/session/${PUBLIC_ID}`)
     expect(await screen.findByText(/hasn.t synced yet/)).toBeTruthy()
+  })
+
+  it('falls back to a saved copy when the link cannot load', async () => {
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {})
+    vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(new Error('offline'))
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loc').textContent).toBe(`/session/${savedCopy.publicId}`),
+    )
+    expect(await screen.findByText('Couldn’t load the latest version')).toBeTruthy()
+    expect(screen.getByText('Showing your saved copy of the shared set.')).toBeTruthy()
+  })
+
+  it('says the link expired when its saved copy opens instead', async () => {
+    renderAt({
+      pathname: '/session/session-1',
+      state: { fromSetLink: { kind: 'expired', name: 'Sunday Set' } },
+    })
+    expect(await screen.findByText('This set link has expired')).toBeTruthy()
+    expect(screen.getByText('Showing your saved copy of the shared set.')).toBeTruthy()
   })
 
   it('shows the banner from navigation state and dismisses it', async () => {
     renderAt({
       pathname: '/session/session-1',
-      state: { fromSetLink: { name: 'Sunday Set', reused: false } },
+      state: { fromSetLink: { kind: 'saved', name: 'Sunday Set' } },
     })
-    expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
+    expect(await screen.findByText(/Saved to your sets as “Sunday Set”/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-    await waitFor(() => expect(screen.queryByText(/This is your own copy of/)).toBeNull())
+    await waitFor(() => expect(screen.queryByText(/Saved to your sets as/)).toBeNull())
   })
 
   it('replaces a legacy id URL with the public id', async () => {
-    vi.mocked(sessionStore.getSession).mockResolvedValue({ ...fixtures.session, publicId: PUBLIC_ID } as never)
+    vi.mocked(sessionStore.getSession).mockResolvedValue({
+      ...fixtures.session,
+      publicId: PUBLIC_ID,
+    } as never)
     renderAt('/session/session-1')
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`))
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)

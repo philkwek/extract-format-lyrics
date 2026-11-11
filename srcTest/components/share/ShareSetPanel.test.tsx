@@ -184,6 +184,7 @@ describe('ShareSetPanel', () => {
   })
 
   it('shows the source live link and makes an exact normal copy for a followed set', async () => {
+    const getAllSessions = vi.spyOn(sessionStore, 'getAllSessions').mockResolvedValue([session])
     const createSession = vi.spyOn(sessionStore, 'createSession')
     createSession.mockImplementation(async (songs, name) => ({
       id: 'copy-1',
@@ -211,9 +212,10 @@ describe('ShareSetPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create a copy' }))
     await screen.findByText('Copy opened')
 
+    expect(getAllSessions).toHaveBeenCalled()
     expect(createSession).toHaveBeenCalledTimes(1)
     const [songs, name, options] = createSession.mock.calls[0]
-    expect(name).toBe('Sunday Set - Copy')
+    expect(name).toBe('Sunday Set - Copy #1')
     expect(options).toBeUndefined()
     expect(songs).toEqual(followedSession.songs)
     expect(songs).not.toBe(followedSession.songs)

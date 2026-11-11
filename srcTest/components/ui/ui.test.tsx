@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Button, SegmentedControl } from '../../../src/components/ui/index'
+import { Button, SegmentedControl, StatusBanner } from '../../../src/components/ui/index'
 import OverlayDialog from '../../../src/components/ui/OverlayDialog'
 
 beforeAll(() => {
@@ -57,6 +57,19 @@ function DialogHarness() {
 }
 
 describe('UI primitives', () => {
+  it('shows a status banner title above its message and actions beside it', () => {
+    render(
+      <StatusBanner title="Set saved" actions={<Button>Dismiss</Button>}>
+        It won’t update.
+      </StatusBanner>,
+    )
+
+    const message = screen.getByRole('status')
+    expect(message.textContent).toBe('Set savedIt won’t update.')
+    expect(message.contains(screen.getByRole('button', { name: 'Dismiss' }))).toBe(false)
+    expect(message.closest('[title]')).toBeNull()
+  })
+
   it('updates segmented selection with accessible tab state', async () => {
     const user = userEvent.setup()
     render(<SegmentedHarness />)

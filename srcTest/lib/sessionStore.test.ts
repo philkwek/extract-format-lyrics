@@ -3,6 +3,7 @@ import {
   SessionStore,
   MAX_IMPORT_FAILURES,
   sessionPath,
+  uniqueSetName,
   type SessionStorageStore,
   type SessionChangeEvent,
 } from '../../src/lib/sessionStore'
@@ -67,7 +68,7 @@ describe('SessionStore', () => {
     const copy = await store.createSetCopy(live)
 
     expect(copy.id).not.toBe(live.id)
-    expect(copy.name).toBe('Sunday - Copy')
+    expect(copy.name).toBe('Sunday - Copy #1')
     expect(copy.songs).toEqual(live.songs)
     expect(copy.songs[0]).not.toBe(live.songs[0])
     expect(copy.songs[0].customFlow).not.toBe(live.songs[0].customFlow)
@@ -77,6 +78,27 @@ describe('SessionStore', () => {
     expect(copy.importedFromLinkId).toBeUndefined()
     expect(await store.getAllSessions()).toHaveLength(2)
     expect((await store.getSession(live.id))?.liveSourceId).toBe('live-1')
+  })
+
+  it('numbers each copy uniquely', async () => {
+    let storedData: unknown = null
+    const fakeStore = {
+      get: vi.fn(async () => storedData),
+      set: vi.fn(async (_: unknown, val: unknown) => {
+        storedData = val
+      }),
+      del: vi.fn(async () => {
+        storedData = null
+      }),
+    }
+    const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
+    const original = await store.createSession([], 'Sunday')
+
+    const first = await store.createSetCopy(original)
+    const second = await store.createSetCopy(original)
+
+    expect(first.name).toBe('Sunday - Copy #1')
+    expect(second.name).toBe('Sunday - Copy #2')
   })
 
   it('renames an existing session', async () => {
@@ -221,6 +243,44 @@ describe('SessionStore', () => {
       expect(await store.findByImportedLinkId('nope')).toBeNull()
       expect(sessionPath(s)).toBe(`/session/${s.publicId}`)
       expect(sessionPath({ id: 'x' })).toBe('/session/x')
+    })
+
+    it('stores a link snapshot on create', async () => {
+      const { store } = makeStores()
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
+      const s = await store.createSession([{ url: 'https://x.test/a' }], 'A', {
+        linkSnapshot: snapshot,
+      })
+
+      expect(s.linkSnapshot).toEqual(snapshot)
+      expect((await store.getSession(s.id))?.linkSnapshot).toEqual(snapshot)
+    })
+
+    it('keeps an existing link snapshot when updating a session without one', async () => {
+      const { store, seed } = makeStores()
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
+      seed([
+        {
+          id: 'old',
+          createdAt: 1,
+          name: 'Old',
+          publicId: 'p',
+          songs: [],
+          linkSnapshot: snapshot,
+        },
+      ])
+
+      await store.updateSession({ id: 'old', createdAt: 1, name: 'Old', songs: [] })
+
+      expect((await store.getSession('old'))?.linkSnapshot).toEqual(snapshot)
+    })
+
+    it('finds the newest copy saved from a link', async () => {
+      const { store } = makeStores()
+      await store.createSession([], 'First', { importedFromLinkId: 'LINK' })
+      const newest = await store.createSession([], 'Second', { importedFromLinkId: 'LINK' })
+
+      expect((await store.findByImportedLinkId('LINK'))?.id).toBe(newest.id)
     })
 
     it('migrates sessions without publicId silently', async () => {
@@ -417,5 +477,81 @@ describe('SessionStore', () => {
 
       expect(copy.importFailures).toBeUndefined()
     })
+
+    it('replaces songs, snapshot and failures from a link', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession(
+        [{ entryId: 'old', url: 'https://x.test/old' }],
+        'Sunday',
+        {
+          importedFromLinkId: 'LINK',
+          importFailures: [{ url: 'https://x.test/old-bad', reason: 'Old' }],
+        },
+      )
+      const snapshot = [{ entryId: 'e1', targetKey: 'G' }]
+
+      const replaced = await store.replaceSongsFromLink(
+        session.id,
+        [
+          { entryId: 'e1', url: 'https://x.test/new', title: 'New' },
+          { url: 'https://x.test/other', title: 'Other' },
+        ],
+        snapshot,
+        [{ url: 'https://x.test/bad', reason: 'Nope' }],
+      )
+
+      expect(replaced?.id).toBe(session.id)
+      expect(replaced?.name).toBe('Sunday')
+      expect(replaced?.publicId).toBe(session.publicId)
+      expect(replaced?.importedFromLinkId).toBe('LINK')
+      expect(replaced?.songs).toHaveLength(2)
+      expect(replaced?.songs[0]).toMatchObject({
+        entryId: 'e1',
+        url: 'https://x.test/new',
+        title: 'New',
+      })
+      expect(replaced?.songs[1].entryId).toBeTruthy()
+      expect(replaced?.linkSnapshot).toEqual(snapshot)
+      expect(replaced?.importFailures).toEqual([{ url: 'https://x.test/bad', reason: 'Nope' }])
+      expect((await store.getSession(session.id))?.songs[1].title).toBe('Other')
+    })
+
+    it('clears failures when a link replacement has none', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession([], 'A', {
+        importFailures: [{ url: 'https://x.test/bad', reason: 'Old' }],
+      })
+
+      const replaced = await store.replaceSongsFromLink(session.id, [], [], [])
+
+      expect('importFailures' in replaced!).toBe(false)
+      expect('importFailures' in (await store.getSession(session.id))!).toBe(false)
+      expect(await store.replaceSongsFromLink('missing', [], [], [])).toBeNull()
+    })
+  })
+})
+
+describe('uniqueSetName', () => {
+  it('returns the name when nothing else uses it', () => {
+    expect(uniqueSetName('Sunday', [])).toBe('Sunday')
+  })
+
+  it('adds the first free copy number', () => {
+    expect(uniqueSetName('Sunday', ['Sunday'])).toBe('Sunday - Copy #1')
+  })
+
+  it('strips one trailing copy suffix before numbering', () => {
+    expect(uniqueSetName('Sunday - Copy #1', ['Sunday', 'Sunday - Copy #1'])).toBe(
+      'Sunday - Copy #2',
+    )
+    expect(uniqueSetName('Sunday - Copy', ['Sunday', 'Sunday - Copy'])).toBe('Sunday - Copy #1')
+  })
+
+  it('keeps a copy-style name that does not clash', () => {
+    expect(uniqueSetName('Sunday - Copy #2', ['Sunday'])).toBe('Sunday - Copy #2')
+  })
+
+  it('fills gaps in the numbering', () => {
+    expect(uniqueSetName('Sunday', ['Sunday', 'Sunday - Copy #2'])).toBe('Sunday - Copy #1')
   })
 })

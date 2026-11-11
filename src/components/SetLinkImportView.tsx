@@ -1,44 +1,65 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock3, DownloadCloud } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
-import { importFromSetLinkOnce } from '../lib/setLinkImport'
-import { sessionPath } from '../lib/sessionStore'
+import { loadSetLinkPreview, type SetLinkPreview } from '../lib/setLinkImport'
+import { sessionPath, sessionStore, type Session } from '../lib/sessionStore'
 import { Button, Surface } from './ui'
 
 type ViewState = 'loading' | 'expired' | 'missing' | 'empty' | 'error'
 
+/** Why a saved copy opened instead of the latest version of the link. */
+export type SetLinkFallback = 'expired' | 'missing' | 'empty' | 'error'
+
 export interface SetLinkNavState {
-  fromSetLink: { name: string; reused: boolean }
+  fromSetLink: { kind: 'saved' | 'updated' | SetLinkFallback; name: string }
 }
 
-/** Shown when a set-link URL has no local copy yet: imports it, then opens the copy. */
-export default function SetLinkImportView({ linkId }: { linkId: string }) {
+interface Props {
+  linkId: string
+  onPreview: (preview: SetLinkPreview, savedCopy: Session | null) => void
+}
+
+/** Loads the latest version of a set link for preview, or falls back to a saved copy. */
+export default function SetLinkImportView({ linkId, onPreview }: Props) {
   const navigate = useNavigate()
   const [state, setState] = useState<ViewState>('loading')
   const [progress, setProgress] = useState('Retrieving the set...')
+  const onPreviewRef = useRef(onPreview)
+  useEffect(() => {
+    onPreviewRef.current = onPreview
+  })
 
   useEffect(() => {
     let cancelled = false
-    importFromSetLinkOnce(linkId, { onProgress: (m) => { if (!cancelled) setProgress(m) } })
-      .then((result) => {
-        if (result.kind === 'expired' || result.kind === 'missing' || result.kind === 'empty') {
-          trackEvent('set_link_opened', { outcome: result.kind, song_count: 0 })
-          if (!cancelled) setState(result.kind)
+    const openSavedCopy = async (reason: SetLinkFallback): Promise<boolean> => {
+      const copy = await sessionStore.findByImportedLinkId(linkId)
+      if (!copy || cancelled) return false
+      trackEvent('set_link_opened', { outcome: 'copy', song_count: copy.songs.length })
+      const nav: SetLinkNavState = { fromSetLink: { kind: reason, name: copy.name } }
+      navigate(sessionPath(copy), { replace: true, state: nav })
+      return true
+    }
+    loadSetLinkPreview(linkId, { onProgress: (m) => { if (!cancelled) setProgress(m) } })
+      .then(async (result) => {
+        if (cancelled) return
+        if (result.kind === 'preview') {
+          const copy = await sessionStore.findByImportedLinkId(linkId)
+          if (cancelled) return
+          trackEvent('set_link_opened', {
+            outcome: 'preview',
+            song_count: result.preview.items.length,
+          })
+          onPreviewRef.current(result.preview, copy)
           return
         }
-        const reused = result.kind === 'reused'
-        trackEvent('set_link_opened', {
-          outcome: reused ? 'reused' : 'imported',
-          song_count: result.session.songs.length,
-        })
-        const nav: SetLinkNavState = {
-          fromSetLink: { name: result.session.name, reused },
-        }
-        // Navigate even if cancelled (StrictMode remount): the session now exists locally.
-        navigate(sessionPath(result.session), { replace: true, state: nav })
+        if (await openSavedCopy(result.kind)) return
+        trackEvent('set_link_opened', { outcome: result.kind, song_count: 0 })
+        if (!cancelled) setState(result.kind)
       })
-      .catch(() => {
+      .catch(async (err) => {
+        console.error('Could not open set link', err)
+        if (cancelled || (await openSavedCopy('error'))) return
         trackEvent('set_link_opened', { outcome: 'error', song_count: 0 })
         if (!cancelled) setState('error')
       })

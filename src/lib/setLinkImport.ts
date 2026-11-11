@@ -1,42 +1,67 @@
 import { getSetLinkApi, ShareApiError } from './api'
-import { loadSources, type ImportProgress } from './setlistImport'
-import { sessionStore, type Session, type SessionSongItem } from './sessionStore'
-import type { SetLinkPayload } from '../types/song'
+import { loadSources, type ImportOutcome, type ImportProgress } from './setlistImport'
+import {
+  sessionStore,
+  uniqueSetName,
+  type ImportFailure,
+  type LinkSnapshotEntry,
+  type Session,
+  type SessionSongItem,
+} from './sessionStore'
+import type { SetLinkPayload, SetLinkSong } from '../types/song'
 
-export type SetLinkImportResult =
-  | { kind: 'reused'; session: Session }
-  | { kind: 'imported'; session: Session }
-  | { kind: 'empty' }
-  | { kind: 'expired' }
-  | { kind: 'missing' }
-
-export interface SetLinkImportOptions {
-  onProgress?: (message: string) => void
-  /** Create a fresh copy even when this link was already imported. */
-  force?: boolean
-  deps?: {
-    fetchLink: (id: string) => Promise<{ payload: SetLinkPayload }>
-    loadSources: typeof loadSources
-    sessions: Pick<typeof sessionStore, 'findByImportedLinkId' | 'createSession'>
-  }
+export interface SetLinkPreview {
+  linkId: string
+  name: string
+  items: SessionSongItem[]
+  failures: ImportFailure[]
+  snapshot: LinkSnapshotEntry[]
 }
 
-/**
- * Turns a set link into a local copy: scrape every song first, then create one
- * session so the new set is written (and synced) once.
- */
-export async function importFromSetLink(
+export type SetLinkPreviewResult =
+  | { kind: 'preview'; preview: SetLinkPreview }
+  | { kind: 'expired' }
+  | { kind: 'missing' }
+  | { kind: 'empty' }
+
+/** Outcomes stay aligned with payload.songs, so a failed song never shifts another's settings. */
+function itemsFromOutcomes(outcomes: ImportOutcome[], songs: SetLinkSong[]): SessionSongItem[] {
+  return outcomes.flatMap((outcome, index) => {
+    if (!outcome.item) return []
+    const song = songs[index]
+    return [
+      {
+        ...outcome.item,
+        entryId: song.entryId,
+        ...(song.targetKey !== undefined ? { targetKey: song.targetKey } : {}),
+        ...(song.simplified !== undefined ? { simplified: song.simplified } : {}),
+        ...(song.padKeyMode !== undefined ? { padKeyMode: song.padKeyMode } : {}),
+        ...(song.customPadKey !== undefined ? { customPadKey: song.customPadKey } : {}),
+      },
+    ]
+  })
+}
+
+function snapshotFromSongs(songs: SetLinkSong[]): LinkSnapshotEntry[] {
+  return songs.map(({ entryId, targetKey }) => ({
+    entryId,
+    ...(targetKey !== undefined ? { targetKey } : {}),
+  }))
+}
+
+/** Fetches and loads a link's songs without saving anything, so it can be previewed first. */
+export async function loadSetLinkPreview(
   linkId: string,
-  options: SetLinkImportOptions = {},
-): Promise<SetLinkImportResult> {
+  options: {
+    onProgress?: (message: string) => void
+    deps?: {
+      fetchLink: (id: string) => Promise<{ payload: SetLinkPayload }>
+      loadSources: typeof loadSources
+    }
+  } = {},
+): Promise<SetLinkPreviewResult> {
   const fetchLink = options.deps?.fetchLink ?? getSetLinkApi
   const runLoad = options.deps?.loadSources ?? loadSources
-  const sessions = options.deps?.sessions ?? sessionStore
-
-  if (!options.force) {
-    const existing = await sessions.findByImportedLinkId(linkId)
-    if (existing) return { kind: 'reused', session: existing }
-  }
 
   options.onProgress?.('Retrieving the set...')
   let payload: SetLinkPayload
@@ -59,54 +84,61 @@ export async function importFromSetLink(
     { ignoreFailureCache: true, onProgress },
   )
 
-  // Outcomes stay aligned with payload.songs, so a failed song never shifts
-  // another song's settings.
-  const items: SessionSongItem[] = loaded.outcomes.flatMap((outcome, index) => {
-    if (!outcome.item) return []
-    const song = payload.songs[index]
-    return [
-      {
-        ...outcome.item,
-        entryId: song.entryId,
-        ...(song.targetKey !== undefined ? { targetKey: song.targetKey } : {}),
-        ...(song.simplified !== undefined ? { simplified: song.simplified } : {}),
-        ...(song.padKeyMode !== undefined ? { padKeyMode: song.padKeyMode } : {}),
-        ...(song.customPadKey !== undefined ? { customPadKey: song.customPadKey } : {}),
-      },
-    ]
-  })
-
+  const items = itemsFromOutcomes(loaded.outcomes, payload.songs)
   if (items.length === 0) return { kind: 'empty' }
 
-  options.onProgress?.('Saving your copy...')
-  const session = await sessions.createSession(items, payload.name, {
-    importedFromLinkId: linkId,
-    importFailures: loaded.failures,
-  })
-  return { kind: 'imported', session }
-}
-
-/** Forces a brand-new copy from the link's current contents. */
-export function refreshFromSetLink(
-  linkId: string,
-  options: Omit<SetLinkImportOptions, 'force'> = {},
-): Promise<SetLinkImportResult> {
-  return importFromSetLink(linkId, { ...options, force: true })
-}
-
-const inFlight = new Map<string, Promise<SetLinkImportResult>>()
-
-/** Shares one import per link, so StrictMode's double effect never imports twice. */
-export function importFromSetLinkOnce(
-  linkId: string,
-  options: SetLinkImportOptions = {},
-  force = false,
-): Promise<SetLinkImportResult> {
-  const key = `${force ? 'f' : 'n'}:${linkId}`
-  let promise = inFlight.get(key)
-  if (!promise) {
-    promise = importFromSetLink(linkId, { ...options, force }).finally(() => inFlight.delete(key))
-    inFlight.set(key, promise)
+  return {
+    kind: 'preview',
+    preview: {
+      linkId,
+      name: payload.name,
+      items,
+      failures: loaded.failures,
+      snapshot: snapshotFromSongs(payload.songs),
+    },
   }
-  return promise
+}
+
+/** linked: false saves a plain set, so an earlier saved copy stays the one the link updates. */
+export async function savePreviewAsNew(
+  preview: SetLinkPreview,
+  linked: boolean,
+  deps: {
+    sessions: Pick<typeof sessionStore, 'getAllSessions' | 'createSession'>
+  } = { sessions: sessionStore },
+): Promise<Session> {
+  const sessions = await deps.sessions.getAllSessions()
+  return deps.sessions.createSession(
+    preview.items,
+    uniqueSetName(preview.name, sessions.map((session) => session.name)),
+    linked
+      ? {
+          importedFromLinkId: preview.linkId,
+          linkSnapshot: preview.snapshot,
+          importFailures: preview.failures,
+        }
+      : { importFailures: preview.failures },
+  )
+}
+
+/** Counts what changed on the link since this copy was saved, matched by entryId. */
+export function diffLinkSnapshot(
+  saved: LinkSnapshotEntry[] | undefined,
+  latest: LinkSnapshotEntry[],
+): { added: number; removed: number; keyChanged: number } {
+  if (!saved) return { added: 0, removed: 0, keyChanged: 0 }
+  const savedById = new Map(saved.map((entry) => [entry.entryId, entry]))
+  const latestIds = new Set(latest.map((entry) => entry.entryId))
+  let added = 0
+  let removed = 0
+  let keyChanged = 0
+  for (const entry of latest) {
+    const before = savedById.get(entry.entryId)
+    if (!before) added += 1
+    else if (before.targetKey !== entry.targetKey) keyChanged += 1
+  }
+  for (const entry of saved) {
+    if (!latestIds.has(entry.entryId)) removed += 1
+  }
+  return { added, removed, keyChanged }
 }

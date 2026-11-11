@@ -117,7 +117,7 @@ export default function DisplayControls({
         className={
           isFullScreen
             ? 'flex flex-wrap items-center justify-start gap-x-3 gap-y-2'
-            : 'flex flex-wrap items-center justify-between gap-x-3 gap-y-4'
+            : 'flex flex-wrap items-center lg:items-center justify-between gap-x-3 gap-y-4 flex-col lg:flex-row'
         }
       >
         <div className="flex flex-wrap items-center gap-2 mr-auto">
@@ -218,7 +218,7 @@ export default function DisplayControls({
         </div>
 
         {showRightGroup && (
-          <div className="grow flex flex-wrap items-center gap-1.5 min-[1056px]:justify-end justify-center">
+          <div className="grow flex flex-wrap gap-1.5 lg:ml-auto lg:justify-end">
             {!isFullScreen && onSelectKey && (
               <TransposeSelector
                 originalKey={originalKey ?? null}
