@@ -713,7 +713,7 @@ describe('SessionPage set links', () => {
     await waitFor(() =>
       expect(screen.getByTestId('loc').textContent).toBe('/session/savedpublicidsavedpub'),
     )
-    expect(savePreviewAsNew).toHaveBeenCalledWith(preview)
+    expect(savePreviewAsNew).toHaveBeenCalledWith(preview, true)
     expect(await screen.findByText(/Saved to your sets as/)).toBeTruthy()
     expect(screen.getByText(/“Shared Sunday”/)).toBeTruthy()
   })
@@ -782,6 +782,19 @@ describe('SessionPage set links', () => {
       changedPreview.failures,
     )
     expect(await screen.findByText(/Your copy now matches the shared set/)).toBeTruthy()
+  })
+
+  it('saves as a plain set when a copy is already saved', async () => {
+    const saved = { ...fixtures.session, id: 'saved-2', publicId: 'savedpublicidsavedpu2' }
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy, [saved.publicId]: saved })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(savePreviewAsNew).mockResolvedValueOnce(saved as never)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save as new' }))
+
+    await waitFor(() => expect(savePreviewAsNew).toHaveBeenCalledWith(preview, false))
   })
 
   it('opens the saved copy from the preview banner', async () => {

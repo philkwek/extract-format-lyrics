@@ -99,8 +99,10 @@ export async function loadSetLinkPreview(
   }
 }
 
+/** linked: false saves a plain set, so an earlier saved copy stays the one the link updates. */
 export async function savePreviewAsNew(
   preview: SetLinkPreview,
+  linked: boolean,
   deps: {
     sessions: Pick<typeof sessionStore, 'getAllSessions' | 'createSession'>
   } = { sessions: sessionStore },
@@ -109,11 +111,13 @@ export async function savePreviewAsNew(
   return deps.sessions.createSession(
     preview.items,
     uniqueSetName(preview.name, sessions.map((session) => session.name)),
-    {
-      importedFromLinkId: preview.linkId,
-      linkSnapshot: preview.snapshot,
-      importFailures: preview.failures,
-    },
+    linked
+      ? {
+          importedFromLinkId: preview.linkId,
+          linkSnapshot: preview.snapshot,
+          importFailures: preview.failures,
+        }
+      : { importFailures: preview.failures },
   )
 }
 

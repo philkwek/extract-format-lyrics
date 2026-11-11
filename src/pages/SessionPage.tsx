@@ -304,7 +304,7 @@ export default function SessionPage() {
     if (!linkPreview) return
     setSavingPreview(true)
     try {
-      const saved = await savePreviewAsNew(linkPreview.preview)
+      const saved = await savePreviewAsNew(linkPreview.preview, !linkPreview.copy)
       const nav: SetLinkNavState = { fromSetLink: { kind: 'saved', name: saved.name } }
       navigate(sessionPath(saved), { replace: true, state: nav })
     } finally {

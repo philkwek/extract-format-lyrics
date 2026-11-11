@@ -213,7 +213,7 @@ describe('savePreviewAsNew', () => {
         ({ id: 'new', createdAt: 0, name: name ?? '', songs: items }) as Session,
     )
 
-    const session = await savePreviewAsNew(preview, {
+    const session = await savePreviewAsNew(preview, true, {
       sessions: { getAllSessions, createSession },
     })
 
@@ -223,6 +223,22 @@ describe('savePreviewAsNew', () => {
       importFailures: preview.failures,
     })
     expect(session.id).toBe('new')
+  })
+})
+
+describe('savePreviewAsNew unlinked', () => {
+  it('saves a plain set without the link fields', async () => {
+    const getAllSessions = vi.fn(async () => [] as Session[])
+    const createSession = vi.fn(
+      async (items: SessionSongItem[], name?: string) =>
+        ({ id: 'new', createdAt: 0, name: name ?? '', songs: items }) as Session,
+    )
+
+    await savePreviewAsNew(preview, false, { sessions: { getAllSessions, createSession } })
+
+    expect(createSession).toHaveBeenCalledWith(preview.items, 'Sunday', {
+      importFailures: preview.failures,
+    })
   })
 })
 
