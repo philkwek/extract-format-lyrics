@@ -263,7 +263,7 @@ export class SessionStore {
   ): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
-    session.songs = songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() }))
+    session.songs = songs
     session.linkSnapshot = linkSnapshot
     const failures = mergeImportFailures(undefined, importFailures)
     if (failures) session.importFailures = failures

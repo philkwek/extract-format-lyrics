@@ -8,12 +8,7 @@ import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
 import { simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
-import {
-  findSavedCopy,
-  loadSetLinkPreview,
-  savePreviewAsNew,
-  updateCopyFromPreview,
-} from '../../src/lib/setLinkImport'
+import { loadSetLinkPreview, savePreviewAsNew } from '../../src/lib/setLinkImport'
 import {
   followLiveSet,
   type FollowHandlers,
@@ -70,6 +65,8 @@ vi.mock('../../src/lib/sessionStore', () => ({
     createSession: vi.fn(),
     createSetCopy: vi.fn(),
     dismissImportFailures: vi.fn(),
+    findByImportedLinkId: vi.fn(),
+    replaceSongsFromLink: vi.fn(),
   },
   makeEntryId: () => 'entry-2',
 }))
@@ -94,9 +91,7 @@ vi.mock('../../src/lib/setLinkImport', async () => {
   )
   return {
     loadSetLinkPreview: vi.fn(),
-    findSavedCopy: vi.fn(),
     savePreviewAsNew: vi.fn(),
-    updateCopyFromPreview: vi.fn(),
     diffLinkSnapshot: actual.diffLinkSnapshot,
   }
 })
@@ -665,10 +660,10 @@ describe('SessionPage set links', () => {
     vi.mocked(sessionStore.createSession).mockClear()
     vi.mocked(sessionStore.dismissImportFailures).mockClear()
     vi.mocked(loadSetLinkPreview).mockReset()
-    vi.mocked(findSavedCopy).mockReset()
-    vi.mocked(findSavedCopy).mockResolvedValue(null)
+    vi.mocked(sessionStore.findByImportedLinkId).mockReset()
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValue(null)
     vi.mocked(savePreviewAsNew).mockReset()
-    vi.mocked(updateCopyFromPreview).mockReset()
+    vi.mocked(sessionStore.replaceSongsFromLink).mockReset()
     vi.mocked(songCache.getSong).mockResolvedValue(fixtures.song as never)
   })
 
@@ -762,8 +757,8 @@ describe('SessionPage set links', () => {
       kind: 'preview',
       preview: changedPreview,
     } as never)
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(copy as never)
-    vi.mocked(updateCopyFromPreview).mockResolvedValueOnce(copy as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(copy as never)
+    vi.mocked(sessionStore.replaceSongsFromLink).mockResolvedValueOnce(copy as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
 
@@ -780,14 +775,19 @@ describe('SessionPage set links', () => {
     await waitFor(() =>
       expect(screen.getByTestId('loc').textContent).toBe(`/session/${copy.publicId}`),
     )
-    expect(updateCopyFromPreview).toHaveBeenCalledWith('copy-1', changedPreview)
+    expect(sessionStore.replaceSongsFromLink).toHaveBeenCalledWith(
+      'copy-1',
+      changedPreview.items,
+      changedPreview.snapshot,
+      changedPreview.failures,
+    )
     expect(await screen.findByText(/Your copy now matches the shared set/)).toBeTruthy()
   })
 
   it('opens the saved copy from the preview banner', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
     fireEvent.click(await screen.findByRole('button', { name: 'Open my copy' }))
@@ -800,7 +800,7 @@ describe('SessionPage set links', () => {
   it('does not show a change line for a saved copy without a snapshot', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
 
@@ -864,7 +864,7 @@ describe('SessionPage set links', () => {
   it('falls back to a saved copy when the link cannot load', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(new Error('offline'))
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
 

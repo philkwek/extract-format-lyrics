@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   diffLinkSnapshot,
-  findSavedCopy,
   loadSetLinkPreview,
   savePreviewAsNew,
-  updateCopyFromPreview,
   type SetLinkPreview,
 } from '../../src/lib/setLinkImport'
 import { ShareApiError } from '../../src/lib/api'
@@ -228,25 +226,6 @@ describe('savePreviewAsNew', () => {
   })
 })
 
-describe('updateCopyFromPreview', () => {
-  it('replaces the copy from the preview', async () => {
-    const session = { id: 's', createdAt: 0, name: 'Sunday', songs: [] } as Session
-    const replaceSongsFromLink = vi.fn(async () => session)
-
-    const result = await updateCopyFromPreview('s', preview, {
-      sessions: { replaceSongsFromLink },
-    })
-
-    expect(result).toBe(session)
-    expect(replaceSongsFromLink).toHaveBeenCalledWith(
-      's',
-      preview.items,
-      preview.snapshot,
-      preview.failures,
-    )
-  })
-})
-
 describe('diffLinkSnapshot', () => {
   it('counts added, removed and key changes by entryId', () => {
     const saved = [
@@ -269,17 +248,5 @@ describe('diffLinkSnapshot', () => {
       removed: 0,
       keyChanged: 0,
     })
-  })
-})
-
-describe('findSavedCopy', () => {
-  it('asks the store for the copy saved from the link', async () => {
-    const session = { id: 's', createdAt: 0, name: 'Sunday', songs: [] } as Session
-    const findByImportedLinkId = vi.fn(async () => session)
-
-    const result = await findSavedCopy(LINK, { sessions: { findByImportedLinkId } })
-
-    expect(result).toBe(session)
-    expect(findByImportedLinkId).toHaveBeenCalledWith(LINK)
   })
 })

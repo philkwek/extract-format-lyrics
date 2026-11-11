@@ -118,21 +118,6 @@ export async function savePreviewAsNew(
   )
 }
 
-export function updateCopyFromPreview(
-  sessionId: string,
-  preview: SetLinkPreview,
-  deps: { sessions: Pick<typeof sessionStore, 'replaceSongsFromLink'> } = {
-    sessions: sessionStore,
-  },
-): Promise<Session | null> {
-  return deps.sessions.replaceSongsFromLink(
-    sessionId,
-    preview.items,
-    preview.snapshot,
-    preview.failures,
-  )
-}
-
 /** Counts what changed on the link since this copy was saved, matched by entryId. */
 export function diffLinkSnapshot(
   saved: LinkSnapshotEntry[] | undefined,
@@ -153,13 +138,4 @@ export function diffLinkSnapshot(
     if (!latestIds.has(entry.entryId)) removed += 1
   }
   return { added, removed, keyChanged }
-}
-
-export function findSavedCopy(
-  linkId: string,
-  deps: { sessions: Pick<typeof sessionStore, 'findByImportedLinkId'> } = {
-    sessions: sessionStore,
-  },
-): Promise<Session | null> {
-  return deps.sessions.findByImportedLinkId(linkId)
 }

@@ -3,12 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import SetLinkImportView from '../../src/components/SetLinkImportView'
-import { findSavedCopy, loadSetLinkPreview } from '../../src/lib/setLinkImport'
+import { loadSetLinkPreview } from '../../src/lib/setLinkImport'
+import { sessionStore } from '../../src/lib/sessionStore'
 
 vi.mock('../../src/lib/setLinkImport', () => ({
   loadSetLinkPreview: vi.fn(),
-  findSavedCopy: vi.fn(),
 }))
+
+vi.mock('../../src/lib/sessionStore', () => ({
+  sessionPath: (s: { id: string; publicId?: string }) => `/session/${s.publicId ?? s.id}`,
+  sessionStore: { findByImportedLinkId: vi.fn() },
+}))
+
+const findSavedCopy = vi.mocked(sessionStore.findByImportedLinkId)
 
 vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
@@ -66,8 +73,8 @@ function renderView() {
 
 beforeEach(() => {
   vi.mocked(loadSetLinkPreview).mockReset()
-  vi.mocked(findSavedCopy).mockReset()
-  vi.mocked(findSavedCopy).mockResolvedValue(null)
+  findSavedCopy.mockReset()
+  findSavedCopy.mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -84,7 +91,7 @@ describe('SetLinkImportView', () => {
 
   it('passes the saved copy along with a preview', async () => {
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+    findSavedCopy.mockResolvedValueOnce(savedCopy as never)
     const onPreview = renderView()
 
     await waitFor(() => expect(onPreview).toHaveBeenCalledWith(preview, savedCopy))
@@ -106,7 +113,7 @@ describe('SetLinkImportView', () => {
     'opens the saved copy instead of showing the %s card',
     async (kind) => {
       vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind } as never)
-      vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+      findSavedCopy.mockResolvedValueOnce(savedCopy as never)
       renderView()
 
       await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copy-pub'))
@@ -118,7 +125,7 @@ describe('SetLinkImportView', () => {
 
   it('opens the saved copy when the link throws', async () => {
     vi.mocked(loadSetLinkPreview).mockRejectedValueOnce(new Error('offline'))
-    vi.mocked(findSavedCopy).mockResolvedValueOnce(savedCopy as never)
+    findSavedCopy.mockResolvedValueOnce(savedCopy as never)
     renderView()
 
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copy-pub'))

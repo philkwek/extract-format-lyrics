@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Clock3, DownloadCloud } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
-import { findSavedCopy, loadSetLinkPreview, type SetLinkPreview } from '../lib/setLinkImport'
-import { sessionPath, type Session } from '../lib/sessionStore'
+import { loadSetLinkPreview, type SetLinkPreview } from '../lib/setLinkImport'
+import { sessionPath, sessionStore, type Session } from '../lib/sessionStore'
 import { Button, Surface } from './ui'
 
 type ViewState = 'loading' | 'expired' | 'missing' | 'empty' | 'error'
@@ -30,7 +30,7 @@ export default function SetLinkImportView({ linkId, onPreview }: Props) {
   useEffect(() => {
     let cancelled = false
     const openSavedCopy = async (): Promise<boolean> => {
-      const copy = await findSavedCopy(linkId)
+      const copy = await sessionStore.findByImportedLinkId(linkId)
       if (!copy || cancelled) return false
       trackEvent('set_link_opened', { outcome: 'copy', song_count: copy.songs.length })
       const nav: SetLinkNavState = { fromSetLink: { kind: 'offline', name: copy.name } }
@@ -41,7 +41,7 @@ export default function SetLinkImportView({ linkId, onPreview }: Props) {
       .then(async (result) => {
         if (cancelled) return
         if (result.kind === 'preview') {
-          const copy = await findSavedCopy(linkId)
+          const copy = await sessionStore.findByImportedLinkId(linkId)
           if (cancelled) return
           trackEvent('set_link_opened', {
             outcome: 'preview',

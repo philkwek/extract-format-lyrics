@@ -36,7 +36,6 @@ import { isSetLinkId } from '../lib/setLinkIdentity'
 import {
   diffLinkSnapshot,
   savePreviewAsNew,
-  updateCopyFromPreview,
   type SetLinkPreview,
 } from '../lib/setLinkImport'
 import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
@@ -1335,7 +1334,12 @@ export default function SessionPage() {
     if (!linkPreview || !savedCopy) return
     setSavingPreview(true)
     try {
-      const updated = await updateCopyFromPreview(savedCopy.id, linkPreview.preview)
+      const updated = await sessionStore.replaceSongsFromLink(
+        savedCopy.id,
+        linkPreview.preview.items,
+        linkPreview.preview.snapshot,
+        linkPreview.preview.failures,
+      )
       if (updated) {
         const nav: SetLinkNavState = { fromSetLink: { kind: 'updated', name: updated.name } }
         navigate(sessionPath(updated), { replace: true, state: nav })
