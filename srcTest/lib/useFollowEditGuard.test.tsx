@@ -27,12 +27,19 @@ function Where() {
   return <p data-testid="loc">{useLocation().pathname}</p>
 }
 
-function Inner({ following }: { following: boolean }) {
+function Inner({
+  following,
+  onSavePreview,
+}: {
+  following: boolean
+  onSavePreview?: () => Promise<void>
+}) {
   const ref = useRef<FollowController | null>(controller)
   const { guard, dialog } = useFollowEditGuard({
     following,
     sessionId: 's1',
     controllerRef: ref,
+    onSavePreview,
   })
   return (
     <>
@@ -43,7 +50,7 @@ function Inner({ following }: { following: boolean }) {
   )
 }
 
-function Harness(props: { following: boolean }) {
+function Harness(props: { following: boolean; onSavePreview?: () => Promise<void> }) {
   return (
     <MemoryRouter>
       <Inner {...props} />
@@ -103,5 +110,35 @@ describe('useFollowEditGuard', () => {
     expect(controller.dropDeferred).toHaveBeenCalledTimes(1)
     expect(controller.flushDeferred).not.toHaveBeenCalled()
     expect(calls).toEqual([])
+  })
+
+  it('asks to save a preview before the edit and saves it on Save', async () => {
+    const onSavePreview = vi.fn(async () => {})
+    render(<Harness following={false} onSavePreview={onSavePreview} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(await screen.findByText('Save to your sets?')).toBeTruthy()
+    expect(calls).toEqual([])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(onSavePreview).toHaveBeenCalledTimes(1)
+    expect(calls).toEqual([])
+    expect(sessionStore.createSetCopy).not.toHaveBeenCalled()
+  })
+
+  it('closes a preview save on Cancel without running the action', async () => {
+    const onSavePreview = vi.fn(async () => {})
+    render(<Harness following={false} onSavePreview={onSavePreview} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(await screen.findByText('Save to your sets?')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(onSavePreview).not.toHaveBeenCalled()
+    expect(calls).toEqual([])
+    expect(controller.flushDeferred).not.toHaveBeenCalled()
   })
 })

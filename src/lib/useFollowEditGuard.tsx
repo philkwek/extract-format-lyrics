@@ -9,21 +9,28 @@ interface Options {
   following: boolean
   sessionId: string | undefined
   controllerRef: RefObject<FollowController | null>
+  /** Set while previewing a shared set: edits ask to save it first. */
+  onSavePreview?: () => Promise<void>
 }
 
-/** Asks before an edit to a live set, which makes a copy instead of changing the live set. */
-export function useFollowEditGuard({ following, sessionId, controllerRef }: Options) {
+/** Asks before an edit to a live set or a preview, which must become the user's own set first. */
+export function useFollowEditGuard({
+  following,
+  sessionId,
+  controllerRef,
+  onSavePreview,
+}: Options) {
   const navigate = useNavigate()
   const [pending, setPending] = useState<(() => void) | null>(null)
   const openRef = useRef(false)
 
   const guard = useCallback(
     (action: () => void) => {
-      if (!following) return action()
+      if (!following && !onSavePreview) return action()
       openRef.current = true
       setPending(() => action)
     },
-    [following],
+    [following, onSavePreview],
   )
 
   const close = () => {
@@ -36,6 +43,14 @@ export function useFollowEditGuard({ following, sessionId, controllerRef }: Opti
     controllerRef.current?.flushDeferred()
   }
 
+  const savePreview = async () => {
+    try {
+      await onSavePreview?.()
+    } finally {
+      close()
+    }
+  }
+
   const makeCopy = async () => {
     controllerRef.current?.dropDeferred()
     try {
@@ -46,7 +61,28 @@ export function useFollowEditGuard({ following, sessionId, controllerRef }: Opti
     }
   }
 
-  const dialog: ReactNode = (
+  const dialog: ReactNode = onSavePreview ? (
+    <OverlayDialog
+      isOpen={pending !== null}
+      onClose={close}
+      title="Save to your sets?"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={savePreview}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-[var(--ui-text)]">
+        This is a preview of a shared set. Save it to your sets to make changes.
+      </p>
+    </OverlayDialog>
+  ) : (
     <OverlayDialog
       isOpen={pending !== null}
       onClose={cancel}

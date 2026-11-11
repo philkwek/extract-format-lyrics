@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { importFromSetLink, refreshFromSetLink } from '../../src/lib/setLinkImport'
+import {
+  diffLinkSnapshot,
+  findSavedCopy,
+  loadSetLinkPreview,
+  savePreviewAsNew,
+  updateCopyFromPreview,
+  type SetLinkPreview,
+} from '../../src/lib/setLinkImport'
 import { ShareApiError } from '../../src/lib/api'
 import type { Session, SessionSongItem } from '../../src/lib/sessionStore'
 import type { SetLinkPayload } from '../../src/types/song'
@@ -70,46 +77,44 @@ function setup(
   }
 }
 
-describe('importFromSetLink', () => {
-  it('reuses an existing copy without any network', async () => {
-    const existing = { id: 'x', createdAt: 0, name: 'Mine', songs: [] } as Session
-    const t = setup({ existing })
-    const r = await importFromSetLink(LINK, { deps: t.deps })
-    expect(r).toEqual({ kind: 'reused', session: existing })
-    expect(t.fetchLink).not.toHaveBeenCalled()
-    expect(t.loadSources).not.toHaveBeenCalled()
-  })
+function previewDeps(t: ReturnType<typeof setup>) {
+  return { fetchLink: t.fetchLink, loadSources: t.loadSources as never }
+}
 
-  it('creates exactly one session with per-song settings', async () => {
+describe('loadSetLinkPreview', () => {
+  it('returns a preview without creating a session', async () => {
     const t = setup()
-    const r = await importFromSetLink(LINK, { deps: t.deps })
-    expect(r.kind).toBe('imported')
-    expect(t.sessions.createSession).toHaveBeenCalledTimes(1)
-    expect(t.created[0].name).toBe('Sunday')
-    expect(t.created[0].options).toEqual({ importedFromLinkId: LINK, importFailures: [] })
-    expect(t.created[0].items[0]).toMatchObject({
-      entryId: 'e1',
-      targetKey: 'A',
-      simplified: true,
-      padKeyMode: 'custom',
-      customPadKey: 'C',
+
+    const r = await loadSetLinkPreview(LINK, { deps: previewDeps(t) })
+
+    expect(r).toEqual({
+      kind: 'preview',
+      preview: {
+        linkId: LINK,
+        name: 'Sunday',
+        items: [
+          {
+            url: 'https://a.test/1',
+            title: 'One',
+            entryId: 'e1',
+            targetKey: 'A',
+            simplified: true,
+            padKeyMode: 'custom',
+            customPadKey: 'C',
+          },
+          { url: 'https://a.test/2', title: 'Two', entryId: 'e2' },
+        ],
+        failures: [],
+        snapshot: [
+          { entryId: 'e1', url: 'https://a.test/1', targetKey: 'A' },
+          { entryId: 'e2', url: 'https://a.test/2' },
+        ],
+      },
     })
-    expect(t.created[0].items[1]).toMatchObject({ entryId: 'e2' })
+    expect(t.sessions.createSession).not.toHaveBeenCalled()
   })
 
-  it('counts failed songs as import failures, not error items', async () => {
-    const t = setup({ fail: ['https://a.test/2'] })
-    const r = await importFromSetLink(LINK, { deps: t.deps })
-    expect(r).toMatchObject({ kind: 'imported' })
-    expect(t.created[0].items).toHaveLength(1)
-    expect(t.created[0].items[0]).toMatchObject({ entryId: 'e1' })
-    expect(t.created[0].options).toEqual({
-      importedFromLinkId: LINK,
-      importFailures: [{ url: 'https://a.test/2', reason: 'nope' }],
-    })
-  })
-
-  it('keeps each song with its own settings when the first song fails', async () => {
+  it('keeps settings with their songs when the first song fails', async () => {
     const threeSongs: SetLinkPayload = {
       v: 1,
       name: 'Three',
@@ -143,55 +148,138 @@ describe('importFromSetLink', () => {
       ],
     }
     const t = setup({ payload: threeSongs, fail: ['https://a.test/1'] })
-    const r = await importFromSetLink(LINK, { deps: t.deps })
 
-    expect(r).toMatchObject({ kind: 'imported' })
-    expect(t.sessions.createSession).toHaveBeenCalledTimes(1)
-    expect(t.created[0].items).toHaveLength(2)
-    expect(t.created[0].items[0]).toMatchObject({
-      entryId: 'e2',
+    const r = await loadSetLinkPreview(LINK, { deps: previewDeps(t) })
+
+    expect(r.kind).toBe('preview')
+    if (r.kind !== 'preview') return
+    expect(r.preview.items.map((item) => item.entryId)).toEqual(['e2', 'e3'])
+    expect(r.preview.items[0]).toMatchObject({
       targetKey: 'G',
       simplified: false,
       padKeyMode: 'match',
     })
-    expect(t.created[0].items[1]).toMatchObject({
-      entryId: 'e3',
+    expect(r.preview.items[1]).toMatchObject({
       targetKey: 'D',
       simplified: true,
       padKeyMode: 'custom',
       customPadKey: 'E',
     })
-    expect(t.created[0].options).toEqual({
-      importedFromLinkId: LINK,
-      importFailures: [{ url: 'https://a.test/1', reason: 'nope' }],
-    })
+    expect(r.preview.failures).toEqual([{ url: 'https://a.test/1', reason: 'nope' }])
+    expect(r.preview.snapshot.map((entry) => entry.entryId)).toEqual(['e1', 'e2', 'e3'])
   })
 
-  it('returns empty and creates nothing when no song loads', async () => {
+  it('returns empty when no song loads', async () => {
     const t = setup({ fail: ['https://a.test/1', 'https://a.test/2'] })
-    const r = await importFromSetLink(LINK, { deps: t.deps })
-    expect(r).toEqual({ kind: 'empty' })
-    expect(t.sessions.createSession).not.toHaveBeenCalled()
+
+    expect(await loadSetLinkPreview(LINK, { deps: previewDeps(t) })).toEqual({ kind: 'empty' })
   })
 
   it('maps expired and missing links', async () => {
     const expired = setup({ fetchError: new ShareApiError('gone', 'EXPIRED', 410) })
-    expect(await importFromSetLink(LINK, { deps: expired.deps })).toEqual({ kind: 'expired' })
+    expect(await loadSetLinkPreview(LINK, { deps: previewDeps(expired) })).toEqual({
+      kind: 'expired',
+    })
     const missing = setup({ fetchError: new ShareApiError('no', 'NOT_FOUND', 404) })
-    expect(await importFromSetLink(LINK, { deps: missing.deps })).toEqual({ kind: 'missing' })
-    expect(missing.sessions.createSession).not.toHaveBeenCalled()
+    expect(await loadSetLinkPreview(LINK, { deps: previewDeps(missing) })).toEqual({
+      kind: 'missing',
+    })
   })
 
   it('rethrows other errors', async () => {
     const t = setup({ fetchError: new Error('boom') })
-    await expect(importFromSetLink(LINK, { deps: t.deps })).rejects.toThrow('boom')
+    await expect(loadSetLinkPreview(LINK, { deps: previewDeps(t) })).rejects.toThrow('boom')
+  })
+})
+
+const preview: SetLinkPreview = {
+  linkId: LINK,
+  name: 'Sunday',
+  items: [{ entryId: 'e1', url: 'https://a.test/1', title: 'One', targetKey: 'A' }],
+  failures: [{ url: 'https://a.test/2', reason: 'nope' }],
+  snapshot: [
+    { entryId: 'e1', url: 'https://a.test/1', targetKey: 'A' },
+    { entryId: 'e2', url: 'https://a.test/2' },
+  ],
+}
+
+describe('savePreviewAsNew', () => {
+  it('saves under a unique name with the link fields', async () => {
+    const sessions = [
+      { id: 'a', createdAt: 0, name: 'Sunday', songs: [] },
+      { id: 'b', createdAt: 0, name: 'Sunday - Copy #1', songs: [] },
+    ] as Session[]
+    const getAllSessions = vi.fn(async () => sessions)
+    const createSession = vi.fn(
+      async (items: SessionSongItem[], name?: string) =>
+        ({ id: 'new', createdAt: 0, name: name ?? '', songs: items }) as Session,
+    )
+
+    const session = await savePreviewAsNew(preview, {
+      sessions: { getAllSessions, createSession },
+    })
+
+    expect(createSession).toHaveBeenCalledWith(preview.items, 'Sunday - Copy #2', {
+      importedFromLinkId: LINK,
+      linkSnapshot: preview.snapshot,
+      importFailures: preview.failures,
+    })
+    expect(session.id).toBe('new')
+  })
+})
+
+describe('updateCopyFromPreview', () => {
+  it('replaces the copy from the preview', async () => {
+    const session = { id: 's', createdAt: 0, name: 'Sunday', songs: [] } as Session
+    const replaceSongsFromLink = vi.fn(async () => session)
+
+    const result = await updateCopyFromPreview('s', preview, {
+      sessions: { replaceSongsFromLink },
+    })
+
+    expect(result).toBe(session)
+    expect(replaceSongsFromLink).toHaveBeenCalledWith(
+      's',
+      preview.items,
+      preview.snapshot,
+      preview.failures,
+    )
+  })
+})
+
+describe('diffLinkSnapshot', () => {
+  it('counts added, removed and key changes by entryId', () => {
+    const saved = [
+      { entryId: 'a', url: 'https://a.test/1', targetKey: 'G' },
+      { entryId: 'b', url: 'https://a.test/2' },
+      { entryId: 'c', url: 'https://a.test/3' },
+    ]
+    const latest = [
+      { entryId: 'a', url: 'https://a.test/1', targetKey: 'A' },
+      { entryId: 'b', url: 'https://a.test/2', targetKey: 'C' },
+      { entryId: 'd', url: 'https://a.test/4' },
+    ]
+
+    expect(diffLinkSnapshot(saved, latest)).toEqual({ added: 1, removed: 1, keyChanged: 2 })
   })
 
-  it('refresh creates a new copy even when one exists', async () => {
-    const existing = { id: 'x', createdAt: 0, name: 'Mine', songs: [] } as Session
-    const t = setup({ existing })
-    const r = await refreshFromSetLink(LINK, { deps: t.deps })
-    expect(r.kind).toBe('imported')
-    expect(t.sessions.createSession).toHaveBeenCalledTimes(1)
+  it('returns zeros for a copy saved before snapshots existed', () => {
+    expect(diffLinkSnapshot(undefined, [{ entryId: 'a', url: 'https://a.test/1' }])).toEqual({
+      added: 0,
+      removed: 0,
+      keyChanged: 0,
+    })
+  })
+})
+
+describe('findSavedCopy', () => {
+  it('asks the store for the copy saved from the link', async () => {
+    const session = { id: 's', createdAt: 0, name: 'Sunday', songs: [] } as Session
+    const findByImportedLinkId = vi.fn(async () => session)
+
+    const result = await findSavedCopy(LINK, { sessions: { findByImportedLinkId } })
+
+    expect(result).toBe(session)
+    expect(findByImportedLinkId).toHaveBeenCalledWith(LINK)
   })
 })

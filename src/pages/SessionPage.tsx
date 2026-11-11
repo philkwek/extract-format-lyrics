@@ -29,8 +29,14 @@ import {
 import { songCache } from '../lib/songCache'
 import { ensureSetLinkFresh } from '../lib/setLinkSync'
 import { isSetLinkId } from '../lib/setLinkIdentity'
-import { importFromSetLinkOnce } from '../lib/setLinkImport'
+import {
+  diffLinkSnapshot,
+  savePreviewAsNew,
+  updateCopyFromPreview,
+  type SetLinkPreview,
+} from '../lib/setLinkImport'
 import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
+import OverlayDialog from '../components/ui/OverlayDialog'
 import { simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
 import {
@@ -104,6 +110,25 @@ interface PositioningChordState {
   currentPos: number
 }
 
+function describeLinkChanges({
+  added,
+  removed,
+  keyChanged,
+}: {
+  added: number
+  removed: number
+  keyChanged: number
+}): string {
+  const parts = [
+    added ? `${added} song${added === 1 ? '' : 's'} added` : '',
+    removed ? `${removed} removed` : '',
+    keyChanged ? `${keyChanged} key${keyChanged === 1 ? '' : 's'} changed` : '',
+  ].filter(Boolean)
+  return parts.length > 0
+    ? `Since you saved it: ${parts.join(', ')}.`
+    : 'Nothing has changed since you saved it.'
+}
+
 export default function SessionPage() {
   useSeo({ title: 'Session | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -113,7 +138,12 @@ export default function SessionPage() {
   const fromSetLink = (location.state as Partial<SetLinkNavState> | null)?.fromSetLink
   // Keyed by id: after navigating to a new copy, a stale "not found" must not render the import view for it.
   const [notFoundId, setNotFoundId] = useState<string | null>(null)
-  const [refreshingLink, setRefreshingLink] = useState(false)
+  const [linkPreview, setLinkPreview] = useState<{
+    preview: SetLinkPreview
+    copy: Session | null
+  } | null>(null)
+  const [savingPreview, setSavingPreview] = useState(false)
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false)
 
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
@@ -256,6 +286,17 @@ export default function SessionPage() {
   }, [])
 
   const following = Boolean(session?.liveSourceId)
+  const handleSavePreview = useCallback(async () => {
+    if (!linkPreview) return
+    setSavingPreview(true)
+    try {
+      const saved = await savePreviewAsNew(linkPreview.preview)
+      const nav: SetLinkNavState = { fromSetLink: { kind: 'saved', name: saved.name } }
+      navigate(sessionPath(saved), { replace: true, state: nav })
+    } finally {
+      setSavingPreview(false)
+    }
+  }, [linkPreview, navigate])
   const {
     guard,
     dialog: editGuardDialog,
@@ -265,6 +306,7 @@ export default function SessionPage() {
     following,
     sessionId: session?.id,
     controllerRef: followRef,
+    onSavePreview: linkPreview ? handleSavePreview : undefined,
   })
   const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs
 
@@ -273,7 +315,9 @@ export default function SessionPage() {
     sessionStore.getSession(sessionId).then(async (s) => {
       setRemovedByHost(null)
       setHostChanges(null)
+      setLinkPreview(null)
       if (!s) {
+        setSession(null)
         setNotFoundId(sessionId)
         return
       }
@@ -1178,7 +1222,23 @@ export default function SessionPage() {
     guard(() => void handleSelectCustomPadKey(key))
 
   if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
-    return <SetLinkImportView linkId={sessionId} />
+    return (
+      <SetLinkImportView
+        linkId={sessionId}
+        onPreview={(preview, copy) => {
+          const previewSession: Session = {
+            id: preview.linkId,
+            createdAt: 0,
+            name: preview.name,
+            songs: preview.items,
+            ...(preview.failures.length > 0 ? { importFailures: preview.failures } : {}),
+          }
+          setLinkPreview({ preview, copy })
+          adoptSession(previewSession)
+          void loadSessionSongs(previewSession)
+        }}
+      />
+    )
   }
 
   if (!session) {
@@ -1252,23 +1312,32 @@ export default function SessionPage() {
 
   const importFailures = session.importFailures ?? []
   const handleDismissImportFailures = async () => {
+    if (linkPreview) {
+      adoptSession({ ...session, importFailures: undefined })
+      return
+    }
     const updated = await sessionStore.dismissImportFailures(session.id)
     if (updated) adoptSession(updated)
   }
 
-  const getLatestFromSetLink = async () => {
-    if (!session.importedFromLinkId || refreshingLink) return
-    setRefreshingLink(true)
+  const savedCopy = linkPreview?.copy ?? null
+  const previewChanges =
+    linkPreview && savedCopy?.linkSnapshot
+      ? describeLinkChanges(diffLinkSnapshot(savedCopy.linkSnapshot, linkPreview.preview.snapshot))
+      : null
+
+  const handleUpdateCopy = async () => {
+    if (!linkPreview || !savedCopy) return
+    setSavingPreview(true)
     try {
-      const result = await importFromSetLinkOnce(session.importedFromLinkId, {}, true)
-      if (result.kind === 'imported') {
-        navigate(sessionPath(result.session), {
-          replace: true,
-          state: { fromSetLink: { name: result.session.name, reused: false } },
-        })
+      const updated = await updateCopyFromPreview(savedCopy.id, linkPreview.preview)
+      if (updated) {
+        const nav: SetLinkNavState = { fromSetLink: { kind: 'updated', name: updated.name } }
+        navigate(sessionPath(updated), { replace: true, state: nav })
       }
     } finally {
-      setRefreshingLink(false)
+      setSavingPreview(false)
+      setConfirmingUpdate(false)
     }
   }
 
@@ -1280,22 +1349,63 @@ export default function SessionPage() {
           : 'ui-surface space-y-5 p-4 sm:p-6'
       }
     >
+      {!isFullScreen && linkPreview && (
+        <StatusBanner tone="info">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <p>
+                {savedCopy
+                  ? 'You opened a shared set. You saved a copy of it before.'
+                  : 'You opened a shared set. Save it to your sets?'}
+              </p>
+              {previewChanges && <p className="text-xs">{previewChanges}</p>}
+            </div>
+            <span className="flex flex-wrap gap-2">
+              {savedCopy ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    loading={savingPreview}
+                    onClick={() => setConfirmingUpdate(true)}
+                  >
+                    Update my copy
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => void handleSavePreview()}>
+                    Save as new
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => navigate(sessionPath(savedCopy))}>
+                    Open my copy
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  loading={savingPreview}
+                  onClick={() => void handleSavePreview()}
+                >
+                  Save
+                </Button>
+              )}
+            </span>
+          </div>
+        </StatusBanner>
+      )}
+
       {!isFullScreen && fromSetLink && (
         <StatusBanner tone="info">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              {fromSetLink.reused
-                ? 'You already have a copy of this set. It won\u2019t update when the sender makes changes.'
-                : `This is your own copy of \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
+              {fromSetLink.kind === 'offline'
+                ? 'Couldn\u2019t load the latest version of the shared set. Showing your saved copy.'
+                : fromSetLink.kind === 'updated'
+                  ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
+                  : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
             </span>
-            <span className="flex gap-2">
-              {fromSetLink.reused && session.importedFromLinkId && (
-                <Button size="sm" variant="secondary" loading={refreshingLink} onClick={getLatestFromSetLink}>
-                  Get the latest version
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>Dismiss</Button>
-            </span>
+            <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
+              Dismiss
+            </Button>
           </div>
         </StatusBanner>
       )}
@@ -1397,14 +1507,16 @@ export default function SessionPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<Share2 size={14} />}
-              onClick={handleOpenShareMenu}
-            >
-              Share
-            </Button>
+            {!linkPreview && (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Share2 size={14} />}
+                onClick={handleOpenShareMenu}
+              >
+                Share
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -1796,6 +1908,27 @@ export default function SessionPage() {
       )}
 
       {editGuardDialog}
+      <OverlayDialog
+        isOpen={confirmingUpdate}
+        onClose={() => setConfirmingUpdate(false)}
+        title="Update your copy?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingUpdate(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" loading={savingPreview} onClick={() => void handleUpdateCopy()}>
+              Update
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          Your copy will be replaced with this version of the shared set. Changes you made to your
+          copy will be lost.
+        </p>
+      </OverlayDialog>
 
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (
