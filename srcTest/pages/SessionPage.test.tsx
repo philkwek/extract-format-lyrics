@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import SessionPage from '../../src/pages/SessionPage'
 import { ChromeVisibilityContext } from '../../src/lib/chromeVisibility'
 import { sessionStore } from '../../src/lib/sessionStore'
-import { scrapeApi, simplifyApi } from '../../src/lib/api'
+import { simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
 import { importFromSetLinkOnce } from '../../src/lib/setLinkImport'
 import {
@@ -47,7 +47,6 @@ const fixtures = vi.hoisted(() => {
         url: song.sourceUrl,
         title: song.title,
         artist: song.artist,
-        status: 'ok',
       },
     ],
   }
@@ -64,6 +63,7 @@ vi.mock('../../src/lib/sessionStore', () => ({
     reorderSongsInSession: vi.fn(),
     renameSession: vi.fn(),
     createSetCopy: vi.fn(),
+    dismissImportFailures: vi.fn(),
   },
   makeEntryId: () => 'entry-2',
 }))
@@ -269,8 +269,6 @@ describe('SessionPage full screen mode', () => {
         {
           entryId: 'entry-a',
           url: 'https://example.test/broken',
-          status: 'error',
-          errorMessage: 'Boom',
         },
         { ...fixtures.session.songs[0], entryId: 'entry-b' },
       ],
@@ -303,8 +301,6 @@ describe('SessionPage full screen mode', () => {
         {
           entryId: 'entry-a',
           url: 'https://example.test/broken',
-          status: 'error',
-          errorMessage: 'Boom',
         },
         { ...fixtures.session.songs[0], entryId: 'entry-b' },
       ],
@@ -353,54 +349,6 @@ describe('SessionPage full screen mode', () => {
 
     expect(screen.queryByText(/Chord editing active/i)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit chords' })).toBeNull()
-  })
-
-  it('keeps edits made while a retry is in flight', async () => {
-    const twoSongSession = {
-      ...fixtures.session,
-      songs: [
-        {
-          entryId: 'entry-a',
-          url: 'https://example.test/broken',
-          status: 'error',
-          errorMessage: 'Boom',
-        },
-        { ...fixtures.session.songs[0], entryId: 'entry-b' },
-      ],
-    }
-    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
-    vi.mocked(sessionStore.updateSession).mockClear()
-    let resolveScrape!: (value: Awaited<ReturnType<typeof scrapeApi>>) => void
-    vi.mocked(scrapeApi).mockReturnValue(
-      new Promise((resolve) => {
-        resolveScrape = resolve
-      }),
-    )
-
-    try {
-      render(<TestHarness />)
-
-      fireEvent.click(await screen.findByRole('button', { name: 'Retry extraction' }))
-      fireEvent.click(screen.getAllByRole('tab')[1])
-      const select = (await screen.findAllByLabelText('Transpose song'))[0]
-      fireEvent.change(select, { target: { value: 'A' } })
-      await waitFor(() => {
-        expect(sessionStore.updateSession).toHaveBeenCalledTimes(1)
-      })
-
-      resolveScrape({
-        results: [{ url: 'https://example.test/broken', status: 'ok', song: fixtures.song }],
-      } as never)
-
-      await waitFor(() => {
-        expect(sessionStore.updateSession).toHaveBeenCalledTimes(2)
-      })
-      const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
-      expect(saved.songs[0].status).toBe('ok')
-      expect(saved.songs[1].targetKey).toBe('A')
-    } finally {
-      vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
-    }
   })
 
   it('saves two edits fired back-to-back in one save', async () => {
@@ -682,18 +630,46 @@ describe('SessionPage set links', () => {
   })
 
   it('imports an unknown set-link id and navigates to the copy', async () => {
+    const copy = {
+      ...fixtures.session,
+      id: 'copy-1',
+      publicId: 'copypublicidcopypublic1',
+      importFailures: [{ url: 'https://example.test/gone', reason: 'Page not found' }],
+    }
     vi.mocked(sessionStore.getSession).mockImplementation(async (id: string) =>
-      id === PUBLIC_ID ? null : ({ ...fixtures.session, id: 'copy-1', publicId: 'copypublicidcopypublic1' } as never),
+      id === PUBLIC_ID ? null : (copy as never),
     )
     vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({
       kind: 'imported',
-      failed: 1,
-      session: { ...fixtures.session, id: 'copy-1', publicId: 'copypublicidcopypublic1' },
+      session: copy,
     } as never)
     renderAt(`/session/${PUBLIC_ID}`)
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/session/copypublicidcopypublic1'))
     expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
-    expect(screen.getByText(/1 song\(s\) couldn.t be loaded/)).toBeTruthy()
+    expect(screen.getByText(/This link couldn.t be added/)).toBeTruthy()
+    expect(screen.getByText('https://example.test/gone')).toBeTruthy()
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+  })
+
+  it('shows the empty card when no song in the link loads', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValueOnce(null)
+    vi.mocked(importFromSetLinkOnce).mockResolvedValueOnce({ kind: 'empty' })
+    renderAt(`/session/${PUBLIC_ID}`)
+    expect(await screen.findByText('None of the songs could be loaded')).toBeTruthy()
+  })
+
+  it('dismisses the failed links banner and saves that', async () => {
+    const withFailures = {
+      ...fixtures.session,
+      importFailures: [{ url: 'https://example.test/gone', reason: 'Page not found' }],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(withFailures as never)
+    vi.mocked(sessionStore.dismissImportFailures).mockResolvedValueOnce(fixtures.session as never)
+    renderAt('/session/session-1')
+    expect(await screen.findByText(/This link couldn.t be added/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(screen.queryByText(/This link couldn.t be added/)).toBeNull())
+    expect(sessionStore.dismissImportFailures).toHaveBeenCalledWith('session-1')
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
   })
 
@@ -707,7 +683,7 @@ describe('SessionPage set links', () => {
   it('shows the banner from navigation state and dismisses it', async () => {
     renderAt({
       pathname: '/session/session-1',
-      state: { fromSetLink: { name: 'Sunday Set', failed: 0, reused: false } },
+      state: { fromSetLink: { name: 'Sunday Set', reused: false } },
     })
     expect(await screen.findByText(/This is your own copy of/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
@@ -892,7 +868,6 @@ describe('SessionPage removed-by-host songs', () => {
           entryId: 'entry-s2',
           url: 'https://example.test/second',
           title: 'Second Song',
-          status: 'ok',
         },
       ],
     }
@@ -924,9 +899,9 @@ describe('SessionPage removed-by-host songs', () => {
     const threeSongs = {
       ...followed,
       songs: [
-        { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
-        { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
-        { entryId: 'entry-c', url: 'https://example.test/c', title: 'Charlie', status: 'ok' },
+        { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha' },
+        { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo' },
+        { entryId: 'entry-c', url: 'https://example.test/c', title: 'Charlie' },
       ],
     }
     mockFollow(threeSongs)
@@ -957,8 +932,8 @@ describe('SessionPage host change notice', () => {
     ...fixtures.session,
     liveSourceId: 'live-1',
     songs: [
-      { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha', status: 'ok' },
-      { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo', status: 'ok' },
+      { entryId: 'entry-a', url: 'https://example.test/a', title: 'Alpha' },
+      { entryId: 'entry-b', url: 'https://example.test/b', title: 'Bravo' },
     ],
   }
   const controller = { stop: vi.fn(), flushDeferred: vi.fn(), dropDeferred: vi.fn() }

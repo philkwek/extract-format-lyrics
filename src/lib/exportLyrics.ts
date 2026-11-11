@@ -115,9 +115,6 @@ export function createSharedLyricsPayload(
   if (session.songs.length > MAX_SHARED_LYRICS_SONGS) {
     throw new ShareLyricsError(`Shared sets have a limit of ${MAX_SHARED_LYRICS_SONGS} songs. Remove songs before sharing.`)
   }
-  if (session.songs.some((item) => item.status !== 'ok')) {
-    throw new ShareLyricsError('All songs must finish loading successfully before this set can be shared.')
-  }
 
   const songs: SharedLyricsSong[] = session.songs.map((item) => {
     const song = getSong(item)
@@ -187,10 +184,9 @@ export function formatSetlistLyrics(
   songsData: Map<string, Song>,
   getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean
 ): string {
-  const validSongs = songs.filter((s) => s.status !== 'error')
   const payloadSongs: SharedLyricsSong[] = []
 
-  for (const item of validSongs) {
+  for (const item of songs) {
     const loadedSong = (item.entryId ? songsData.get(item.entryId) : undefined) ?? songsData.get(item.url)
     if (!loadedSong) continue
 

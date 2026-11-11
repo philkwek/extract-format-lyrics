@@ -45,12 +45,10 @@ export async function buildLyricsSyncPayload(
   if (session.songs.length > MAX_SHARED_LYRICS_SONGS) {
     return { payload: null, reason: 'too_many' }
   }
-  if (session.songs.some((item) => item.status !== 'ok')) return { payload: null }
-
   const songsData = new Map<string, Song>()
   for (const item of session.songs) {
     const song = await getSong(item.url)
-    if (!song) return { payload: null }
+    if (!song) throw new Error(`Song not found in cache: ${item.url}`)
     songsData.set(item.entryId || item.url, song)
     songsData.set(item.url, song)
   }

@@ -20,7 +20,7 @@ const song: Song = {
 }
 
 function item(overrides: Partial<SessionSongItem> = {}): SessionSongItem {
-  return { url: song.sourceUrl, status: 'ok', ...overrides }
+  return { url: song.sourceUrl, ...overrides }
 }
 
 describe('sectionFlow', () => {

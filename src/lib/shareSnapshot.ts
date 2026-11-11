@@ -24,7 +24,6 @@ export function sessionSongsFromSnapshot(snapshot: SharedSetSnapshot): SessionSo
     url: song.sourceUrl,
     title: song.title,
     artist: song.artist,
-    status: 'ok',
     customSections,
     customFlow,
     customSimplifiedSections,

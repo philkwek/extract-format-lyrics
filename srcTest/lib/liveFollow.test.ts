@@ -118,7 +118,6 @@ describe('openLiveShare', () => {
       padKeyMode: 'custom',
       customPadKey: 'F',
       customFlow: [0, 0],
-      status: 'ok',
     })
     expect(session.songs[0].customSections).toHaveLength(1)
     expect(t.songs.has('https://x.test/a')).toBe(true)
@@ -194,13 +193,13 @@ describe('openLiveShare', () => {
     expect(t.fetchLive).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps an entry with missing content as an error item', async () => {
+  it('fails instead of opening a set when host content is missing', async () => {
     const t = setup(() => liveResponse({ dropContent: true }))
-    const r = await openLiveShare(LIVE, { deps: t.deps })
-    const songs = (r as { session: Session }).session.songs
-    expect(songs[0].status).toBe('ok')
-    expect(songs[1]).toMatchObject({ entryId: 'e-b', status: 'error' })
-    expect(songs[1].errorMessage).toBeTruthy()
+    await expect(openLiveShare(LIVE, { deps: t.deps })).rejects.toThrow(
+      'Live set content is missing for a song',
+    )
+    expect(await t.store.getAllSessions()).toHaveLength(0)
+    expect(t.songs.size).toBe(0)
   })
 
   it('reports stopped, expired and missing', async () => {
@@ -250,6 +249,15 @@ describe('applyLiveSet', () => {
     const { songs } = await applyLiveSet(await liveResponse(), { saveSong })
     expect(songs.map((s) => s.entryId)).toEqual(['e-a', 'e-b'])
     expect(saveSong).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects when a manifest entry has no content, before caching any song', async () => {
+    const saveSong = vi.fn(async () => {})
+    const response = await liveResponse({ dropContent: true })
+    await expect(applyLiveSet(response, { saveSong })).rejects.toThrow(
+      'Live set content is missing for a song',
+    )
+    expect(saveSong).not.toHaveBeenCalled()
   })
 })
 
@@ -378,6 +386,20 @@ describe('followLiveSet', () => {
     await settle()
     expect(f.getContent).toHaveBeenCalledTimes(1)
     expect((await f.store.getSession(f.session.id))?.songs).toHaveLength(3)
+    f.controller.stop()
+  })
+
+  it('saves no partial set when a manifest names a song without content', async () => {
+    const f = await follow()
+    const manifest = await f.manifestAt(4, 'c')
+    f.getContent.mockResolvedValueOnce(null)
+    f.emit(manifest)
+    await settle()
+    expect(f.updates).toEqual([])
+    expect(f.statuses.at(-1)).toBe('reconnecting')
+    const saved = await f.store.getSession(f.session.id)
+    expect(saved?.liveRev).toBe(3)
+    expect(saved?.songs.map((s) => s.entryId)).toEqual(['e-a', 'e-b'])
     f.controller.stop()
   })
 

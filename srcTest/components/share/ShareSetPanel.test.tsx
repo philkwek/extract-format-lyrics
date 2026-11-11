@@ -37,7 +37,7 @@ const session: Session = {
   publicId: 'pub-1',
   createdAt: 0,
   name: 'Sunday Set',
-  songs: [{ entryId: 'e1', url: 'https://example.test/a', title: 'A', artist: 'B', status: 'ok' }],
+  songs: [{ entryId: 'e1', url: 'https://example.test/a', title: 'A', artist: 'B' }],
 }
 
 const followedSession: Session = {
@@ -51,7 +51,6 @@ const followedSession: Session = {
       url: 'https://example.test/a',
       title: 'A',
       artist: 'B',
-      status: 'ok',
       targetKey: 'D',
       simplified: true,
       padKeyMode: 'custom',

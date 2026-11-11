@@ -67,9 +67,8 @@ export async function buildLivePayload(
   const contents = new Map<string, LiveSongContent>()
   const entries: LiveSetManifestInput['entries'] = []
   for (const item of session.songs) {
-    if (item.status === 'error') continue
     const song = await getSong(item.url)
-    if (!song) continue
+    if (!song) throw new Error(`Song not found in cache: ${item.url}`)
     const e = snapshotEntry(item, song)
     const { entryId, targetKey, simplified, padKeyMode, customPadKey } = e
     const content: LiveSongContent = {

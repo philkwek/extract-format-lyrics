@@ -6,10 +6,10 @@ import { importFromSetLinkOnce } from '../lib/setLinkImport'
 import { sessionPath } from '../lib/sessionStore'
 import { Button, Surface } from './ui'
 
-type ViewState = 'loading' | 'expired' | 'missing' | 'error'
+type ViewState = 'loading' | 'expired' | 'missing' | 'empty' | 'error'
 
 export interface SetLinkNavState {
-  fromSetLink: { name: string; failed: number; reused: boolean }
+  fromSetLink: { name: string; reused: boolean }
 }
 
 /** Shown when a set-link URL has no local copy yet: imports it, then opens the copy. */
@@ -22,7 +22,7 @@ export default function SetLinkImportView({ linkId }: { linkId: string }) {
     let cancelled = false
     importFromSetLinkOnce(linkId, { onProgress: (m) => { if (!cancelled) setProgress(m) } })
       .then((result) => {
-        if (result.kind === 'expired' || result.kind === 'missing') {
+        if (result.kind === 'expired' || result.kind === 'missing' || result.kind === 'empty') {
           trackEvent('set_link_opened', { outcome: result.kind, song_count: 0 })
           if (!cancelled) setState(result.kind)
           return
@@ -33,11 +33,7 @@ export default function SetLinkImportView({ linkId }: { linkId: string }) {
           song_count: result.session.songs.length,
         })
         const nav: SetLinkNavState = {
-          fromSetLink: {
-            name: result.session.name,
-            failed: result.kind === 'imported' ? result.failed : 0,
-            reused,
-          },
+          fromSetLink: { name: result.session.name, reused },
         }
         // Navigate even if cancelled (StrictMode remount): the session now exists locally.
         navigate(sessionPath(result.session), { replace: true, state: nav })
@@ -72,12 +68,16 @@ export default function SetLinkImportView({ linkId }: { linkId: string }) {
     ? 'This set link has expired'
     : state === 'missing'
       ? 'This set isn’t available'
-      : 'Could not open the set'
+      : state === 'empty'
+        ? 'None of the songs could be loaded'
+        : 'Could not open the set'
   const body = expired
     ? 'Ask the sender to open the set and send the link again.'
     : state === 'missing'
       ? 'This set isn’t available. The link may have expired, or the set hasn’t synced yet. Ask the sender to open the set and send the link again.'
-      : 'Something went wrong while loading this set. Check your connection and try again.'
+      : state === 'empty'
+        ? 'None of the chord sites for this set responded, so no copy was made. Try again later.'
+        : 'Something went wrong while loading this set. Check your connection and try again.'
 
   return (
     <div className="mx-auto max-w-lg py-16 text-center">

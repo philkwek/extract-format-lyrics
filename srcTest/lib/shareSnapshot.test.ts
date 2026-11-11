@@ -21,8 +21,8 @@ describe('shared set snapshots', () => {
   it('preserves ordered duplicate entries and their independent musical state', async () => {
     const session: Session = {
       id: 'set', createdAt: 1, name: 'Sunday', songs: [
-        { entryId: 'first', url: sourceSong.sourceUrl, status: 'ok', targetKey: 'D', padKeyMode: 'custom', customPadKey: 'E', simplified: true },
-        { entryId: 'second', url: sourceSong.sourceUrl, status: 'ok', customSections: [], customFlow: [], simplified: false },
+        { entryId: 'first', url: sourceSong.sourceUrl, targetKey: 'D', padKeyMode: 'custom', customPadKey: 'E', simplified: true },
+        { entryId: 'second', url: sourceSong.sourceUrl, customSections: [], customFlow: [], simplified: false },
       ],
     }
     const snapshot = snapshotOf(session, sourceSong)
@@ -56,7 +56,6 @@ describe('shared set snapshots', () => {
         {
           entryId: 'entry-1',
           url: algorithmicSong.sourceUrl,
-          status: 'ok',
           simplified: true,
           customSimplifiedSections: [{ type: 'Verse', label: 'Custom Simple', lines: [] }],
           customSimplifiedFlow: [0],

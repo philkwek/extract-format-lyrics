@@ -14,6 +14,8 @@ import { importSources, sourceFromCandidate } from '../../lib/setlistImport'
 import type { Session } from '../../lib/sessionStore'
 import SearchForm from '../import/SearchForm'
 import SearchResults from '../import/SearchResults'
+import { Button } from '../ui'
+import OverlayDialog from '../ui/OverlayDialog'
 
 interface AddSongSearchPanelProps {
   sessionId: string
@@ -33,6 +35,8 @@ export default function AddSongSearchPanel({
   const [hasSearched, setHasSearched] = useState(false)
   const [addedUrls, setAddedUrls] = useState<Set<string>>(new Set())
   const [addingUrls, setAddingUrls] = useState<Set<string>>(new Set())
+  const [failedUrls, setFailedUrls] = useState<Map<string, string>>(new Map())
+  const [failedCandidate, setFailedCandidate] = useState<SearchCandidate | null>(null)
   const searchAbortRef = useRef<AbortController | null>(null)
   const searchGenerationRef = useRef(0)
 
@@ -89,6 +93,10 @@ export default function AddSongSearchPanel({
   }
 
   const handleAddCandidate = async (candidate: SearchCandidate) => {
+    if (failedUrls.has(candidate.url)) {
+      setFailedCandidate(candidate)
+      return
+    }
     if (addedUrls.has(candidate.url) || addingUrls.has(candidate.url)) return
 
     setAddingUrls((previous) => new Set(previous).add(candidate.url))
@@ -100,10 +108,11 @@ export default function AddSongSearchPanel({
       })
       trackSongImport('search', result.imported, 1)
       setAddedUrls((previous) => new Set(previous).add(candidate.url))
-      await onSessionUpdated(result.session, result.firstNewIndex)
+      if (result.session) await onSessionUpdated(result.session, result.firstNewIndex)
     } catch (err) {
       trackSongImport('search', 0, 1)
-      alert(`Could not add song: ${(err as Error).message}`)
+      const reason = (err as Error).message || 'Could not add this song.'
+      setFailedUrls((previous) => new Map(previous).set(candidate.url, reason))
     } finally {
       setAddingUrls((previous) => {
         const next = new Set(previous)
@@ -134,15 +143,37 @@ export default function AddSongSearchPanel({
         emptyMessage="No matching chord sheets found. Try a different title or artist name."
         onSelect={handleAddCandidate}
         getActionState={(candidate) => ({
-          label: addedUrls.has(candidate.url)
-            ? 'Added ✓'
-            : addingUrls.has(candidate.url)
-              ? 'Adding...'
-              : 'Add to setlist',
+          label: failedUrls.has(candidate.url)
+            ? 'Failed to add'
+            : addedUrls.has(candidate.url)
+              ? 'Added ✓'
+              : addingUrls.has(candidate.url)
+                ? 'Adding...'
+                : 'Add to setlist',
           disabled: addingUrls.has(candidate.url) || addedUrls.has(candidate.url),
           loading: addingUrls.has(candidate.url),
         })}
       />
+      <OverlayDialog
+        isOpen={failedCandidate !== null}
+        onClose={() => setFailedCandidate(null)}
+        title="Couldn't add this song"
+        size="sm"
+        footer={
+          <Button variant="secondary" onClick={() => setFailedCandidate(null)}>
+            Close
+          </Button>
+        }
+      >
+        {failedCandidate && (
+          <>
+            <p className="text-sm text-[var(--ui-text)]">{failedCandidate.title}</p>
+            <p className="mt-2 text-sm text-[var(--ui-text-muted)]">
+              {failedUrls.get(failedCandidate.url) ?? 'Could not add this song.'}
+            </p>
+          </>
+        )}
+      </OverlayDialog>
     </div>
   )
 }

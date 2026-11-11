@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SessionStore, sessionPath, type SessionStorageStore, type SessionChangeEvent } from '../../src/lib/sessionStore'
+import {
+  SessionStore,
+  MAX_IMPORT_FAILURES,
+  sessionPath,
+  type SessionStorageStore,
+  type SessionChangeEvent,
+} from '../../src/lib/sessionStore'
 import type { SetLinkIdentityStore } from '../../src/lib/setLinkIdentity'
 
 describe('SessionStore', () => {
@@ -19,7 +25,7 @@ describe('SessionStore', () => {
     expect(await store.getAllSessions()).toEqual([])
 
     const created = await store.createSession([
-      { url: 'https://pnwchords.com/song-1', status: 'ok', title: 'Song 1' },
+      { url: 'https://pnwchords.com/song-1', title: 'Song 1' },
     ])
 
     expect(created.songs.length).toBe(1)
@@ -49,7 +55,6 @@ describe('SessionStore', () => {
           entryId: 'e1',
           url: 'https://x.test/a',
           title: 'A',
-          status: 'ok',
           targetKey: 'D',
           simplified: true,
           customFlow: [0, 0],
@@ -109,9 +114,9 @@ describe('SessionStore', () => {
 
     const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
     const session = await store.createSession([
-      { url: 'https://pnwchords.com/song-1', status: 'ok', title: 'Song 1' },
-      { url: 'https://pnwchords.com/song-2', status: 'ok', title: 'Song 2' },
-      { url: 'https://pnwchords.com/song-3', status: 'ok', title: 'Song 3' },
+      { url: 'https://pnwchords.com/song-1', title: 'Song 1' },
+      { url: 'https://pnwchords.com/song-2', title: 'Song 2' },
+      { url: 'https://pnwchords.com/song-3', title: 'Song 3' },
     ])
 
     // Reorder Song 1 (index 0) to end (index 2)
@@ -141,12 +146,12 @@ describe('SessionStore', () => {
 
     const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
     const session = await store.createSession([
-      { url: 'https://pnwchords.com/song-1', status: 'ok', title: 'Song 1' },
+      { url: 'https://pnwchords.com/song-1', title: 'Song 1' },
     ])
 
     const result = await store.addSongsToSession(session.id, [
-      { url: 'https://pnwchords.com/song-2', status: 'ok', title: 'Song 2' },
-      { url: 'https://pnwchords.com/song-3', status: 'ok', title: 'Song 3' },
+      { url: 'https://pnwchords.com/song-2', title: 'Song 2' },
+      { url: 'https://pnwchords.com/song-3', title: 'Song 3' },
     ])
 
     expect(result?.firstNewIndex).toBe(1)
@@ -233,7 +238,7 @@ describe('SessionStore', () => {
       const { store } = makeStores()
       const events: SessionChangeEvent[] = []
       const off = store.subscribe((e) => events.push(e))
-      const s = await store.createSession([{ url: 'https://x.test/a', status: 'ok' }])
+      const s = await store.createSession([{ url: 'https://x.test/a' }])
       await store.renameSession(s.id, 'New')
       await store.reorderSongsInSession(s.id, 0, 0)
       await store.deleteSession(s.id)
@@ -242,6 +247,175 @@ describe('SessionStore', () => {
       off()
       await store.createSession([])
       expect(events).toHaveLength(3)
+    })
+  })
+
+  describe('import failures', () => {
+    function makeStores() {
+      let data: unknown = null
+      const ids = new Map<string, unknown>()
+      const backing = {
+        get: vi.fn(async () => data),
+        set: vi.fn(async (_: unknown, v: unknown) => {
+          data = v
+        }),
+        del: vi.fn(async () => {
+          data = null
+        }),
+      }
+      const identityStore: SetLinkIdentityStore = {
+        get: async <T>(k: string) => ids.get(k) as T | undefined,
+        set: async (k, v) => void ids.set(k, v),
+        del: async (k) => void ids.delete(k),
+      }
+      return {
+        store: new SessionStore(backing as unknown as SessionStorageStore, identityStore),
+        backing,
+        seed: (v: unknown) => {
+          data = v
+        },
+      }
+    }
+
+    it('does not write or emit when nothing is added', async () => {
+      const { store, backing } = makeStores()
+      const session = await store.createSession([{ url: 'https://x.test/a' }])
+      const events: SessionChangeEvent[] = []
+      store.subscribe((e) => events.push(e))
+      const writesBefore = backing.set.mock.calls.length
+
+      const result = await store.addSongsToSession(
+        session.id,
+        [],
+        [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+      )
+
+      expect(result?.firstNewIndex).toBe(1)
+      expect(result?.session.songs).toHaveLength(1)
+      expect(result?.session.importFailures).toBeUndefined()
+      expect(backing.set).toHaveBeenCalledTimes(writesBefore)
+      expect(events).toHaveLength(0)
+    })
+
+    it('stores failures and keeps the newest reason for a repeated url', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession([])
+
+      await store.addSongsToSession(
+        session.id,
+        [{ url: 'https://x.test/a' }],
+        [
+          { url: 'https://x.test/bad', reason: 'First try' },
+          { url: 'https://x.test/worse', reason: 'Other' },
+        ],
+      )
+      const result = await store.addSongsToSession(
+        session.id,
+        [{ url: 'https://x.test/b' }],
+        [{ url: 'https://x.test/bad', reason: 'Second try' }],
+      )
+
+      expect(result?.session.importFailures).toEqual([
+        { url: 'https://x.test/worse', reason: 'Other' },
+        { url: 'https://x.test/bad', reason: 'Second try' },
+      ])
+    })
+
+    it('caps failures at the newest 30', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession([])
+      const failures = Array.from({ length: 35 }, (_, i) => ({
+        url: `https://x.test/${i}`,
+        reason: `Failure ${i}`,
+      }))
+
+      const result = await store.addSongsToSession(
+        session.id,
+        [{ url: 'https://x.test/a' }],
+        failures,
+      )
+
+      expect(result?.session.importFailures).toHaveLength(MAX_IMPORT_FAILURES)
+      const urls = result?.session.importFailures?.map((failure) => failure.url)
+      expect(urls?.[0]).toBe('https://x.test/5')
+      expect(urls?.[MAX_IMPORT_FAILURES - 1]).toBe('https://x.test/34')
+    })
+
+    it('stores failures on create and nothing for an empty list', async () => {
+      const { store } = makeStores()
+      const withFailures = await store.createSession([], 'A', {
+        importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+      })
+      const withoutFailures = await store.createSession([], 'B', { importFailures: [] })
+
+      expect(withFailures.importFailures).toEqual([
+        { url: 'https://x.test/bad', reason: 'Import failed' },
+      ])
+      expect(withoutFailures.importFailures).toBeUndefined()
+    })
+
+    it('dismisses failures and persists the removal', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession([], 'A', {
+        importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+      })
+
+      const dismissed = await store.dismissImportFailures(session.id)
+
+      expect(dismissed?.importFailures).toBeUndefined()
+      expect((await store.getSession(session.id))?.importFailures).toBeUndefined()
+      expect(await store.dismissImportFailures('missing')).toBeNull()
+    })
+
+    it('does not write when there is nothing to dismiss', async () => {
+      const { store, backing } = makeStores()
+      const session = await store.createSession([])
+      const writesBefore = backing.set.mock.calls.length
+
+      const result = await store.dismissImportFailures(session.id)
+
+      expect(result?.id).toBe(session.id)
+      expect(backing.set).toHaveBeenCalledTimes(writesBefore)
+    })
+
+    it('drops error rows from old sessions and lists their links as failures', async () => {
+      const { store, seed } = makeStores()
+      seed([
+        {
+          id: 'old',
+          createdAt: 1,
+          name: 'Old',
+          songs: [
+            { url: 'https://example.com/good', status: 'ok', title: 'Good' },
+            { url: 'https://example.com/bad', status: 'error', errorMessage: 'Scrape failed' },
+            { url: '', status: 'error', errorMessage: 'No link' },
+          ],
+        },
+      ])
+
+      const [loaded] = await store.getAllSessions()
+
+      expect(loaded.songs.map((song) => song.url)).toEqual(['https://example.com/good'])
+      expect(loaded.importFailures).toEqual([
+        { url: 'https://example.com/bad', reason: 'Scrape failed' },
+      ])
+
+      const [again] = await store.getAllSessions()
+      expect(again.songs.map((song) => song.url)).toEqual(['https://example.com/good'])
+      expect(again.importFailures).toHaveLength(1)
+    })
+
+    it('does not carry failures onto a copy', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession(
+        [{ url: 'https://x.test/a' }],
+        'Sunday',
+        { importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }] },
+      )
+
+      const copy = await store.createSetCopy(session)
+
+      expect(copy.importFailures).toBeUndefined()
     })
   })
 })

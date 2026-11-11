@@ -13,7 +13,7 @@ interface Events {
     trigger: 'create' | 'update' | 'refresh'
   }
   set_link_opened: {
-    outcome: 'imported' | 'reused' | 'expired' | 'missing' | 'error'
+    outcome: 'imported' | 'reused' | 'expired' | 'missing' | 'empty' | 'error'
     song_count: number
   }
   live_share_started: { song_count: number }

@@ -72,9 +72,6 @@ describe('SongCache', () => {
     await cache.saveSong(sampleSong)
     const retrieved = await cache.getSong(sampleSong.sourceUrl)
     expect(retrieved?.title).toBe('Amazing Grace')
-
-    await cache.removeSong(sampleSong.sourceUrl)
-    expect(await cache.getSong(sampleSong.sourceUrl)).toBeNull()
   })
 
   it('resolves a song saved under a redirect URL through its original URL alias', async () => {

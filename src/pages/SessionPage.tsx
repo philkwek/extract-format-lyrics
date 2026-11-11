@@ -31,7 +31,7 @@ import { ensureSetLinkFresh } from '../lib/setLinkSync'
 import { isSetLinkId } from '../lib/setLinkIdentity'
 import { importFromSetLinkOnce } from '../lib/setLinkImport'
 import SetLinkImportView, { type SetLinkNavState } from '../components/SetLinkImportView'
-import { scrapeApi, simplifyApi } from '../lib/api'
+import { simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
 import {
   getDefaultSongPrefs,
@@ -120,7 +120,6 @@ export default function SessionPage() {
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [prefsRevision, setPrefsRevision] = useState(0)
-  const [retryingUrls, setRetryingUrls] = useState<Set<string>>(new Set())
   const simplificationAttempts = useRef<Set<string>>(new Set())
   const sessionRef = useRef<Session | null>(null)
   /** Saves a change to one set item, always starting from the latest set. */
@@ -190,7 +189,6 @@ export default function SessionPage() {
       url: s.sourceUrl,
       title: s.title,
       artist: s.artist,
-      status: 'ok',
     }))
     const updatedSongs = [...session.songs, ...newItems]
     const updatedSession = { ...session, songs: updatedSongs }
@@ -226,28 +224,26 @@ export default function SessionPage() {
     const map = new Map<string, Song>()
     const origMap = new Map<string, Song>()
     for (const item of nextSession.songs) {
-      if (item.status === 'ok') {
-        const loaded = await songCache.getSong(item.url)
-        if (loaded) {
-          origMap.set(item.entryId || item.url, loaded)
-          let songToUse = loaded
-          if (item.customSections) {
-            songToUse = {
-              ...songToUse,
-              sections: item.customSections,
-              flow: item.customFlow ?? identityFlow(item.customSections.length),
-            }
+      const loaded = await songCache.getSong(item.url)
+      if (loaded) {
+        origMap.set(item.entryId || item.url, loaded)
+        let songToUse = loaded
+        if (item.customSections) {
+          songToUse = {
+            ...songToUse,
+            sections: item.customSections,
+            flow: item.customFlow ?? identityFlow(item.customSections.length),
           }
-          if (item.customSimplifiedSections && songToUse.simplifiedSections) {
-            songToUse = {
-              ...songToUse,
-              simplifiedSections: item.customSimplifiedSections,
-              simplifiedFlow:
-                item.customSimplifiedFlow ?? identityFlow(item.customSimplifiedSections.length),
-            }
-          }
-          map.set(item.entryId || item.url, songToUse)
         }
+        if (item.customSimplifiedSections && songToUse.simplifiedSections) {
+          songToUse = {
+            ...songToUse,
+            simplifiedSections: item.customSimplifiedSections,
+            simplifiedFlow:
+              item.customSimplifiedFlow ?? identityFlow(item.customSimplifiedSections.length),
+          }
+        }
+        map.set(item.entryId || item.url, songToUse)
       }
     }
     setSongsData(map)
@@ -753,40 +749,6 @@ export default function SessionPage() {
     }
   }, [activeIndex, isFullScreen])
 
-  const handleRetry = async (item: SessionSongItem) => {
-    if (!session || retryingUrls.has(item.url)) return
-    setRetryingUrls((prev) => new Set(prev).add(item.url))
-
-    try {
-      const response = await scrapeApi([item.url])
-      const res = response.results[0]
-      if (res && res.status === 'ok' && res.song) {
-        await songCache.saveSong(res.song, item.url)
-        await updateSongItem(item.entryId, (s) => ({
-          ...s,
-          status: 'ok' as const,
-          title: res.song?.title,
-          artist: res.song?.artist,
-          errorMessage: undefined,
-        }))
-        setSongsData((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
-        setOriginalSongs((prev) => new Map(prev).set(item.entryId || item.url, res.song!))
-      } else {
-        const errorMsg = res?.message || 'Retry failed'
-        await updateSongItem(item.entryId, (s) => ({ ...s, errorMessage: errorMsg }))
-      }
-    } catch (err) {
-      const errorMsg = (err as Error).message || 'Retry network error'
-      await updateSongItem(item.entryId, (s) => ({ ...s, errorMessage: errorMsg }))
-    } finally {
-      setRetryingUrls((prev) => {
-        const next = new Set(prev)
-        next.delete(item.url)
-        return next
-      })
-    }
-  }
-
   const handleRemoveSong = async (entryId: string) => {
     if (!session) return
     const updated = await sessionStore.removeSongFromSession(session.id, entryId)
@@ -1288,6 +1250,12 @@ export default function SessionPage() {
 
   const dismissSetLinkBanner = () => navigate(sessionPath(session), { replace: true })
 
+  const importFailures = session.importFailures ?? []
+  const handleDismissImportFailures = async () => {
+    const updated = await sessionStore.dismissImportFailures(session.id)
+    if (updated) adoptSession(updated)
+  }
+
   const getLatestFromSetLink = async () => {
     if (!session.importedFromLinkId || refreshingLink) return
     setRefreshingLink(true)
@@ -1296,7 +1264,7 @@ export default function SessionPage() {
       if (result.kind === 'imported') {
         navigate(sessionPath(result.session), {
           replace: true,
-          state: { fromSetLink: { name: result.session.name, failed: result.failed, reused: false } },
+          state: { fromSetLink: { name: result.session.name, reused: false } },
         })
       }
     } finally {
@@ -1318,9 +1286,7 @@ export default function SessionPage() {
             <span>
               {fromSetLink.reused
                 ? 'You already have a copy of this set. It won\u2019t update when the sender makes changes.'
-                : `This is your own copy of \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.${
-                    fromSetLink.failed > 0 ? ` ${fromSetLink.failed} song(s) couldn\u2019t be loaded.` : ''
-                  }`}
+                : `This is your own copy of \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
             </span>
             <span className="flex gap-2">
               {fromSetLink.reused && session.importedFromLinkId && (
@@ -1330,6 +1296,31 @@ export default function SessionPage() {
               )}
               <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>Dismiss</Button>
             </span>
+          </div>
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && importFailures.length > 0 && (
+        <StatusBanner tone="warning">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 space-y-1">
+              <p>
+                {importFailures.length === 1
+                  ? 'This link couldn’t be added:'
+                  : `These ${importFailures.length} links couldn’t be added:`}
+              </p>
+              <ul className="space-y-0.5 text-xs">
+                {importFailures.map((failure) => (
+                  <li key={failure.url}>
+                    <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
+                    {failure.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Button size="sm" variant="ghost" onClick={handleDismissImportFailures}>
+              Dismiss
+            </Button>
           </div>
         </StatusBanner>
       )}
@@ -1537,15 +1528,6 @@ export default function SessionPage() {
                   </span>
                 )}
 
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    item.status === 'ok'
-                      ? 'bg-emerald-500'
-                      : item.status === 'error'
-                        ? 'bg-red-500'
-                        : 'bg-[#3368A0] dark:bg-amber-500 animate-pulse'
-                  }`}
-                />
                 <span className="truncate max-w-[140px]">{tabLabel}</span>
                 {!isFullScreen && session.songs.length > 1 && !isRemovedItem(item) && (
                   <button
@@ -1590,29 +1572,7 @@ export default function SessionPage() {
       {/* Main Song Content */}
       {currentItem && (
         <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
-          {currentItem.status === 'error' ? (
-            <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
-              <div className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800/40 rounded-xl space-y-3">
-                <h3 className="text-red-700 dark:text-red-400 font-semibold text-sm">
-                  Failed to extract chord sheet
-                </h3>
-                <p className="text-xs font-mono text-ui-text-muted break-all">
-                  {currentItem.url}
-                </p>
-                <p className="text-xs text-red-600 dark:text-red-300">
-                  {currentItem.errorMessage || 'Unknown extraction error'}
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => guard(() => void handleRetry(currentItem))}
-                  disabled={retryingUrls.has(currentItem.url)}
-                >
-                  {retryingUrls.has(currentItem.url) ? 'Retrying...' : 'Retry extraction'}
-                </Button>
-              </div>
-            </div>
-          ) : displayedSong ? (
+          {displayedSong ? (
             <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
               {/* Header and Toolbar tightly grouped */}
               <div

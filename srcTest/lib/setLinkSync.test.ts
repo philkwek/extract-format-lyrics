@@ -20,7 +20,7 @@ function makeSession(over: Partial<Session> = {}): Session {
     createdAt: 0,
     name: 'Set',
     publicId: 'p'.repeat(22),
-    songs: [{ entryId: 'e1', url: 'https://x.test/a', status: 'ok', targetKey: 'C' }],
+    songs: [{ entryId: 'e1', url: 'https://x.test/a', targetKey: 'C' }],
     ...over,
   }
 }
@@ -69,18 +69,18 @@ const ev = (type: 'created' | 'updated', session: Session) => ({ type, sessionId
 const withKey = (key: string): Session => makeSession({ songs: [{ ...makeSession().songs[0], targetKey: key }] })
 
 describe('buildSetLinkPayload', () => {
-  it('excludes uploads, errors, and custom fields', () => {
+  it('excludes uploads and non-http urls, keeps everything else', () => {
     const session = makeSession({
       name: '  Sunday  ',
       songs: [
         {
-          entryId: 'e1', url: 'https://x.test/a', status: 'ok', title: 'T', artist: 'A', targetKey: 'D',
+          entryId: 'e1', url: 'https://x.test/a', title: 'T', artist: 'A', targetKey: 'D',
           simplified: true, padKeyMode: 'custom', customPadKey: 'E',
           customSections: [{ label: 'x' } as never], customFlow: [1],
         },
-        { entryId: 'e2', url: 'upload://abc', status: 'ok' },
-        { entryId: 'e3', url: 'https://x.test/b', status: 'error' },
-        { entryId: 'e4', url: 'ftp://x.test/c', status: 'ok' },
+        { entryId: 'e2', url: 'upload://abc' },
+        { entryId: 'e3', url: 'https://x.test/b' },
+        { entryId: 'e4', url: 'ftp://x.test/c' },
       ],
     })
     const r = buildSetLinkPayload(session)
@@ -90,13 +90,14 @@ describe('buildSetLinkPayload', () => {
       name: 'Sunday',
       songs: [
         { entryId: 'e1', url: 'https://x.test/a', title: 'T', artist: 'A', targetKey: 'D', simplified: true, padKeyMode: 'custom', customPadKey: 'E' },
+        { entryId: 'e3', url: 'https://x.test/b' },
       ],
     })
   })
 
   it('returns null for empty and too many songs', () => {
     expect(buildSetLinkPayload(makeSession({ songs: [] })).reason).toBe('empty')
-    const many = Array.from({ length: 31 }, (_, i) => ({ entryId: `e${i}`, url: 'https://x.test/a', status: 'ok' as const }))
+    const many = Array.from({ length: 31 }, (_, i) => ({ entryId: `e${i}`, url: 'https://x.test/a' }))
     const r = buildSetLinkPayload(makeSession({ songs: many }))
     expect(r.payload).toBeNull()
     expect(r.reason).toBe('too_many')
@@ -242,6 +243,29 @@ describe('setLinkSync', () => {
     expect(env.api).toHaveBeenCalledTimes(1)
   })
 
+  it('reports failing when building the payload throws, without an escaping rejection', async () => {
+    vi.useRealTimers()
+    const env = setup()
+    const onStatus = vi.fn()
+    const sync = createSyncChannel({
+      ...env.deps,
+      name: 'throwing-build',
+      buildPayload: () => {
+        throw new Error('boom')
+      },
+      publish: (identity, payload, options) =>
+        env.deps.api(identity.publicId, identity.secret, payload, options),
+      onStatus,
+    })
+    sync.handleEvent(ev('created', makeSession()))
+    // idle() awaits the in-flight publish, so a rejection escaping it would fail here.
+    await sync.idle()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(onStatus).toHaveBeenLastCalledWith('s1', 'failing')
+    expect(env.api).not.toHaveBeenCalled()
+  })
+
   it('retries 429 after Retry-After seconds without spending the backoff budget', async () => {
     const env = setup()
     env.api.mockRejectedValueOnce(new ShareApiError('slow', 'RATE_LIMITED', 429, 3))
@@ -318,7 +342,6 @@ describe('setLinkSync', () => {
     const songs = Array.from({ length: 31 }, (_, i) => ({
       entryId: `e${i}`,
       url: 'https://x.test/a',
-      status: 'ok' as const,
     }))
     expect(await many.sync.ensureFresh(makeSession({ songs }))).toEqual({
       ok: false,
@@ -362,7 +385,7 @@ describe('setLinkSync', () => {
       },
     })
     sync.start()
-    await store.createSession([{ url: 'https://x.test/a', status: 'ok' }])
+    await store.createSession([{ url: 'https://x.test/a' }])
     await vi.advanceTimersByTimeAsync(10_000)
     await sync.idle()
     expect(env.api).toHaveBeenCalledTimes(1)
@@ -389,7 +412,6 @@ describe('ensureSetLinkFresh', () => {
     const songs = Array.from({ length: 31 }, (_, i) => ({
       entryId: `e${i}`,
       url: 'https://x.test/a',
-      status: 'ok' as const,
     }))
     expect(
       await ensureSetLinkFresh(makeSession({ id: 'fresh-many', songs })),

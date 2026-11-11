@@ -149,11 +149,6 @@ export class SongCache {
     return val.reason
   }
 
-  async removeSong(url: string): Promise<void> {
-    const key = `${CACHE_PREFIX}${normalizeSongUrl(url)}`
-    await this.store.del(key)
-  }
-
   async clearAll(): Promise<void> {
     const all = await this.store.entries()
     for (const [key] of all) {
