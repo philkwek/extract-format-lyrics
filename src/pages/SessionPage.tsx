@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
+  AlertTriangle,
+  CheckCircle2,
+  CloudOff,
   CopyPlus,
+  Link2,
   GripVertical,
   Lightbulb,
   ListOrdered,
@@ -1350,9 +1354,9 @@ export default function SessionPage() {
       }
     >
       {!isFullScreen && linkPreview && (
-        <StatusBanner tone="info">
+        <StatusBanner tone="info" icon={<Link2 size={16} />}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="space-y-1">
+            <div className="min-w-0 flex-1 basis-60 space-y-1">
               <p>
                 {savedCopy
                   ? 'You opened a shared set. You saved a copy of it before.'
@@ -1360,7 +1364,7 @@ export default function SessionPage() {
               </p>
               {previewChanges && <p className="text-xs">{previewChanges}</p>}
             </div>
-            <span className="ml-auto flex flex-wrap justify-end gap-2">
+            <span className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
               {savedCopy ? (
                 <>
                   <Button
@@ -1394,16 +1398,26 @@ export default function SessionPage() {
       )}
 
       {!isFullScreen && fromSetLink && (
-        <StatusBanner tone="info">
+        <StatusBanner
+          tone="info"
+          icon={
+            fromSetLink.kind === 'offline' ? <CloudOff size={16} /> : <CheckCircle2 size={16} />
+          }
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>
+            <span className="min-w-0 flex-1 basis-60">
               {fromSetLink.kind === 'offline'
                 ? 'Couldn\u2019t load the latest version of the shared set. Showing your saved copy.'
                 : fromSetLink.kind === 'updated'
                   ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
                   : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
             </span>
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={dismissSetLinkBanner}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto shrink-0"
+              onClick={dismissSetLinkBanner}
+            >
               Dismiss
             </Button>
           </div>
@@ -1411,9 +1425,9 @@ export default function SessionPage() {
       )}
 
       {!isFullScreen && importFailures.length > 0 && (
-        <StatusBanner tone="warning">
+        <StatusBanner tone="warning" icon={<AlertTriangle size={16} />}>
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0 flex-1 basis-60 space-y-1">
               <p>
                 {importFailures.length === 1
                   ? 'This link couldn’t be added:'
@@ -1431,7 +1445,7 @@ export default function SessionPage() {
             <Button
               size="sm"
               variant="ghost"
-              className="ml-auto"
+              className="ml-auto shrink-0"
               onClick={handleDismissImportFailures}
             >
               Dismiss

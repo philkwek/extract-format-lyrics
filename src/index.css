@@ -347,7 +347,7 @@ html.dark body {
 
 .ui-status {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   border: 1px solid;
   border-radius: 0.8rem;
