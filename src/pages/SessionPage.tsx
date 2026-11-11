@@ -1388,7 +1388,12 @@ export default function SessionPage() {
                 >
                   Update my copy
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => void handleSavePreview()}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={savingPreview}
+                  onClick={() => void handleSavePreview()}
+                >
                   Save as new
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => navigate(sessionPath(savedCopy))}>

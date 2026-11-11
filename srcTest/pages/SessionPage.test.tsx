@@ -797,6 +797,20 @@ describe('SessionPage set links', () => {
     await waitFor(() => expect(savePreviewAsNew).toHaveBeenCalledWith(preview, false))
   })
 
+  it('saves as new only once on a double tap', async () => {
+    mockLinkSessions({ [savedCopy.publicId]: savedCopy })
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(savePreviewAsNew).mockReturnValueOnce(new Promise(() => {}))
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    const button = await screen.findByRole('button', { name: 'Save as new' })
+    fireEvent.click(button)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save as new', busy: true }))
+
+    expect(savePreviewAsNew).toHaveBeenCalledTimes(1)
+  })
+
   it('opens the saved copy from the preview banner', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
