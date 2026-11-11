@@ -1357,6 +1357,7 @@ export default function SessionPage() {
         <StatusBanner
           tone="info"
           icon={<Link2 size={16} />}
+          title="Read-Only Preview"
           actions={
             savedCopy ? (
               <>
@@ -1387,14 +1388,12 @@ export default function SessionPage() {
             )
           }
         >
-          <div className="space-y-1">
-            <p>
-              {savedCopy
-                ? 'You opened a shared set. You saved a copy of it before.'
-                : 'You opened a shared set. Save it to your sets?'}
-            </p>
-            {previewChanges && <p className="text-xs">{previewChanges}</p>}
-          </div>
+          <p>
+            {savedCopy
+              ? 'You saved a copy of this set before.'
+              : 'This is a shared set. Save to keep it on your device.'}
+          </p>
+          {previewChanges && <p className="mt-1 text-xs">{previewChanges}</p>}
         </StatusBanner>
       )}
 
@@ -1404,6 +1403,13 @@ export default function SessionPage() {
           icon={
             fromSetLink.kind === 'offline' ? <CloudOff size={16} /> : <CheckCircle2 size={16} />
           }
+          title={
+            fromSetLink.kind === 'offline'
+              ? 'Couldn\u2019t load the latest version'
+              : fromSetLink.kind === 'updated'
+                ? 'Copy Updated'
+                : 'Set Saved'
+          }
           actions={
             <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
               Dismiss
@@ -1411,7 +1417,7 @@ export default function SessionPage() {
           }
         >
           {fromSetLink.kind === 'offline'
-            ? 'Couldn\u2019t load the latest version of the shared set. Showing your saved copy.'
+            ? 'Showing your saved copy of the shared set.'
             : fromSetLink.kind === 'updated'
               ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
               : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
@@ -1422,27 +1428,25 @@ export default function SessionPage() {
         <StatusBanner
           tone="warning"
           icon={<AlertTriangle size={16} />}
+          title={
+            importFailures.length === 1
+              ? 'This link couldn’t be added'
+              : `These ${importFailures.length} links couldn’t be added`
+          }
           actions={
             <Button size="sm" variant="ghost" onClick={handleDismissImportFailures}>
               Dismiss
             </Button>
           }
         >
-          <div className="space-y-1">
-            <p>
-              {importFailures.length === 1
-                ? 'This link couldn’t be added:'
-                : `These ${importFailures.length} links couldn’t be added:`}
-            </p>
-            <ul className="space-y-0.5 text-xs">
-              {importFailures.map((failure) => (
-                <li key={failure.url}>
-                  <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
-                  {failure.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="mt-1 space-y-0.5 text-xs">
+            {importFailures.map((failure) => (
+              <li key={failure.url}>
+                <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
+                {failure.reason}
+              </li>
+            ))}
+          </ul>
         </StatusBanner>
       )}
 

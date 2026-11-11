@@ -146,9 +146,11 @@ export function Surface({ as: Component = 'section', elevated = false, className
 
 export type StatusTone = 'info' | 'success' | 'warning' | 'error'
 
-interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
+interface StatusBannerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
   tone?: StatusTone
   icon?: ReactNode
+  /** Short bold heading shown above the message. */
+  title?: ReactNode
   /** Buttons on the right; they wrap below the message when space runs out. */
   actions?: ReactNode
 }
@@ -156,6 +158,7 @@ interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
 export function StatusBanner({
   tone = 'info',
   icon,
+  title,
   actions,
   className,
   children,
@@ -169,7 +172,10 @@ export function StatusBanner({
     >
       <div className="ui-status__message">
         {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1">
+          {title && <p className="font-semibold">{title}</p>}
+          {children}
+        </div>
       </div>
       {actions && <div className="ui-status__actions">{actions}</div>}
     </div>

@@ -692,7 +692,7 @@ describe('SessionPage set links', () => {
     renderAt(`/session/${PUBLIC_ID}`)
 
     expect(
-      await screen.findByText('You opened a shared set. Save it to your sets?'),
+      await screen.findByText('This is a preview. Save it to keep it in your sets.'),
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
@@ -728,7 +728,7 @@ describe('SessionPage set links', () => {
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
 
     renderAt(`/session/${PUBLIC_ID}`)
-    await screen.findByText('You opened a shared set. Save it to your sets?')
+    await screen.findByText('This is a preview. Save it to keep it in your sets.')
     const select = (await screen.findAllByLabelText('Transpose song'))[0]
     fireEvent.change(select, { target: { value: 'A' } })
 
@@ -768,7 +768,7 @@ describe('SessionPage set links', () => {
     renderAt(`/session/${PUBLIC_ID}`)
 
     expect(
-      await screen.findByText('You opened a shared set. You saved a copy of it before.'),
+      await screen.findByText('You saved a copy of this set before.'),
     ).toBeTruthy()
     expect(screen.getByText('Since you saved it: 1 song added, 1 key changed.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save as new' })).toBeTruthy()
@@ -805,7 +805,7 @@ describe('SessionPage set links', () => {
     renderAt(`/session/${PUBLIC_ID}`)
 
     expect(
-      await screen.findByText('You opened a shared set. You saved a copy of it before.'),
+      await screen.findByText('You saved a copy of this set before.'),
     ).toBeTruthy()
     expect(screen.queryByText(/Since you saved it/)).toBeNull()
     expect(screen.queryByText(/Nothing has changed/)).toBeNull()
@@ -871,9 +871,8 @@ describe('SessionPage set links', () => {
     await waitFor(() =>
       expect(screen.getByTestId('loc').textContent).toBe(`/session/${savedCopy.publicId}`),
     )
-    expect(
-      await screen.findByText(/Couldn.t load the latest version of the shared set/),
-    ).toBeTruthy()
+    expect(await screen.findByText('Couldn’t load the latest version')).toBeTruthy()
+    expect(screen.getByText('Showing your saved copy of the shared set.')).toBeTruthy()
   })
 
   it('shows the banner from navigation state and dismisses it', async () => {
