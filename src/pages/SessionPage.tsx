@@ -61,6 +61,7 @@ import TransposeSelector from '../components/TransposeSelector'
 import ShareMenuModal from '../components/ShareMenuModal'
 import LiveShareChip from '../components/share/LiveShareChip'
 import HostChangeToast, { type HostNote } from '../components/share/HostChangeToast'
+import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
 import { useThemeMode } from '../lib/useThemeMode'
@@ -158,6 +159,7 @@ export default function SessionPage() {
   } | null>(null)
   const [savingPreview, setSavingPreview] = useState(false)
   const [confirmingUpdate, setConfirmingUpdate] = useState(false)
+  const [previewError, setPreviewError] = useState<ChangeNote | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
@@ -307,6 +309,9 @@ export default function SessionPage() {
       const saved = await savePreviewAsNew(linkPreview.preview, !linkPreview.copy)
       const nav: SetLinkNavState = { fromSetLink: { kind: 'saved', name: saved.name } }
       navigate(sessionPath(saved), { replace: true, state: nav })
+    } catch (err) {
+      console.error('Could not save the shared set', err)
+      setPreviewError({ text: 'Couldn\u2019t save the set. Try again.' })
     } finally {
       setSavingPreview(false)
     }
@@ -1357,7 +1362,12 @@ export default function SessionPage() {
       if (updated) {
         const nav: SetLinkNavState = { fromSetLink: { kind: 'updated', name: updated.name } }
         navigate(sessionPath(updated), { replace: true, state: nav })
+      } else {
+        setPreviewError({ text: 'Couldn\u2019t find your saved copy. Use Save as new instead.' })
       }
+    } catch (err) {
+      console.error('Could not update the saved copy', err)
+      setPreviewError({ text: 'Couldn\u2019t update your copy. Try again.' })
     } finally {
       setSavingPreview(false)
       setConfirmingUpdate(false)
@@ -2069,6 +2079,11 @@ export default function SessionPage() {
 
       {/* Last, so it sits above the other bottom popovers. */}
       <HostChangeToast note={hostNote} onDismiss={dismissHostNote} />
+      <ChangeToast
+        note={previewError}
+        onDismiss={() => setPreviewError(null)}
+        icon={<AlertTriangle size={16} />}
+      />
     </div>
   )
 }

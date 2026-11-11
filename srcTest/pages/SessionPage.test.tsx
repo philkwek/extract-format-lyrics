@@ -797,6 +797,35 @@ describe('SessionPage set links', () => {
     await waitFor(() => expect(savePreviewAsNew).toHaveBeenCalledWith(preview, false))
   })
 
+  it('tells the person when saving the preview fails', async () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(savePreviewAsNew).mockRejectedValueOnce(new Error('quota'))
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    expect(await screen.findAllByText('Couldn’t save the set. Try again.')).not.toHaveLength(0)
+    expect(screen.getByTestId('loc').textContent).toBe(`/session/${PUBLIC_ID}`)
+    logError.mockRestore()
+  })
+
+  it('tells the person when the saved copy is gone', async () => {
+    mockLinkSessions({})
+    vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
+    vi.mocked(sessionStore.findByImportedLinkId).mockResolvedValueOnce(savedCopy as never)
+    vi.mocked(sessionStore.replaceSongsFromLink).mockResolvedValueOnce(null)
+
+    renderAt(`/session/${PUBLIC_ID}`)
+    fireEvent.click(await screen.findByRole('button', { name: 'Update my copy' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Update' }))
+
+    expect(
+      await screen.findAllByText('Couldn’t find your saved copy. Use Save as new instead.'),
+    ).not.toHaveLength(0)
+  })
+
   it('saves as new only once on a double tap', async () => {
     mockLinkSessions({ [savedCopy.publicId]: savedCopy })
     vi.mocked(loadSetLinkPreview).mockResolvedValueOnce({ kind: 'preview', preview } as never)
