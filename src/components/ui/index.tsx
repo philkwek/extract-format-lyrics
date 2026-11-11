@@ -149,17 +149,29 @@ export type StatusTone = 'info' | 'success' | 'warning' | 'error'
 interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
   tone?: StatusTone
   icon?: ReactNode
+  /** Buttons on the right; they wrap below the message when space runs out. */
+  actions?: ReactNode
 }
 
-export function StatusBanner({ tone = 'info', icon, className, children, ...props }: StatusBannerProps) {
+export function StatusBanner({
+  tone = 'info',
+  icon,
+  actions,
+  className,
+  children,
+  ...props
+}: StatusBannerProps) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       className={classes('ui-status', `ui-status--${tone}`, className)}
       {...props}
     >
-      {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="ui-status__message">
+        {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+      {actions && <div className="ui-status__actions">{actions}</div>}
     </div>
   )
 }

@@ -1354,45 +1354,46 @@ export default function SessionPage() {
       }
     >
       {!isFullScreen && linkPreview && (
-        <StatusBanner tone="info" icon={<Link2 size={16} />}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0 flex-1 basis-60 space-y-1">
-              <p>
-                {savedCopy
-                  ? 'You opened a shared set. You saved a copy of it before.'
-                  : 'You opened a shared set. Save it to your sets?'}
-              </p>
-              {previewChanges && <p className="text-xs">{previewChanges}</p>}
-            </div>
-            <span className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
-              {savedCopy ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    loading={savingPreview}
-                    onClick={() => setConfirmingUpdate(true)}
-                  >
-                    Update my copy
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => void handleSavePreview()}>
-                    Save as new
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => navigate(sessionPath(savedCopy))}>
-                    Open my copy
-                  </Button>
-                </>
-              ) : (
+        <StatusBanner
+          tone="info"
+          icon={<Link2 size={16} />}
+          actions={
+            savedCopy ? (
+              <>
                 <Button
                   size="sm"
                   variant="primary"
                   loading={savingPreview}
-                  onClick={() => void handleSavePreview()}
+                  onClick={() => setConfirmingUpdate(true)}
                 >
-                  Save
+                  Update my copy
                 </Button>
-              )}
-            </span>
+                <Button size="sm" variant="secondary" onClick={() => void handleSavePreview()}>
+                  Save as new
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => navigate(sessionPath(savedCopy))}>
+                  Open my copy
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                loading={savingPreview}
+                onClick={() => void handleSavePreview()}
+              >
+                Save
+              </Button>
+            )
+          }
+        >
+          <div className="space-y-1">
+            <p>
+              {savedCopy
+                ? 'You opened a shared set. You saved a copy of it before.'
+                : 'You opened a shared set. Save it to your sets?'}
+            </p>
+            {previewChanges && <p className="text-xs">{previewChanges}</p>}
           </div>
         </StatusBanner>
       )}
@@ -1403,53 +1404,44 @@ export default function SessionPage() {
           icon={
             fromSetLink.kind === 'offline' ? <CloudOff size={16} /> : <CheckCircle2 size={16} />
           }
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="min-w-0 flex-1 basis-60">
-              {fromSetLink.kind === 'offline'
-                ? 'Couldn\u2019t load the latest version of the shared set. Showing your saved copy.'
-                : fromSetLink.kind === 'updated'
-                  ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
-                  : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto shrink-0"
-              onClick={dismissSetLinkBanner}
-            >
+          actions={
+            <Button size="sm" variant="ghost" onClick={dismissSetLinkBanner}>
               Dismiss
             </Button>
-          </div>
+          }
+        >
+          {fromSetLink.kind === 'offline'
+            ? 'Couldn\u2019t load the latest version of the shared set. Showing your saved copy.'
+            : fromSetLink.kind === 'updated'
+              ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
+              : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
         </StatusBanner>
       )}
 
       {!isFullScreen && importFailures.length > 0 && (
-        <StatusBanner tone="warning" icon={<AlertTriangle size={16} />}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1 basis-60 space-y-1">
-              <p>
-                {importFailures.length === 1
-                  ? 'This link couldn’t be added:'
-                  : `These ${importFailures.length} links couldn’t be added:`}
-              </p>
-              <ul className="space-y-0.5 text-xs">
-                {importFailures.map((failure) => (
-                  <li key={failure.url}>
-                    <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
-                    {failure.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto shrink-0"
-              onClick={handleDismissImportFailures}
-            >
+        <StatusBanner
+          tone="warning"
+          icon={<AlertTriangle size={16} />}
+          actions={
+            <Button size="sm" variant="ghost" onClick={handleDismissImportFailures}>
               Dismiss
             </Button>
+          }
+        >
+          <div className="space-y-1">
+            <p>
+              {importFailures.length === 1
+                ? 'This link couldn’t be added:'
+                : `These ${importFailures.length} links couldn’t be added:`}
+            </p>
+            <ul className="space-y-0.5 text-xs">
+              {importFailures.map((failure) => (
+                <li key={failure.url}>
+                  <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
+                  {failure.reason}
+                </li>
+              ))}
+            </ul>
           </div>
         </StatusBanner>
       )}
