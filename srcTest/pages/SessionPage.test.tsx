@@ -14,6 +14,29 @@ import {
   type FollowHandlers,
 } from '../../src/lib/liveFollow'
 
+const shareMocks = vi.hoisted(() => ({
+  getLyricsPublicationIdentity: vi.fn(async () => null),
+  publishLyricsForSession: vi.fn(async () => ({
+    id: 'pub-test',
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    shareUrl: 'https://example.test/lyrics/pub-test',
+  })),
+  ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
+}))
+
+vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
+  const actual = await vi.importActual<typeof import('../../src/lib/lyricsPublishIdentity')>(
+    '../../src/lib/lyricsPublishIdentity',
+  )
+  return {
+    ...actual,
+    getLyricsPublicationIdentity: shareMocks.getLyricsPublicationIdentity,
+    publishLyricsForSession: shareMocks.publishLyricsForSession,
+  }
+})
+
+vi.mock('../../src/lib/lyricsSync', () => ({ ensureLyricsFresh: shareMocks.ensureLyricsFresh }))
+
 const fixtures = vi.hoisted(() => {
   const sections = [
     {
@@ -227,17 +250,26 @@ describe('SessionPage full screen mode', () => {
 
     expect(await screen.findByText('Share with other musicians')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
 
-    fireEvent.click(screen.getByRole('button', { name: /Lyrics link.*Off/ }))
-    expect(await screen.findByRole('button', { name: 'Create link' })).toBeTruthy()
+    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
+    fireEvent.click(lyricsSwitch)
+
+    expect(await screen.findByRole('button', { name: 'Preview' })).toBeTruthy()
+    expect(shareMocks.publishLyricsForSession).toHaveBeenCalled()
   })
 
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
     render(<TestHarness />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
-    fireEvent.click(await screen.findByRole('button', { name: /Lyrics link.*Off/ }))
+
+    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
+    fireEvent.click(lyricsSwitch)
     fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()

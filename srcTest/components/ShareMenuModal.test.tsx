@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ShareMenuModal from '../../src/components/ShareMenuModal'
 import type { Session } from '../../src/lib/sessionStore'
@@ -76,36 +75,18 @@ function renderModal(modalSession: Session) {
 }
 
 describe('ShareMenuModal', () => {
-  it('lists each share method with its own status', () => {
+  it('shows both share methods on one screen, each with a switch', () => {
     renderModal(session)
 
-    expect(screen.getByText('Full set')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Full set' })).toBeTruthy()
     expect(screen.getByText('Share with other musicians')).toBeTruthy()
-    expect(screen.getByText('Lyrics')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Lyrics' })).toBeTruthy()
     expect(screen.getByText('For people to follow along')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Lyrics link.*Off/ })).toBeTruthy()
-  })
 
-  it('opens the lyrics details and returns to the list', async () => {
-    const user = userEvent.setup()
-    renderModal(session)
-
-    await user.click(screen.getByRole('button', { name: /Lyrics link.*Off/ }))
-
-    const heading = screen.getByRole('heading', { name: 'Lyrics link' })
-    expect(heading).toBeTruthy()
-    expect(document.activeElement).toBe(heading)
-    expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-
-    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'Lyrics link' })).toBeNull()
-    expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: /Lyrics link.*Off/ }),
-    )
+    expect(screen.getByText('Send a copy')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Share live' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Lyrics link' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
   })
 
   it('shows the lyrics link as on when a publication is active', async () => {
@@ -119,14 +100,16 @@ describe('ShareMenuModal', () => {
     renderModal(session)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Lyrics link.*On/ })).toBeTruthy()
+      expect(
+        screen.getByRole('switch', { name: 'Lyrics link' }).getAttribute('aria-checked'),
+      ).toBe('true')
     })
   })
 
-  it('shows the followed live link instead of a Share live row', () => {
+  it('shows the followed live link instead of a Share live switch', () => {
     renderModal({ ...session, liveSourceId: 'live-abc' })
 
-    expect(screen.queryByRole('button', { name: /Share live/ })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Share live' })).toBeNull()
     expect(screen.getByText(/This set follows someone else/)).toBeTruthy()
 
     const liveLink = screen.getByLabelText('Live link') as HTMLInputElement

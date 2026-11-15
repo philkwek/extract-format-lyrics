@@ -13,6 +13,7 @@ vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
   return {
     ...actual,
     getLyricsPublicationIdentity: vi.fn(),
+    deleteLyricsPublicationIdentity: vi.fn(async () => {}),
     publishLyricsForSession: vi.fn(),
   }
 })
@@ -60,6 +61,26 @@ const mockSongsData = new Map<string, Song>([
   [mockSong.sourceUrl, mockSong],
 ])
 
+function lyricsSwitch() {
+  return screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+}
+
+async function findReadySwitch() {
+  await waitFor(() => expect(lyricsSwitch().disabled).toBe(false))
+  return lyricsSwitch()
+}
+
+function renderModal() {
+  return render(
+    <ShareLyricsModal
+      session={mockSession}
+      songsData={mockSongsData}
+      isOpen={true}
+      onClose={vi.fn()}
+    />,
+  )
+}
+
 describe('ShareLyricsModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -68,24 +89,15 @@ describe('ShareLyricsModal', () => {
   it('performs no network publication when opened', async () => {
     vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue(null)
 
-    render(
-      <ShareLyricsModal
-        session={mockSession}
-        songsData={mockSongsData}
-        isOpen={true}
-        onClose={vi.fn()}
-      />
-    )
+    renderModal()
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Create link/i })).toBeTruthy()
-    })
-
+    await findReadySwitch()
+    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false')
     expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
     expect(trackEvent).not.toHaveBeenCalled()
   })
 
-  it('publishes and shows stable link, expiry, Copy link, and Update lyrics after generation', async () => {
+  it('publishes and shows Copy link and Preview after the switch is turned on', async () => {
     vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue(null)
     const expiry = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
     vi.mocked(lyricsIdentity.publishLyricsForSession).mockResolvedValue({
@@ -94,32 +106,25 @@ describe('ShareLyricsModal', () => {
       shareUrl: 'http://localhost/lyrics/pub-test-id',
     })
 
-    render(
-      <ShareLyricsModal
-        session={mockSession}
-        songsData={mockSongsData}
-        isOpen={true}
-        onClose={vi.fn()}
-      />
-    )
+    renderModal()
 
-    const createBtn = await screen.findByRole('button', { name: /Create link/i })
-    fireEvent.click(createBtn)
+    fireEvent.click(await findReadySwitch())
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /Update lyrics/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Preview/i })).toBeTruthy()
     })
 
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'create', outcome: 'success', song_count: 1 })
-    expect(input.value).toBe('http://localhost/lyrics/pub-test-id')
-    expect(
-      screen.getByText(/Changes update the link and keep it working for 7 days/i),
-    ).toBeTruthy()
+    expect(trackEvent).toHaveBeenCalledWith('lyrics_published', {
+      operation: 'create',
+      outcome: 'success',
+      song_count: 1,
+    })
+    expect(screen.getByText('On. Updates when you change the set.')).toBeTruthy()
+    expect(screen.getByText(/Link works until/i)).toBeTruthy()
   })
 
-  it('restores existing publication on opening and preserves link on failed update', async () => {
+  it('restores an existing publication and turns it off', async () => {
     const existingExpiry = new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString()
     vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue({
       sessionId: mockSession.id,
@@ -128,74 +133,42 @@ describe('ShareLyricsModal', () => {
       expiresAt: existingExpiry,
     })
 
-    render(
-      <ShareLyricsModal
-        session={mockSession}
-        songsData={mockSongsData}
-        isOpen={true}
-        onClose={vi.fn()}
-      />
-    )
+    renderModal()
+
+    await screen.findByRole('button', { name: /Copy link/i })
+    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(lyricsSwitch())
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /Update lyrics/i })).toBeTruthy()
+      expect(lyricsIdentity.deleteLyricsPublicationIdentity).toHaveBeenCalledWith(mockSession.id)
     })
-
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    expect(input.value).toContain('/lyrics/pub-existing')
-
-    // Simulate failed update
-    vi.mocked(lyricsIdentity.publishLyricsForSession).mockRejectedValue(
-      new Error('Failed to reach server')
-    )
-
-    const updateBtn = screen.getByRole('button', { name: /Update lyrics/i })
-    fireEvent.click(updateBtn)
-
     await waitFor(() => {
-      expect(screen.getByText(/Failed to reach server/i)).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /Copy link/i })).toBeNull()
     })
-
-    expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'update', outcome: 'error', song_count: 1 })
-
-    // URL and buttons are retained despite the failure
-    expect(input.value).toContain('/lyrics/pub-existing')
-    expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Preview/i })).toBeNull()
   })
 
-  it('renders Preview button and opens preview modal with (Preview) header without creating a link', async () => {
+  it('renders Preview and opens the preview modal once the link is on', async () => {
     vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue(null)
+    vi.mocked(lyricsIdentity.publishLyricsForSession).mockResolvedValue({
+      id: 'pub-test-id',
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      shareUrl: 'http://localhost/lyrics/pub-test-id',
+    })
 
-    render(
-      <ShareLyricsModal
-        session={mockSession}
-        songsData={mockSongsData}
-        isOpen={true}
-        onClose={vi.fn()}
-      />
-    )
+    renderModal()
 
-    const previewBtn = await screen.findByRole('button', { name: 'Preview' })
-    expect(previewBtn).toBeTruthy()
+    fireEvent.click(await findReadySwitch())
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
 
-    // Click Preview
-    fireEvent.click(previewBtn)
-
-    // Modal with (Preview) header must appear
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Morning/i })).toBeTruthy()
     })
 
-    // Lyrics content is rendered inside preview (tab and heading)
     expect(screen.getAllByText('Test Song').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Singing a song')).toBeTruthy()
 
-    // Must NOT call publishLyricsForSession
-    expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
-    expect(trackEvent).not.toHaveBeenCalled()
-
-    // Close button (X) is available in preview modal
     const closeButtons = screen.getAllByRole('button', { name: /Close/i })
     expect(closeButtons.length).toBeGreaterThan(0)
     fireEvent.click(closeButtons[closeButtons.length - 1])
