@@ -216,14 +216,14 @@ describe('SessionPage full screen mode', () => {
     fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
-    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Share Set/Lyrics' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
   })
 
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
     expect(await screen.findByText('Share this set')).toBeTruthy()
     expect(screen.getByText('Share lyrics')).toBeTruthy()
@@ -234,7 +234,7 @@ describe('SessionPage full screen mode', () => {
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
     fireEvent.click(await screen.findByRole('button', { name: 'See Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
@@ -691,7 +691,7 @@ describe('SessionPage set links', () => {
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Share Set/Lyrics' })).toBeNull()
     expect(sessionStore.updateSession).not.toHaveBeenCalled()
     expect(sessionStore.createSession).not.toHaveBeenCalled()
   })

@@ -1546,7 +1546,7 @@ export default function SessionPage() {
                 icon={<Share2 size={14} />}
                 onClick={handleOpenShareMenu}
               >
-                Share
+                Share Set/Lyrics
               </Button>
             )}
             <Button

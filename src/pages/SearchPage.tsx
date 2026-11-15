@@ -202,7 +202,7 @@ export default function SearchPage() {
         <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ui-accent-strong">Song library</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[var(--ui-text)]">Find the next chart</h1>
+            <h1 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[var(--ui-text)]">Find and add to a new set</h1>
             <p className="mt-1 text-sm text-[var(--ui-text-muted)]">Search supported sites or bring a link you already trust.</p>
           </div>
           <SegmentedControl

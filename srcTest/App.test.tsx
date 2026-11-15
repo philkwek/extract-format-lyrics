@@ -108,7 +108,7 @@ describe('App navigation visibility', () => {
 
     expect(screen.getByText('This page could not be displayed')).toBeTruthy()
 
-    await userEvent.click(screen.getByRole('link', { name: /find songs/i }))
+    await userEvent.click(screen.getByRole('link', { name: /search for a song/i }))
 
     expect(screen.getByText('Search Page Content')).toBeTruthy()
     expect(screen.queryByText('This page could not be displayed')).toBeNull()
