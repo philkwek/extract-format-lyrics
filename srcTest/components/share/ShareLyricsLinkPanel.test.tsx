@@ -82,6 +82,26 @@ describe('ShareLyricsLinkPanel', () => {
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
   })
 
+  it('reports the publication as active when an existing one is restored', async () => {
+    const onActiveChange = vi.fn()
+    render(
+      <ShareLyricsLinkPanel
+        session={session}
+        songsData={songsData}
+        onActiveChange={onActiveChange}
+      />,
+    )
+
+    await waitFor(
+      () => {
+        expect(onActiveChange).toHaveBeenLastCalledWith(true)
+      },
+      { timeout: 5000 },
+    )
+
+    expect(mocks.getLyricsPublicationIdentity).toHaveBeenCalledWith('session-1')
+  })
+
   it('calls ensureLyricsFresh again when window online is dispatched', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 

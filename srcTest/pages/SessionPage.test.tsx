@@ -225,9 +225,10 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
-    expect(await screen.findByText('Share this set')).toBeTruthy()
-    expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
+    expect(await screen.findByRole('tab', { name: 'Full set' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: /Send a copy/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Lyrics only' }))
     expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
   })
 
@@ -235,6 +236,7 @@ describe('SessionPage full screen mode', () => {
     render(<TestHarness />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Lyrics only' }))
     fireEvent.click(await screen.findByRole('button', { name: 'See Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()

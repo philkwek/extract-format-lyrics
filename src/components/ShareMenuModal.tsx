@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import type { Session } from '../lib/sessionStore'
 import type { Song } from '../types/song'
-import { Button } from './ui'
+import { Button, SegmentedControl } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import ShareSetPanel from './share/ShareSetPanel'
 import ShareLyricsLinkPanel from './share/ShareLyricsLinkPanel'
@@ -12,12 +13,18 @@ interface ShareMenuModalProps {
   onClose: () => void
 }
 
+type ShareTab = 'set' | 'lyrics'
+
 export default function ShareMenuModal({
   session,
   songsData,
   isOpen,
   onClose,
 }: ShareMenuModalProps) {
+  const [tab, setTab] = useState<ShareTab>('set')
+  const [setActive, setSetActive] = useState(false)
+  const [lyricsActive, setLyricsActive] = useState(false)
+
   if (!isOpen) return null
   const isFollowed = Boolean(session.liveSourceId)
 
@@ -26,41 +33,60 @@ export default function ShareMenuModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`Share “${session.name}”`}
-      description={
-        isFollowed
-          ? 'Copy the live link, make your own copy, or send a lyrics-only link.'
-          : 'Send a copy of the set, share it live, or send a lyrics-only link.'
-      }
-      size="lg"
       footer={
         <Button variant="ghost" onClick={onClose}>
           Done
         </Button>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
-          <div>
-            <h3 className="text-sm font-bold text-[var(--ui-text)]">Share this set</h3>
-            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              {isFollowed
-                ? 'Copy the live link or make your own copy.'
-                : 'Send a copy, or let people follow your changes live.'}
-            </p>
-          </div>
-          <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
-        </section>
+      <div className="space-y-3">
+        <SegmentedControl
+          className="w-full"
+          label="What to share"
+          idPrefix="share-tabs"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'set', label: setActive ? 'Full set · On' : 'Full set' },
+            { value: 'lyrics', label: lyricsActive ? 'Lyrics only · On' : 'Lyrics only' },
+          ]}
+        />
 
-        <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
-          <div>
-            <h3 className="text-sm font-bold text-[var(--ui-text)]">Share lyrics</h3>
-            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              Send a lyrics-only view with song tabs and no chords. Changes you make update it
-              automatically.
-            </p>
-          </div>
-          <ShareLyricsLinkPanel session={session} songsData={songsData} />
-        </section>
+        <div
+          role="tabpanel"
+          id="share-tabs-panel-set"
+          aria-labelledby="share-tabs-tab-set"
+          hidden={tab !== 'set'}
+          className="space-y-3"
+        >
+          <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
+            {isFollowed
+              ? 'Copy the live link or make your own copy.'
+              : 'Chords, keys and sections for the whole band.'}
+          </p>
+          <ShareSetPanel
+            session={session}
+            canShareLive={!session.liveSourceId}
+            onActiveChange={setSetActive}
+          />
+        </div>
+
+        <div
+          role="tabpanel"
+          id="share-tabs-panel-lyrics"
+          aria-labelledby="share-tabs-tab-lyrics"
+          hidden={tab !== 'lyrics'}
+          className="space-y-3"
+        >
+          <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
+            Words only, no chords. Changes you make update it automatically.
+          </p>
+          <ShareLyricsLinkPanel
+            session={session}
+            songsData={songsData}
+            onActiveChange={setLyricsActive}
+          />
+        </div>
       </div>
     </OverlayDialog>
   )

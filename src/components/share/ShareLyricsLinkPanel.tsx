@@ -15,11 +15,13 @@ import LyricsPreviewModal from '../LyricsPreviewModal'
 interface ShareLyricsLinkPanelProps {
   session: Session
   songsData: Map<string, Song>
+  onActiveChange?: (active: boolean) => void
 }
 
 export default function ShareLyricsLinkPanel({
   session,
   songsData,
+  onActiveChange,
 }: ShareLyricsLinkPanelProps) {
   const [copied, setCopied] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -32,10 +34,20 @@ export default function ShareLyricsLinkPanel({
 
   const isPublished = Boolean(shareUrl && expiresAt)
   const sessionRef = useRef(session)
+  const onActiveChangeRef = useRef(onActiveChange)
 
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    onActiveChangeRef.current = onActiveChange
+  }, [onActiveChange])
+
+  // Kept in a ref so a fresh inline callback does not re-run this effect.
+  useEffect(() => {
+    onActiveChangeRef.current?.(isPublished)
+  }, [isPublished])
 
   useEffect(() => {
     let isCurrent = true

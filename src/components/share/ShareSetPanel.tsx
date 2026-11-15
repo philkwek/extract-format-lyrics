@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, CopyPlus, Radio } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { classes } from '../../lib/classes'
 import { ensureSetLinkFresh } from '../../lib/setLinkSync'
 import {
   getLiveShare,
@@ -10,15 +11,29 @@ import {
   type LiveShareStatus,
 } from '../../lib/liveShareSync'
 import { sessionPath, sessionStore, type Session } from '../../lib/sessionStore'
-import { Button, SegmentedControl } from '../ui'
+import { Button } from '../ui'
 
 interface ShareSetPanelProps {
   session: Session
   canShareLive?: boolean
+  onActiveChange?: (active: boolean) => void
 }
 
 type ShareMode = 'copy' | 'live'
 type LinkErrorReason = 'empty' | 'too_many' | 'failed'
+
+const shareModeOptions: Array<{ value: ShareMode; label: string; description: string }> = [
+  {
+    value: 'copy',
+    label: 'Send a copy',
+    description: "A snapshot of the songs and keys. Later changes won't reach them.",
+  },
+  {
+    value: 'live',
+    label: 'Share live',
+    description: 'People follow your edits as you make them.',
+  },
+]
 
 function linkErrorMessage(reason: LinkErrorReason): string {
   if (reason === 'empty') return 'Add a song before you share this set.'
@@ -26,7 +41,11 @@ function linkErrorMessage(reason: LinkErrorReason): string {
   return 'Could not make the link. Check your connection and try again.'
 }
 
-export default function ShareSetPanel({ session, canShareLive = true }: ShareSetPanelProps) {
+export default function ShareSetPanel({
+  session,
+  canShareLive = true,
+  onActiveChange,
+}: ShareSetPanelProps) {
   const [mode, setMode] = useState<ShareMode>('copy')
   const [copied, setCopied] = useState(false)
   const [liveUrl, setLiveUrl] = useState<string | null>(null)
@@ -35,6 +54,15 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const [busy, setBusy] = useState<'copy' | 'start' | 'stop' | 'create' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const onActiveChangeRef = useRef(onActiveChange)
+
+  useEffect(() => {
+    onActiveChangeRef.current = onActiveChange
+  }, [onActiveChange])
+
+  useEffect(() => {
+    onActiveChangeRef.current?.(Boolean(liveUrl))
+  }, [liveUrl])
 
   useEffect(() => {
     if (!canShareLive || session.liveSourceId) return
@@ -177,23 +205,52 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   return (
     <div className="space-y-3 flex flex-col">
       {canShareLive && (
-        <SegmentedControl
-          label="How to share this set"
-          value={mode}
-          onChange={setMode}
-          className="w-full self-center"
-          options={[
-            { value: 'copy', label: 'Send a copy' },
-            { value: 'live', label: 'Share live' },
-          ]}
-        />
+        <fieldset className="min-w-0 space-y-2">
+          <legend className="sr-only">How to share this set</legend>
+          {shareModeOptions.map((option) => {
+            const selected = mode === option.value
+            return (
+              <label
+                key={option.value}
+                className={classes(
+                  'flex min-h-[44px] w-full cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
+                  selected ? 'border-ui-accent bg-ui-accent/5' : 'border-ui-border bg-ui-surface',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="share-set-mode"
+                  value={option.value}
+                  checked={selected}
+                  onChange={() => setMode(option.value)}
+                  aria-labelledby={`share-mode-${option.value}-title`}
+                  aria-describedby={`share-mode-${option.value}-description`}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--ui-accent)]"
+                />
+                <span className="min-w-0">
+                  <span
+                    id={`share-mode-${option.value}-title`}
+                    className="block text-sm font-bold text-ui-text"
+                  >
+                    {option.label}
+                  </span>
+                  <span
+                    id={`share-mode-${option.value}-description`}
+                    className="mt-0.5 block text-xs leading-5 text-ui-text-muted"
+                  >
+                    {option.description}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </fieldset>
       )}
 
       {!showLive ? (
         <div className="space-y-3">
           <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
-            People get their own copy of the songs and keys as they are now. Your chord and
-            section edits aren&rsquo;t included, and later changes won&rsquo;t reach them.
+            People get their own copy to edit. Your chord and section edits aren&rsquo;t included.
           </p>
           {hasUploads && canShareLive && (
             <p className="text-xs leading-5 text-[var(--ui-text-muted)]">

@@ -1,34 +1,49 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ShareMenuModal from '../../src/components/ShareMenuModal'
 import type { Session } from '../../src/lib/sessionStore'
 import type { Song } from '../../src/types/song'
 
+const mocks = vi.hoisted(() => ({
+  getLyricsPublicationIdentity: vi.fn(),
+  publishLyricsForSession: vi.fn(),
+  ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
+}))
+
 vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
   const actual = await vi.importActual('../../src/lib/lyricsPublishIdentity')
   return {
     ...actual,
-    getLyricsPublicationIdentity: vi.fn(async () => null),
-    publishLyricsForSession: vi.fn(),
+    getLyricsPublicationIdentity: mocks.getLyricsPublicationIdentity,
+    publishLyricsForSession: mocks.publishLyricsForSession,
   }
+})
+
+vi.mock('../../src/lib/lyricsSync', () => ({
+  ensureLyricsFresh: mocks.ensureLyricsFresh,
+}))
+
+beforeEach(() => {
+  mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
 })
 
 afterEach(cleanup)
 
 const song: Song = {
   id: 'song-1',
-  title: 'Great Are You Lord',
-  artist: 'All Sons & Daughters',
-  sourceUrl: 'https://example.test/great-are-you-lord',
+  title: 'Morning Bell',
+  artist: 'Demo Band',
+  sourceUrl: 'https://example.test/morning-bell',
   sourceSite: 'Demo',
   originalKey: 'G',
   sections: [
     {
       type: 'Verse',
       label: 'Verse 1',
-      lines: [{ kind: 'lyric', text: 'You give life, You are love', chords: [] }],
+      lines: [{ kind: 'lyric', text: 'Ring the morning bell again', chords: [] }],
     },
   ],
 }
@@ -60,29 +75,70 @@ function renderModal(modalSession: Session) {
   )
 }
 
+function panel(name: 'set' | 'lyrics') {
+  const element = document.getElementById(`share-tabs-panel-${name}`)
+  if (!element) throw new Error(`Missing ${name} panel`)
+  return element
+}
+
 describe('ShareMenuModal', () => {
-  it('offers sending a copy for the set and a link for the lyrics', async () => {
+  it('shows the set sharing options first and hides the lyrics panel', () => {
     renderModal(session)
 
-    expect(screen.getByText('Share this set')).toBeTruthy()
-    expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Share live' })).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(1)
+    expect(screen.getByRole('tab', { name: 'Full set' }).getAttribute('aria-selected')).toBe(
+      'true',
+    )
+    expect(
+      screen.getByRole('tab', { name: 'Lyrics only' }).getAttribute('aria-selected'),
+    ).toBe('false')
+
+    expect(panel('set').hasAttribute('hidden')).toBe(false)
+    expect(panel('lyrics').hasAttribute('hidden')).toBe(true)
+
+    expect(
+      within(panel('set')).getByText('Chords, keys and sections for the whole band.'),
+    ).toBeTruthy()
+  })
+
+  it('switches to the lyrics panel when the lyrics tab is chosen', async () => {
+    const user = userEvent.setup()
+    renderModal(session)
+
+    await user.click(screen.getByRole('tab', { name: 'Lyrics only' }))
+
+    expect(
+      screen.getByRole('tab', { name: 'Lyrics only' }).getAttribute('aria-selected'),
+    ).toBe('true')
+    expect(panel('lyrics').hasAttribute('hidden')).toBe(false)
+    expect(panel('set').hasAttribute('hidden')).toBe(true)
+
+    expect(
+      within(panel('lyrics')).getByText(
+        'Words only, no chords. Changes you make update it automatically.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('marks the lyrics tab as on when a publication is already live', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue({
+      sessionId: 'session-1',
+      publicationId: 'pub-id-123',
+      updateSecret: 'secret-123',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+
+    renderModal(session)
+
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
+      expect(screen.getByRole('tab', { name: 'Lyrics only · On' })).toBeTruthy()
     })
   })
 
-  it('offers the live link and a copy for a set opened from a live share', () => {
+  it('uses the live copy intro for a set opened from a live share', () => {
     renderModal({ ...session, liveSourceId: 'live-abc' })
 
-    expect(screen.getByText('Copy the live link or make your own copy.')).toBeTruthy()
-    expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()
-    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Create a copy' })).toBeTruthy()
     expect(
-      screen.getByDisplayValue(`${window.location.origin}/live/live-abc`),
+      within(panel('set')).getByText('Copy the live link or make your own copy.'),
     ).toBeTruthy()
   })
 })

@@ -140,9 +140,16 @@ describe('ShareSetPanel', () => {
     expect(screen.queryByText(/Uploaded sheets/)).toBeNull()
   })
 
+  it('shows the Start live share button when Share live is chosen', () => {
+    renderPanel(<ShareSetPanel session={session} />)
+    expect(screen.queryByRole('button', { name: 'Start live share' })).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: 'Share live' }))
+    expect(screen.getByRole('button', { name: 'Start live share' })).toBeTruthy()
+  })
+
   it('starts, copies and stops a live share', async () => {
     renderPanel(<ShareSetPanel session={session} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Share live' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Share live' }))
     fireEvent.click(screen.getByRole('button', { name: 'Start live share' }))
     await screen.findByDisplayValue('https://example.test/live/abc')
     expect(mocks.startLiveShare).toHaveBeenCalledWith('session-1')
@@ -155,10 +162,20 @@ describe('ShareSetPanel', () => {
     expect(mocks.stopLiveShare).toHaveBeenCalledWith('session-1')
   })
 
+  it('reports when a live share becomes active', async () => {
+    const onActiveChange = vi.fn()
+    renderPanel(<ShareSetPanel session={session} onActiveChange={onActiveChange} />)
+    expect(onActiveChange).toHaveBeenLastCalledWith(false)
+    fireEvent.click(screen.getByRole('radio', { name: 'Share live' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start live share' }))
+    await screen.findByDisplayValue('https://example.test/live/abc')
+    await waitFor(() => expect(onActiveChange).toHaveBeenLastCalledWith(true))
+  })
+
   it('shows an error when the live share cannot start', async () => {
     mocks.startLiveShare.mockRejectedValueOnce(new Error('Check your connection.'))
     renderPanel(<ShareSetPanel session={session} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Share live' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Share live' }))
     fireEvent.click(screen.getByRole('button', { name: 'Start live share' }))
     await screen.findByText('Check your connection.')
   })
@@ -170,7 +187,9 @@ describe('ShareSetPanel', () => {
     })
     renderPanel(<ShareSetPanel session={session} />)
     await screen.findByDisplayValue('https://example.test/live/xyz')
-    expect(screen.getByRole('tab', { name: 'Share live' }).getAttribute('aria-selected')).toBe('true')
+    expect((screen.getByRole('radio', { name: 'Share live' }) as HTMLInputElement).checked).toBe(
+      true,
+    )
     expect(screen.getByText(/Expires/)).toBeTruthy()
     mocks.statusCb?.('failing')
     await screen.findByText(/Not updating\. Your latest changes/)
@@ -178,7 +197,7 @@ describe('ShareSetPanel', () => {
 
   it('hides Share live when canShareLive is false', () => {
     renderPanel(<ShareSetPanel session={session} canShareLive={false} />)
-    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Share live' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
     expect(mocks.getLiveShare).not.toHaveBeenCalled()
   })
@@ -201,8 +220,8 @@ describe('ShareSetPanel', () => {
       </Routes>,
     )
 
-    expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()
-    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Send a copy' })).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Share live' })).toBeNull()
     const sourceUrl = `${window.location.origin}/live/live-abc`
     expect(screen.getByDisplayValue(sourceUrl)).toBeTruthy()
 
