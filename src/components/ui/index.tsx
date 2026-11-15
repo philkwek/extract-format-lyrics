@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
   HTMLAttributes,
+  KeyboardEvent,
   ReactNode,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -83,6 +85,8 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void
   label: string
   className?: string
+  /** Set when the tabs control a panel, so each tab points at `${idPrefix}-panel-${value}`. */
+  idPrefix?: string
 }
 
 export function SegmentedControl<T extends string>({
@@ -91,12 +95,40 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   className,
+  idPrefix,
 }: SegmentedControlProps<T>) {
   const reduceMotion = useReducedMotion()
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const activeIndex = Math.max(
     0,
     options.findIndex((option) => option.value === value),
   )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = (activeIndex + 1) % options.length
+        break
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = (activeIndex - 1 + options.length) % options.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = options.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    const next = options[nextIndex]
+    if (next.value !== value) onChange(next.value)
+    tabRefs.current[nextIndex]?.focus()
+  }
 
   return (
     <div
@@ -114,17 +146,23 @@ export function SegmentedControl<T extends string>({
           transition={reduceMotion ? reducedMotionTransition : segmentedSpring}
         />
       )}
-      {options.map((option) => {
+      {options.map((option, index) => {
         const isActive = option.value === value
         return (
           <button
             key={option.value}
+            ref={(node) => {
+              tabRefs.current[index] = node
+            }}
             type="button"
             role="tab"
+            id={idPrefix ? `${idPrefix}-tab-${option.value}` : undefined}
+            aria-controls={idPrefix ? `${idPrefix}-panel-${option.value}` : undefined}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             className={classes('ui-segmented__item', isActive && 'ui-segmented__item--active')}
             onClick={() => onChange(option.value)}
+            onKeyDown={handleKeyDown}
           >
             {option.icon}
             <span>{option.label}</span>
