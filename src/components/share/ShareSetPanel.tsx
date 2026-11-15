@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, CopyPlus, Radio } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { classes } from '../../lib/classes'
-import { ensureSetLinkFresh } from '../../lib/setLinkSync'
 import {
   getLiveShare,
   startLiveShare,
@@ -19,39 +17,16 @@ interface ShareSetPanelProps {
   onActiveChange?: (active: boolean) => void
 }
 
-type ShareMode = 'copy' | 'live'
-type LinkErrorReason = 'empty' | 'too_many' | 'failed'
-
-const shareModeOptions: Array<{ value: ShareMode; label: string; description: string }> = [
-  {
-    value: 'copy',
-    label: 'Send a copy',
-    description: "A snapshot of the songs and keys. Later changes won't reach them.",
-  },
-  {
-    value: 'live',
-    label: 'Share live',
-    description: 'People follow your edits as you make them.',
-  },
-]
-
-function linkErrorMessage(reason: LinkErrorReason): string {
-  if (reason === 'empty') return 'Add a song before you share this set.'
-  if (reason === 'too_many') return 'A set link holds up to 30 songs. Remove some and try again.'
-  return 'Could not make the link. Check your connection and try again.'
-}
-
 export default function ShareSetPanel({
   session,
   canShareLive = true,
   onActiveChange,
 }: ShareSetPanelProps) {
-  const [mode, setMode] = useState<ShareMode>('copy')
   const [copied, setCopied] = useState(false)
   const [liveUrl, setLiveUrl] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [status, setStatus] = useState<LiveShareStatus>('ok')
-  const [busy, setBusy] = useState<'copy' | 'start' | 'stop' | 'create' | null>(null)
+  const [busy, setBusy] = useState<'start' | 'stop' | 'create' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const onActiveChangeRef = useRef(onActiveChange)
@@ -71,7 +46,6 @@ export default function ShareSetPanel({
       if (cancelled || !share) return
       setLiveUrl(share.url)
       setExpiresAt(share.expiresAt ?? null)
-      setMode('live')
     })
     const unsubscribe = subscribeLiveShareStatus(session.id, setStatus)
     return () => {
@@ -88,19 +62,6 @@ export default function ShareSetPanel({
     } catch {
       window.prompt('Copy this share link:', text)
     }
-  }
-
-  const handleCopyCopy = async () => {
-    if (busy) return
-    setBusy('copy')
-    setError(null)
-    const result = await ensureSetLinkFresh(session)
-    setBusy(null)
-    if (!result.ok) {
-      setError(linkErrorMessage(result.reason))
-      return
-    }
-    await copyText(`${window.location.origin}${sessionPath(session)}`)
   }
 
   const handleCreateCopy = async () => {
@@ -148,8 +109,6 @@ export default function ShareSetPanel({
     }
   }
 
-  const hasUploads = session.songs.some((item) => item.url?.startsWith('upload://'))
-  const showLive = canShareLive && mode === 'live'
   const liveSourceUrl = session.liveSourceId
     ? `${window.location.origin}/live/${session.liveSourceId}`
     : null
@@ -202,134 +161,66 @@ export default function ShareSetPanel({
     )
   }
 
+  if (!canShareLive) return null
+
   return (
     <div className="space-y-3 flex flex-col">
-      {canShareLive && (
-        <fieldset className="min-w-0 space-y-2">
-          <legend className="sr-only">How to share this set</legend>
-          {shareModeOptions.map((option) => {
-            const selected = mode === option.value
-            return (
-              <label
-                key={option.value}
-                className={classes(
-                  'flex min-h-[44px] w-full cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
-                  selected ? 'border-ui-accent bg-ui-accent/5' : 'border-ui-border bg-ui-surface',
-                )}
+      <div className="space-y-3">
+        <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
+          They see your changes until they edit the set themselves. The link works for 7 days after
+          your last change.
+        </p>
+        {liveUrl ? (
+          <div className="space-y-2">
+            <label
+              htmlFor="share-live-url"
+              className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]"
+            >
+              Live link
+            </label>
+            <input
+              id="share-live-url"
+              type="text"
+              readOnly
+              value={liveUrl}
+              className="ui-field select-all px-3 py-2.5 font-mono text-xs"
+            />
+            {status === 'failing' && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                Not updating. People can&rsquo;t see your latest changes yet.
+              </p>
+            )}
+            {expiresAt && (
+              <p className="text-[11px] text-[var(--ui-text-muted)]">
+                Expires {new Date(expiresAt).toLocaleString()}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <Button
+                variant="primary"
+                icon={copied ? <Check size={15} /> : <Copy size={15} />}
+                onClick={() => copyText(liveUrl)}
               >
-                <input
-                  type="radio"
-                  name="share-set-mode"
-                  value={option.value}
-                  checked={selected}
-                  onChange={() => setMode(option.value)}
-                  aria-labelledby={`share-mode-${option.value}-title`}
-                  aria-describedby={`share-mode-${option.value}-description`}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--ui-accent)]"
-                />
-                <span className="min-w-0">
-                  <span
-                    id={`share-mode-${option.value}-title`}
-                    className="block text-sm font-bold text-ui-text"
-                  >
-                    {option.label}
-                  </span>
-                  <span
-                    id={`share-mode-${option.value}-description`}
-                    className="mt-0.5 block text-xs leading-5 text-ui-text-muted"
-                  >
-                    {option.description}
-                  </span>
-                </span>
-              </label>
-            )
-          })}
-        </fieldset>
-      )}
-
-      {!showLive ? (
-        <div className="space-y-3">
-          <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
-            People get their own copy to edit. Your chord and section edits aren&rsquo;t included.
-          </p>
-          {hasUploads && canShareLive && (
-            <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
-              Uploaded sheets aren&rsquo;t included. Use <strong>Share live</strong> to send them.
-            </p>
-          )}
-          <p className="text-xs text-[var(--ui-text-muted)]">
-            This is the same as copying this page&rsquo;s address.
-          </p>
+                {copied ? 'Copied' : 'Copy link'}
+              </Button>
+              <Button variant="secondary" onClick={handleStop} loading={busy === 'stop'}>
+                Stop sharing
+              </Button>
+            </div>
+          </div>
+        ) : (
           <div className="flex justify-end">
             <Button
               variant="primary"
-              icon={copied ? <Check size={15} /> : <Copy size={15} />}
-              onClick={handleCopyCopy}
-              loading={busy === 'copy'}
+              icon={<Radio size={15} />}
+              onClick={handleStart}
+              loading={busy === 'start'}
             >
-              {copied ? 'Copied' : 'Copy link'}
+              Start live share
             </Button>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs leading-5 text-[var(--ui-text-muted)]">
-            People see your chord edits, sections and changes as you make them. They follow your
-            edits until they change the set themselves. The link stops working 7 days after your
-            last change.
-          </p>
-          {liveUrl ? (
-            <div className="space-y-2">
-              <label
-                htmlFor="share-live-url"
-                className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]"
-              >
-                Live link
-              </label>
-              <input
-                id="share-live-url"
-                type="text"
-                readOnly
-                value={liveUrl}
-                className="ui-field select-all px-3 py-2.5 font-mono text-xs"
-              />
-              {status === 'failing' && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                  Not updating. Your latest changes haven&rsquo;t reached people following this set.
-                </p>
-              )}
-              {expiresAt && (
-                <p className="text-[11px] text-[var(--ui-text-muted)]">
-                  Expires {new Date(expiresAt).toLocaleString()}
-                </p>
-              )}
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
-                <Button
-                  variant="primary"
-                  icon={copied ? <Check size={15} /> : <Copy size={15} />}
-                  onClick={() => copyText(liveUrl)}
-                >
-                  {copied ? 'Copied' : 'Copy link'}
-                </Button>
-                <Button variant="secondary" onClick={handleStop} loading={busy === 'stop'}>
-                  Stop sharing
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-end">
-              <Button
-                variant="primary"
-                icon={<Radio size={15} />}
-                onClick={handleStart}
-                loading={busy === 'start'}
-              >
-                Start live share
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {error && (
         <p role="alert" className="text-[11px] text-red-600 dark:text-red-300">

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ShareMenuModal from '../../src/components/ShareMenuModal'
@@ -75,51 +75,40 @@ function renderModal(modalSession: Session) {
   )
 }
 
-function panel(name: 'set' | 'lyrics') {
-  const element = document.getElementById(`share-tabs-panel-${name}`)
-  if (!element) throw new Error(`Missing ${name} panel`)
-  return element
-}
-
 describe('ShareMenuModal', () => {
-  it('shows the set sharing options first and hides the lyrics panel', () => {
+  it('lists each share method with its own status', () => {
     renderModal(session)
 
-    expect(screen.getByRole('tab', { name: 'Full set' }).getAttribute('aria-selected')).toBe(
-      'true',
-    )
-    expect(
-      screen.getByRole('tab', { name: 'Lyrics only' }).getAttribute('aria-selected'),
-    ).toBe('false')
-
-    expect(panel('set').hasAttribute('hidden')).toBe(false)
-    expect(panel('lyrics').hasAttribute('hidden')).toBe(true)
-
-    expect(
-      within(panel('set')).getByText('Chords, keys and sections for the whole band.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Full set')).toBeTruthy()
+    expect(screen.getByText('Share with other musicians')).toBeTruthy()
+    expect(screen.getByText('Lyrics')).toBeTruthy()
+    expect(screen.getByText('For people to follow along')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Lyrics link.*Off/ })).toBeTruthy()
   })
 
-  it('switches to the lyrics panel when the lyrics tab is chosen', async () => {
+  it('opens the lyrics details and returns to the list', async () => {
     const user = userEvent.setup()
     renderModal(session)
 
-    await user.click(screen.getByRole('tab', { name: 'Lyrics only' }))
+    await user.click(screen.getByRole('button', { name: /Lyrics link.*Off/ }))
 
-    expect(
-      screen.getByRole('tab', { name: 'Lyrics only' }).getAttribute('aria-selected'),
-    ).toBe('true')
-    expect(panel('lyrics').hasAttribute('hidden')).toBe(false)
-    expect(panel('set').hasAttribute('hidden')).toBe(true)
+    const heading = screen.getByRole('heading', { name: 'Lyrics link' })
+    expect(heading).toBeTruthy()
+    expect(document.activeElement).toBe(heading)
+    expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
 
-    expect(
-      within(panel('lyrics')).getByText(
-        'Words only, no chords. Changes you make update it automatically.',
-      ),
-    ).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+
+    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Lyrics link' })).toBeNull()
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: /Lyrics link.*Off/ }),
+    )
   })
 
-  it('marks the lyrics tab as on when a publication is already live', async () => {
+  it('shows the lyrics link as on when a publication is active', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue({
       sessionId: 'session-1',
       publicationId: 'pub-id-123',
@@ -130,15 +119,17 @@ describe('ShareMenuModal', () => {
     renderModal(session)
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: 'Lyrics only · On' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Lyrics link.*On/ })).toBeTruthy()
     })
   })
 
-  it('uses the live copy intro for a set opened from a live share', () => {
+  it('shows the followed live link instead of a Share live row', () => {
     renderModal({ ...session, liveSourceId: 'live-abc' })
 
-    expect(
-      within(panel('set')).getByText('Copy the live link or make your own copy.'),
-    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Share live/ })).toBeNull()
+    expect(screen.getByText(/This set follows someone else/)).toBeTruthy()
+
+    const liveLink = screen.getByLabelText('Live link') as HTMLInputElement
+    expect(liveLink.value).toMatch(/\/live\/live-abc$/)
   })
 })

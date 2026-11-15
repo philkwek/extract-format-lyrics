@@ -152,8 +152,8 @@ export default function ShareLyricsLinkPanel({
       <div className="space-y-3">
         <StatusBanner tone="info" icon={<Link2 size={16} />}>
           {isPublished
-            ? 'Changes publish automatically and renew this link for seven days.'
-            : 'Anyone with the link can view lyrics for this setlist. Each publication lasts seven days.'}
+            ? 'Changes update the link and keep it working for 7 days.'
+            : 'Anyone with the link can see the words. The link works for 7 days after your last change.'}
         </StatusBanner>
 
         <div className="space-y-2">
@@ -170,9 +170,9 @@ export default function ShareLyricsLinkPanel({
             value={
               shareUrl ||
               (isSaving
-                ? 'Publishing lyrics…'
+                ? 'Creating link…'
                 : initialized
-                  ? 'Generate a link when you are ready'
+                  ? 'No link yet'
                   : 'Checking existing link…')
             }
             className="ui-field select-all px-3 py-2.5 font-mono text-xs"
@@ -197,7 +197,7 @@ export default function ShareLyricsLinkPanel({
                 onClick={handleOpenPreview}
                 disabled={isSaving}
               >
-                See Preview
+                Preview
               </Button>
               {isPublished ? (
                 <>
@@ -227,7 +227,7 @@ export default function ShareLyricsLinkPanel({
                   loading={isSaving}
                   disabled={isSaving}
                 >
-                  {isSaving ? 'Generating…' : 'Generate link'}
+                  {isSaving ? 'Creating…' : 'Create link'}
                 </Button>
               )}
             </div>

@@ -78,7 +78,7 @@ describe('ShareLyricsModal', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Generate link/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Create link/i })).toBeTruthy()
     })
 
     expect(lyricsIdentity.publishLyricsForSession).not.toHaveBeenCalled()
@@ -103,8 +103,8 @@ describe('ShareLyricsModal', () => {
       />
     )
 
-    const generateBtn = await screen.findByRole('button', { name: /Generate link/i })
-    fireEvent.click(generateBtn)
+    const createBtn = await screen.findByRole('button', { name: /Create link/i })
+    fireEvent.click(createBtn)
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
@@ -115,7 +115,7 @@ describe('ShareLyricsModal', () => {
     expect(trackEvent).toHaveBeenCalledWith('lyrics_published', { operation: 'create', outcome: 'success', song_count: 1 })
     expect(input.value).toBe('http://localhost/lyrics/pub-test-id')
     expect(
-      screen.getByText(/Changes publish automatically and renew this link for seven days/i),
+      screen.getByText(/Changes update the link and keep it working for 7 days/i),
     ).toBeTruthy()
   })
 
@@ -164,7 +164,7 @@ describe('ShareLyricsModal', () => {
     expect(screen.getByRole('button', { name: /Copy link/i })).toBeTruthy()
   })
 
-  it('renders See Preview button and opens preview modal with (Preview) header without generating a link', async () => {
+  it('renders Preview button and opens preview modal with (Preview) header without creating a link', async () => {
     vi.mocked(lyricsIdentity.getLyricsPublicationIdentity).mockResolvedValue(null)
 
     render(
@@ -176,10 +176,10 @@ describe('ShareLyricsModal', () => {
       />
     )
 
-    const previewBtn = await screen.findByRole('button', { name: /See Preview/i })
+    const previewBtn = await screen.findByRole('button', { name: 'Preview' })
     expect(previewBtn).toBeTruthy()
 
-    // Click See Preview
+    // Click Preview
     fireEvent.click(previewBtn)
 
     // Modal with (Preview) header must appear

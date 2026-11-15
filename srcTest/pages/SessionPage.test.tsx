@@ -225,19 +225,20 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
-    expect(await screen.findByRole('tab', { name: 'Full set' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: /Send a copy/ })).toBeTruthy()
+    expect(await screen.findByText('Share with other musicians')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Share live.*Off/ })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Lyrics only' }))
-    expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Lyrics link.*Off/ }))
+    expect(await screen.findByRole('button', { name: 'Create link' })).toBeTruthy()
   })
 
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
     render(<TestHarness />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
-    fireEvent.click(await screen.findByRole('tab', { name: 'Lyrics only' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'See Preview' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Lyrics link.*Off/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()

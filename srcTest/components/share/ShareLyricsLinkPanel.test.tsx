@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import ShareLyricsLinkPanel from '../../../src/components/share/ShareLyricsLinkPanel'
 import type { Session } from '../../../src/lib/sessionStore'
 import type { Song } from '../../../src/types/song'
@@ -148,5 +148,37 @@ describe('ShareLyricsLinkPanel', () => {
 
     // Should still be 1, not 2
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the simpler copy and the create action before a link exists', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
+
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    expect(
+      screen.getByText(
+        'Anyone with the link can see the words. The link works for 7 days after your last change.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Lyrics link') as HTMLInputElement).value).toBe('No link yet')
+    })
+  })
+
+  it('shows the update action and shorter copy once a link exists', async () => {
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Update lyrics' })).toBeTruthy()
+    })
+
+    expect(
+      screen.getByText('Changes update the link and keep it working for 7 days.'),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
   })
 })
