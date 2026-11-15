@@ -248,7 +248,7 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
-    expect(await screen.findByText('Share with other musicians')).toBeTruthy()
+    expect(await screen.findByText('For other musicians')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
       'false',

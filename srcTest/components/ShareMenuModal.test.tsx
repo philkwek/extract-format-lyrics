@@ -78,9 +78,9 @@ describe('ShareMenuModal', () => {
   it('shows both share methods on one screen, each with a switch', () => {
     renderModal(session)
 
-    expect(screen.getByRole('heading', { name: 'Full set' })).toBeTruthy()
-    expect(screen.getByText('Share with other musicians')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Lyrics' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Share full set' })).toBeTruthy()
+    expect(screen.getByText('For other musicians')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Share lyrics' })).toBeTruthy()
     expect(screen.getByText('For people to follow along')).toBeTruthy()
 
     expect(screen.getByText('Send a copy')).toBeTruthy()

@@ -34,15 +34,15 @@ export default function ShareMenuModal({
       <div className="space-y-6">
         <section className="space-y-3">
           <div>
-            <h3 className="text-base font-bold text-ui-text">Full set</h3>
-            <p className="text-sm text-ui-text-muted">Share with other musicians</p>
+            <h3 className="text-base font-bold text-ui-text">Share full set</h3>
+            <p className="text-sm text-ui-text-muted">For other musicians</p>
           </div>
           <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
         </section>
 
         <section className="space-y-3">
           <div>
-            <h3 className="text-base font-bold text-ui-text">Lyrics</h3>
+            <h3 className="text-base font-bold text-ui-text">Share lyrics</h3>
             <p className="text-sm text-ui-text-muted">For people to follow along</p>
           </div>
           <ShareLyricsLinkPanel session={session} songsData={songsData} />
