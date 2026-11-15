@@ -73,6 +73,34 @@ export function IconButton({ label, children, ...props }: IconButtonProps) {
   )
 }
 
+interface SwitchProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+  disabled?: boolean
+  busy?: boolean
+  className?: string
+}
+
+export function Switch({ checked, onChange, label, disabled, busy, className }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
+      className={classes('ui-switch', className)}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="ui-switch__track" aria-hidden="true">
+        <span className="ui-switch__thumb" />
+      </span>
+    </button>
+  )
+}
+
 interface SegmentedOption<T extends string> {
   value: T
   label: string

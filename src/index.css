@@ -175,8 +175,16 @@ html.dark body {
   transform: scale(0.97);
 }
 
+.ui-switch { position: relative; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 3.25rem; height: 2.75rem; border-radius: 999px; touch-action: manipulation; }
+.ui-switch__track { position: relative; width: 2.75rem; height: 1.6rem; border-radius: 999px; background: color-mix(in srgb, var(--ui-text) 24%, transparent); transition: background-color 160ms ease; }
+.ui-switch__thumb { position: absolute; top: 0.15rem; left: 0.15rem; width: 1.3rem; height: 1.3rem; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ui-switch[aria-checked='true'] .ui-switch__track { background: var(--ui-accent); }
+.ui-switch[aria-checked='true'] .ui-switch__thumb { transform: translateX(1.15rem); }
+.ui-switch:disabled { cursor: default; opacity: 0.55; }
+
 .ui-button:focus-visible,
 .ui-segmented__item:focus-visible,
+.ui-switch:focus-visible,
 .ui-field:focus-visible {
   outline: 3px solid var(--ui-focus);
   outline-offset: 2px;
@@ -420,7 +428,9 @@ html.dark body {
     scroll-behavior: auto !important;
   }
   .ui-button,
-  .ui-segmented__item {
+  .ui-segmented__item,
+  .ui-switch__track,
+  .ui-switch__thumb {
     transition-duration: 0.01ms !important;
     transform: none !important;
   }

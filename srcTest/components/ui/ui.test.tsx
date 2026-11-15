@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Button, SegmentedControl, StatusBanner } from '../../../src/components/ui/index'
+import { Button, SegmentedControl, StatusBanner, Switch } from '../../../src/components/ui/index'
 import OverlayDialog from '../../../src/components/ui/OverlayDialog'
 
 beforeAll(() => {
@@ -155,5 +155,20 @@ describe('UI primitives', () => {
     done.focus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement)
+  })
+  it('reports the next state from a switch and stays put while busy', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const { rerender } = render(<Switch label="Share live" checked={false} onChange={onChange} />)
+
+    const toggle = screen.getByRole('switch', { name: 'Share live' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    await user.click(toggle)
+    expect(onChange).toHaveBeenCalledWith(true)
+
+    rerender(<Switch label="Share live" checked busy onChange={onChange} />)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    await user.click(toggle)
+    expect(onChange).toHaveBeenCalledTimes(1)
   })
 })
