@@ -40,7 +40,7 @@ There are two ways to share a set.
 
 **Send a copy** gives your musicians the page address. They open it and get a one-time copy of the songs, names, keys, pad and simplified-chord choices. It doesn't include chord or section edits, or uploaded sheets. It won't change when you do.
 
-**Share live** sends everything: your chord and section edits, uploaded sheets and per-song settings. Musicians who open the link get a live set, and your changes reach them as you make them. If a musician edits anything in a live set, it asks "Make your own copy?" and then makes a copy named after the set with "- Copy" on the end. The live set stays as it is. Turn **Share live** off in the Share window to end a live share.
+**Share live** sends everything: your chord and section edits, uploaded sheets and per-song settings. Musicians who open the link get a live set, and your changes reach them as you make them. If a musician edits anything in a live set, it asks "Make your own copy?" and then makes a copy named after the set with "- Copy" on the end. The live set stays as it is. Turn **Share live** off in the Share window to pause it. Turning it on again brings back the same link.
 
 Older one-off set links (`/s/`) still open until they expire. The app no longer creates them.
 
@@ -48,9 +48,9 @@ Older one-off set links (`/s/`) still open until they expire. The app no longer 
 
 ## Give everyone a screen
 
-For cell group worship, open **Share**, turn on **Lyrics link**, then choose **Copy link**. Choose **Preview** to see what people will get. Everyone gets a simple lyrics-only view with song tabs and no chords. Each person chooses the song on their own phone; it doesn't automatically follow the song you're on.
+For cell group worship, open **Share**, choose **Create link** under **Share lyrics**, then choose **Copy link**. Choose **Preview** to see what people will get. Everyone gets a simple lyrics-only view with song tabs and no chords. Each person chooses the song on their own phone; it doesn't automatically follow the song you're on.
 
-One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. Turning **Lyrics link** off stops updates, and turning it on again makes a new link. Anyone reading the lyrics page gets a short notice when a new song is added.
+One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. The link stops working seven days after your last change. Anyone reading the lyrics page gets a short notice when a new song is added.
 
 Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
 

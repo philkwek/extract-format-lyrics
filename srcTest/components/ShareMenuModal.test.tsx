@@ -75,7 +75,7 @@ function renderModal(modalSession: Session) {
 }
 
 describe('ShareMenuModal', () => {
-  it('shows both share methods on one screen, each with a switch', () => {
+  it('shows both share methods on one screen, Share live has a switch and lyrics has Create link', () => {
     renderModal(session)
 
     expect(screen.getByRole('heading', { name: 'Share full set' })).toBeTruthy()
@@ -85,11 +85,11 @@ describe('ShareMenuModal', () => {
 
     expect(screen.getByText('Send a copy')).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Share live' })).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Lyrics link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
   })
 
-  it('shows the lyrics link as on when a publication is active', async () => {
+  it('shows Copy link for the lyrics when a publication is active', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue({
       sessionId: 'session-1',
       publicationId: 'pub-id-123',
@@ -100,10 +100,9 @@ describe('ShareMenuModal', () => {
     renderModal(session)
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('switch', { name: 'Lyrics link' }).getAttribute('aria-checked'),
-      ).toBe('true')
+      expect(screen.queryByRole('button', { name: 'Create link' })).toBeNull()
     })
+    expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(2)
   })
 
   it('shows the followed live link instead of a Share live switch', () => {

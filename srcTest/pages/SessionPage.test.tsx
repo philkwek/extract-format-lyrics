@@ -254,9 +254,9 @@ describe('SessionPage full screen mode', () => {
       'false',
     )
 
-    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
-    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
-    fireEvent.click(lyricsSwitch)
+    const createLink = screen.getByRole('button', { name: 'Create link' }) as HTMLButtonElement
+    await waitFor(() => expect(createLink.disabled).toBe(false))
+    fireEvent.click(createLink)
 
     expect(await screen.findByRole('button', { name: 'Preview' })).toBeTruthy()
     expect(shareMocks.publishLyricsForSession).toHaveBeenCalled()
@@ -267,9 +267,9 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
-    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
-    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
-    fireEvent.click(lyricsSwitch)
+    const createLink = screen.getByRole('button', { name: 'Create link' }) as HTMLButtonElement
+    await waitFor(() => expect(createLink.disabled).toBe(false))
+    fireEvent.click(createLink)
     fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
