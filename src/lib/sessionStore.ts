@@ -117,14 +117,17 @@ export interface SessionStorageStore {
 const defaultStore: SessionStorageStore = { get, set, del }
 
 export function formatDefaultSessionName(date: Date = new Date()): string {
-  const day = date.getDate()
-  const month = date.toLocaleDateString('en-US', { month: 'long' })
-  let hours = date.getHours()
-  const ampm = hours >= 12 ? 'pm' : 'am'
-  hours = hours % 12 || 12
-  const minutes = date.getMinutes()
-  const timeStr = minutes === 0 ? `${hours}${ampm}` : `${hours}${minutes.toString().padStart(2, '0')}${ampm}`
-  return `${day} ${month} ${timeStr} Set`
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' })
+  const month = date.toLocaleDateString('en-US', { month: 'short' })
+  return `${weekday} ${date.getDate()} ${month}`
+}
+
+/** Adds a running number (#2, #3...) when a set already has this name. */
+export function numberedSetName(name: string, existingNames: string[]): string {
+  if (!existingNames.includes(name)) return name
+  let n = 2
+  while (existingNames.includes(`${name} #${n}`)) n += 1
+  return `${name} #${n}`
 }
 
 export class SessionStore {
@@ -238,7 +241,12 @@ export class SessionStore {
       ...(importFailures ? { importFailures } : {}),
       ...(options.linkSnapshot ? { linkSnapshot: options.linkSnapshot } : {}),
       createdAt: now,
-      name: name || formatDefaultSessionName(new Date(now)),
+      name:
+        name ||
+        numberedSetName(
+          formatDefaultSessionName(new Date(now)),
+          list.map((existing) => existing.name),
+        ),
       songs: songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
     }
 

@@ -115,7 +115,7 @@ describe('SessionStore', () => {
 
     const store = new SessionStore(fakeStore as unknown as SessionStorageStore)
     const session = await store.createSession([])
-    expect(session.name).toMatch(/\d+ [A-Z][a-z]+ \d+(?:am|pm) Set/)
+    expect(session.name).toMatch(/^[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}$/)
 
     await store.renameSession(session.id, 'Sunday Morning Service')
     const updated = await store.getSession(session.id)
@@ -181,27 +181,17 @@ describe('SessionStore', () => {
     expect(fakeStore.set).toHaveBeenCalledTimes(2)
   })
 
-  it('formats default session name according to Day Month Time(12hrs) Set format', async () => {
+  it('formats the default session name as Day Date Month', async () => {
     const { formatDefaultSessionName } = await import('../../src/lib/sessionStore')
-    // 9 October 2026, 21:30 (9:30pm)
-    const d1 = new Date(2026, 9, 9, 21, 30)
-    expect(formatDefaultSessionName(d1)).toBe('9 October 930pm Set')
+    expect(formatDefaultSessionName(new Date(2026, 9, 9, 21, 30))).toBe('Fri 9 Oct')
+    expect(formatDefaultSessionName(new Date(2026, 11, 25, 12, 0))).toBe('Fri 25 Dec')
+  })
 
-    // 9 October 2026, 21:00 (9pm)
-    const d2 = new Date(2026, 9, 9, 21, 0)
-    expect(formatDefaultSessionName(d2)).toBe('9 October 9pm Set')
-
-    // 9 October 2026, 09:05 (9:05am)
-    const d3 = new Date(2026, 9, 9, 9, 5)
-    expect(formatDefaultSessionName(d3)).toBe('9 October 905am Set')
-
-    // 25 December 2026, 12:00 (12pm)
-    const d4 = new Date(2026, 11, 25, 12, 0)
-    expect(formatDefaultSessionName(d4)).toBe('25 December 12pm Set')
-
-    // 1 January 2027, 00:00 (12am)
-    const d5 = new Date(2027, 0, 1, 0, 0)
-    expect(formatDefaultSessionName(d5)).toBe('1 January 12am Set')
+  it('adds a running number when a set name is already taken', async () => {
+    const { numberedSetName } = await import('../../src/lib/sessionStore')
+    expect(numberedSetName('Fri 9 Oct', [])).toBe('Fri 9 Oct')
+    expect(numberedSetName('Fri 9 Oct', ['Fri 9 Oct'])).toBe('Fri 9 Oct #2')
+    expect(numberedSetName('Fri 9 Oct', ['Fri 9 Oct', 'Fri 9 Oct #2'])).toBe('Fri 9 Oct #3')
   })
 
   describe('public ids and events', () => {
