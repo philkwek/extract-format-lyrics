@@ -113,8 +113,6 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void
   label: string
   className?: string
-  /** Set when the tabs control a panel, so each tab points at `${idPrefix}-panel-${value}`. */
-  idPrefix?: string
 }
 
 export function SegmentedControl<T extends string>({
@@ -123,7 +121,6 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   className,
-  idPrefix,
 }: SegmentedControlProps<T>) {
   const reduceMotion = useReducedMotion()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -184,8 +181,6 @@ export function SegmentedControl<T extends string>({
             }}
             type="button"
             role="tab"
-            id={idPrefix ? `${idPrefix}-tab-${option.value}` : undefined}
-            aria-controls={idPrefix ? `${idPrefix}-panel-${option.value}` : undefined}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             className={classes('ui-segmented__item', isActive && 'ui-segmented__item--active')}

@@ -46,7 +46,6 @@ function ThreeWaySegmentedHarness() {
       label="Source"
       value={value}
       onChange={setValue}
-      idPrefix="source"
       options={[
         { value: 'paste', label: 'Paste' },
         { value: 'search', label: 'Search' },
@@ -93,8 +92,6 @@ describe('UI primitives', () => {
 
     const paste = screen.getByRole('tab', { name: 'Paste' })
     expect(paste.getAttribute('aria-selected')).toBe('true')
-    expect(paste.id).toBe('')
-    expect(paste.getAttribute('aria-controls')).toBeNull()
     await user.click(screen.getByRole('tab', { name: 'Search' }))
     expect(screen.getByRole('tab', { name: 'Search' }).getAttribute('aria-selected')).toBe('true')
   })
@@ -121,14 +118,6 @@ describe('UI primitives', () => {
     const link = screen.getByRole('tab', { name: 'Link' })
     expect(link.getAttribute('aria-selected')).toBe('true')
     expect(link).toBe(document.activeElement)
-  })
-
-  it('links each tab to its panel when given an id prefix', () => {
-    render(<ThreeWaySegmentedHarness />)
-
-    const search = screen.getByRole('tab', { name: 'Search' })
-    expect(search.id).toBe('source-tab-search')
-    expect(search.getAttribute('aria-controls')).toBe('source-panel-search')
   })
 
   it('closes on Escape and restores focus to its trigger', async () => {
