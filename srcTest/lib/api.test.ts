@@ -37,73 +37,78 @@ describe('extractSongsApi', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ expectedSongCount: 4 })
   })
 
-  it('streams out-of-order source events before the complete result', async () => {
-    const source = {
-      site: 'pnwchords',
-      status: 'ok',
-      count: 1,
-      durationMs: 12,
-      candidates: [
-        {
-          site: 'pnwchords',
-          title: 'Good Grace',
-          artist: 'Hillsong Worship',
-          url: 'https://pnwchords.com/good-grace',
-        },
-      ],
-    }
-    const complete = {
-      type: 'complete',
-      query: 'good grace',
-      results: source.candidates,
-      sources: [source],
-      partial: false,
-    }
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(`${JSON.stringify({ type: 'source', source, candidates: source.candidates })}\n${JSON.stringify(complete)}\n`, {
-          status: 200,
-          headers: { 'content-type': 'application/x-ndjson; charset=utf-8' },
+  it('asks each source separately and reports each one as it answers', async () => {
+    const candidate = (site: string, n: number) => ({
+      site,
+      title: `Good Grace ${n}`,
+      artist: 'Demo Artist',
+      url: `https://${site}.example/good-grace-${n}`,
+    })
+    const pending = new Map<string, (res: Response) => void>()
+    const fetchMock = vi.fn(
+      (url: string) =>
+        new Promise<Response>((resolve) => {
+          pending.set(new URL(url, 'https://app.example').searchParams.get('site')!, resolve)
+        })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const answer = (site: string, count: number) => {
+      const results = Array.from({ length: count }, (_, n) => candidate(site, n))
+      pending.get(site)!(
+        Response.json({
+          query: 'good grace',
+          results,
+          sources: [{ site, status: count ? 'ok' : 'empty', count, durationMs: 5 }],
+          partial: false,
         })
       )
-    )
+    }
     const onSource = vi.fn()
 
-    await expect(searchApiStream('good grace', { onSource })).resolves.toMatchObject({
-      query: 'good grace',
-      results: source.candidates,
-      partial: false,
-    })
-    expect(onSource).toHaveBeenCalledWith(source)
+    const running = searchApiStream('good grace', { onSource })
+    expect([...pending.keys()]).toEqual([
+      'ultimate-guitar',
+      'pnwchords',
+      'worshiptogether',
+      'worshipchords-net',
+    ])
+
+    // The slowest source is still pending when the first one is reported.
+    answer('pnwchords', 6)
+    await vi.waitFor(() => expect(onSource).toHaveBeenCalledTimes(1))
+    expect(onSource.mock.calls[0][0]).toMatchObject({ site: 'pnwchords', status: 'ok', count: 6 })
+    expect(onSource.mock.calls[0][0].candidates).toHaveLength(2)
+
+    answer('ultimate-guitar', 3)
+    answer('worshipchords-net', 0)
+    pending.get('worshiptogether')!(
+      Response.json({ error: { message: 'Source failed' } }, { status: 500 })
+    )
+
+    const response = await running
+    expect(response.partial).toBe(true)
+    expect(response.sources?.map((source) => source.status)).toEqual([
+      'ok',
+      'ok',
+      'failed',
+      'empty',
+    ])
+    // Ultimate Guitar's three first, then the rest of the eight from PNW Chords.
+    expect(response.results.map((result) => result.site)).toEqual([
+      ...Array(3).fill('ultimate-guitar'),
+      ...Array(5).fill('pnwchords'),
+    ])
   })
 
-  it('falls back to JSON and reports malformed streams cleanly', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ query: 'song', results: [], sources: [], partial: false }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
+  it('reports the server error when no source could be reached', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ error: { message: 'Rate limit exceeded. Try again in 30s' } }, { status: 429 })
       )
-      .mockResolvedValueOnce(
-        new Response('{not-json}\n', {
-          status: 200,
-          headers: { 'content-type': 'application/x-ndjson' },
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(`${JSON.stringify({ type: 'source', source: {}, candidates: [] })}\n`, {
-          status: 200,
-          headers: { 'content-type': 'application/x-ndjson' },
-        })
-      )
-    vi.stubGlobal('fetch', fetchMock)
+    )
 
-    await expect(searchApiStream('song')).resolves.toMatchObject({ query: 'song', results: [] })
-    await expect(searchApiStream('broken')).rejects.toThrow()
-    await expect(searchApiStream('incomplete')).rejects.toThrow(/without a complete result/)
+    await expect(searchApiStream('song')).rejects.toThrow(/Rate limit exceeded/)
   })
 
   it('surfaces a streamed extraction error', async () => {

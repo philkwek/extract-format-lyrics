@@ -1,4 +1,11 @@
 import type { Section, Song } from '../types/song'
+import {
+  PARTIAL_SOURCE_RESULT_LIMIT,
+  selectCombinedSearchResults,
+  selectNativeSourceResults,
+  selectSearchResults,
+} from '../../functions/src/search/selectResults'
+import { SEARCH_SITES } from '../../functions/src/search/types'
 
 export type ScrapeStatus = 'ok' | 'error'
 
@@ -90,64 +97,63 @@ async function searchError(res: Response): Promise<Error> {
 }
 
 /**
- * Streams source results as they complete. Falls back to ordinary JSON when a
- * server/proxy does not return NDJSON, so cached responses stay simple.
+ * Asks for every source at once, one request each, and reports each source as
+ * it answers. A slow or failed source never holds back the others.
  */
 export async function searchApiStream(
   query: string,
   options: SearchStreamOptions = {}
 ): Promise<ApiSearchResponse> {
-  const res = await fetch(
-    `/api/search?q=${encodeURIComponent(query)}&stream=1`,
-    { signal: options.signal, headers: { Accept: 'application/x-ndjson' } }
-  )
-  if (!res.ok) throw await searchError(res)
-
-  const contentType = res.headers.get('content-type') || ''
-  if (!contentType.includes('application/x-ndjson') || !res.body) {
-    return (await res.json()) as ApiSearchResponse
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let complete: ApiSearchResponse | null = null
-
-  const handleLine = (line: string) => {
-    if (!line.trim()) return
-    const event = JSON.parse(line) as
-      | { type: 'source'; source: SearchSourceStatus; candidates: SearchCandidate[] }
-      | { type: 'complete'; query: string; results: SearchCandidate[]; sources?: SearchSourceStatus[]; partial?: boolean }
-      | { type: 'error'; message?: string }
-
-    if (event.type === 'source') {
-      options.onSource?.({ ...event.source, candidates: event.candidates ?? [] })
-      return
-    }
-    if (event.type === 'error') {
-      throw new Error(event.message || 'Failed to search songs')
-    }
-    if (event.type === 'complete') {
-      complete = {
-        query: event.query,
-        results: event.results ?? [],
-        sources: event.sources,
-        partial: event.partial,
+  const errors: Error[] = []
+  const settled = await Promise.all(
+    SEARCH_SITES.map(async (site) => {
+      let source: SearchSourceStatus
+      let candidates: SearchCandidate[] = []
+      try {
+        const res = await fetch(
+          `/api/search?q=${encodeURIComponent(query)}&site=${site}`,
+          { signal: options.signal }
+        )
+        if (!res.ok) throw await searchError(res)
+        const data = (await res.json()) as ApiSearchResponse
+        candidates = data.results ?? []
+        source = data.sources?.[0] ?? {
+          site,
+          status: candidates.length > 0 ? 'ok' : 'empty',
+          count: candidates.length,
+          durationMs: 0,
+        }
+      } catch (err) {
+        if (options.signal?.aborted) throw err
+        errors.push(err as Error)
+        source = {
+          site,
+          status: 'failed',
+          count: 0,
+          durationMs: 0,
+          failure: 'fetch',
+          message: (err as Error).message,
+        }
       }
-    }
-  }
+      options.onSource?.({
+        ...source,
+        candidates:
+          site === 'ultimate-guitar'
+            ? selectNativeSourceResults(candidates)
+            : selectSearchResults(candidates, query, PARTIAL_SOURCE_RESULT_LIMIT),
+      })
+      return { source, candidates }
+    })
+  )
+  // Nothing reached the server (offline, rate limited): report that, not four dead sources.
+  if (errors.length === settled.length) throw errors[0]
 
-  while (true) {
-    const { done, value } = await reader.read()
-    buffer += decoder.decode(value, { stream: !done })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) handleLine(line)
-    if (done) break
+  return {
+    query,
+    results: selectCombinedSearchResults(settled.flatMap((item) => item.candidates), query),
+    sources: settled.map((item) => item.source),
+    partial: settled.some((item) => item.source.status === 'failed'),
   }
-  if (buffer.trim()) handleLine(buffer)
-  if (!complete) throw new Error('Search stream ended without a complete result')
-  return complete
 }
 
 export type SimplifyResponse =

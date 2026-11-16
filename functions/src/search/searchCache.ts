@@ -36,8 +36,12 @@ export function normalizeSearchQuery(query: string): string {
   return query.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-export function createSearchCacheKey(query: string, version = SEARCH_CACHE_VERSION): string {
-  return `${version}:${normalizeSearchQuery(query)}`
+export function createSearchCacheKey(
+  query: string,
+  version = SEARCH_CACHE_VERSION,
+  site?: string
+): string {
+  return `${version}${site ? `@${site}` : ''}:${normalizeSearchQuery(query)}`
 }
 
 export function isCachedSearchEntry(value: unknown, now = Date.now()): value is CachedSearchEntry {
@@ -171,13 +175,15 @@ export class SearchCache {
 
   /**
    * Returns cached data when fresh; otherwise runs `run` once per instance for
-   * identical concurrent keys. Failed promises are always removed.
+   * identical concurrent keys. Failed promises are always removed. `site`
+   * keeps one source's results apart from the combined search.
    */
   async search(
     query: string,
-    run: (query: string) => Promise<SearchResponseData>
+    run: (query: string) => Promise<SearchResponseData>,
+    site?: string
   ): Promise<SearchCacheLookup> {
-    const key = createSearchCacheKey(query, this.version)
+    const key = createSearchCacheKey(query, this.version, site)
     const active = this.inFlight.get(key)
     if (active) return active
 
