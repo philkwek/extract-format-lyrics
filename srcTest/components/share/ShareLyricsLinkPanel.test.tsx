@@ -7,17 +7,13 @@ import type { Song } from '../../../src/types/song'
 
 const mocks = vi.hoisted(() => ({
   getLyricsPublicationIdentity: vi.fn(),
-  deleteLyricsPublicationIdentity: vi.fn(async () => {}),
   ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
   publishLyricsForSession: vi.fn(),
-  withLyricsPublicationLock: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),
 }))
 
 vi.mock('../../../src/lib/lyricsPublishIdentity', () => ({
   getLyricsPublicationIdentity: mocks.getLyricsPublicationIdentity,
-  deleteLyricsPublicationIdentity: mocks.deleteLyricsPublicationIdentity,
   publishLyricsForSession: mocks.publishLyricsForSession,
-  withLyricsPublicationLock: mocks.withLyricsPublicationLock,
 }))
 vi.mock('../../../src/lib/lyricsSync', () => ({
   ensureLyricsFresh: mocks.ensureLyricsFresh,
@@ -55,15 +51,15 @@ const songsData = new Map<string, Song>([
   ],
 ])
 
-const now = new Date().toISOString()
+const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-function lyricsSwitch() {
-  return screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+function createLinkButton() {
+  return screen.getByRole('button', { name: 'Create link' }) as HTMLButtonElement
 }
 
-async function findReadySwitch() {
-  await waitFor(() => expect(lyricsSwitch().disabled).toBe(false))
-  return lyricsSwitch()
+async function findReadyCreateLink() {
+  await waitFor(() => expect(createLinkButton().disabled).toBe(false))
+  return createLinkButton()
 }
 
 beforeEach(() => {
@@ -72,9 +68,8 @@ beforeEach(() => {
     sessionId: 'session-1',
     publicationId: 'pub-id-123',
     updateSecret: 'secret-123',
-    expiresAt: now,
+    expiresAt: futureDate,
   })
-  mocks.deleteLyricsPublicationIdentity.mockResolvedValue(undefined)
   mocks.ensureLyricsFresh.mockResolvedValue({ ok: true })
 })
 
@@ -97,63 +92,52 @@ describe('ShareLyricsLinkPanel', () => {
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
   })
 
-  it('starts with the switch off when there is no publication', async () => {
+  it('shows Create link and no shared actions when there is no publication', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
 
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await findReadySwitch()
-    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false')
+    await findReadyCreateLink()
+    expect(screen.getByText('Updates when you change the set.')).toBeTruthy()
+    expect(screen.queryByRole('switch')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
   })
 
-  it('turns the lyrics link on and shows Copy link and Preview', async () => {
+  it('creates a link and shows Copy link, Preview and the expiry date', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
     mocks.publishLyricsForSession.mockResolvedValue({
       id: 'pub-new',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: futureDate,
       shareUrl: 'https://example.test/lyrics/pub-new',
     })
 
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    fireEvent.click(await findReadySwitch())
+    fireEvent.click(await findReadyCreateLink())
 
     await waitFor(() => {
       expect(mocks.publishLyricsForSession).toHaveBeenCalledWith('session-1', expect.anything())
     })
     expect(await screen.findByRole('button', { name: 'Copy link' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
-    expect(screen.getByText('On. Updates when you change the set.')).toBeTruthy()
     expect(screen.getByText(/Link works until/)).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Turning this off stops updates. The last version stays viewable for up to 7 days. Turning it on again makes a new link.',
-      ),
-    ).toBeTruthy()
+    expect(screen.queryByRole('switch')).toBeNull()
   })
 
-  it('turns the lyrics link off and hides the actions', async () => {
+  it('shows a spinner and disables the button while publishing', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
+    mocks.publishLyricsForSession.mockReturnValue(new Promise(() => {}))
+
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await screen.findByRole('button', { name: 'Copy link' })
-    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(await findReadyCreateLink())
 
-    fireEvent.click(lyricsSwitch())
-
-    await waitFor(() => {
-      expect(mocks.deleteLyricsPublicationIdentity).toHaveBeenCalledWith('session-1')
-    })
-    expect(mocks.withLyricsPublicationLock).toHaveBeenCalledWith('session-1', expect.any(Function))
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
-    })
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
-    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false')
+    await waitFor(() => expect(createLinkButton().getAttribute('aria-busy')).toBe('true'))
+    expect(createLinkButton().disabled).toBe(true)
   })
 
-  it('moves the switch at once and puts it back when publishing fails', async () => {
+  it('shows the error and keeps Create link when publishing fails', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
     let reject!: (err: Error) => void
     mocks.publishLyricsForSession.mockReturnValue(
@@ -163,22 +147,39 @@ describe('ShareLyricsLinkPanel', () => {
     )
 
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
-    fireEvent.click(await findReadySwitch())
+    fireEvent.click(await findReadyCreateLink())
 
-    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('true')
     await act(async () => reject(new Error('Network down')))
-    await waitFor(() => expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false'))
-    expect(screen.getByRole('alert').textContent).toContain('Network down')
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Network down'))
+    expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
   })
 
-  it('starts with the switch on when an existing publication is restored', async () => {
+  it('restores an unexpired publication as Copy link', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     await screen.findByRole('button', { name: 'Copy link' })
 
-    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('true')
     expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Create link' })).toBeNull()
     expect(mocks.getLyricsPublicationIdentity).toHaveBeenCalledWith('session-1')
+  })
+
+  it('shows Create link when the stored publication has expired', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue({
+      sessionId: 'session-1',
+      publicationId: 'pub-id-123',
+      updateSecret: 'secret-123',
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+    })
+
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    await findReadyCreateLink()
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
+    expect(screen.queryByRole('switch')).toBeNull()
   })
 
   it('calls ensureLyricsFresh again when window online is dispatched', async () => {
