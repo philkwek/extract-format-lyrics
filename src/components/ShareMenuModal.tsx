@@ -19,45 +19,31 @@ export default function ShareMenuModal({
   onClose,
 }: ShareMenuModalProps) {
   if (!isOpen) return null
-  const isFollowed = Boolean(session.liveSourceId)
 
   return (
     <OverlayDialog
       isOpen={isOpen}
       onClose={onClose}
       title={`Share “${session.name}”`}
-      description={
-        isFollowed
-          ? 'Copy the live link, make your own copy, or send a lyrics-only link.'
-          : 'Send a copy of the set, share it live, or send a lyrics-only link.'
-      }
-      size="lg"
       footer={
         <Button variant="ghost" onClick={onClose}>
           Done
         </Button>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+      <div className="space-y-6">
+        <section className="space-y-3">
           <div>
-            <h3 className="text-sm font-bold text-[var(--ui-text)]">Share this set</h3>
-            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              {isFollowed
-                ? 'Copy the live link or make your own copy.'
-                : 'Send a copy, or let people follow your changes live.'}
-            </p>
+            <h3 className="text-base font-bold text-ui-text">Share full set</h3>
+            <p className="text-sm text-ui-text-muted">For other musicians</p>
           </div>
           <ShareSetPanel session={session} canShareLive={!session.liveSourceId} />
         </section>
 
-        <section className="space-y-3 rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
+        <section className="space-y-3">
           <div>
-            <h3 className="text-sm font-bold text-[var(--ui-text)]">Share lyrics</h3>
-            <p className="mt-1 text-xs leading-5 text-[var(--ui-text-muted)]">
-              Send a lyrics-only view with song tabs and no chords. Changes you make update it
-              automatically.
-            </p>
+            <h3 className="text-base font-bold text-ui-text">Share lyrics</h3>
+            <p className="text-sm text-ui-text-muted">For people to follow along</p>
           </div>
           <ShareLyricsLinkPanel session={session} songsData={songsData} />
         </section>

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Button, SegmentedControl, StatusBanner } from '../../../src/components/ui/index'
+import { Button, SegmentedControl, StatusBanner, Switch } from '../../../src/components/ui/index'
 import OverlayDialog from '../../../src/components/ui/OverlayDialog'
 
 beforeAll(() => {
@@ -34,6 +34,22 @@ function SegmentedHarness() {
       options={[
         { value: 'paste', label: 'Paste' },
         { value: 'search', label: 'Search' },
+      ]}
+    />
+  )
+}
+
+function ThreeWaySegmentedHarness() {
+  const [value, setValue] = useState<'paste' | 'search' | 'link'>('paste')
+  return (
+    <SegmentedControl
+      label="Source"
+      value={value}
+      onChange={setValue}
+      options={[
+        { value: 'paste', label: 'Paste' },
+        { value: 'search', label: 'Search' },
+        { value: 'link', label: 'Link' },
       ]}
     />
   )
@@ -74,9 +90,34 @@ describe('UI primitives', () => {
     const user = userEvent.setup()
     render(<SegmentedHarness />)
 
-    expect(screen.getByRole('tab', { name: 'Paste' }).getAttribute('aria-selected')).toBe('true')
+    const paste = screen.getByRole('tab', { name: 'Paste' })
+    expect(paste.getAttribute('aria-selected')).toBe('true')
     await user.click(screen.getByRole('tab', { name: 'Search' }))
     expect(screen.getByRole('tab', { name: 'Search' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('selects and focuses the next tab when ArrowRight is pressed', async () => {
+    const user = userEvent.setup()
+    render(<SegmentedHarness />)
+    screen.getByRole('tab', { name: 'Paste' }).focus()
+
+    await user.keyboard('{ArrowRight}')
+
+    const search = screen.getByRole('tab', { name: 'Search' })
+    expect(search.getAttribute('aria-selected')).toBe('true')
+    expect(search).toBe(document.activeElement)
+  })
+
+  it('wraps from the first tab to the last when ArrowLeft is pressed', async () => {
+    const user = userEvent.setup()
+    render(<ThreeWaySegmentedHarness />)
+    screen.getByRole('tab', { name: 'Paste' }).focus()
+
+    await user.keyboard('{ArrowLeft}')
+
+    const link = screen.getByRole('tab', { name: 'Link' })
+    expect(link.getAttribute('aria-selected')).toBe('true')
+    expect(link).toBe(document.activeElement)
   })
 
   it('closes on Escape and restores focus to its trigger', async () => {
@@ -103,5 +144,20 @@ describe('UI primitives', () => {
     done.focus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement)
+  })
+  it('reports the next state from a switch and stays put while busy', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const { rerender } = render(<Switch label="Share live" checked={false} onChange={onChange} />)
+
+    const toggle = screen.getByRole('switch', { name: 'Share live' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    await user.click(toggle)
+    expect(onChange).toHaveBeenCalledWith(true)
+
+    rerender(<Switch label="Share live" checked busy onChange={onChange} />)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    await user.click(toggle)
+    expect(onChange).toHaveBeenCalledTimes(1)
   })
 })

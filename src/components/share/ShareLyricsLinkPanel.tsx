@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, Eye, FileText, Link2, RefreshCw } from 'lucide-react'
+import { Check, Copy, Eye } from 'lucide-react'
 import type { Session } from '../../lib/sessionStore'
 import type { SharedLyricsPayload, Song } from '../../types/song'
 import { buildSharedLyricsPayload, ShareLyricsError } from '../../lib/exportLyrics'
 import {
+  deleteLyricsPublicationIdentity,
   getLyricsPublicationIdentity,
   publishLyricsForSession,
+  withLyricsPublicationLock,
 } from '../../lib/lyricsPublishIdentity'
 import { ensureLyricsFresh } from '../../lib/lyricsSync'
 import { trackEvent } from '../../lib/analytics'
-import { Button, StatusBanner } from '../ui'
+import { Button, Switch } from '../ui'
 import LyricsPreviewModal from '../LyricsPreviewModal'
 
 interface ShareLyricsLinkPanelProps {
@@ -17,20 +19,18 @@ interface ShareLyricsLinkPanelProps {
   songsData: Map<string, Song>
 }
 
-export default function ShareLyricsLinkPanel({
-  session,
-  songsData,
-}: ShareLyricsLinkPanelProps) {
+export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyricsLinkPanelProps) {
   const [copied, setCopied] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [pendingOn, setPendingOn] = useState<boolean | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [previewPayload, setPreviewPayload] = useState<SharedLyricsPayload | null>(null)
 
-  const isPublished = Boolean(shareUrl && expiresAt)
+  const isPublished = Boolean(shareUrl)
   const sessionRef = useRef(session)
 
   useEffect(() => {
@@ -92,6 +92,7 @@ export default function ShareLyricsLinkPanel({
   const handlePublish = async () => {
     if (isSaving) return
     setIsSaving(true)
+    setPendingOn(true)
     setError(null)
 
     try {
@@ -117,6 +118,28 @@ export default function ShareLyricsLinkPanel({
       setError(message)
     } finally {
       setIsSaving(false)
+      setPendingOn(null)
+    }
+  }
+
+  const handleTurnOff = async () => {
+    if (isSaving) return
+    setIsSaving(true)
+    setPendingOn(false)
+    setError(null)
+
+    try {
+      await withLyricsPublicationLock(session.id, () =>
+        deleteLyricsPublicationIdentity(session.id),
+      )
+      setShareUrl(null)
+      setExpiresAt(null)
+      setCopied(false)
+    } catch {
+      setError('Could not turn it off. Try again.')
+    } finally {
+      setIsSaving(false)
+      setPendingOn(null)
     }
   }
 
@@ -137,89 +160,61 @@ export default function ShareLyricsLinkPanel({
 
   return (
     <>
-      <div className="space-y-3">
-        <StatusBanner tone="info" icon={<Link2 size={16} />}>
-          {isPublished
-            ? 'Changes publish automatically and renew this link for seven days.'
-            : 'Anyone with the link can view lyrics for this setlist. Each publication lasts seven days.'}
-        </StatusBanner>
+      <div className="rounded-xl border border-ui-border bg-ui-surface">
+        <div className="px-3 py-3">
+          <div className="flex min-h-[44px] items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-ui-text">Lyrics link</p>
+              <p className="text-xs leading-5 text-ui-text-muted">
+                {isPublished
+                  ? 'On. Updates when you change the set.'
+                  : 'Words only. Updates when you change the set.'}
+              </p>
+            </div>
+            <Switch
+              label="Lyrics link"
+              checked={pendingOn ?? isPublished}
+              busy={isSaving || !initialized}
+              onChange={(next) => (next ? handlePublish() : handleTurnOff())}
+            />
+          </div>
 
-        <div className="space-y-2">
-          <label
-            htmlFor="share-lyrics-url"
-            className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]"
-          >
-            Lyrics link
-          </label>
-          <input
-            id="share-lyrics-url"
-            type="text"
-            readOnly
-            value={
-              shareUrl ||
-              (isSaving
-                ? 'Publishing lyrics…'
-                : initialized
-                  ? 'Generate a link when you are ready'
-                  : 'Checking existing link…')
-            }
-            className="ui-field select-all px-3 py-2.5 font-mono text-xs"
-          />
-
-          <div className="flex flex-col gap-2 pt-1">
-            {error && (
-              <span className="text-[11px] text-red-600 dark:text-red-300" role="alert">
-                {error}
-              </span>
-            )}
-            {!error && expiresAt && (
-              <span className="text-[11px] text-[var(--ui-text-muted)]">
-                Expires {new Date(expiresAt).toLocaleString()}
-              </span>
-            )}
-
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-              <Button
-                variant="secondary"
-                icon={<Eye size={15} />}
-                onClick={handleOpenPreview}
-                disabled={isSaving}
-              >
-                See Preview
-              </Button>
-              {isPublished ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    icon={copied ? <Check size={15} /> : <Copy size={15} />}
-                    onClick={handleCopy}
-                    disabled={isSaving}
-                  >
-                    {copied ? 'Copied' : 'Copy link'}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    icon={<RefreshCw size={15} className={isSaving ? 'animate-spin' : ''} />}
-                    onClick={handlePublish}
-                    loading={isSaving}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Updating…' : 'Update lyrics'}
-                  </Button>
-                </>
-              ) : (
+          {isPublished && (
+            <div className="mt-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <Button
-                  variant="primary"
-                  icon={<FileText size={15} />}
-                  onClick={handlePublish}
-                  loading={isSaving}
+                  variant="secondary"
+                  icon={copied ? <Check size={15} /> : <Copy size={15} />}
+                  onClick={handleCopy}
                   disabled={isSaving}
                 >
-                  {isSaving ? 'Generating…' : 'Generate link'}
+                  {copied ? 'Copied' : 'Copy link'}
                 </Button>
-              )}
+                <Button
+                  variant="secondary"
+                  icon={<Eye size={15} />}
+                  onClick={handleOpenPreview}
+                  disabled={isSaving}
+                >
+                  Preview
+                </Button>
+                {expiresAt && (
+                  <span className="text-[11px] text-ui-text-muted">
+                    Link works until {new Date(expiresAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] text-ui-text-muted">
+                Turning this off stops updates. The last version stays viewable for up to 7 days. Turning it on again makes a new link.
+              </p>
             </div>
-          </div>
+          )}
+
+          {error && (
+            <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-red-300">
+              {error}
+            </p>
+          )}
         </div>
       </div>
 

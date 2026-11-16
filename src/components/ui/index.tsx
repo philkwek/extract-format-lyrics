@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
   HTMLAttributes,
+  KeyboardEvent,
   ReactNode,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -71,6 +73,34 @@ export function IconButton({ label, children, ...props }: IconButtonProps) {
   )
 }
 
+interface SwitchProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+  disabled?: boolean
+  busy?: boolean
+  className?: string
+}
+
+export function Switch({ checked, onChange, label, disabled, busy, className }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
+      className={classes('ui-switch', className)}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="ui-switch__track" aria-hidden="true">
+        <span className="ui-switch__thumb" />
+      </span>
+    </button>
+  )
+}
+
 interface SegmentedOption<T extends string> {
   value: T
   label: string
@@ -93,10 +123,37 @@ export function SegmentedControl<T extends string>({
   className,
 }: SegmentedControlProps<T>) {
   const reduceMotion = useReducedMotion()
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const activeIndex = Math.max(
     0,
     options.findIndex((option) => option.value === value),
   )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = (activeIndex + 1) % options.length
+        break
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = (activeIndex - 1 + options.length) % options.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = options.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    const next = options[nextIndex]
+    if (next.value !== value) onChange(next.value)
+    tabRefs.current[nextIndex]?.focus()
+  }
 
   return (
     <div
@@ -114,17 +171,21 @@ export function SegmentedControl<T extends string>({
           transition={reduceMotion ? reducedMotionTransition : segmentedSpring}
         />
       )}
-      {options.map((option) => {
+      {options.map((option, index) => {
         const isActive = option.value === value
         return (
           <button
             key={option.value}
+            ref={(node) => {
+              tabRefs.current[index] = node
+            }}
             type="button"
             role="tab"
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             className={classes('ui-segmented__item', isActive && 'ui-segmented__item--active')}
             onClick={() => onChange(option.value)}
+            onKeyDown={handleKeyDown}
           >
             {option.icon}
             <span>{option.label}</span>

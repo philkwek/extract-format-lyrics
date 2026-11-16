@@ -14,6 +14,29 @@ import {
   type FollowHandlers,
 } from '../../src/lib/liveFollow'
 
+const shareMocks = vi.hoisted(() => ({
+  getLyricsPublicationIdentity: vi.fn(async () => null),
+  publishLyricsForSession: vi.fn(async () => ({
+    id: 'pub-test',
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    shareUrl: 'https://example.test/lyrics/pub-test',
+  })),
+  ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
+}))
+
+vi.mock('../../src/lib/lyricsPublishIdentity', async () => {
+  const actual = await vi.importActual<typeof import('../../src/lib/lyricsPublishIdentity')>(
+    '../../src/lib/lyricsPublishIdentity',
+  )
+  return {
+    ...actual,
+    getLyricsPublicationIdentity: shareMocks.getLyricsPublicationIdentity,
+    publishLyricsForSession: shareMocks.publishLyricsForSession,
+  }
+})
+
+vi.mock('../../src/lib/lyricsSync', () => ({ ensureLyricsFresh: shareMocks.ensureLyricsFresh }))
+
 const fixtures = vi.hoisted(() => {
   const sections = [
     {
@@ -216,26 +239,38 @@ describe('SessionPage full screen mode', () => {
     fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
-    expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Share Set/Lyrics' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
   })
 
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
 
-    expect(await screen.findByText('Share this set')).toBeTruthy()
-    expect(screen.getByText('Share lyrics')).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Generate link' })).toBeTruthy()
+    expect(await screen.findByText('For other musicians')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
+
+    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
+    fireEvent.click(lyricsSwitch)
+
+    expect(await screen.findByRole('button', { name: 'Preview' })).toBeTruthy()
+    expect(shareMocks.publishLyricsForSession).toHaveBeenCalled()
   })
 
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'See Preview' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
+
+    const lyricsSwitch = screen.getByRole('switch', { name: 'Lyrics link' }) as HTMLButtonElement
+    await waitFor(() => expect(lyricsSwitch.disabled).toBe(false))
+    fireEvent.click(lyricsSwitch)
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
 
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
@@ -691,7 +726,7 @@ describe('SessionPage set links', () => {
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Share Set/Lyrics' })).toBeNull()
     expect(sessionStore.updateSession).not.toHaveBeenCalled()
     expect(sessionStore.createSession).not.toHaveBeenCalled()
   })

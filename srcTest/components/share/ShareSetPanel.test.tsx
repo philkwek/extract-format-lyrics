@@ -75,11 +75,6 @@ const followedSession: Session = {
   ],
 }
 
-const uploadsSession: Session = {
-  ...session,
-  songs: [{ ...session.songs[0], url: 'upload://x' }],
-}
-
 const writeText = vi.fn(async () => {})
 
 function renderPanel(ui: ReactNode, initialEntries = ['/']) {
@@ -98,88 +93,91 @@ afterEach(() => {
 })
 
 describe('ShareSetPanel', () => {
-  it('defaults to Send a copy and copies the page address after refreshing the set link', async () => {
-    const order: string[] = []
-    mocks.ensureSetLinkFresh.mockImplementationOnce(async () => {
-      order.push('ensure')
-      return { ok: true }
-    })
-    writeText.mockImplementationOnce(async () => {
-      order.push('copy')
-    })
+  it('shows Send a copy with Copy link and the Share live switch off', () => {
     renderPanel(<ShareSetPanel session={session} />)
-    expect(screen.getByText('This is the same as copying this page’s address.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/session/pub-1`)
-    expect(order).toEqual(['ensure', 'copy'])
+
+    expect(screen.getByText('Send a copy')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
   })
 
-  it.each([
-    ['empty', 'Add a song before you share this set.'],
-    ['too_many', 'A set link holds up to 30 songs. Remove some and try again.'],
-    ['failed', 'Could not make the link. Check your connection and try again.'],
-  ] as const)('shows a clear %s error instead of copying', async (reason, message) => {
-    mocks.ensureSetLinkFresh.mockResolvedValueOnce({ ok: false, reason })
+  it('turns live sharing on and off with the copy link under the switch', async () => {
     renderPanel(<ShareSetPanel session={session} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
-    await screen.findByText(message)
-    expect(writeText).not.toHaveBeenCalled()
-  })
 
-  it('shows the uploads line only when the set has uploaded sheets', () => {
-    const { unmount } = renderPanel(<ShareSetPanel session={session} />)
-    expect(screen.queryByText(/Uploaded sheets/)).toBeNull()
-    unmount()
-    renderPanel(<ShareSetPanel session={uploadsSession} />)
-    expect(screen.getByText(/Uploaded sheets/)).toBeTruthy()
-  })
+    fireEvent.click(screen.getByRole('switch', { name: 'Share live' }))
 
-  it('hides the Share live uploads hint when live sharing is unavailable', () => {
-    renderPanel(<ShareSetPanel session={uploadsSession} canShareLive={false} />)
-    expect(screen.queryByText(/Uploaded sheets/)).toBeNull()
-  })
-
-  it('starts, copies and stops a live share', async () => {
-    renderPanel(<ShareSetPanel session={session} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Share live' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start live share' }))
-    await screen.findByDisplayValue('https://example.test/live/abc')
+    await screen.findByText(/Link works until/)
     expect(mocks.startLiveShare).toHaveBeenCalledWith('session-1')
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    expect(
+      screen.getByText('On. People with the link see your changes as you make them.'),
+    ).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    const copyButtons = screen.getAllByRole('button', { name: 'Copy link' })
+    fireEvent.click(copyButtons[copyButtons.length - 1])
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://example.test/live/abc'))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop sharing' }))
-    await screen.findByRole('button', { name: 'Start live share' })
+    fireEvent.click(screen.getByRole('switch', { name: 'Share live' }))
+
+    await waitFor(() => expect(screen.queryByText(/Link works until/)).toBeNull())
     expect(mocks.stopLiveShare).toHaveBeenCalledWith('session-1')
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
+    expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(1)
+  })
+
+  it('moves the Share live switch at once, before the network call resolves', async () => {
+    let resolve!: (v: { url: string; expiresAt: string }) => void
+    mocks.startLiveShare.mockReturnValueOnce(new Promise((r) => (resolve = r)))
+    renderPanel(<ShareSetPanel session={session} />)
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Share live' }))
+
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    resolve({ url: 'https://example.test/live/abc', expiresAt: '2026-12-01T00:00:00Z' })
+    await screen.findByText(/Link works until/)
   })
 
   it('shows an error when the live share cannot start', async () => {
     mocks.startLiveShare.mockRejectedValueOnce(new Error('Check your connection.'))
     renderPanel(<ShareSetPanel session={session} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Share live' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start live share' }))
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Share live' }))
+
     await screen.findByText('Check your connection.')
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
   })
 
-  it('opens on Share live when the set is already live, and shows when it is not updating', async () => {
+  it('opens with the switch on when the set is already live, and shows when it is not updating', async () => {
     mocks.getLiveShare.mockResolvedValue({
       url: 'https://example.test/live/xyz',
       expiresAt: '2026-12-01T00:00:00Z',
     })
     renderPanel(<ShareSetPanel session={session} />)
-    await screen.findByDisplayValue('https://example.test/live/xyz')
-    expect(screen.getByRole('tab', { name: 'Share live' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByText(/Expires/)).toBeTruthy()
+
+    await screen.findByText(/Link works until/)
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+
     mocks.statusCb?.('failing')
-    await screen.findByText(/Not updating\. Your latest changes/)
+    await screen.findByText(/Not updating\. People can/)
   })
 
-  it('hides Share live when canShareLive is false', () => {
+  it('does not offer Share live when live sharing is unavailable', () => {
     renderPanel(<ShareSetPanel session={session} canShareLive={false} />)
-    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+
+    expect(screen.queryByRole('switch')).toBeNull()
+    expect(screen.getByText('Send a copy')).toBeTruthy()
     expect(mocks.getLiveShare).not.toHaveBeenCalled()
   })
 
@@ -201,8 +199,9 @@ describe('ShareSetPanel', () => {
       </Routes>,
     )
 
-    expect(screen.queryByRole('tab', { name: 'Send a copy' })).toBeNull()
-    expect(screen.queryByRole('tab', { name: 'Share live' })).toBeNull()
+    expect(screen.queryByRole('switch')).toBeNull()
+    expect(screen.getByText(/This set follows someone else/)).toBeTruthy()
+
     const sourceUrl = `${window.location.origin}/live/live-abc`
     expect(screen.getByDisplayValue(sourceUrl)).toBeTruthy()
 

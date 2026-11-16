@@ -63,7 +63,7 @@ export function AppShell() {
                 className={({ isActive }) => `ui-button ui-button--sm ${isActive ? 'ui-button--secondary' : 'ui-button--ghost'}`}
               >
                 <Search size={15} />
-                <span className="hidden sm:inline">Find songs</span>
+                <span className="hidden sm:inline">Search for a song</span>
               </NavLink>
               <ThemeToggle />
             </nav>
