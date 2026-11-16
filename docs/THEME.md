@@ -120,7 +120,7 @@ Defined in [`src/index.css`](file:///Users/philkwek/CodeWorkspace/extract-format
 ## 5. Reusable Component Patterns
 
 Use the primitives in `src/components/ui/` first: `Button`, `IconButton`, `SegmentedControl`,
-`Surface`, `StatusBanner`, `Toast`, `OverlayDialog`, and `useModalFocus` for any custom dialog
+`Switch`, `Surface`, `StatusBanner`, `Toast`, `OverlayDialog`, and `useModalFocus` for any custom dialog
 or drawer. Form fields use the `ui-field` class (`ui-field--sm` for compact ones). Colours use
 the `ui-*` utilities from section 2. Hex colour classes in `.tsx` files are allowed only in the
 protected song sheet; `srcTest/designTokens.test.ts` fails on new ones. The class strings
