@@ -78,7 +78,7 @@ describe('EditSetModal upload flow', () => {
       target: { files: [new File(['pdf'], 'sheet.pdf', { type: 'application/pdf' })] },
     })
 
-    await user.click(screen.getByRole('button', { name: /Extract with Gemini \(1\)/ }))
+    await user.click(screen.getByRole('button', { name: /Extract \(1\)/ }))
     await screen.findByRole('button', { name: /Import 1 Song to Setlist/ })
 
     expect(dialog.className).toContain('h-[88dvh]')

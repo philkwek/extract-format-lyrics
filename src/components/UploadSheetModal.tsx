@@ -4,12 +4,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   FileUp,
-  KeyRound,
   X,
 } from 'lucide-react'
 import type { Song, Section } from '../types/song'
@@ -43,14 +40,6 @@ export default function UploadSheetModal({
   const [extractionProgress, setExtractionProgress] = useState<{ completed: number; total: number } | null>(null)
   const [expectedSongCount, setExpectedSongCount] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [showKeyConfig, setShowKeyConfig] = useState(false)
-  const [apiKey, setApiKey] = useState(() => {
-    try {
-      return localStorage.getItem('gemini_api_key') || ''
-    } catch {
-      return ''
-    }
-  })
 
   // Review step state
   const [extractedSongs, setExtractedSongs] = useState<Song[] | null>(null)
@@ -72,15 +61,6 @@ export default function UploadSheetModal({
     onReviewChange?.(isReviewing)
   }, [isReviewing, onReviewChange])
   useEffect(() => () => onReviewChange?.(false), [onReviewChange])
-
-  const handleApiKeyChange = (val: string) => {
-    setApiKey(val)
-    if (val.trim()) {
-      localStorage.setItem('gemini_api_key', val.trim())
-    } else {
-      localStorage.removeItem('gemini_api_key')
-    }
-  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -128,7 +108,6 @@ export default function UploadSheetModal({
 
       const songs = await extractSongsApi(
         payloadFiles,
-        apiKey.trim() || undefined,
         expectedCount,
         ({ message, completed, total }) => {
           setStatusMessage(message)
@@ -270,7 +249,7 @@ export default function UploadSheetModal({
         loading={isProcessing}
         onClick={handleExtract}
       >
-        Extract with Gemini ({selectedFiles.length})
+        Extract ({selectedFiles.length})
       </Button>
     </>
   ) : undefined
@@ -282,20 +261,6 @@ export default function UploadSheetModal({
               <div className="flex-1">
                 <div className="font-semibold">Extraction error</div>
                 <div className="mt-0.5 text-xs opacity-90">{errorMessage}</div>
-                {errorMessage.includes('GEMINI_API_KEY') && (
-                  <div className="mt-2 text-xs text-ui-accent-strong">
-                    You can paste your free API key from{' '}
-                    <a
-                      href="https://aistudio.google.com"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline font-bold"
-                    >
-                      aistudio.google.com
-                    </a>{' '}
-                    in the API Key settings below.
-                  </div>
-                )}
               </div>
             </StatusBanner>
           )}
@@ -383,41 +348,6 @@ export default function UploadSheetModal({
                   </label>
                 </div>
               )}
-
-              {/* Optional Custom API Key accordion */}
-              <div className="border border-ui-border rounded-lg bg-ui-surface p-3 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => setShowKeyConfig(!showKeyConfig)}
-                  className="w-full flex items-center justify-between text-xs text-ui-text-muted hover:text-ui-text cursor-pointer"
-                >
-                  <span className="flex items-center gap-1.5"><KeyRound size={14} /> Custom Gemini API key (optional)</span>
-                  {showKeyConfig ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-                {showKeyConfig && (
-                  <div className="mt-3 pt-3 border-t border-ui-border space-y-2">
-                    <p className="text-xs text-ui-text-muted">
-                      Optional for selectable-text PDFs. Scanned pages use Gemini; if running locally or using your own personal free quota from{' '}
-                      <a
-                        href="https://aistudio.google.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-ui-accent-strong underline font-medium"
-                      >
-                        Google AI Studio
-                      </a>
-                      , paste it here. It is saved only in your browser:
-                    </p>
-                    <input
-                      type="password"
-                      placeholder="AIzaSy..."
-                      value={apiKey}
-                      onChange={(e) => handleApiKeyChange(e.target.value)}
-                      className="ui-field ui-field--sm w-full"
-                    />
-                  </div>
-                )}
-              </div>
 
               {/* Processing Status */}
               {isProcessing && (
@@ -637,7 +567,7 @@ export default function UploadSheetModal({
       title={extractedSongs ? 'Review extracted songs' : 'Upload chord charts'}
       description={extractedSongs
         ? `Found ${extractedSongs.length} song${extractedSongs.length > 1 ? 's' : ''}. Review them before adding them to your setlist.`
-        : 'Import multi-page SongSelect PDFs or sheet images with Gemini-assisted extraction.'}
+        : 'Import SongSelect PDFs or sheet photos. Scanned pages are read by AI.'}
       size="lg"
       className={extractedSongs ? 'h-[92dvh]' : ''}
       contentClassName={`bg-[var(--ui-surface-muted)] p-3 sm:p-4 ${extractedSongs ? 'flex flex-col gap-2 sm:gap-3 overflow-hidden' : 'space-y-4'}`}

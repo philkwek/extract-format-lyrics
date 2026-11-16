@@ -77,7 +77,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 ## Before you rely on it
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
-- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it. Some files need AI processing and may ask for a Gemini API key if the site doesn't have one configured.
+- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it. Scanned pages and photos are read by AI on the server, and may not work if the site has no AI key set up.
 - **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
@@ -104,7 +104,7 @@ The sections below are for running or working on the project yourself. You don't
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS and React Router.
 - **Local storage:** IndexedDB through `idb-keyval` for songs and sets; browser preferences for display settings.
-- **Backend:** Firebase Cloud Functions, Node.js 22, TypeScript and Cheerio. Selectable-text PDFs use direct extraction where possible; other pages and images use Gemini.
+- **Backend:** Firebase Cloud Functions, Node.js 22, TypeScript and Cheerio. Selectable-text PDFs use direct extraction where possible; other pages and images use an AI vision model (SoClaaS).
 - **Hosting:** Firebase Hosting serves the app and routes `/api/**` to the backend. Production chart extraction calls the function directly to allow longer requests.
 - **Sharing:** Firestore stores set snapshots in `sharedSets`, live shares in `liveSets` and `liveSetSongs`, and reusable lyrics publications in `sharedLyrics`. Lyrics updates require a secret kept in the publishing browser. Display preferences stay local.
 
@@ -140,7 +140,7 @@ The emulator doesn't delete expired documents (Firestore TTL) and doesn't check 
 
 To test the security rules and the Firestore code against the emulator, stop the backend and run `npm run test:emulator`.
 
-For images or PDFs that need Gemini, configure `GEMINI_API_KEY` for the backend or provide a key through the upload dialog. Keep credentials out of Git.
+For images or PDFs that need AI reading, configure `SOCLAAS_API_KEY` for the backend. You can also set `SOCLAAS_MODEL` (default `qwen3-vl:32b`). There is no key to enter in the upload dialog any more. Keep credentials out of Git.
 
 ### Checks
 
@@ -160,7 +160,7 @@ For your own deployment:
 
 1. Configure your Firebase project in `.firebaserc` and enable Firestore in Native mode.
 2. Configure Firestore TTL policies on the `expiresAt` field for the `sharedSets`, `sharedLyrics`, `setLinks`, `liveSets`, `liveSetSongs` and `songs` collection groups (`songs` holds the content of both lyrics and set links), and on the `ttlAt` field for `searchCache`, `sourceCharts`, `chartAliases` and `chartSimplifications`. The backend checks expiry on read; TTL deletes the data later.
-3. Configure the `GEMINI_API_KEY` function secret for chart extraction that needs Gemini.
+3. Configure the `SOCLAAS_API_KEY` function secret for chart extraction that needs AI reading.
 4. Build and deploy:
 
 ```bash

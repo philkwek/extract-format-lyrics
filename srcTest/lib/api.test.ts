@@ -26,7 +26,7 @@ describe('extractSongsApi', () => {
     const onProgress = vi.fn()
 
     await expect(
-      extractSongsApi([{ mimeType: 'application/pdf', base64Data: 'data' }], 'key', 4, onProgress)
+      extractSongsApi([{ mimeType: 'application/pdf', base64Data: 'data' }], 4, onProgress)
     ).resolves.toEqual([song])
 
     expect(onProgress).toHaveBeenCalledWith({

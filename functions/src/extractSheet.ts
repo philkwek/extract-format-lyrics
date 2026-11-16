@@ -1,8 +1,8 @@
-import { GoogleGenAI, Type } from '@google/genai'
 import type { Song, Section, SectionType, Line, ChordPlacement } from './types.js'
 import { isChord } from './chords.js'
 import { deduplicateSongSections, inferKeyFromChords } from './normalizer.js'
 import { analyzePdfPage, parseDigitalSongSelectPage, type PdfPageAnalysis } from './pdfSheetAnalysis.js'
+import { renderPdfPageToPng } from './pdfRaster.js'
 
 export interface RawPositionedWord {
   text: string
@@ -61,7 +61,7 @@ export interface ExtractionProgress {
   batchEndPage?: number
   pageIndex?: number
   classification?: PdfPageAnalysis['classification'] | 'image'
-  route?: 'deterministic' | 'gemini'
+  route?: 'deterministic' | 'vision'
   diagnostic?: string
 }
 
@@ -100,27 +100,27 @@ export function mergeConsecutiveSongs(songs: RawExtractedSong[]): RawExtractedSo
 }
 
 export const songSelectResponseSchema = {
-  type: Type.OBJECT,
+  type: 'object',
   properties: {
     songs: {
-      type: Type.ARRAY,
+      type: 'array',
       description: 'List of songs extracted from the document or images',
       items: {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
-          title: { type: Type.STRING },
-          artist: { type: Type.STRING },
-          originalKey: { type: Type.STRING },
-          tempo: { type: Type.STRING },
-          timeSignature: { type: Type.STRING },
-          ccliNumber: { type: Type.STRING },
+          title: { type: 'string' },
+          artist: { type: 'string' },
+          originalKey: { type: 'string' },
+          tempo: { type: 'string' },
+          timeSignature: { type: 'string' },
+          ccliNumber: { type: 'string' },
           sections: {
-            type: Type.ARRAY,
+            type: 'array',
             items: {
-              type: Type.OBJECT,
+              type: 'object',
               properties: {
                 type: {
-                  type: Type.STRING,
+                  type: 'string',
                   enum: [
                     'Intro',
                     'Verse',
@@ -132,47 +132,48 @@ export const songSelectResponseSchema = {
                     'Other',
                   ],
                 },
-                label: { type: Type.STRING },
+                label: { type: 'string' },
                 lines: {
-                  type: Type.ARRAY,
+                  type: 'array',
                   items: {
-                    type: Type.OBJECT,
+                    type: 'object',
                     properties: {
-                      kind: { type: Type.STRING, enum: ['lyric', 'chords-only'] },
+                      kind: { type: 'string', enum: ['lyric', 'chords-only'] },
                       words: {
-                        type: Type.ARRAY,
+                        type: 'array',
                         description:
                           'For lyric lines: every printed lyric token left-to-right with its horizontal bounds (0-1000 = fraction of page width). Split words keep separate tokens, e.g. "a", "-", "way".',
                         items: {
-                          type: Type.OBJECT,
+                          type: 'object',
                           properties: {
-                            text: { type: Type.STRING },
-                            x0: { type: Type.NUMBER, description: 'Left edge, 0-1000' },
-                            x1: { type: Type.NUMBER, description: 'Right edge, 0-1000' },
+                            text: { type: 'string' },
+                            x0: { type: 'number', description: 'Left edge, 0-1000' },
+                            x1: { type: 'number', description: 'Right edge, 0-1000' },
                           },
                           required: ['text', 'x0', 'x1'],
                         },
                       },
                       positionedChords: {
-                        type: Type.ARRAY,
+                        type: 'array',
                         description:
                           'For lyric lines: every chord printed above the lyric with its horizontal bounds (0-1000). Include chords left of the first word (timing rests).',
                         items: {
-                          type: Type.OBJECT,
+                          type: 'object',
                           properties: {
-                            chord: { type: Type.STRING, description: 'e.g. "Asus", "D2", "Bm7", "A/C#"' },
-                            x0: { type: Type.NUMBER, description: 'Left edge, 0-1000' },
-                            x1: { type: Type.NUMBER, description: 'Right edge, 0-1000' },
+                            chord: { type: 'string', description: 'e.g. "Asus", "D2", "Bm7", "A/C#"' },
+                            x0: { type: 'number', description: 'Left edge, 0-1000' },
+                            x1: { type: 'number', description: 'Right edge, 0-1000' },
                           },
                           required: ['chord', 'x0', 'x1'],
                         },
                       },
                       content: {
-                        type: Type.STRING,
-                        description: 'For chords-only lines: bar line, e.g. "| A | A | Bm7 | Bm7 |". Not used for lyric lines.',
+                        type: 'string',
+                        description: 'For chords-only lines: bar line, e.g. "| A | A | Bm7 | Bm7 |". Empty string for lyric lines.',
                       },
                     },
-                    required: ['kind'],
+                    // Constrained decoding skips optional fields, so every field must be required.
+                    required: ['kind', 'words', 'positionedChords', 'content'],
                   },
                 },
               },
@@ -207,6 +208,7 @@ CRITICAL RULES FOR SONGSELECT FORMAT:
    - 'positionedChords': every chord printed on the line directly ABOVE the lyric, each with x0 and x1 (left/right edge of the chord symbol). Superscripts are part of the chord: "A" with superscript "sus" = "Asus", "D" with superscript "2" = "D2", "Bm" with superscript "7" = "Bm7".
    - Measure x from the actual pixels. Do NOT guess alignment from musical logic. A chord belongs to whichever word is physically beneath it; a chord can be beneath the START of a word, the middle of a word, or a gap.
    - Never put chords inside the lyric text. Never use bracket syntax. Never use spaces to position anything.
+   - Every line has all four fields. For 'lyric' lines fill 'words' and 'positionedChords' and set 'content' to "". For 'chords-only' lines fill 'content' and set 'words' and 'positionedChords' to [].
 
 3. INSTRUMENTAL TIMING (CRITICAL):
    - A chord can be printed to the LEFT of where the lyrics begin (e.g. "F#m7" at far left while "Heaven is trembling" starts further right). Report its true x0/x1 and the true x0 of the first word. Do not move it onto the first word; the app preserves the rest.
@@ -593,7 +595,8 @@ function rawSectionsToAppSections(rawSections: RawExtractedSection[]): Section[]
 }
 
 /**
- * Transforms the raw Gemini extraction result into full Song objects compatible with the application.
+ * Transforms the raw vision-model extraction result into full Song objects compatible with the
+ * application.
  */
 export function transformRawSongsToAppSongs(rawSongs: RawExtractedSong[], sourceLabel = 'SongSelect Upload'): Song[] {
   return rawSongs.map((raw, idx) => {
@@ -646,13 +649,11 @@ function makeVisionChunks(pages: RoutedPage[]): VisionChunk[] {
 }
 
 /**
- * Extracts SongSelect uploads using deterministic PDF text parsing where safe, and Gemini only for
- * scanned, hybrid, or low-confidence pages. The historical name is retained for the HTTP handler.
+ * Extracts SongSelect uploads using deterministic PDF text parsing where safe, and the SoClaaS
+ * vision model only for scanned, hybrid, or low-confidence pages.
  */
-export async function extractSongsWithGemini(
+export async function extractSongsFromUpload(
   files: SheetFilePart[],
-  apiKey?: string,
-  modelName: string = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
   options: ExtractionOptions = {}
 ): Promise<Song[]> {
   options.onProgress?.({ type: 'analyzing', batchStartPage: 1, batchEndPage: files.length })
@@ -660,8 +661,8 @@ export async function extractSongsWithGemini(
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index]
     if (file.mimeType !== 'application/pdf') {
-      console.info(`[extract-sheet] page ${index + 1}: image upload -> Gemini fallback`)
-      options.onProgress?.({ type: 'page-route', pageIndex: index + 1, classification: 'image', route: 'gemini' })
+      console.info(`[extract-sheet] page ${index + 1}: image upload -> vision model`)
+      options.onProgress?.({ type: 'page-route', pageIndex: index + 1, classification: 'image', route: 'vision' })
       pages.push({ index, file })
       continue
     }
@@ -679,12 +680,12 @@ export async function extractSongsWithGemini(
     } else {
       analysis.diagnostics.push(parsed.reason || 'Deterministic parsing was not confident')
       const diagnostic = analysis.diagnostics.at(-1)
-      console.info(`[extract-sheet] page ${index + 1}: ${analysis.classification} PDF -> Gemini fallback (${diagnostic})`)
+      console.info(`[extract-sheet] page ${index + 1}: ${analysis.classification} PDF -> vision model (${diagnostic})`)
       options.onProgress?.({
         type: 'page-route',
         pageIndex: index + 1,
         classification: analysis.classification,
-        route: 'gemini',
+        route: 'vision',
         diagnostic,
       })
       pages.push({ index, file, analysis })
@@ -697,45 +698,69 @@ export async function extractSongsWithGemini(
     options.onProgress?.({ type: 'deterministic', batchStartPage: 1, batchEndPage: deterministic.length })
   }
 
-  const resolvedApiKey = apiKey || process.env.GEMINI_API_KEY
-  if (fallbackPages.length > 0 && !resolvedApiKey) {
+  const apiKey = process.env.SOCLAAS_API_KEY
+  const model = process.env.SOCLAAS_MODEL || 'qwen3-vl:32b'
+  const baseUrl = process.env.SOCLAAS_BASE_URL || 'https://soclaas-api.comp.nus.edu.sg/v1'
+  if (fallbackPages.length > 0 && !apiKey) {
     const labels = fallbackPages.map((page) => {
       const reason = page.analysis?.diagnostics.at(-1) || 'image upload'
       return `page ${page.index + 1} (${reason})`
     })
     throw new Error(
-      `Gemini is required for ${labels.join(', ')}. Add a Gemini API key or upload a selectable-text PDF.`
+      `Scanned pages need the SoClaaS reader: ${labels.join(', ')}. Ask the site owner to set SOCLAAS_API_KEY, or upload a selectable-text PDF.`
     )
   }
 
   const transcribe = async (batch: RoutedPage[], instruction: string): Promise<RawExtractionResponse> => {
-    const ai = new GoogleGenAI({ apiKey: resolvedApiKey! })
-    const contents: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = batch.map(
-      ({ file }) => ({ inlineData: { mimeType: file.mimeType, data: file.base64Data } })
-    )
-    contents.push({ text: instruction })
+    const parts: Array<
+      { type: 'image_url'; image_url: { url: string } } | { type: 'text'; text: string }
+    > = []
+    for (const { file } of batch) {
+      // The API reads images only, so a scanned PDF page goes in as a rendered PNG.
+      const isPdf = file.mimeType === 'application/pdf'
+      const mimeType = isPdf ? 'image/png' : file.mimeType
+      const data = isPdf ? await renderPdfPageToPng(file.base64Data) : file.base64Data
+      parts.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${data}` } })
+    }
+    parts.push({ type: 'text', text: instruction })
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents,
-      config: {
-        systemInstruction: SONGSELECT_SYSTEM_PROMPT,
-        responseMimeType: 'application/json',
-        responseSchema: songSelectResponseSchema,
-        temperature: 0.1,
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: SONGSELECT_SYSTEM_PROMPT },
+          { role: 'user', content: parts },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'songs', strict: true, schema: songSelectResponseSchema },
+        },
+      }),
     })
-    const text = response.text
-    if (!text) throw new Error('Empty response from Gemini vision model')
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(`SoClaaS request failed with status ${response.status}: ${body.slice(0, 200)}`)
+    }
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
+    const text = payload.choices?.[0]?.message?.content
+    if (!text) throw new Error('Empty response from the vision model')
 
     let parsed: RawExtractionResponse
     try {
       parsed = JSON.parse(text)
     } catch {
-      throw new Error(`Failed to parse structured JSON from Gemini: ${text.slice(0, 200)}`)
+      throw new Error(`Failed to parse structured JSON from the vision model: ${text.slice(0, 200)}`)
     }
     if (!parsed.songs || !Array.isArray(parsed.songs)) {
-      throw new Error('Gemini returned an invalid songs payload')
+      throw new Error('The vision model returned an invalid songs payload')
     }
     return parsed
   }

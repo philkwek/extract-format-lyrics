@@ -39,8 +39,7 @@ import {
   LIVE_SET_MAX_MANIFEST_BYTES,
   MAX_LIVE_SET_SONGS,
 } from './liveSetStore.js'
-import { extractSongsWithGemini, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
-import { resolveExtractionModel } from './extractionModel.js'
+import { extractSongsFromUpload, isExpectedSongCount, type SheetFilePart } from './extractSheet.js'
 import type { SetLinkPayload, SharedLyricsPayload } from './types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
 
@@ -53,7 +52,7 @@ setGlobalOptions({
   memory: '512MiB',
   // Requests made through Firebase Hosting are limited to 60 seconds, but
   // production extraction calls this HTTPS function directly. Allow enough
-  // time for sequential Gemini batches in a multi-page packet.
+  // time for sequential vision batches in a multi-page packet.
   timeoutSeconds: 300,
   concurrency: 5,
 })
@@ -102,7 +101,7 @@ async function runSearch(upstreamQuery: string, adapter?: SearchAdapter) {
 async function handleExtractSheet(req: Request, res: Response): Promise<void> {
   if (rejectIfLimited(req, res)) return
 
-  const { files, apiKey, model, expectedSongCount } = req.body || {}
+  const { files, expectedSongCount } = req.body || {}
   if (!files || !Array.isArray(files) || files.length === 0) {
     sendJsonError(res, 400, 'BAD_REQUEST', 'Missing "files" array in request body')
     return
@@ -146,7 +145,7 @@ async function handleExtractSheet(req: Request, res: Response): Promise<void> {
         total: files.length,
       })}\n`
     )
-    const songs = await extractSongsWithGemini(files as SheetFilePart[], apiKey, resolveExtractionModel(model, apiKey), {
+    const songs = await extractSongsFromUpload(files as SheetFilePart[], {
       expectedSongCount,
       onProgress: ({ type, expectedSongCount: expected, extractedSongCount: found, batchStartPage, batchEndPage, pageIndex, classification, route, diagnostic }) => {
         const message = type === 'analyzing'
@@ -154,11 +153,11 @@ async function handleExtractSheet(req: Request, res: Response): Promise<void> {
           : type === 'page-route'
             ? route === 'deterministic'
               ? `Page ${pageIndex}: selectable text detected — extracting directly.`
-              : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — using Gemini${diagnostic ? ` (${diagnostic})` : ''}.`
+              : `Page ${pageIndex}: ${classification === 'image' ? 'image upload' : `${classification} PDF`} — reading the scan${diagnostic ? ` (${diagnostic})` : ''}.`
           : type === 'deterministic'
             ? `Extracting ${batchEndPage} selectable-text PDF page${batchEndPage === 1 ? '' : 's'} directly...`
             : type === 'batch'
-              ? `Using Gemini for pages ${batchStartPage}-${batchEndPage}...`
+              ? `Reading the scan for pages ${batchStartPage}-${batchEndPage}...`
               : type === 'merging'
                 ? 'Merging extracted pages...'
                 : `Found ${found} of ${expected} songs - checking for missing songs...`
@@ -179,7 +178,7 @@ async function handleExtractSheet(req: Request, res: Response): Promise<void> {
     if (res.headersSent) {
       res.end(`${JSON.stringify({ type: 'error', message: msg })}\n`)
     } else {
-      const status = msg.includes('GEMINI_API_KEY is not configured') ? 400 : 500
+      const status = msg.includes('SOCLAAS_API_KEY') ? 400 : 500
       sendJsonError(res, status, 'EXTRACTION_FAILED', msg)
     }
     return
@@ -694,7 +693,7 @@ export const api = onRequest(async (req, res) => {
 
 // Uploads can hold a request for minutes; keep them off the main API's instances.
 export const extractSheet = onRequest(
-  { secrets: ['GEMINI_API_KEY'], maxInstances: 1, concurrency: 3 },
+  { secrets: ['SOCLAAS_API_KEY'], maxInstances: 1, concurrency: 3 },
   async (req, res) => {
     if (handleCors(req, res)) return
     if (req.method !== 'POST') {

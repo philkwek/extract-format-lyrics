@@ -434,7 +434,7 @@ export interface ExtractSongsProgressEvent {
 export type ExtractSongsProgress = (progress: ExtractSongsProgressEvent) => void
 
 // Firebase Hosting terminates rewritten dynamic requests after 60 seconds.
-// Sheet extraction can legitimately exceed that while Gemini processes a
+// Sheet extraction can legitimately exceed that while the AI reader processes a
 // multi-page packet, so production calls the HTTPS function directly.
 const extractSheetEndpoint =
   import.meta.env.VITE_EXTRACT_SHEET_ENDPOINT ||
@@ -444,14 +444,13 @@ const extractSheetEndpoint =
 
 export async function extractSongsApi(
   files: Array<{ mimeType: string; base64Data: string }>,
-  apiKey?: string,
   expectedSongCount?: number,
   onProgress?: ExtractSongsProgress
 ): Promise<Song[]> {
   const res = await fetch(extractSheetEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ files, apiKey, expectedSongCount }),
+    body: JSON.stringify({ files, expectedSongCount }),
   })
 
   if (!res.ok) {
