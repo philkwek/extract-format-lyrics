@@ -44,7 +44,7 @@ A source reports one of:
 - `empty` — the source responded successfully with no matches.
 - `failed` — `timeout`, `blocked`, `fetch` or `parser` failure.
 
-A failure never hides another source’s results. Three consecutive 403/429 responses pause that host for ten minutes. A successful request resets the failure count. “No matches” does not count as a failure.
+A failure never hides another source’s results. Three consecutive 403/429 responses or search timeouts pause that host for ten minutes. A successful request resets the failure count. “No matches” does not count as a failure.
 
 ## Search caches
 

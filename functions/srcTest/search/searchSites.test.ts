@@ -146,6 +146,24 @@ describe('searchSites', () => {
     expect(JSON.stringify(info.mock.calls)).not.toMatch(/private upstream content|song/)
   })
 
+  it('pauses a host that keeps timing out', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const limiter = new RateLimiterAndCircuitBreaker(undefined, () => 0)
+    const hanging = vi.fn(async () => {
+      throw new FetchError('Request timed out after 3000ms', 'TIMEOUT')
+    })
+    const adapter = { site: 'worshiptogether', search: hanging }
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(await searchSite(adapter, 'song', { limiter })).toMatchObject({ failure: 'timeout' })
+    }
+
+    const paused = await searchSite(adapter, 'song', { limiter })
+    expect(paused).toMatchObject({ status: 'failed', failure: 'blocked' })
+    expect(paused.message).toMatch(/paused/i)
+    expect(hanging).toHaveBeenCalledTimes(3)
+  })
+
   it('logs a 403 without inventing a source retry delay', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
     await searchSite({ site: 'pnwchords', search: async () => {

@@ -86,7 +86,8 @@ export async function searchSite(
     const durationMs = elapsedMs(startedAt)
     const { failure, message } = classifySearchError(err)
     const status = (err as FetchError)?.status
-    if (failure === 'blocked') {
+    // A source that keeps hanging is paused like one that keeps refusing.
+    if (failure === 'blocked' || failure === 'timeout') {
       limiter.recordHostFailure(host, status ?? 429)
     }
     recordTiming({
