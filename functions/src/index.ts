@@ -627,11 +627,15 @@ export const api = onRequest(async (req, res) => {
     return
   }
 
-  // Live set endpoints: PUT/GET/DELETE /api/live-set/:id and PUT /api/live-set/:id/song/:hash
-  const liveSetMatch = req.path.match(/^\/(?:api\/)?live-set\/([A-Za-z0-9_-]{22})(?:\/song\/([0-9a-f]{64}))?$/)
+  // Live set endpoints: PUT/GET/DELETE /api/live-set/:id, POST /api/live-set/:id/resume
+  // and PUT /api/live-set/:id/song/:hash
+  const liveSetMatch = req.path.match(
+    /^\/(?:api\/)?live-set\/([A-Za-z0-9_-]{22})(?:\/song\/([0-9a-f]{64}))?(?:\/(resume))?$/,
+  )
   if (liveSetMatch) {
     const id = liveSetMatch[1]
     const songHash = liveSetMatch[2]
+    const resume = liveSetMatch[3] === 'resume'
 
     // Sends the error response and returns true when the caller is not allowed to write.
     const rejectLiveWrite = (maxBytes: number): boolean => {
@@ -663,6 +667,18 @@ export const api = onRequest(async (req, res) => {
       }
     }
 
+    if (resume && req.method === 'POST') {
+      if (rejectIfLimited(req, res)) return
+      if (rejectLiveWrite(LIVE_SET_MAX_MANIFEST_BYTES)) return
+      try {
+        const result = await liveSetStore.resume(id)
+        res.status(200).json({ id: result.id, rev: result.rev, status: 'live' })
+      } catch (err) {
+        sendLiveError(err, 'LIVE_SET_RESUME_FAILED', 'Failed to resume live set')
+      }
+      return
+    }
+
     if (songHash && req.method === 'PUT') {
       if (rejectIfLimited(req, res)) return
       if (rejectLiveWrite(LIVE_SET_MAX_CONTENT_BYTES + 1024)) return
@@ -675,7 +691,7 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
-    if (!songHash && req.method === 'PUT') {
+    if (!songHash && !resume && req.method === 'PUT') {
       if (rejectIfLimited(req, res)) return
       if (rejectLiveWrite(LIVE_SET_MAX_MANIFEST_BYTES)) return
       const manifest = req.body?.manifest
@@ -701,7 +717,7 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
-    if (!songHash && req.method === 'DELETE') {
+    if (!songHash && !resume && req.method === 'DELETE') {
       if (rejectIfLimited(req, res)) return
       if (rejectLiveWrite(LIVE_SET_MAX_MANIFEST_BYTES)) return
       try {
@@ -713,7 +729,7 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
-    if (!songHash && req.method === 'GET') {
+    if (!songHash && !resume && req.method === 'GET') {
       res.setHeader('Cache-Control', 'no-store')
       let result
       try {

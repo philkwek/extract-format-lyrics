@@ -347,6 +347,56 @@ describe('LiveSetStore.stop', () => {
   })
 })
 
+describe('LiveSetStore.resume', () => {
+  it('reopens a stopped share under the same id with an empty manifest and a fresh expiry', async () => {
+    const { db, store, advance } = makeStore()
+    await store.putSong(id, hash, content)
+    await store.publish(id, manifest)
+    advance(10_000)
+    await store.stop(id)
+    advance(10_000)
+    expect(await store.resume(id)).toEqual({ id, rev: 3 })
+    const doc = db.data.get(`liveSets/${id}`)!
+    expect(doc).toMatchObject({
+      name: 'Sunday',
+      status: 'live',
+      entries: [],
+      payloadHash: '',
+      rev: 3,
+    })
+    expect((doc.expiresAt as Timestamp).toMillis()).toBe(
+      new Date('2026-01-01T12:00:20Z').getTime() + SET_LINK_TTL_MS,
+    )
+    expect((doc.createdAt as Timestamp).toMillis()).toBe(
+      new Date('2026-01-01T12:00:00Z').getTime(),
+    )
+    expect(await store.publish(id, manifest)).toMatchObject({ rev: 4, unchanged: false })
+  })
+
+  it('is a no-op on a live share, repeating it, or a manifest that never existed', async () => {
+    const { db, store } = makeStore()
+    await store.putSong(id, hash, content)
+    await store.publish(id, manifest)
+    const writes = db.writes
+    expect(await store.resume(id)).toEqual({ id, rev: 1 })
+    expect(db.writes).toBe(writes)
+    await store.stop(id)
+    expect(await store.resume(id)).toEqual({ id, rev: 3 })
+    expect(await store.resume(id)).toEqual({ id, rev: 3 })
+    expect(await store.resume('unknown-id')).toEqual({ id: 'unknown-id', rev: 0 })
+    expect(db.data.has('liveSets/unknown-id')).toBe(false)
+  })
+
+  it('keeps ordinary publish and song uploads blocked while stopped', async () => {
+    const { store } = makeStore()
+    await store.putSong(id, hash, content)
+    await store.publish(id, manifest)
+    await store.stop(id)
+    expect(await store.publish(id, manifest).catch((e) => e.status)).toBe(410)
+    expect(await store.putSong(id, hash, content).catch((e) => e.status)).toBe(410)
+  })
+})
+
 describe('LiveSetStore.get', () => {
   it('returns found with contents, then expired, and missing for unknown ids', async () => {
     const { store, advance } = makeStore()

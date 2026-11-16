@@ -165,6 +165,34 @@ describe('LiveSetStore on Firestore', () => {
     await expect(store.publish(id, manifest)).rejects.toBeInstanceOf(LiveSetError)
   })
 
+  it('resumes a stopped share with the same id, an empty manifest and a fresh expiry', async () => {
+    const store = new LiveSetStore(db, now)
+    const id = 'live-resume'
+    await store.putSong(id, hash, content)
+    await store.publish(id, manifest)
+    await store.stop(id)
+    advance(60_000)
+
+    expect(await store.resume(id)).toEqual({ id, rev: 3 })
+    const found = await store.get(id)
+    expect(found.kind === 'found' && found.manifest).toMatchObject({
+      name: 'Sunday',
+      status: 'live',
+      entries: [],
+      rev: 3,
+    })
+    const doc = await db.collection('liveSets').doc(id).get()
+    expect((doc.data()!.expiresAt as Timestamp).toMillis()).toBe(T0.getTime() + 60_000 + SET_LINK_TTL_MS)
+
+    // Repeating it, or resuming a share that never existed, writes nothing.
+    expect(await store.resume(id)).toEqual({ id, rev: 3 })
+    expect(await store.resume('live-unknown')).toEqual({ id: 'live-unknown', rev: 0 })
+    expect((await db.collection('liveSets').doc('live-unknown').get()).exists).toBe(false)
+
+    advance(60_000)
+    expect((await store.publish(id, manifest)).rev).toBe(4)
+  })
+
   it('reports expired shares', async () => {
     const store = new LiveSetStore(db, now)
     const id = 'live-old'

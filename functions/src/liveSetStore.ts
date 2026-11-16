@@ -351,6 +351,37 @@ export class LiveSetStore {
     })
   }
 
+  /**
+   * Reopens a stopped share under the same id, empty so the next publish writes everything again.
+   * Safe to repeat and on a live or missing manifest, which are left alone.
+   */
+  async resume(id: string): Promise<{ id: string; rev: number }> {
+    const ref = this.db.collection(MANIFESTS).doc(id)
+    return this.db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(ref)
+      const existing = snap.exists ? snap.data() : undefined
+      const rev = Number(existing?.rev) || 0
+      if (!existing || existing.status !== 'stopped') return { id, rev }
+
+      const now = this.now()
+      const nowTs = Timestamp.fromDate(now)
+      // No updatedAt: the publish that follows resume must not hit the 5 s spacing check.
+      transaction.set(ref, {
+        v: 1,
+        name: existing.name ?? '',
+        entries: [],
+        status: 'live',
+        rev: rev + 1,
+        payloadHash: '',
+        createdAt: existing.createdAt ?? nowTs,
+        expiresAt: Timestamp.fromDate(new Date(now.getTime() + SET_LINK_TTL_MS)),
+        writeDay: existing.writeDay ?? utcDay(now),
+        writeCount: existing.writeCount ?? 0,
+      })
+      return { id, rev: rev + 1 }
+    })
+  }
+
   async get(id: string): Promise<LiveSetLookup> {
     const snap = await this.db.collection(MANIFESTS).doc(id).get()
     if (!snap.exists) return { kind: 'missing' }

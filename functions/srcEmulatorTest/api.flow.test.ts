@@ -11,6 +11,7 @@ import type { Song } from '../src/types.js'
 type Json = {
   id?: string
   rev?: number
+  status?: string
   manifest?: { status?: string }
   snapshot?: { songs: { song: { title: string } }[] }
 }
@@ -119,5 +120,33 @@ describe('sharing endpoints on the emulator', () => {
     expect((await call('DELETE', `/api/live-set/${id}`, { secret })).status).toBe(200)
     const stopped = await call('GET', `/api/live-set/${id}`)
     expect(stopped.json.manifest?.status).toBe('stopped')
+  })
+
+  it('resumes a stopped live set under the same id', async () => {
+    const secret = crypto.randomBytes(32).toString('hex')
+    const id = deriveLiveSetId(secret)
+    const content = { song }
+    const hash = hashLiveSongContent(content)
+    const manifest = { v: 1, name: 'Sunday', entries: [{ entryId: 'e1', contentHash: hash }] }
+    const resumePath = `/api/live-set/${id}/resume`
+
+    expect((await call('PUT', `/api/live-set/${id}/song/${hash}`, { body: { content }, secret })).status).toBe(200)
+    expect((await call('PUT', `/api/live-set/${id}`, { body: { manifest }, secret })).json.rev).toBe(1)
+    expect((await call('DELETE', `/api/live-set/${id}`, { secret })).status).toBe(200)
+    expect((await call('PUT', `/api/live-set/${id}`, { body: { manifest }, secret })).status).toBe(410)
+
+    expect((await call('POST', resumePath, { secret: 'wrong' })).status).toBe(403)
+    expect((await call('POST', resumePath)).status).toBe(401)
+    const resumed = await call('POST', resumePath, { secret })
+    expect(resumed.status).toBe(200)
+    expect(resumed.json).toMatchObject({ id, rev: 3, status: 'live' })
+
+    const live = await call('GET', `/api/live-set/${id}`)
+    expect(live.json.manifest?.status).toBe('live')
+    expect((await call('POST', resumePath, { secret })).json.rev).toBe(3)
+
+    const republished = await call('PUT', `/api/live-set/${id}`, { body: { manifest }, secret })
+    expect(republished.status).toBe(200)
+    expect(republished.json.rev).toBe(4)
   })
 })
