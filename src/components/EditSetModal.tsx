@@ -1,21 +1,18 @@
-import { useCallback, useState } from 'react'
-import { FileUp, Link2, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Link2, Search } from 'lucide-react'
 import type { Session } from '../lib/sessionStore'
-import type { Song } from '../types/song'
 import { Button, SegmentedControl } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import AddSongPastePanel from './editSet/AddSongPastePanel'
 import AddSongSearchPanel from './editSet/AddSongSearchPanel'
-import UploadSheetModal from './UploadSheetModal'
 
-type EditSetMode = 'search' | 'paste' | 'upload'
+type EditSetMode = 'search' | 'paste'
 
 interface EditSetModalProps {
   isOpen: boolean
   onClose: () => void
   session: Session
   onSessionUpdated: (session: Session, firstNewIndex: number) => void | Promise<void>
-  onImportUploadedSongs: (songs: Song[]) => void | Promise<void>
 }
 
 export default function EditSetModal({
@@ -23,13 +20,8 @@ export default function EditSetModal({
   onClose,
   session,
   onSessionUpdated,
-  onImportUploadedSongs,
 }: EditSetModalProps) {
   const [mode, setMode] = useState<EditSetMode>('search')
-  const [isReviewingUpload, setIsReviewingUpload] = useState(false)
-  const handleUploadReviewChange = useCallback((isReviewing: boolean) => {
-    setIsReviewingUpload(isReviewing)
-  }, [])
 
   if (!isOpen) return null
 
@@ -38,9 +30,8 @@ export default function EditSetModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Add song"
-      description="Search for a song, paste links, or upload a chord sheet."
+      description="Search for a song or paste links."
       size="lg"
-      className={mode === 'upload' && isReviewingUpload ? 'h-[88dvh]' : ''}
       footer={
         <Button variant="ghost" onClick={onClose}>
           Done
@@ -56,7 +47,6 @@ export default function EditSetModal({
             options={[
               { value: 'search', label: 'Search', icon: <Search size={14} /> },
               { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
-              { value: 'upload', label: 'Upload sheet', icon: <FileUp size={14} /> },
             ]}
           />
         </div>
@@ -72,16 +62,6 @@ export default function EditSetModal({
           <AddSongPastePanel
             sessionId={session.id}
             onSessionUpdated={onSessionUpdated}
-          />
-        </div>
-
-        <div className={mode === 'upload' ? '' : 'hidden'}>
-          <UploadSheetModal
-            inline
-            isOpen={isOpen}
-            onClose={onClose}
-            onImport={onImportUploadedSongs}
-            onReviewChange={handleUploadReviewChange}
           />
         </div>
       </div>

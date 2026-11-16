@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText,
-  FileUp,
   Info,
   Link2,
   ListMusic,
@@ -21,7 +20,7 @@ import {
   mergePartialSearchCandidates,
   upsertSearchSource,
 } from '../lib/searchResults'
-import { sessionStore, sessionPath, type Session, type SessionSongItem } from '../lib/sessionStore'
+import { sessionStore, sessionPath, type Session } from '../lib/sessionStore'
 import {
   importSources,
   parsePastedSources,
@@ -35,13 +34,11 @@ import {
   type RecentSharedLyrics,
 } from '../lib/recentLyricsStore'
 import ShareModal from '../components/ShareModal'
-import UploadSheetModal from '../components/UploadSheetModal'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
 import LiveShareChip from '../components/share/LiveShareChip'
-import type { Song } from '../types/song'
 import { Button, IconButton, LivePill, SegmentedControl, Surface } from '../components/ui'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
@@ -74,22 +71,6 @@ export default function HomePage() {
   const [currentTime] = useState(() => Date.now())
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [deletingSession, setDeletingSession] = useState<Session | null>(null)
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-
-  const handleImportUploadedSongs = async (songs: Song[]) => {
-    for (const song of songs) {
-      await songCache.saveSong(song)
-    }
-    const sessionSongs: SessionSongItem[] = songs.map((s) => ({
-      url: s.sourceUrl,
-      title: s.title,
-      artist: s.artist,
-    }))
-    const newSession = await sessionStore.createSession(sessionSongs)
-    trackSongImport('upload', songs.length, songs.length)
-    navigate(sessionPath(newSession))
-  }
-
   useEffect(() => {
     sessionStore.getAllSessions().then(setSessions)
     getRecentSharedLyrics().then(setRecentLyrics)
@@ -251,9 +232,6 @@ export default function HomePage() {
                 { value: 'paste', label: 'Paste links', icon: <Link2 size={14} /> },
               ]}
             />
-            <Button variant="secondary" icon={<FileUp size={15} />} onClick={() => setIsUploadModalOpen(true)}>
-              Upload chart
-            </Button>
           </div>
         </div>
 
@@ -512,13 +490,6 @@ export default function HomePage() {
             : `"${deletingSession?.name}" will be deleted. This can't be undone.`}
         </p>
       </OverlayDialog>
-
-      {/* Upload SongSelect Sheet Modal */}
-      <UploadSheetModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onImport={handleImportUploadedSongs}
-      />
     </div>
   )
 }

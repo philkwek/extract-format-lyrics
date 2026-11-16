@@ -1,4 +1,3 @@
-import { trackSongImport } from '../lib/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -23,7 +22,6 @@ import {
 } from 'lucide-react'
 
 import {
-  makeEntryId,
   sessionStore,
   sessionPath,
   type PadKeyMode,
@@ -224,35 +222,6 @@ export default function SessionPage() {
   const reduceMotion = useReducedMotion()
   const floatingFullScreenMotion = getFloatingActionMotion(Boolean(reduceMotion))
   const { setHidden: setChromeHidden } = useChromeVisibility()
-
-  const handleImportUploadedSongs = async (songs: Song[]) => {
-    if (!session) throw new Error('Setlist is unavailable')
-    for (const song of songs) {
-      await songCache.saveSong(song)
-    }
-    const newItems: SessionSongItem[] = songs.map((s) => ({
-      entryId: makeEntryId(),
-      url: s.sourceUrl,
-      title: s.title,
-      artist: s.artist,
-    }))
-    const updatedSongs = [...session.songs, ...newItems]
-    const updatedSession = { ...session, songs: updatedSongs }
-    await sessionStore.updateSession(updatedSession)
-    setSession(updatedSession)
-    setSongsData((prev) => {
-      const next = new Map(prev)
-      newItems.forEach((item, index) => next.set(item.entryId!, songs[index]))
-      return next
-    })
-    setOriginalSongs((prev) => {
-      const next = new Map(prev)
-      newItems.forEach((item, index) => next.set(item.entryId!, songs[index]))
-      return next
-    })
-    trackSongImport('upload', songs.length, songs.length)
-    selectSong(session.songs.length)
-  }
 
   const handleDismissSectionEditTip = () => {
     setShowSectionEditTip(false)
@@ -1979,7 +1948,6 @@ export default function SessionPage() {
           onClose={() => setIsEditSetOpen(false)}
           session={session}
           onSessionUpdated={handleSessionUpdated}
-          onImportUploadedSongs={handleImportUploadedSongs}
         />
       )}
 

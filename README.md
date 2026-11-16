@@ -13,7 +13,7 @@
 
 ## From link to setlist
 
-1. **Add your songs.** Paste a link from a supported chord site, search for a song, or upload a PDF or image chart.
+1. **Add your songs.** Paste a link from a supported chord site, or search for a song.
 2. **Make the chart fit.** Transpose it, simplify the chords, or edit them by hand.
 3. **Build the set.** Name it, add the other songs, and drag them into the order you'll play.
 4. **Share it.** Send musicians a copy, share the set live, or send everyone a lyrics-only link.
@@ -77,7 +77,6 @@ Longer songs may still need scrolling, depending on your screen and text size.
 ## Before you rely on it
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
-- **PDFs and images:** Upload a chart, check the preview and fix anything that looks wrong before adding it. Some files need AI processing and may ask for a Gemini API key if the site doesn't have one configured.
 - **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.

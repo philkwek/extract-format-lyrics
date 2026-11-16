@@ -292,7 +292,7 @@ describe('SessionPage full screen mode', () => {
     expect(heading).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Paste links' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Upload sheet' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Upload sheet' })).toBeNull()
 
     const dialog = heading.closest('[role="dialog"]') as HTMLElement
     expect(dialog).toBeTruthy()
