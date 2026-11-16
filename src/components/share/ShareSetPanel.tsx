@@ -24,6 +24,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const [status, setStatus] = useState<LiveShareStatus>('ok')
   const [busy, setBusy] = useState<'start' | 'stop' | 'create' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pendingLive, setPendingLive] = useState<boolean | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const handleStart = async () => {
     if (busy) return
     setBusy('start')
+    setPendingLive(true)
     setError(null)
     try {
       const result = await startLiveShare(session.id)
@@ -77,12 +79,14 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
       setError((err as Error).message || 'Could not start the live share.')
     } finally {
       setBusy(null)
+      setPendingLive(null)
     }
   }
 
   const handleStop = async () => {
     if (busy) return
     setBusy('stop')
+    setPendingLive(false)
     setError(null)
     try {
       await stopLiveShare(session.id)
@@ -93,6 +97,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
       setError((err as Error).message || 'Could not stop sharing. Try again.')
     } finally {
       setBusy(null)
+      setPendingLive(null)
     }
   }
 
@@ -168,8 +173,8 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
             </div>
             <Switch
               label="Share live"
-              checked={Boolean(liveUrl)}
-              busy={busy !== null}
+              checked={pendingLive ?? Boolean(liveUrl)}
+              busy={busy === 'start' || busy === 'stop'}
               onChange={(next) => (next ? handleStart() : handleStop())}
             />
           </div>

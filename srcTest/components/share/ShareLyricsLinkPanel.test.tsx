@@ -10,12 +10,14 @@ const mocks = vi.hoisted(() => ({
   deleteLyricsPublicationIdentity: vi.fn(async () => {}),
   ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
   publishLyricsForSession: vi.fn(),
+  withLyricsPublicationLock: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),
 }))
 
 vi.mock('../../../src/lib/lyricsPublishIdentity', () => ({
   getLyricsPublicationIdentity: mocks.getLyricsPublicationIdentity,
   deleteLyricsPublicationIdentity: mocks.deleteLyricsPublicationIdentity,
   publishLyricsForSession: mocks.publishLyricsForSession,
+  withLyricsPublicationLock: mocks.withLyricsPublicationLock,
 }))
 vi.mock('../../../src/lib/lyricsSync', () => ({
   ensureLyricsFresh: mocks.ensureLyricsFresh,
@@ -127,7 +129,7 @@ describe('ShareLyricsLinkPanel', () => {
     expect(screen.getByText(/Link works until/)).toBeTruthy()
     expect(
       screen.getByText(
-        'Turning this off stops updates. The last version stays viewable for up to 7 days.',
+        'Turning this off stops updates. The last version stays viewable for up to 7 days. Turning it on again makes a new link.',
       ),
     ).toBeTruthy()
   })
@@ -143,11 +145,30 @@ describe('ShareLyricsLinkPanel', () => {
     await waitFor(() => {
       expect(mocks.deleteLyricsPublicationIdentity).toHaveBeenCalledWith('session-1')
     })
+    expect(mocks.withLyricsPublicationLock).toHaveBeenCalledWith('session-1', expect.any(Function))
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
     })
     expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
     expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('moves the switch at once and puts it back when publishing fails', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
+    let reject!: (err: Error) => void
+    mocks.publishLyricsForSession.mockReturnValue(
+      new Promise((_, r) => {
+        reject = r
+      }),
+    )
+
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+    fireEvent.click(await findReadySwitch())
+
+    expect(lyricsSwitch().getAttribute('aria-checked')).toBe('true')
+    await act(async () => reject(new Error('Network down')))
+    await waitFor(() => expect(lyricsSwitch().getAttribute('aria-checked')).toBe('false'))
+    expect(screen.getByRole('alert').textContent).toContain('Network down')
   })
 
   it('starts with the switch on when an existing publication is restored', async () => {

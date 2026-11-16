@@ -131,6 +131,20 @@ describe('ShareSetPanel', () => {
     expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(1)
   })
 
+  it('moves the Share live switch at once, before the network call resolves', async () => {
+    let resolve!: (v: { url: string; expiresAt: string }) => void
+    mocks.startLiveShare.mockReturnValueOnce(new Promise((r) => (resolve = r)))
+    renderPanel(<ShareSetPanel session={session} />)
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Share live' }))
+
+    expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    resolve({ url: 'https://example.test/live/abc', expiresAt: '2026-12-01T00:00:00Z' })
+    await screen.findByText(/Link works until/)
+  })
+
   it('shows an error when the live share cannot start', async () => {
     mocks.startLiveShare.mockRejectedValueOnce(new Error('Check your connection.'))
     renderPanel(<ShareSetPanel session={session} />)

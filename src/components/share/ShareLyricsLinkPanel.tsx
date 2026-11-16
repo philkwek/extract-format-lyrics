@@ -7,6 +7,7 @@ import {
   deleteLyricsPublicationIdentity,
   getLyricsPublicationIdentity,
   publishLyricsForSession,
+  withLyricsPublicationLock,
 } from '../../lib/lyricsPublishIdentity'
 import { ensureLyricsFresh } from '../../lib/lyricsSync'
 import { trackEvent } from '../../lib/analytics'
@@ -24,11 +25,12 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [pendingOn, setPendingOn] = useState<boolean | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [previewPayload, setPreviewPayload] = useState<SharedLyricsPayload | null>(null)
 
-  const isPublished = Boolean(shareUrl && expiresAt)
+  const isPublished = Boolean(shareUrl)
   const sessionRef = useRef(session)
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
   const handlePublish = async () => {
     if (isSaving) return
     setIsSaving(true)
+    setPendingOn(true)
     setError(null)
 
     try {
@@ -115,16 +118,20 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
       setError(message)
     } finally {
       setIsSaving(false)
+      setPendingOn(null)
     }
   }
 
   const handleTurnOff = async () => {
     if (isSaving) return
     setIsSaving(true)
+    setPendingOn(false)
     setError(null)
 
     try {
-      await deleteLyricsPublicationIdentity(session.id)
+      await withLyricsPublicationLock(session.id, () =>
+        deleteLyricsPublicationIdentity(session.id),
+      )
       setShareUrl(null)
       setExpiresAt(null)
       setCopied(false)
@@ -132,6 +139,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
       setError('Could not turn it off. Try again.')
     } finally {
       setIsSaving(false)
+      setPendingOn(null)
     }
   }
 
@@ -165,7 +173,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
             </div>
             <Switch
               label="Lyrics link"
-              checked={isPublished}
+              checked={pendingOn ?? isPublished}
               busy={isSaving || !initialized}
               onChange={(next) => (next ? handlePublish() : handleTurnOff())}
             />
@@ -197,7 +205,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
                 )}
               </div>
               <p className="mt-2 text-[11px] text-ui-text-muted">
-                Turning this off stops updates. The last version stays viewable for up to 7 days.
+                Turning this off stops updates. The last version stays viewable for up to 7 days. Turning it on again makes a new link.
               </p>
             </div>
           )}
