@@ -181,19 +181,20 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
 
           {liveUrl && (
             <div className="mt-3">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <Button
-                  variant="secondary"
-                  icon={copied ? <Check size={15} /> : <Copy size={15} />}
-                  onClick={() => copyText(liveUrl)}
-                >
-                  {copied ? 'Copied' : 'Copy link'}
-                </Button>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 {expiresAt && (
                   <span className="text-[11px] text-ui-text-muted">
                     Link works until {new Date(expiresAt).toLocaleDateString()}
                   </span>
                 )}
+                <Button
+                  variant="secondary"
+                  className="ml-auto"
+                  icon={copied ? <Check size={15} /> : <Copy size={15} />}
+                  onClick={() => copyText(liveUrl)}
+                >
+                  {copied ? 'Copied' : 'Copy link'}
+                </Button>
               </div>
               {status === 'failing' && (
                 <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">

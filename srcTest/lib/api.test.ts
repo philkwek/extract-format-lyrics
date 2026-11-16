@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { extractSongsApi, searchApiStream } from '../../src/lib/api'
+import { extractSongsApi, resumeLiveSetApi, searchApiStream } from '../../src/lib/api'
 
 const song = {
   id: 'song-1',
@@ -117,5 +117,32 @@ describe('extractSongsApi', () => {
     await expect(extractSongsApi([{ mimeType: 'application/pdf', base64Data: 'data' }])).rejects.toThrow(
       'Could not reliably extract all 4 songs.'
     )
+  })
+})
+
+describe('resumeLiveSetApi', () => {
+  it('posts to the resume endpoint with the bearer secret', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await resumeLiveSetApi('abc', 'secret')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/live-set/abc/resume', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret' },
+    })
+  })
+
+  it('throws the server error when the resume is refused', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Not yours' } }), {
+          status: 403,
+        }),
+      )
+    )
+
+    await expect(resumeLiveSetApi('abc', 'secret')).rejects.toThrow('Not yours')
   })
 })

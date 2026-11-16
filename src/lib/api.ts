@@ -395,6 +395,16 @@ export async function deleteLiveSetApi(id: string, secret: string): Promise<void
   }
 }
 
+export async function resumeLiveSetApi(id: string, secret: string): Promise<void> {
+  const res = await fetch(`/api/live-set/${encodeURIComponent(id)}/resume`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${secret}` },
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+}
+
 export async function getLiveSetApi(id: string): Promise<GetLiveSetResult> {
   const res = await fetch(`/api/live-set/${encodeURIComponent(id)}`, {
     headers: { 'Cache-Control': 'no-store' },

@@ -6,6 +6,7 @@ import {
   LiveSetMissingContentError,
   putLiveSetManifestApi,
   putLiveSetSongApi,
+  resumeLiveSetApi,
   ShareApiError,
 } from './api'
 import {
@@ -32,6 +33,8 @@ export const LIVE_SHARE_MAX_SONGS = SET_LINK_MAX_SONGS
 export interface LiveIdentityRecord extends SetLinkIdentityRecord {
   /** Content hashes the server is known to hold, pruned to the current set. */
   knownContentHashes?: string[]
+  /** Set when the host stopped sharing; starting again resumes the same link. */
+  paused?: boolean
 }
 
 export interface LivePayload {
@@ -155,8 +158,11 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
   return createSyncChannel<LivePayload>({
     ...deps,
     name: 'live-set',
-    shouldSync: async (session) =>
-      !session.liveSourceId && (await deps.identity.get(session.id)) !== null,
+    shouldSync: async (session) => {
+      if (session.liveSourceId) return false
+      const identity = await deps.identity.get(session.id)
+      return identity !== null && !identity.paused
+    },
     buildPayload: (session) => buildLivePayload(session, deps.getSong),
     publish,
     onSkipped: (sessionId) => deps.onStatus?.(sessionId, 'failing'),
@@ -269,7 +275,10 @@ export interface LiveShareLink {
 
 export async function getLiveShare(sessionId: string): Promise<LiveShareLink | null> {
   const record = await liveIdentity.get(sessionId)
-  return record ? { url: liveUrl(record.publicId), expiresAt: record.expiresAt } : null
+  if (!record || record.paused) return null
+  const expires = record.expiresAt ? Date.parse(record.expiresAt) : NaN
+  if (Number.isFinite(expires) && expires <= Date.now()) return null
+  return { url: liveUrl(record.publicId), expiresAt: record.expiresAt }
 }
 
 /** Creates the live identity, publishes now, and returns the link. */
@@ -278,23 +287,32 @@ export async function startLiveShare(
 ): Promise<{ url: string; expiresAt: string }> {
   const session = await sessionStore.getSession(sessionId)
   if (!session) throw new Error('This set no longer exists.')
+  let created = false
   const record = await withNamedLock(`live-identity:${sessionId}`, async () => {
     const existing = await liveIdentity.get(sessionId)
-    if (existing) return existing
+    if (existing) {
+      if (existing.paused) {
+        await resumeLiveSetApi(existing.publicId, existing.secret)
+        await liveIdentity.update(sessionId, { paused: false })
+      }
+      return existing
+    }
     const secret = generateSetLinkSecret()
-    const created: LiveIdentityRecord = {
+    const newRecord: LiveIdentityRecord = {
       sessionId,
       publicId: await deriveSetLinkId(secret, LIVE_SET_DOMAIN_SEPARATOR),
       secret,
     }
-    await getSetLinkIdentityStore().set(liveKey(sessionId), created)
-    return created
+    await getSetLinkIdentityStore().set(liveKey(sessionId), newRecord)
+    created = true
+    return newRecord
   })
   defaultSync ??= createDefaultSync()
   const result = await defaultSync.ensureFresh(session)
   const published = await liveIdentity.get(sessionId)
+  const isFresh = Boolean(published?.expiresAt && Date.parse(published.expiresAt) > Date.now())
   if (!result.ok) {
-    if (!published?.expiresAt) await liveIdentity.remove(sessionId)
+    if (created) await liveIdentity.remove(sessionId)
     if (result.reason === 'too_many') {
       throw new ShareApiError('A live share holds up to 30 songs.')
     }
@@ -302,8 +320,8 @@ export async function startLiveShare(
       throw new ShareApiError('Add a song before you share live.')
     }
   }
-  if (!published?.expiresAt) {
-    await liveIdentity.remove(sessionId)
+  if (!published?.expiresAt || !isFresh) {
+    if (created) await liveIdentity.remove(sessionId)
     throw new ShareApiError('Could not start the live share. Check your connection and try again.')
   }
   liveListeners.get(sessionId)?.forEach((cb) => cb())
@@ -311,7 +329,7 @@ export async function startLiveShare(
   return { url: liveUrl(record.publicId), expiresAt: published.expiresAt }
 }
 
-/** Tells the server to stop, then forgets the identity. A network failure keeps it so you can retry. */
+/** Pauses the share on the server and keeps the identity so Start reuses the same link. */
 export async function stopLiveShare(sessionId: string): Promise<void> {
   const record = await liveIdentity.get(sessionId)
   if (!record) return
@@ -322,7 +340,7 @@ export async function stopLiveShare(sessionId: string): Promise<void> {
     const status = error instanceof ShareApiError ? (error.status ?? 0) : 0
     if (status < 400 || status >= 500 || status === 429) throw error
   }
-  await liveIdentity.remove(sessionId)
+  await liveIdentity.update(sessionId, { paused: true })
   statuses.delete(sessionId)
   liveListeners.get(sessionId)?.forEach((cb) => cb())
   trackEvent('live_share_stopped', {})
