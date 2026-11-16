@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Request, Response } from 'express'
 
-const m = vi.hoisted(() => ({ publish: vi.fn(), putSong: vi.fn(), stop: vi.fn(), get: vi.fn() }))
+const m = vi.hoisted(() => ({
+  publish: vi.fn(),
+  putSong: vi.fn(),
+  stop: vi.fn(),
+  resume: vi.fn(),
+  get: vi.fn(),
+}))
 vi.mock('../src/liveSetStore.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/liveSetStore.js')>()
   return { ...actual, liveSetStore: m }
@@ -89,6 +95,19 @@ describe('live-set manifest routes', () => {
     const { res } = await call('DELETE', { headers: auth })
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.json).toHaveBeenCalledWith({ id, rev: 5, status: 'stopped' })
+  })
+
+  it('POST /resume needs the secret and reopens the share', async () => {
+    const resumePath = `/api/live-set/${id}/resume`
+    expect((await call('POST', { path: resumePath })).res.status).toHaveBeenCalledWith(401)
+    expect(
+      (await call('POST', { path: resumePath, headers: { authorization: 'Bearer nope' } })).res.status,
+    ).toHaveBeenCalledWith(403)
+    m.resume.mockResolvedValue({ id, rev: 3 })
+    const { res } = await call('POST', { path: resumePath, headers: auth })
+    expect(m.resume).toHaveBeenCalledWith(id)
+    expect(res.status).toHaveBeenCalledWith(200)
+    expect(res.json).toHaveBeenCalledWith({ id, rev: 3, status: 'live' })
   })
 
   it('GET 200 / 404 / 410 / 500 with no-store', async () => {

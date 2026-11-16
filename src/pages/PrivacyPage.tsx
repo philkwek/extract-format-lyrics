@@ -67,7 +67,7 @@ export default function PrivacyPage() {
       <p>
         A live share stores the set name, the song content (including uploaded sheets), your chord and
         section edits, and per-song settings on our server. Anyone with the link can read it. It is
-        removed 7 days after the last change, and <strong>Stop sharing</strong> ends it sooner. When
+        removed 7 days after the last change, and turning <strong>Share live</strong> off ends it sooner. When
         you follow a live share, your browser connects to Google Firestore to receive updates.
       </p>
       <a className="underline" href="https://policies.google.com/privacy">

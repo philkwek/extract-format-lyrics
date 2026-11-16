@@ -12,7 +12,14 @@ import {
   type LiveShareSyncDeps,
 } from '../../src/lib/liveShareSync'
 import { trackEvent } from '../../src/lib/analytics'
-import { deleteLiveSetApi, LiveSetMissingContentError, ShareApiError } from '../../src/lib/api'
+import {
+  deleteLiveSetApi,
+  LiveSetMissingContentError,
+  putLiveSetManifestApi,
+  putLiveSetSongApi,
+  resumeLiveSetApi,
+  ShareApiError,
+} from '../../src/lib/api'
 import {
   resetSetLinkIdentityStore,
   setSetLinkIdentityStoreForTesting,
@@ -24,6 +31,9 @@ vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('../../src/lib/api', async (orig) => ({
   ...(await orig<typeof import('../../src/lib/api')>()),
   deleteLiveSetApi: vi.fn(async () => {}),
+  resumeLiveSetApi: vi.fn(async () => {}),
+  putLiveSetSongApi: vi.fn(async () => ({})),
+  putLiveSetManifestApi: vi.fn(async () => ({ expiresAt: '' })),
 }))
 vi.mock('../../src/lib/songCache', () => ({
   songCache: {
@@ -190,6 +200,16 @@ describe('liveShareSync', () => {
     expect(env.putManifest).not.toHaveBeenCalled()
   })
 
+  it('does not publish while the share is paused', async () => {
+    const env = setup()
+    env.identities.set('s1', { ...env.identities.get('s1')!, paused: true })
+    env.emit('created', makeSession())
+    await env.settle(0)
+    await env.settle(10_000)
+    expect(env.putSong).not.toHaveBeenCalled()
+    expect(env.putManifest).not.toHaveBeenCalled()
+  })
+
   it('does not publish a set opened from a live link', async () => {
     const env = setup()
     env.emit('created', { ...makeSession(), liveSourceId: 'live-abc' })
@@ -265,19 +285,33 @@ describe('stopLiveShare', () => {
     vi.unstubAllGlobals()
   })
 
-  it('sends DELETE and removes the identity', async () => {
+  it('sends DELETE and pauses the identity so the link can be reused', async () => {
     vi.mocked(deleteLiveSetApi).mockResolvedValue()
     await stopLiveShare('s1')
     expect(deleteLiveSetApi).toHaveBeenCalledWith('p'.repeat(22), 'k')
-    expect(memory.has('live:s1')).toBe(false)
+    const stopped = memory.get('live:s1') as LiveIdentityRecord
+    expect(stopped).toMatchObject({ publicId: 'p'.repeat(22), secret: 'k', paused: true })
     expect(trackEvent).toHaveBeenCalledWith('live_share_stopped', {})
   })
 
-  it('keeps the identity when the network fails', async () => {
+  it('keeps the identity untouched when the network fails', async () => {
     vi.mocked(deleteLiveSetApi).mockRejectedValue(new TypeError('offline'))
     await expect(stopLiveShare('s1')).rejects.toThrow('offline')
-    expect(memory.has('live:s1')).toBe(true)
+    expect(memory.get('live:s1')).toMatchObject({ publicId: 'p'.repeat(22), secret: 'k' })
+    expect((memory.get('live:s1') as LiveIdentityRecord).paused).toBeUndefined()
     expect(trackEvent).not.toHaveBeenCalledWith('live_share_stopped', {})
+  })
+
+  it('reports a paused share as not live', async () => {
+    vi.stubGlobal('window', { location: { origin: 'https://example.test' } })
+    memory.set('live:s1', {
+      sessionId: 's1',
+      publicId: 'p'.repeat(22),
+      secret: 'k',
+      expiresAt: '2026-12-01T00:00:00Z',
+      paused: true,
+    })
+    expect(await getLiveShare('s1')).toBeNull()
   })
 
   it('returns the url and expiry for a live set', async () => {
@@ -297,7 +331,11 @@ describe('stopLiveShare', () => {
 
 describe('startLiveShare', () => {
   const memory = new Map<string, unknown>()
+  const expiresAt = '2026-12-01T00:00:00Z'
+  const sessionFor = (id: string): Session => ({ ...makeSession(), id })
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
     memory.clear()
     setSetLinkIdentityStoreForTesting({
       get: async <T,>(k: string) => memory.get(k) as T | undefined,
@@ -305,9 +343,25 @@ describe('startLiveShare', () => {
       del: async (k) => void memory.delete(k),
     })
     vi.mocked(trackEvent).mockClear()
+    vi.mocked(deleteLiveSetApi).mockReset()
+    vi.mocked(deleteLiveSetApi).mockResolvedValue()
+    vi.mocked(resumeLiveSetApi).mockReset()
+    vi.mocked(resumeLiveSetApi).mockResolvedValue()
+    vi.mocked(putLiveSetSongApi).mockReset()
+    vi.mocked(putLiveSetSongApi).mockResolvedValue({ id: 'x', hash: 'h', created: true, expiresAt })
+    vi.mocked(putLiveSetManifestApi).mockReset()
+    vi.mocked(putLiveSetManifestApi).mockResolvedValue({
+      id: 'x',
+      rev: 1,
+      expiresAt,
+      unchanged: false,
+    })
   })
   afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     resetSetLinkIdentityStore()
   })
 
@@ -323,6 +377,78 @@ describe('startLiveShare', () => {
       'A live share holds up to 30 songs.',
     )
     expect(memory.has('live:too-many')).toBe(false)
+  })
+
+  it('reuses the same link after a stop, without a new secret', async () => {
+    vi.stubGlobal('window', { location: { origin: 'https://example.test' } })
+    vi.spyOn(sessionStore, 'getSession').mockResolvedValue(sessionFor('restart'))
+
+    const first = await startLiveShare('restart')
+    const created = memory.get('live:restart') as LiveIdentityRecord
+    expect(resumeLiveSetApi).not.toHaveBeenCalled()
+
+    await stopLiveShare('restart')
+    expect((memory.get('live:restart') as LiveIdentityRecord).paused).toBe(true)
+
+    vi.mocked(putLiveSetManifestApi).mockClear()
+    const second = await startLiveShare('restart')
+    const resumed = memory.get('live:restart') as LiveIdentityRecord
+    expect(second.url).toBe(first.url)
+    expect(resumed.publicId).toBe(created.publicId)
+    expect(resumed.secret).toBe(created.secret)
+    expect(resumed.paused).toBe(false)
+    expect(resumeLiveSetApi).toHaveBeenCalledWith(created.publicId, created.secret)
+    for (const [id, secret] of vi.mocked(putLiveSetManifestApi).mock.calls) {
+      expect(id).toBe(created.publicId)
+      expect(secret).toBe(created.secret)
+    }
+  })
+
+  it('treats an expired share as not live and starts it again on the same id', async () => {
+    vi.stubGlobal('window', { location: { origin: 'https://example.test' } })
+    vi.spyOn(sessionStore, 'getSession').mockResolvedValue(sessionFor('expired'))
+    memory.set('live:expired', {
+      sessionId: 'expired',
+      publicId: 'q'.repeat(22),
+      secret: 'old-secret',
+      expiresAt: '2025-12-01T00:00:00Z',
+    })
+
+    expect(await getLiveShare('expired')).toBeNull()
+
+    const result = await startLiveShare('expired')
+    const record = memory.get('live:expired') as LiveIdentityRecord
+    expect(result.url).toBe(`https://example.test/live/${'q'.repeat(22)}`)
+    expect(record.publicId).toBe('q'.repeat(22))
+    expect(record.secret).toBe('old-secret')
+    expect(resumeLiveSetApi).not.toHaveBeenCalled()
+    expect(putLiveSetManifestApi).toHaveBeenCalled()
+  })
+
+  it('removes a brand-new identity when the first start fails', async () => {
+    vi.spyOn(sessionStore, 'getSession').mockResolvedValue(sessionFor('new-fail'))
+    vi.mocked(putLiveSetManifestApi).mockRejectedValue(new ShareApiError('no', 'FORBIDDEN', 403))
+
+    await expect(startLiveShare('new-fail')).rejects.toThrow('Could not start the live share')
+    expect(memory.has('live:new-fail')).toBe(false)
+  })
+
+  it('keeps an existing identity when a start fails', async () => {
+    vi.spyOn(sessionStore, 'getSession').mockResolvedValue(sessionFor('keep-fail'))
+    memory.set('live:keep-fail', {
+      sessionId: 'keep-fail',
+      publicId: 'k'.repeat(22),
+      secret: 'keep-secret',
+    })
+    vi.mocked(putLiveSetManifestApi).mockRejectedValue(
+      new ShareApiError('no', 'FORBIDDEN', 403),
+    )
+
+    await expect(startLiveShare('keep-fail')).rejects.toThrow('Could not start the live share')
+    expect(memory.get('live:keep-fail')).toMatchObject({
+      publicId: 'k'.repeat(22),
+      secret: 'keep-secret',
+    })
   })
 })
 
