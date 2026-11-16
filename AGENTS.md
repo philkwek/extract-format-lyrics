@@ -108,6 +108,11 @@ A change there is its own task, with a before/after comparison at the same viewp
 - Plain English for a musician, not a developer. Short sentences. No jargon in the UI.
 - Button labels are short verbs: "Share lyrics", "Update lyrics", "Pad". If a label wraps
   on a phone, shorten it.
+- Button labels are **sentence case**: only the first word is capitalised ("Add song",
+  "Save changes"), except names and acronyms. A toggle may name its state instead
+  ("Wrapped", "Simplified").
+- Button labels **start with a verb** ("Add song", "Go full screen", "Go back"), not a noun
+  or a symbol. A modal's last button is "Close", not "Done".
 - Refer to UI controls in **bold** with their exact label.
 - Say what a feature can't do as plainly as what it can (see "Before you rely on it" in the
   README).

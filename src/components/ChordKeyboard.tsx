@@ -241,7 +241,8 @@ export default function ChordKeyboard({
                     ? 'bg-[#C8DFDB]/60 text-[#1c436b] border-[#66A3BF]/50 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/50'
                     : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
                 }`}
-                title="Add slash chord bass note"
+                aria-label="Add bass note"
+                title="Add bass note"
               >
                 <span>/</span>
                 <span className="text-[11px] font-normal">Bass</span>
@@ -251,7 +252,8 @@ export default function ChordKeyboard({
                 type="button"
                 onClick={handleBackspace}
                 className="py-2 bg-neutral-100 dark:bg-[#202020] text-neutral-700 dark:text-[#d4d4d4] border border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
-                title="Backspace"
+                aria-label="Delete last character"
+                title="Delete last character"
               >
                 <span>⌫</span>
                 <span className="text-[11px] font-normal">Del</span>

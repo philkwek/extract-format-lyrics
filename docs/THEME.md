@@ -166,7 +166,7 @@ Used in [`ShareModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-l
 #### 1. Primary Action Button
 ```tsx
 <button className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black transition shadow-xs cursor-pointer">
-  Save Changes
+  Save changes
 </button>
 ```
 
@@ -181,7 +181,7 @@ Used in [`ShareModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-l
 #### 3. Success / Confirm Button
 ```tsx
 <button className="px-5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition shadow-xs cursor-pointer">
-  Import to Setlist
+  Import to setlist
 </button>
 ```
 

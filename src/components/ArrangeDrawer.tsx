@@ -132,7 +132,7 @@ export default function ArrangeDrawer({
               ))}
             </div>
             <footer className="border-t border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4">
-              <Button variant="primary" className="w-full" onClick={onClose}>Done</Button>
+              <Button variant="primary" className="w-full" onClick={onClose}>Close</Button>
             </footer>
           </motion.div>
         </motion.div>

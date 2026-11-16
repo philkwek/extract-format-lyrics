@@ -27,7 +27,7 @@ export default function ShareMenuModal({
       title={`Share “${session.name}”`}
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Done
+          Close
         </Button>
       }
     >

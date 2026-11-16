@@ -1508,6 +1508,14 @@ export default function SessionPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Plus size={14} />}
+              onClick={() => guard(() => setIsEditSetOpen(true))}
+            >
+              Add song
+            </Button>
             {!linkPreview && (
               <Button
                 size="sm"
@@ -1515,27 +1523,19 @@ export default function SessionPage() {
                 icon={<Share2 size={14} />}
                 onClick={handleOpenShareMenu}
               >
-                Share Set/Lyrics
+                Share set/lyrics
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<Plus size={14} />}
-              onClick={() => guard(() => setIsEditSetOpen(true))}
-            >
-              Add Song
-            </Button>
             <Button
               size="sm"
               variant="secondary"
               icon={<Maximize2 size={14} />}
               onClick={(event) => handleEnterFullScreen(event.currentTarget)}
               title="Fill the window with this chord sheet"
-              aria-label="Full screen"
+              aria-label="Go full screen"
               data-fullscreen-trigger
             >
-              <span className="hidden sm:inline">Full screen</span>
+              <span className="hidden sm:inline">Go full screen</span>
             </Button>
           </div>
         </div>
@@ -1557,7 +1557,7 @@ export default function SessionPage() {
             onClick={() => guard(() => setIsArrangingSongs(true))}
             aria-label="Arrange setlist"
             title="Arrange setlist"
-            className="shrink-0"
+            className="shrink-0 h-9"
           >
             <span className="hidden sm:inline">Arrange setlist</span>
           </Button>
@@ -2005,7 +2005,7 @@ export default function SessionPage() {
               </p>
               <div className="flex justify-end pt-0.5">
                 <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
-                  Got it
+                  Close
                 </Button>
               </div>
             </aside>
@@ -2019,7 +2019,7 @@ export default function SessionPage() {
                 {...floatingFullScreenMotion}
               >
                 <IconButton
-                  label="Full screen"
+                  label="Go full screen"
                   title="Fill the window with this chord sheet"
                   variant="secondary"
                   className="ui-button--floating"
