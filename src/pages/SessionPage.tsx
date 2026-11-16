@@ -1508,6 +1508,14 @@ export default function SessionPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Plus size={14} />}
+              onClick={() => guard(() => setIsEditSetOpen(true))}
+            >
+              Add song
+            </Button>
             {!linkPreview && (
               <Button
                 size="sm"
@@ -1518,14 +1526,6 @@ export default function SessionPage() {
                 Share set/lyrics
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<Plus size={14} />}
-              onClick={() => guard(() => setIsEditSetOpen(true))}
-            >
-              Add song
-            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -1557,7 +1557,7 @@ export default function SessionPage() {
             onClick={() => guard(() => setIsArrangingSongs(true))}
             aria-label="Arrange setlist"
             title="Arrange setlist"
-            className="shrink-0"
+            className="shrink-0 h-9"
           >
             <span className="hidden sm:inline">Arrange setlist</span>
           </Button>

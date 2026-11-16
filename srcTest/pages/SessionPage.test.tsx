@@ -283,6 +283,15 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
   })
 
+  it('puts Add song first in the title bar, before Share set/lyrics', async () => {
+    render(<TestHarness />)
+
+    const addSong = await screen.findByRole('button', { name: 'Add song' })
+    const share = screen.getByRole('button', { name: 'Share set/lyrics' })
+
+    expect(addSong.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('Add song opens the add song dialog', async () => {
     render(<TestHarness />)
 
