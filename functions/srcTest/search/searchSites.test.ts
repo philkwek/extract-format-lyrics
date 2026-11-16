@@ -47,26 +47,6 @@ describe('searchSites', () => {
     expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['ok', 'ok', 'empty'])
   })
 
-  it('reports each outcome as it settles, independent of source order', async () => {
-    const requests = {
-      'ultimate-guitar': deferred<SearchCandidate[]>(),
-      pnwchords: deferred<SearchCandidate[]>(),
-    }
-    const adapters: SearchAdapter[] = Object.entries(requests).map(([site, request]) => ({
-      site,
-      search: () => request.promise,
-    }))
-    const seen: string[] = []
-
-    const running = searchSites(adapters, 'song', {}, (outcome) => seen.push(outcome.site))
-    requests.pnwchords.resolve([candidate('pnwchords')])
-    await vi.waitFor(() => expect(seen).toEqual(['pnwchords']))
-
-    requests['ultimate-guitar'].resolve([])
-    await running
-    expect(seen).toEqual(['pnwchords', 'ultimate-guitar'])
-  })
-
   it('keeps successful results when another site fails', async () => {
     const adapters: SearchAdapter[] = [
       { site: 'ultimate-guitar', search: async () => [candidate('ultimate-guitar')] },
@@ -144,6 +124,24 @@ describe('searchSites', () => {
     expect(event).not.toHaveProperty('upstream_status')
     expect(event).not.toHaveProperty('retry_after_seconds')
     expect(JSON.stringify(info.mock.calls)).not.toMatch(/private upstream content|song/)
+  })
+
+  it('pauses a host that keeps timing out', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const limiter = new RateLimiterAndCircuitBreaker(undefined, () => 0)
+    const hanging = vi.fn(async () => {
+      throw new FetchError('Request timed out after 3000ms', 'TIMEOUT')
+    })
+    const adapter = { site: 'worshiptogether', search: hanging }
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(await searchSite(adapter, 'song', { limiter })).toMatchObject({ failure: 'timeout' })
+    }
+
+    const paused = await searchSite(adapter, 'song', { limiter })
+    expect(paused).toMatchObject({ status: 'failed', failure: 'blocked' })
+    expect(paused.message).toMatch(/paused/i)
+    expect(hanging).toHaveBeenCalledTimes(3)
   })
 
   it('logs a 403 without inventing a source retry delay', async () => {

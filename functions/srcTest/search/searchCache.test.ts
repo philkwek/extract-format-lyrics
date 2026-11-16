@@ -56,6 +56,13 @@ describe('search cache keys', () => {
     expect(createSearchCacheKey('song', 'v1')).not.toBe(createSearchCacheKey('song', 'v2'))
   })
 
+  it('keeps one source apart from the combined search', () => {
+    expect(createSearchCacheKey('song', 'v1', 'pnwchords')).toBe('v1@pnwchords:song')
+    expect(createSearchCacheKey('pnwchords:song', 'v1')).not.toBe(
+      createSearchCacheKey('song', 'v1', 'pnwchords')
+    )
+  })
+
   it('rejects expired or malformed entries', () => {
     expect(isCachedSearchEntry({ ...data(), v: 1, expiresAt: 10 }, 11)).toBe(false)
     expect(isCachedSearchEntry({ ...data(), v: 1, expiresAt: 20 }, 11)).toBe(true)
@@ -76,6 +83,21 @@ describe('SearchCache', () => {
     expect(second.cacheStatus).toBe('hit')
     expect(run).toHaveBeenCalledTimes(1)
     expect(store.set).toHaveBeenCalledTimes(1)
+  })
+
+  it('caches each source separately for the same query', async () => {
+    const cache = new SearchCache({ store: memoryStore().store })
+    const run = vi.fn(async () => data())
+
+    await cache.search('song', run, 'pnwchords')
+    await cache.search('song', run, 'ultimate-guitar')
+    await cache.search('song', run)
+    expect(run).toHaveBeenCalledTimes(3)
+
+    await expect(cache.search('song', run, 'pnwchords')).resolves.toMatchObject({
+      cacheStatus: 'hit',
+    })
+    expect(run).toHaveBeenCalledTimes(3)
   })
 
   it('expires entries explicitly', async () => {

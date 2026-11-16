@@ -1,3 +1,9 @@
+/** Request order; the browser asks for each of these separately. */
+export const SEARCH_SITES = ['ultimate-guitar', 'pnwchords', 'worshiptogether', 'worshipchords-net'] as const
+
+/** Search pages answer in about a second; a slower source is treated as down. */
+export const SEARCH_TIMEOUT_MS = 3_000
+
 /** Ultimate Guitar's own ordering is used directly for this many results. */
 export const UG_SEARCH_RESULT_LIMIT = 3
 

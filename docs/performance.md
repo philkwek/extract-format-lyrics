@@ -4,13 +4,13 @@ This document describes the search/import pipeline, its caches and budgets, and 
 
 ## Search flow
 
-1. The browser calls `GET /api/search?q=...&stream=1` with `Accept: application/x-ndjson`.
-2. The backend checks an instance-local and Firestore-backed search cache.
-3. On a miss, Ultimate Guitar, PNW Chords, Worship Together and Worship Chords (`.net`) start concurrently.
-4. Each completed source is streamed as an NDJSON `source` event; the browser appends its candidates without moving cards already on screen. Each source is initially capped at two results (`ceil(8 / 4)`), reserving slots for slower sources.
-5. The backend emits a final `complete` event using Ultimate Guitar’s native first three results plus the balanced selection for other sources. The browser adopts that composition while preserving the position of cards already shown.
+1. The browser sends four requests at once, one per source: `GET /api/search?q=...&site=<source>`. Firebase Hosting buffers streamed responses, so separate requests are what lets a fast source show before a slow one.
+2. For each request the backend checks an instance-local and Firestore-backed search cache, keyed per source.
+3. On a miss it searches that one source, with a 3-second deadline, and returns everything the source found.
+4. As each request returns, the browser appends that source's candidates without moving cards already on screen. Each source is initially capped at two results (`ceil(8 / 4)`), reserving slots for slower sources.
+5. When all four have returned, the browser applies the final selection: Ultimate Guitar’s native first three results plus the balanced selection for other sources. Cards already shown keep their position.
 
-The ordinary `GET /api/search?q=...` JSON response remains available for cached/simple clients.
+`GET /api/search?q=...` without `site` still searches every source and returns the combined selection in one JSON response.
 
 The two Worship Chords domains are fetched through Impit, which imitates a browser TLS/HTTP2 fingerprint. Cloudflare fronts both sites and rejects Node’s default undici fingerprint. Other sources keep the built-in fetch. If the Impit native module cannot load, the function falls back to undici without affecting the other sources.
 
@@ -44,7 +44,7 @@ A source reports one of:
 - `empty` — the source responded successfully with no matches.
 - `failed` — `timeout`, `blocked`, `fetch` or `parser` failure.
 
-A failure never hides another source’s results. Three consecutive 403/429 responses pause that host for ten minutes. A successful request resets the failure count. “No matches” does not count as a failure.
+A failure never hides another source’s results. Three consecutive 403/429 responses or search timeouts pause that host for ten minutes. A successful request resets the failure count. “No matches” does not count as a failure.
 
 ## Search caches
 
@@ -54,13 +54,13 @@ A failure never hides another source’s results. Three consecutive 403/429 resp
 | Shared | Firestore `searchCache` | 5 min | Complete results only; document id is a hash of the versioned key |
 | In-flight | Function process | Request lifetime | Identical concurrent work coalesces within one instance |
 
-Keys use `search-v3:<lowercase, whitespace-normalised query>`. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
+Keys use `search-v3@<source>:<lowercase, whitespace-normalised query>` for one source and `search-v3:<query>` for the combined search. The original query text is still sent upstream. Bump `SEARCH_CACHE_VERSION` when the selection policy or response shape changes.
 
 Partial results and failed-site results are intentionally short-lived and are not written to Firestore. A failed site is never persisted as a long-lived legitimate empty result. Cache-store failures degrade to a normal upstream search.
 
 Duplicate suppression in the in-flight map is **instance-local only**. Two instances can still run the same upstream search on a cold cache; Firestore lets later requests reuse whichever result is written first.
 
-HTTP caching matches freshness: complete responses advertise only the remaining TTL; partial responses use `private, no-store`. Streaming responses use `no-cache, no-transform`.
+HTTP caching matches freshness: complete responses advertise only the remaining TTL; partial responses use `private, no-store`.
 
 ## Import flow
 

@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
-import { SearchParseError, UG_SEARCH_RESULT_LIMIT } from './types.js'
+import { SEARCH_TIMEOUT_MS, SearchParseError, UG_SEARCH_RESULT_LIMIT } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
 
 interface UgSearchResultItem {
@@ -104,7 +104,7 @@ export const ultimateGuitarSearchAdapter: SearchAdapter = {
   async search(query: string): Promise<SearchCandidate[]> {
     const encoded = encodeURIComponent(query)
     const url = `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encoded}`
-    const { text: html } = await safeFetchHtml(url)
+    const { text: html } = await safeFetchHtml(url, { timeoutMs: SEARCH_TIMEOUT_MS })
     return parseUgSearchHtml(html)
   },
 }

@@ -24,7 +24,7 @@ describe('api rate limit', () => {
       body: {},
     }
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const { res, done } = callApi(request)
       await done
       expect(res.status).toHaveBeenCalledWith(400)

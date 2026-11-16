@@ -13,14 +13,8 @@ import { worshipChordsNetSearchAdapter } from './search/worshipChordsNetSearch.j
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
 import { searchCache } from './search/searchCache.js'
-import {
-  DEFAULT_SEARCH_RESULT_LIMIT,
-  PARTIAL_SOURCE_RESULT_LIMIT,
-  selectCombinedSearchResults,
-  selectNativeSourceResults,
-  selectSearchResults,
-} from './search/selectResults.js'
-import { UG_SEARCH_RESULT_LIMIT, toSourceStatus, type SearchSiteOutcome } from './search/types.js'
+import { DEFAULT_SEARCH_RESULT_LIMIT, selectCombinedSearchResults } from './search/selectResults.js'
+import { toSourceStatus, type SearchAdapter } from './search/types.js'
 import { isSharedSetSnapshot, MAX_SHARED_SET_SONGS, shareStore } from './shareStore.js'
 import {
   sharedLyricsStore,
@@ -90,13 +84,16 @@ const SEARCH_ADAPTERS = [
   worshipChordsNetSearchAdapter,
 ]
 
-async function runSearch(
-  upstreamQuery: string,
-  onOutcome?: (outcome: SearchSiteOutcome) => void
-) {
-  const { candidates, outcomes } = await searchSites(SEARCH_ADAPTERS, upstreamQuery, {}, onOutcome)
+async function runSearch(upstreamQuery: string, adapter?: SearchAdapter) {
+  const { candidates, outcomes } = await searchSites(
+    adapter ? [adapter] : SEARCH_ADAPTERS,
+    upstreamQuery
+  )
   return {
-    results: selectCombinedSearchResults(candidates, upstreamQuery, DEFAULT_SEARCH_RESULT_LIMIT),
+    // One source returns all it found; the browser balances across sources.
+    results: adapter
+      ? candidates
+      : selectCombinedSearchResults(candidates, upstreamQuery, DEFAULT_SEARCH_RESULT_LIMIT),
     sources: outcomes.map(toSourceStatus),
     partial: outcomes.some((outcome) => outcome.status === 'failed'),
   }
@@ -260,87 +257,19 @@ export const api = onRequest(async (req, res) => {
       return
     }
 
-    if (rejectIfLimited(req, res)) return
-
-    const searchStartedAt = Date.now()
-    const wantsStream =
-      req.query.stream === '1' ||
-      String(req.headers.accept || '').includes('application/x-ndjson')
-
-    if (wantsStream) {
-      res.status(200)
-      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
-      res.setHeader('Cache-Control', 'no-cache, no-transform')
-      res.flushHeaders()
-
-      let closed = false
-      // `res` close fires on client disconnect as well as after our own end().
-      res.on('close', () => {
-        closed = true
-      })
-      const write = (event: unknown) => {
-        if (closed) return
-        try {
-          res.write(`${JSON.stringify(event)}\n`)
-        } catch {
-          closed = true
-        }
-      }
-
-      try {
-        const lookup = await searchCache.search(query, (upstreamQuery) =>
-          runSearch(upstreamQuery, (outcome) => {
-            // Completed sources become usable immediately, even when another
-            // source is still pending.
-            const partialCandidates =
-              outcome.site === 'ultimate-guitar'
-                ? selectNativeSourceResults(outcome.candidates, UG_SEARCH_RESULT_LIMIT)
-                : selectSearchResults(
-                    outcome.candidates,
-                    upstreamQuery,
-                    PARTIAL_SOURCE_RESULT_LIMIT
-                  )
-            write({
-              type: 'source',
-              source: toSourceStatus(outcome),
-              candidates: partialCandidates,
-            })
-          })
-        )
-        const { results, sources, partial } = lookup.data
-        recordTiming({
-          operation: 'search.total',
-          durationMs: elapsedMs(searchStartedAt),
-          outcome: partial ? 'partial' : results.length > 0 ? 'ok' : 'empty',
-          cacheStatus: lookup.cacheStatus === 'hit' ? 'hit' : 'miss',
-        })
-        write({
-          type: 'complete',
-          query,
-          results,
-          sources,
-          partial,
-          cacheStatus: lookup.cacheStatus,
-        })
-        if (!closed) res.end()
-      } catch (err) {
-        recordTiming({
-          operation: 'search.total',
-          durationMs: elapsedMs(searchStartedAt),
-          outcome: 'error',
-        })
-        write({
-          type: 'error',
-          code: 'SEARCH_FAILED',
-          message: (err as Error).message || 'Failed to search songs',
-        })
-        if (!closed) res.end()
-      }
+    // `site` asks for one source, so the browser can show each as it arrives.
+    const site = String(req.query.site || '')
+    const adapter = SEARCH_ADAPTERS.find((candidate) => candidate.site === site)
+    if (site && !adapter) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Unknown "site" search source')
       return
     }
 
+    if (rejectIfLimited(req, res)) return
+
+    const searchStartedAt = Date.now()
     try {
-      const lookup = await searchCache.search(query, (q) => runSearch(q))
+      const lookup = await searchCache.search(query, (q) => runSearch(q, adapter), adapter?.site)
       const { results, sources, partial } = lookup.data
       recordTiming({
         operation: 'search.total',

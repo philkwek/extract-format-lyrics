@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
-import { SearchParseError } from './types.js'
+import { SEARCH_TIMEOUT_MS, SearchParseError } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
 
 const BASE_URL = 'https://www.worshipchords.net'
@@ -68,7 +68,7 @@ export const worshipChordsNetSearchAdapter: SearchAdapter = {
 
   async search(query: string): Promise<SearchCandidate[]> {
     const url = `${BASE_URL}/search?val=${encodeURIComponent(query)}`
-    const { text: html } = await safeFetchHtml(url)
+    const { text: html } = await safeFetchHtml(url, { timeoutMs: SEARCH_TIMEOUT_MS })
     return parseWorshipChordsNetSearchHtml(html)
   },
 }

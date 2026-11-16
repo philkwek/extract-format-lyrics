@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchAdapter, SearchCandidate } from './types.js'
+import { SEARCH_TIMEOUT_MS } from './types.js'
 import { safeFetchHtml } from '../safeFetch.js'
 
 export function parsePnwSearchHtml(html: string): SearchCandidate[] {
@@ -38,7 +39,7 @@ export const pnwChordsSearchAdapter: SearchAdapter = {
 
   async search(query: string): Promise<SearchCandidate[]> {
     const url = `https://pnwchords.com/?s=${encodeURIComponent(query)}`
-    const { text: html } = await safeFetchHtml(url)
+    const { text: html } = await safeFetchHtml(url, { timeoutMs: SEARCH_TIMEOUT_MS })
     return parsePnwSearchHtml(html)
   },
 }
