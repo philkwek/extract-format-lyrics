@@ -25,9 +25,9 @@ export class RateLimiterAndCircuitBreaker {
 
   constructor(
     private readonly limits = {
-      // One song search is four requests, one per source: 10 searches a minute.
+      // One song search is four requests, one per source: 10 searches a minute, 300 a day.
       perMinute: 40,
-      perDay: 300,
+      perDay: 1200,
       consecutiveFailuresToPause: 3,
       pauseDurationSeconds: 10 * 60, // 10 minutes
     },

@@ -20,6 +20,19 @@ describe('RateLimiterAndCircuitBreaker', () => {
     expect(limiter.checkIp('1.2.3.4').allowed).toBe(true)
   })
 
+  it('allows 300 four-request searches a day by default', () => {
+    let now = 0
+    const limiter = new RateLimiterAndCircuitBreaker(undefined, () => now)
+
+    for (let minute = 0; minute < 30; minute += 1) {
+      for (let request = 0; request < 40; request += 1) {
+        expect(limiter.checkIp('1.1.1.1').allowed).toBe(true)
+      }
+      now += 60_000
+    }
+    expect(limiter.checkIp('1.1.1.1').allowed).toBe(false)
+  })
+
   it('removes stale IP records during an opportunistic sweep', () => {
     let mockTime = 1000
     const limiter = new RateLimiterAndCircuitBreaker(
