@@ -28,7 +28,7 @@ export default function LyricsPreviewModal({
       contentClassName="!p-0"
       footer={
         <Button variant="secondary" onClick={onClose}>
-          Close Preview
+          Close preview
         </Button>
       }
     >

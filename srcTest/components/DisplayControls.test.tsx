@@ -29,7 +29,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
-    const padButton = screen.getByRole('button', { name: 'Play Ambient Pad' })
+    const padButton = screen.getByRole('button', { name: 'Play ambient pad' })
     const simplifyButton = screen.getByRole('button', { name: 'Simplify' })
 
     expect(padButton).toBeTruthy()
@@ -55,7 +55,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
-    const padButton = screen.getByRole('button', { name: 'Playing Pad (Eb)' })
+    const padButton = screen.getByRole('button', { name: 'Pads playing (Eb)' })
     expect(padButton.getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -89,7 +89,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     fireEvent.click(resetButton)
     expect(onResetKey).toHaveBeenCalledTimes(1)
 
-    const padButton = screen.getByRole('button', { name: 'Playing Pad (Gb)' })
+    const padButton = screen.getByRole('button', { name: 'Pads playing (Gb)' })
     expect(padButton.getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -109,7 +109,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     )
 
     expect(screen.queryByRole('tablist', { name: 'Pads Key' })).toBeNull()
-    const settingsBtn = screen.getByRole('button', { name: 'Pad key settings' })
+    const settingsBtn = screen.getByRole('button', { name: 'Change pad key' })
     expect(settingsBtn.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(settingsBtn)
@@ -145,9 +145,9 @@ describe('DisplayControls — Play Ambient Pad button', () => {
     )
 
     // Ensure Playing Pad button shows the custom key (A) rather than the song key (G)
-    expect(screen.getByRole('button', { name: 'Playing Pad (A)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Pads playing (A)' })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pad key settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Change pad key' }))
     const customTab = screen.getByRole('tab', { name: 'Custom' })
     const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
     expect(dropdown.value).toBe('A')
@@ -172,7 +172,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pad key settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Change pad key' }))
     const dropdown = screen.getByLabelText('Custom pad key') as HTMLSelectElement
     expect(dropdown.value).toBe('D')
   })
@@ -195,7 +195,7 @@ describe('DisplayControls — columns and fit', () => {
     )
   })
 
-  it('marks the manual column active and leaves Auto available', () => {
+  it('marks the manual column active and leaves Fit screen available', () => {
     const onChangePrefs = vi.fn()
     const onToggleFit = vi.fn()
     render(
@@ -210,14 +210,14 @@ describe('DisplayControls — columns and fit', () => {
     )
 
     expect(screen.getByRole('button', { name: '3' }).getAttribute('aria-pressed')).toBe('true')
-    const fitButton = screen.getByRole('button', { name: 'Auto' })
+    const fitButton = screen.getByRole('button', { name: 'Fit screen' })
     expect(fitButton.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(fitButton)
     expect(onToggleFit).toHaveBeenCalledTimes(1)
   })
 
-  it('turns Auto off when a manual column is selected and shows the auto caption', () => {
+  it('turns Fit screen off when a manual column is selected and shows the auto caption', () => {
     const onChangePrefs = vi.fn()
     render(
       <DisplayControls
@@ -230,7 +230,7 @@ describe('DisplayControls — columns and fit', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Auto' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Fit screen' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('Auto layout · 4 columns · 12px')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
@@ -280,7 +280,7 @@ describe('DisplayControls — columns and fit', () => {
     )
   })
 
-  it('uses the fitted font size for manual size changes and turns Auto off', () => {
+  it('uses the fitted font size for manual size changes and turns Fit screen off', () => {
     const onChangePrefs = vi.fn()
     render(
       <DisplayControls
@@ -337,7 +337,7 @@ describe('DisplayControls — columns and fit', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Auto' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fit screen' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /ambient pad/i })).toBeNull()
     expect(screen.queryByRole('status')).toBeNull()
   })

@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           else navigate('/')
         }}
       >
-        Back
+        Go back
       </Button>
       <h1 className="text-2xl font-bold">Privacy and usage tracking</h1>
       <p>

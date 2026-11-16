@@ -21,7 +21,7 @@ export default function ShareModal({ session, isOpen, onClose }: ShareModalProps
       size="sm"
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Done
+          Close
         </Button>
       }
     >

@@ -189,7 +189,7 @@ export default function SearchPage() {
             }
           }}
         >
-          {targetSession ? `Back to ${targetSession.name}` : 'Back'}
+          {targetSession ? `Go back to ${targetSession.name}` : 'Go back'}
         </Button>
         {targetSession && (
           <span className="rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 text-xs text-[var(--ui-text-muted)]">

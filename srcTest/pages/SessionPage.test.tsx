@@ -215,7 +215,7 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: /exit full screen/i })).toBeTruthy()
     expect(screen.queryByText('Original key')).toBeNull()
     expect(screen.getByRole('button', { name: /play ambient pad/i })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Auto' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Fit screen' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Simplify' }))
     await waitFor(() => {
@@ -229,24 +229,24 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(customiseButton)
     expect(customiseButton.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByRole('button', { name: 'Auto' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fit screen' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '4' })).toBeTruthy()
 
     fireEvent.click(customiseButton)
     expect(customiseButton.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'Auto' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Fit screen' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /exit full screen/i }))
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('false')
-    expect(screen.getByRole('button', { name: 'Share Set/Lyrics' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Add Song' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Share set/lyrics' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Add song' })).toBeTruthy()
   })
 
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share set/lyrics' }))
 
     expect(await screen.findByText('For other musicians')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
@@ -265,7 +265,7 @@ describe('SessionPage full screen mode', () => {
   it('layers the lyrics preview over Share and returns to Share when closed', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share Set/Lyrics' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Share set/lyrics' }))
 
     const createLink = screen.getByRole('button', { name: 'Create link' }) as HTMLButtonElement
     await waitFor(() => expect(createLink.disabled).toBe(false))
@@ -275,7 +275,7 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close Preview' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: /\(Preview\) Sunday Set/ })).toBeNull()
@@ -283,10 +283,10 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
   })
 
-  it('Add Song opens the add-song modal', async () => {
+  it('Add song opens the add song dialog', async () => {
     render(<TestHarness />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add Song' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add song' }))
 
     const heading = screen.getByRole('heading', { name: 'Add song' })
     expect(heading).toBeTruthy()
@@ -302,7 +302,7 @@ describe('SessionPage full screen mode', () => {
   it('does not show Arrange setlist with a single song', async () => {
     render(<TestHarness />)
 
-    await screen.findByRole('button', { name: 'Add Song' })
+    await screen.findByRole('button', { name: 'Add song' })
 
     expect(screen.queryByRole('button', { name: 'Arrange setlist' })).toBeNull()
   })
@@ -329,7 +329,7 @@ describe('SessionPage full screen mode', () => {
       const arrangeDialog = arrangeHeading.closest('[role="dialog"]') as HTMLElement
       expect(arrangeDialog).toBeTruthy()
 
-      fireEvent.click(within(arrangeDialog).getByRole('button', { name: 'Done' }))
+      fireEvent.click(within(arrangeDialog).getAllByRole('button', { name: 'Close' }).at(-1)!)
 
       await waitFor(() => {
         expect(screen.queryByRole('heading', { name: 'Arrange Setlist' })).toBeNull()
@@ -388,6 +388,7 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit chords' }))
     expect(screen.getByText(/Chord editing active/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save edits' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /full screen/i }))
@@ -517,17 +518,17 @@ describe('SessionPage floating full screen button', () => {
 
   it('hides while full screen', async () => {
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
     expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Go full screen' }))
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
     expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
   })
 
   it('shows once the in-page button is under the header and hides when it returns', async () => {
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
     expect(document.querySelector('[data-floating-fullscreen-trigger]')).toBeNull()
 
     setTriggerBottom(40)
@@ -545,7 +546,7 @@ describe('SessionPage floating full screen button', () => {
 
   it('does not show when the button is below the viewport', async () => {
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
 
     setTriggerBottom(900)
     await scroll()
@@ -554,7 +555,7 @@ describe('SessionPage floating full screen button', () => {
 
   it('enters full screen from the floating button', async () => {
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
 
     setTriggerBottom(40)
     await scroll()
@@ -589,7 +590,7 @@ describe('SessionPage floating full screen button', () => {
     const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
 
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
 
     setTriggerBottom(40)
     await scroll()
@@ -630,7 +631,7 @@ describe('SessionPage floating full screen button', () => {
 
   it('uses the app header specifically and ignores a decorative header above it', async () => {
     render(<TestHarness />)
-    await screen.findByRole('button', { name: 'Full screen' })
+    await screen.findByRole('button', { name: 'Go full screen' })
 
     // Add a decorative header above the app header with different bottom
     const decorativeHeader = document.createElement('header')
@@ -726,7 +727,7 @@ describe('SessionPage set links', () => {
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Share Set/Lyrics' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Share set/lyrics' })).toBeNull()
     expect(sessionStore.updateSession).not.toHaveBeenCalled()
     expect(sessionStore.createSession).not.toHaveBeenCalled()
   })
@@ -1044,7 +1045,7 @@ describe('SessionPage following a live set', () => {
     expect(await screen.findByText('Live set')).toBeTruthy()
     cleanup()
     setup(fixtures.session)
-    await screen.findByRole('button', { name: 'Add Song' })
+    await screen.findByRole('button', { name: 'Add song' })
     expect(screen.queryByText('Live set')).toBeNull()
   })
 
@@ -1070,7 +1071,7 @@ describe('SessionPage following a live set', () => {
 
   it('does not show the banner for a set that is not live', async () => {
     setup(fixtures.session)
-    await screen.findByRole('button', { name: 'Add Song' })
+    await screen.findByRole('button', { name: 'Add song' })
     expect(screen.queryByText(/Live set from host/)).toBeNull()
   })
 

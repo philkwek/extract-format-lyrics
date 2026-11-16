@@ -61,8 +61,8 @@ export default function PadControls({
   if (!onTogglePad || (!onChangePadKeyMode && !canPlayPad)) return null
 
   const keyDisplay = effectivePadKey ?? '—'
-  const buttonLabel = isPadPlaying ? `Playing Pads in ${keyDisplay}` : `Play Pads in ${keyDisplay}`
-  const ariaLabel = isPadPlaying ? `Playing Pad (${keyDisplay})` : 'Play Ambient Pad'
+  const buttonLabel = isPadPlaying ? `Pads playing in ${keyDisplay}` : `Play pads in ${keyDisplay}`
+  const ariaLabel = isPadPlaying ? `Pads playing (${keyDisplay})` : 'Play ambient pad'
 
   return (
     <div
@@ -123,9 +123,9 @@ export default function PadControls({
               if (openedByHover.current) openedByHover.current = false
               else setIsMenuOpen((prev) => !prev)
             }}
-            aria-label="Pad key settings"
+            aria-label="Change pad key"
             aria-expanded={isMenuOpen}
-            title="Pad key settings"
+            title="Change pad key"
             className={`inline-flex h-full cursor-pointer items-center justify-center border-l px-1.5 transition-[background-color,color,transform] duration-100 ease-out active:scale-[0.95] select-none ${
               isPadPlaying
                 ? 'border-white/20 dark:border-black/20 hover:bg-[var(--ui-accent-strong)]'

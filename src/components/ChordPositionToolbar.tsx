@@ -99,7 +99,7 @@ export default function ChordPositionToolbar({
             title="Save changes to setlist (Enter)"
             icon={<Check size={14} />}
           >
-            Save Changes
+            Save changes
           </Button>
         </div>
       </div>

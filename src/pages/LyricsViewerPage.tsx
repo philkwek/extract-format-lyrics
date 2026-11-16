@@ -280,7 +280,7 @@ export default function LyricsViewerPage() {
           </div>
           <div className="flex justify-center gap-3">
             <Button variant="secondary" onClick={() => navigate('/')}>
-              Home
+              Return home
             </Button>
             <Button variant="primary" icon={<RefreshCw size={15} />} onClick={() => refreshLyrics(true)}>
               Try again

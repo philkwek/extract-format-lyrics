@@ -1515,7 +1515,7 @@ export default function SessionPage() {
                 icon={<Share2 size={14} />}
                 onClick={handleOpenShareMenu}
               >
-                Share Set/Lyrics
+                Share set/lyrics
               </Button>
             )}
             <Button
@@ -1524,7 +1524,7 @@ export default function SessionPage() {
               icon={<Plus size={14} />}
               onClick={() => guard(() => setIsEditSetOpen(true))}
             >
-              Add Song
+              Add song
             </Button>
             <Button
               size="sm"
@@ -1532,10 +1532,10 @@ export default function SessionPage() {
               icon={<Maximize2 size={14} />}
               onClick={(event) => handleEnterFullScreen(event.currentTarget)}
               title="Fill the window with this chord sheet"
-              aria-label="Full screen"
+              aria-label="Go full screen"
               data-fullscreen-trigger
             >
-              <span className="hidden sm:inline">Full screen</span>
+              <span className="hidden sm:inline">Go full screen</span>
             </Button>
           </div>
         </div>
@@ -2005,7 +2005,7 @@ export default function SessionPage() {
               </p>
               <div className="flex justify-end pt-0.5">
                 <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
-                  Got it
+                  Close
                 </Button>
               </div>
             </aside>
@@ -2019,7 +2019,7 @@ export default function SessionPage() {
                 {...floatingFullScreenMotion}
               >
                 <IconButton
-                  label="Full screen"
+                  label="Go full screen"
                   title="Fill the window with this chord sheet"
                   variant="secondary"
                   className="ui-button--floating"

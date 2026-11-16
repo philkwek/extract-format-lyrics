@@ -34,7 +34,7 @@ export default function EditSetModal({
       size="lg"
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Done
+          Close
         </Button>
       }
     >

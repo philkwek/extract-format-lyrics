@@ -131,7 +131,7 @@ export default function DisplayControls({
                 aria-pressed={fitActive}
                 title={fitActive ? 'Turn off fit to screen' : 'Fit the whole song on screen'}
               >
-                Auto
+                Fit screen
               </Button>
             )}
             <div
@@ -269,7 +269,7 @@ export default function DisplayControls({
                 onClick={onToggleEditChords}
                 title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}
               >
-                {isEditingChords ? 'Done editing' : 'Edit chords'}
+                {isEditingChords ? 'Save edits' : 'Edit chords'}
               </Button>
             )}
             {!isFullScreen && onRestoreOriginal && (
