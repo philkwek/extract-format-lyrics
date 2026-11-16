@@ -429,11 +429,11 @@ html.dark body {
   }
   .ui-button,
   .ui-segmented__item,
-  .ui-switch__track,
-  .ui-switch__thumb {
+  .ui-switch__track {
     transition-duration: 0.01ms !important;
     transform: none !important;
   }
+  .ui-switch__thumb { transition-duration: 0.01ms !important; }
   .ui-spinner { animation-duration: 1.2s; }
 }
 
