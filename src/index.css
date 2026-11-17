@@ -136,12 +136,6 @@ html.dark body {
   background: var(--ui-canvas);
 }
 
-.dark .app-canvas {
-  background:
-    radial-gradient(circle at 8% -10%, rgba(245, 158, 11, 0.06), transparent 28rem),
-    var(--ui-canvas);
-}
-
 .ui-surface {
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius);
