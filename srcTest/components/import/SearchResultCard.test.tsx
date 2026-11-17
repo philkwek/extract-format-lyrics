@@ -74,19 +74,24 @@ describe('SearchResultCard', () => {
   it('shows a second button only when a secondary action is given', () => {
     const onClick = vi.fn()
     const { rerender } = render(
-      <SearchResultCard candidate={candidate} actionLabel="Add to list" onAction={vi.fn()} />
+      <SearchResultCard candidate={candidate} actionLabel="Add to set" onAction={vi.fn()} />
     )
     expect(screen.queryByRole('button', { name: 'Start now' })).toBeNull()
 
     rerender(
       <SearchResultCard
         candidate={candidate}
-        actionLabel="Add to list"
+        actionLabel="Add to set"
         onAction={vi.fn()}
-        secondaryAction={{ label: 'Start now', onClick }}
+        quickAction={{ label: 'Start now', onClick }}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Start now' }))
+    const start = screen.getByRole('button', { name: 'Start now' })
+    expect(start.className).toContain('ui-button--primary')
+    expect(screen.getByRole('button', { name: 'Add to set' }).className).toContain(
+      'ui-button--secondary'
+    )
+    fireEvent.click(start)
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 })

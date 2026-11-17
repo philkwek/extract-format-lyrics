@@ -43,14 +43,14 @@ export default function SongTray({
 }: SongTrayProps) {
   const isPhone = useIsPhone()
   const [expanded, setExpanded] = useState(false)
-  const isEmpty = items.length === 0
-  const pinned = isPhone && !isEmpty
-  const showList = !isEmpty && (!isPhone || expanded)
+  if (items.length === 0) return null
+
+  const pinned = isPhone
+  const showList = !isPhone || expanded
   const countLabel = `${items.length} of ${TRAY_MAX_SONGS} songs`
 
   return (
     <>
-      {pinned && <div className="h-[4.5rem]" aria-hidden="true" />}
       <section
         aria-label="Songs for your new set"
         className={`ui-surface space-y-3 p-3 sm:p-4 ${
@@ -60,9 +60,7 @@ export default function SongTray({
         }`}
       >
         <div className="flex items-center justify-between gap-3">
-          {isEmpty ? (
-            <p className="text-sm font-semibold text-ui-text">Search and add multiple songs</p>
-          ) : isPhone ? (
+          {isPhone ? (
             <button
               type="button"
               aria-expanded={expanded}
@@ -79,13 +77,7 @@ export default function SongTray({
           ) : (
             <h3 className="text-sm font-semibold text-ui-text">Your set · {countLabel}</h3>
           )}
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={isEmpty}
-            loading={isCreating}
-            onClick={onCreate}
-          >
+          <Button variant="primary" size="sm" loading={isCreating} onClick={onCreate}>
             Create set
           </Button>
         </div>

@@ -105,12 +105,12 @@ describe('SearchPage import wiring', () => {
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(input, { target: { value: 'song' } })
     fireEvent.submit(input.closest('form')!)
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add to list' })).toHaveLength(2))
-    expect(screen.getByText('Search and add multiple songs')).toBeTruthy()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add to set' })).toHaveLength(2))
+    expect(screen.queryByRole('region', { name: 'Songs for your new set' })).toBeNull()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add to list' })[1])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add to set' })[1])
     expect(screen.queryAllByRole('button', { name: 'Start now' })).toHaveLength(0)
-    fireEvent.click(screen.getByRole('button', { name: 'Add to list' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add to set' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 left' }))
     fireEvent.click(screen.getByRole('button', { name: 'Create set' }))
 

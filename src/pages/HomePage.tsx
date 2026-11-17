@@ -237,7 +237,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7">
+    <div className={`mx-auto max-w-6xl space-y-7 ${tray.items.length > 0 ? 'pb-24 sm:pb-0' : ''}`}>
       <div className="px-1 pt-2 sm:pt-4">
         <div className="flex items-start gap-3 rounded-2xl border border-ui-accent/20 bg-ui-surface/70 px-4 py-3 text-sm leading-6 text-ui-text shadow-sm backdrop-blur-sm">
           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong" aria-hidden="true"><Info size={14} /></span>
@@ -314,9 +314,9 @@ export default function HomePage() {
                 const inTray = tray.urls.has(candidate.url)
                 const starting = creatingFromUrl === candidate.url
                 return {
-                  label: inTray ? 'Added' : 'Add to list',
+                  label: inTray ? 'Added' : 'Add to set',
                   disabled: inTray || tray.isFull || tray.isCreating || Boolean(creatingFromUrl),
-                  secondary:
+                  quick:
                     tray.items.length === 0
                       ? {
                           label: 'Start now',

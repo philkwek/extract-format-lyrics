@@ -9,7 +9,7 @@ interface SearchResultCardProps {
   actionDisabled?: boolean
   actionLoading?: boolean
   onAction: () => void
-  secondaryAction?: { label: string; disabled?: boolean; loading?: boolean; onClick: () => void }
+  quickAction?: { label: string; disabled?: boolean; loading?: boolean; onClick: () => void }
 }
 
 export default function SearchResultCard({
@@ -18,7 +18,7 @@ export default function SearchResultCard({
   actionDisabled = false,
   actionLoading = false,
   onAction,
-  secondaryAction,
+  quickAction,
 }: SearchResultCardProps) {
   return (
     <div className="ui-surface flex min-h-40 flex-col justify-between p-4 transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)]">
@@ -50,26 +50,26 @@ export default function SearchResultCard({
           View source <ExternalLink size={12} />
         </a>
         <div className="flex items-center gap-2">
-          {secondaryAction && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={secondaryAction.onClick}
-              disabled={secondaryAction.disabled}
-              loading={secondaryAction.loading}
-            >
-              {secondaryAction.label}
-            </Button>
-          )}
           <Button
             size="sm"
-            variant="primary"
+            variant={quickAction ? 'secondary' : 'primary'}
             onClick={onAction}
             disabled={actionDisabled}
             loading={actionLoading}
           >
             {actionLabel}
           </Button>
+          {quickAction && (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={quickAction.onClick}
+              disabled={quickAction.disabled}
+              loading={quickAction.loading}
+            >
+              {quickAction.label}
+            </Button>
+          )}
         </div>
       </div>
     </div>

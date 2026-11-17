@@ -19,24 +19,25 @@ Do not reopen these.
 2. **Where.** Home search and the navbar search page (`SearchPage.tsx`), but only when it creates a new
    set. With a `targetSessionId` (opened from inside a set) nothing changes: the card keeps
    **Add to setlist** and there is no tray.
-3. **The tray is always visible.** Empty, it says **Search and add multiple songs** and **Create set** is
-   disabled. This is how people learn they can pick several.
+3. **The tray is hidden until the first song is added.** It first showed an empty invite
+   (**Search and add multiple songs**); the owner replaced that after seeing it built. The two card
+   buttons are the cue that several songs can be picked.
 4. **Card buttons depend on the tray:**
-   - Tray empty: **Add to list** and **Start now**. **Start now** imports only that song
+   - Tray empty: **Add to set** and **Start now**. **Start now** imports only that song
      and ignores the tray (today's behaviour).
-   - Tray has songs: only **Add to list**.
+   - Tray has songs: only **Add to set**.
    - A song already in the tray shows a disabled **Added** (a label, not colour alone).
    - Emptying the tray brings **Start now** back.
 5. **Navbar search copy.** Without a target set, **Extract and view** becomes **Start now**, the same
    label as Home (the owner chose the short form up front).
 6. **Duplicates.** Keyed by chart URL. Different versions of one song are allowed.
 7. **Cap: 30 songs**, using `SET_LINK_MAX_SONGS` (`src/lib/setLinkSync.ts`) so a tray set can always be
-   shared by link or live. At the cap, **Add to list** is disabled and the tray says so in plain words.
+   shared by link or live. At the cap, **Add to set** is disabled and the tray says so in plain words.
 8. **Create set** makes one `importSources(sources, { requireAll: true })` call. On failure the whole
    import fails, the tray is kept, and failed songs are marked in it (text, not colour alone) so the
    user can remove them and retry.
 9. **Tray layout.**
-   - Phone (<640px): a fixed bottom bar once it has songs (inline invite while empty) with the song count and **Create set**; it expands to a list.
+   - Phone (<640px): a fixed bottom bar once it has songs with the song count and **Create set**; it expands to a list.
      Each row has **Move up**, **Move down** and **Remove**.
    - Tablet and up: inline above the results as wrapping, numbered chips. Each chip has **Move left**,
      **Move right** and **Remove**.
@@ -87,7 +88,7 @@ Done when: a test shows phone and wide variants render their own move buttons an
 
 ### T4. Wire up both pages
 Files: `HomePage.tsx`, `SearchPage.tsx`, `srcTest/pages/*`.
-- Home and navbar (no target): tray, **Add to list** / **Start now** logic from decision 4,
+- Home and navbar (no target): tray, **Add to set** / **Start now** logic from decision 4,
   **Create set** import, error handling from decision 8, analytics via `trackSongImport('search', ...)`
   with the real counts.
 - Navbar with `targetSessionId`: unchanged. Update the old label expectations in tests.

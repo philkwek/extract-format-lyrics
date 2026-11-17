@@ -11,7 +11,7 @@ interface SearchActionState {
   label: string
   disabled?: boolean
   loading?: boolean
-  secondary?: { label: string; disabled?: boolean; loading?: boolean; onSelect: () => void }
+  quick?: { label: string; disabled?: boolean; loading?: boolean; onSelect: () => void }
 }
 
 interface SearchResultsProps {
@@ -121,12 +121,12 @@ export default function SearchResults({
                 actionDisabled={action.disabled}
                 actionLoading={action.loading}
                 onAction={() => onSelect(candidate)}
-                secondaryAction={
-                  action.secondary && {
-                    label: action.secondary.label,
-                    disabled: action.secondary.disabled,
-                    loading: action.secondary.loading,
-                    onClick: action.secondary.onSelect,
+                quickAction={
+                  action.quick && {
+                    label: action.quick.label,
+                    disabled: action.quick.disabled,
+                    loading: action.quick.loading,
+                    onClick: action.quick.onSelect,
                   }
                 }
               />

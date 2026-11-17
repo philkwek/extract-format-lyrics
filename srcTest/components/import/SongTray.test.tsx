@@ -32,13 +32,10 @@ const base = {
 }
 
 describe('SongTray', () => {
-  it('invites people to add songs when empty and disables Create set', () => {
+  it('renders nothing until a song is added', () => {
     setPhone(false)
-    render(<SongTray {...base} items={[]} />)
-    expect(screen.getByText('Search and add multiple songs')).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Create set' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    )
+    const { container } = render(<SongTray {...base} items={[]} />)
+    expect(container.firstChild).toBeNull()
   })
 
   it('shows numbered songs with left and right buttons on wider screens', () => {

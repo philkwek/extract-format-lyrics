@@ -185,7 +185,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className={`mx-auto max-w-5xl space-y-5 ${useTray && tray.items.length > 0 ? 'pb-24 sm:pb-0' : ''}`}>
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="ghost"
@@ -294,9 +294,9 @@ export default function SearchPage() {
             const inTray = tray.urls.has(candidate.url)
             const starting = addingUrls.has(candidate.url)
             return {
-              label: inTray ? 'Added' : 'Add to list',
+              label: inTray ? 'Added' : 'Add to set',
               disabled: inTray || tray.isFull || tray.isCreating || addingUrls.size > 0,
-              secondary:
+              quick:
                 tray.items.length === 0
                   ? {
                       label: 'Start now',
