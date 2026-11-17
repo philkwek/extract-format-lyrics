@@ -20,8 +20,10 @@ import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
+import SongTray from '../components/import/SongTray'
 import { Button, SegmentedControl, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
+import { useSongTray } from '../lib/useSongTray'
 
 export default function SearchPage() {
   useSeo({ title: 'Find Chord Sheets | Sets & Sheets', description: 'Search Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net by song title or artist and add the chart to your set.', path: '/search' })
@@ -29,6 +31,8 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams()
   const targetSessionId = searchParams.get('session')
   const [targetSession, setTargetSession] = useState<Session | null>(null)
+  const tray = useSongTray()
+  const useTray = !targetSessionId
 
   const [mode, setMode] = useState<'search' | 'paste'>('search')
 
@@ -135,6 +139,11 @@ export default function SearchPage() {
         return next
       })
     }
+  }
+
+  const handleCreateFromTray = async () => {
+    const session = await tray.create()
+    if (session) navigate(sessionPath(session))
   }
 
   const handlePasteExtract = async () => {
@@ -247,6 +256,18 @@ export default function SearchPage() {
         </div>
       </Surface>
 
+      {mode === 'search' && useTray && (
+        <SongTray
+          items={tray.items}
+          failedUrls={tray.failedUrls}
+          isCreating={tray.isCreating}
+          error={tray.error}
+          onMove={tray.move}
+          onRemove={tray.remove}
+          onCreate={handleCreateFromTray}
+        />
+      )}
+
       {/* Results (Only shown in search mode) */}
       {mode === 'search' && (
         <SearchResults
@@ -257,18 +278,35 @@ export default function SearchPage() {
           sources={sources}
           partial={partial}
           emptyMessage="No matching songs found. Try a different query or paste links above."
-          onSelect={handleAddCandidate}
-          getActionState={(candidate) => ({
-            label: addedUrls.has(candidate.url)
-              ? 'Added ✓'
-              : addingUrls.has(candidate.url)
-                ? 'Adding...'
-                : targetSessionId
-                  ? 'Add to setlist'
-                  : 'Extract and view',
-            disabled: addingUrls.has(candidate.url) || addedUrls.has(candidate.url),
-            loading: addingUrls.has(candidate.url),
-          })}
+          onSelect={useTray ? tray.add : handleAddCandidate}
+          getActionState={(candidate) => {
+            if (!useTray) {
+              return {
+                label: addedUrls.has(candidate.url)
+                  ? 'Added ✓'
+                  : addingUrls.has(candidate.url)
+                    ? 'Adding...'
+                    : 'Add to setlist',
+                disabled: addingUrls.has(candidate.url) || addedUrls.has(candidate.url),
+                loading: addingUrls.has(candidate.url),
+              }
+            }
+            const inTray = tray.urls.has(candidate.url)
+            const starting = addingUrls.has(candidate.url)
+            return {
+              label: inTray ? 'Added' : 'Add to list',
+              disabled: inTray || tray.isFull || tray.isCreating || addingUrls.size > 0,
+              secondary:
+                tray.items.length === 0
+                  ? {
+                      label: 'Start now',
+                      disabled: addingUrls.size > 0,
+                      loading: starting,
+                      onSelect: () => handleAddCandidate(candidate),
+                    }
+                  : undefined,
+            }
+          }}
         />
       )}
     </div>

@@ -9,6 +9,7 @@ interface SearchResultCardProps {
   actionDisabled?: boolean
   actionLoading?: boolean
   onAction: () => void
+  secondaryAction?: { label: string; disabled?: boolean; loading?: boolean; onClick: () => void }
 }
 
 export default function SearchResultCard({
@@ -17,19 +18,20 @@ export default function SearchResultCard({
   actionDisabled = false,
   actionLoading = false,
   onAction,
+  secondaryAction,
 }: SearchResultCardProps) {
   return (
     <div className="ui-surface flex min-h-40 flex-col justify-between p-4 transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)]">
       <div>
         <div className="flex items-start justify-between gap-2">
-          <h4 className="text-sm font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">
+          <h4 className="text-base font-bold leading-snug tracking-[-0.01em] text-[var(--ui-text)]">
             {candidate.title}
           </h4>
           <span className="shrink-0 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-0.5 text-[10px] font-bold uppercase text-[var(--ui-text-muted)]">
             {sourceLabel(candidate.site)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">{candidate.artist}</p>
+        <p className="mt-1 text-sm text-ui-text">{candidate.artist}</p>
 
         <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--ui-text-muted)]">
           {candidate.versionLabel && <span>{candidate.versionLabel}</span>}
@@ -47,15 +49,28 @@ export default function SearchResultCard({
         >
           View source <ExternalLink size={12} />
         </a>
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={onAction}
-          disabled={actionDisabled}
-          loading={actionLoading}
-        >
-          {actionLabel}
-        </Button>
+        <div className="flex items-center gap-2">
+          {secondaryAction && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={secondaryAction.onClick}
+              disabled={secondaryAction.disabled}
+              loading={secondaryAction.loading}
+            >
+              {secondaryAction.label}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={onAction}
+            disabled={actionDisabled}
+            loading={actionLoading}
+          >
+            {actionLabel}
+          </Button>
+        </div>
       </div>
     </div>
   )

@@ -136,7 +136,7 @@ describe('usage events at action boundaries', () => {
         result_count: 1,
       }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Start setlist' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start now' }))
     await waitFor(() => expect(trackSongImport).toHaveBeenCalledWith('search', 1, 1))
     expect(scrapeApi).not.toHaveBeenCalled()
   })

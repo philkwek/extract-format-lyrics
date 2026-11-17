@@ -38,16 +38,19 @@ import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
+import SongTray from '../components/import/SongTray'
 import LiveShareChip from '../components/share/LiveShareChip'
 import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import { Button, IconButton, LivePill, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
+import { useSongTray } from '../lib/useSongTray'
 
 export default function HomePage() {
   useSeo({ title: 'Sets & Sheets – Chord sheets, transposing and worship set lists', description: 'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.', path: '/' })
   const navigate = useNavigate()
+  const tray = useSongTray()
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
 
   // Paste mode state
@@ -228,6 +231,11 @@ export default function HomePage() {
     }
   }
 
+  const handleCreateFromTray = async () => {
+    const session = await tray.create()
+    if (session) navigate(sessionPath(session))
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-7">
       <div className="px-1 pt-2 sm:pt-4">
@@ -284,6 +292,15 @@ export default function HomePage() {
               description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
               placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
             />
+            <SongTray
+              items={tray.items}
+              failedUrls={tray.failedUrls}
+              isCreating={tray.isCreating}
+              error={tray.error}
+              onMove={tray.move}
+              onRemove={tray.remove}
+              onCreate={handleCreateFromTray}
+            />
             <SearchResults
               results={searchResults}
               isSearching={isSearching}
@@ -292,12 +309,24 @@ export default function HomePage() {
               sources={searchSources}
               partial={searchPartial}
               emptyMessage="No matching chord sheets found. Try a different title or artist name."
-              onSelect={handleCreateFromSearch}
-              getActionState={(candidate) => ({
-                label: 'Start setlist',
-                disabled: creatingFromUrl === candidate.url,
-                loading: creatingFromUrl === candidate.url,
-              })}
+              onSelect={tray.add}
+              getActionState={(candidate) => {
+                const inTray = tray.urls.has(candidate.url)
+                const starting = creatingFromUrl === candidate.url
+                return {
+                  label: inTray ? 'Added' : 'Add to list',
+                  disabled: inTray || tray.isFull || tray.isCreating || Boolean(creatingFromUrl),
+                  secondary:
+                    tray.items.length === 0
+                      ? {
+                          label: 'Start now',
+                          disabled: starting || Boolean(creatingFromUrl),
+                          loading: starting,
+                          onSelect: () => handleCreateFromSearch(candidate),
+                        }
+                      : undefined,
+                }
+              }}
             />
           </div>
         )}

@@ -70,4 +70,23 @@ describe('SearchResultCard', () => {
 
     expect((screen.getByRole('button', { name: 'Added ✓' }) as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it('shows a second button only when a secondary action is given', () => {
+    const onClick = vi.fn()
+    const { rerender } = render(
+      <SearchResultCard candidate={candidate} actionLabel="Add to list" onAction={vi.fn()} />
+    )
+    expect(screen.queryByRole('button', { name: 'Start now' })).toBeNull()
+
+    rerender(
+      <SearchResultCard
+        candidate={candidate}
+        actionLabel="Add to list"
+        onAction={vi.fn()}
+        secondaryAction={{ label: 'Start now', onClick }}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start now' }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
 })

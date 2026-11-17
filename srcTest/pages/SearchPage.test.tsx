@@ -74,6 +74,54 @@ describe('SearchPage import wiring', () => {
     expect(navigate).toHaveBeenCalledWith('/session/session-1?song=3')
   })
 
+  it('builds one new set from several picked songs, in tray order', async () => {
+    const candidate = (n: number) => ({
+      site: 'pnwchords' as const,
+      title: `Song ${n}`,
+      artist: `Artist ${n}`,
+      url: `https://pnwchords.com/song-${n}`,
+    })
+    vi.mocked(searchApiStream).mockResolvedValue({
+      query: 'song',
+      results: [candidate(1), candidate(2)],
+      sources: [],
+      partial: false,
+    })
+    vi.mocked(importSources).mockResolvedValue({
+      session: { id: 'new-set', createdAt: 0, name: 'New', songs: [] },
+      items: [],
+      outcomes: [],
+      imported: 2,
+      attempted: 2,
+      firstNewIndex: 0,
+      failures: [],
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/search']}>
+        <SearchPage />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
+    fireEvent.change(input, { target: { value: 'song' } })
+    fireEvent.submit(input.closest('form')!)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add to list' })).toHaveLength(2))
+    expect(screen.getByText('Search and add multiple songs')).toBeTruthy()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add to list' })[1])
+    expect(screen.queryAllByRole('button', { name: 'Start now' })).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Add to list' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 left' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create set' }))
+
+    await waitFor(() => expect(importSources).toHaveBeenCalledTimes(1))
+    const [sources, options] = vi.mocked(importSources).mock.calls[0]
+    expect(sources.map((source) => source.title)).toEqual(['Song 2', 'Song 1'])
+    expect(options).toEqual(expect.objectContaining({ requireAll: true }))
+    expect(options?.targetSessionId).toBeUndefined()
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/session/new-set'))
+  })
+
   it('does not show the empty state underneath a search error', async () => {
     vi.mocked(searchApiStream).mockRejectedValue(new Error('Search unavailable'))
 
@@ -129,7 +177,7 @@ describe('SearchPage import wiring', () => {
     fireEvent.submit(input.closest('form')!)
 
     await waitFor(() => expect(screen.getByText('Good Grace')).toBeTruthy())
-    expect(screen.getByRole('button', { name: 'Extract and view' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Start now' })).toBeTruthy()
     expect(screen.getByText(/Checking remaining sources/)).toBeTruthy()
 
     resolveSearch({ query: 'Good Grace', results: [], sources: [], partial: false })
