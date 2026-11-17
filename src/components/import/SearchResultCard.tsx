@@ -47,7 +47,7 @@ export default function SearchResultCard({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
         >
-          View source <ExternalLink size={12} />
+          Source <ExternalLink size={12} />
         </a>
         <div className="flex items-center gap-2">
           <Button

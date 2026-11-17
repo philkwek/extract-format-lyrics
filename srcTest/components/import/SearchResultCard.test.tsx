@@ -28,7 +28,7 @@ describe('SearchResultCard', () => {
     expect(screen.getByText('Ver 2')).toBeTruthy()
     expect(screen.getByText('★ 4.5')).toBeTruthy()
     expect(screen.getByText('• Chords')).toBeTruthy()
-    expect(screen.getByRole('link', { name: /View source/ })).toHaveProperty(
+    expect(screen.getByRole('link', { name: /Source/ })).toHaveProperty(
       'href',
       'https://pnwchords.com/good-grace'
     )
