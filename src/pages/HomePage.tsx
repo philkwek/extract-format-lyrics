@@ -476,7 +476,7 @@ export default function HomePage() {
               Cancel
             </Button>
             <Button
-              variant="danger"
+              variant="danger-solid"
               onClick={() => deletingSession && void handleDeleteSession(deletingSession.id)}
             >
               Delete

@@ -213,6 +213,8 @@ html.dark body {
 .ui-button--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 9%, transparent); color: var(--ui-text); }
 .ui-button--danger { background: transparent; color: #c43d3d; }
 .ui-button--danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.09); }
+.ui-button--danger-solid { background: #b91c1c; color: white; border-color: #b91c1c; }
+.ui-button--danger-solid:hover:not(:disabled) { background: #991b1b; border-color: #991b1b; }
 .ui-button--success { background: #15803d; color: white; }
 .ui-button--success:hover:not(:disabled) { background: #166534; }
 /* Buttons on the live banner, in the banner's state colour. */

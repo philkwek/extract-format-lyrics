@@ -316,6 +316,48 @@ describe('SessionPage full screen mode', () => {
     expect(screen.queryByRole('button', { name: 'Arrange setlist' })).toBeNull()
   })
 
+  it('asks before removing a song from the song tabs', async () => {
+    const twoSongSession = {
+      ...fixtures.session,
+      songs: [
+        { ...fixtures.session.songs[0], entryId: 'entry-a' },
+        { ...fixtures.session.songs[0], entryId: 'entry-b', url: 'https://example.test/second' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
+    vi.mocked(sessionStore.removeSongFromSession).mockClear()
+
+    try {
+      render(<TestHarness />)
+
+      const removeButtons = await screen.findAllByRole('button', {
+        name: 'Remove Great Are You Lord',
+      })
+      fireEvent.click(removeButtons[0])
+
+      expect(await screen.findByRole('heading', { name: 'Remove this song?' })).toBeTruthy()
+      expect(
+        screen.getByText('"Great Are You Lord" will be removed from this setlist.'),
+      ).toBeTruthy()
+      expect(sessionStore.removeSongFromSession).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Remove this song?' })).toBeNull()
+      })
+      expect(sessionStore.removeSongFromSession).not.toHaveBeenCalled()
+
+      fireEvent.click(removeButtons[0])
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+
+      await waitFor(() => {
+        expect(sessionStore.removeSongFromSession).toHaveBeenCalledWith('session-1', 'entry-a')
+      })
+    } finally {
+      vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    }
+  })
+
   it('Arrange setlist on the song-tab row opens the drawer', async () => {
     const twoSongSession = {
       ...fixtures.session,

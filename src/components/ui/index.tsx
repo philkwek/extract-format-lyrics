@@ -11,7 +11,8 @@ import { classes } from '../../lib/classes'
 import { reducedMotionTransition, segmentedSpring } from '../../lib/uiMotion'
 import { liveToneClasses, type LiveTone } from './liveTone'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
+export type ButtonVariant =
+  'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-solid' | 'success'
 export type ButtonSize = 'sm' | 'md' | 'icon'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -26,6 +27,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
   secondary: 'ui-button--secondary',
   ghost: 'ui-button--ghost',
   danger: 'ui-button--danger',
+  'danger-solid': 'ui-button--danger-solid',
   success: 'ui-button--success',
 }
 

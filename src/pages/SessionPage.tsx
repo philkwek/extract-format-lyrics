@@ -157,6 +157,9 @@ export default function SessionPage() {
   } | null>(null)
   const [savingPreview, setSavingPreview] = useState(false)
   const [confirmingUpdate, setConfirmingUpdate] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState<{ entryId: string; title: string } | null>(
+    null,
+  )
   const [previewError, setPreviewError] = useState<ChangeNote | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
@@ -790,6 +793,13 @@ export default function SessionPage() {
         setSearchParams({ song: Math.max(0, updated.songs.length - 1).toString() })
       }
     }
+  }
+
+  const confirmRemoveSong = async () => {
+    if (!pendingRemove) return
+    const { entryId } = pendingRemove
+    setPendingRemove(null)
+    await handleRemoveSong(entryId)
   }
 
   const handleReorderSections = async (fromIndex: number, toIndex: number) => {
@@ -1647,7 +1657,7 @@ export default function SessionPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      guard(() => handleRemoveSong(item.entryId || ''))
+                      guard(() => setPendingRemove({ entryId: item.entryId || '', title: label }))
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     title="Remove song from setlist"
@@ -1928,6 +1938,27 @@ export default function SessionPage() {
         <p className="text-sm text-[var(--ui-text)]">
           Your copy will be replaced with this version of the shared set. Changes you made to your
           copy will be lost.
+        </p>
+      </OverlayDialog>
+
+      <OverlayDialog
+        isOpen={pendingRemove !== null}
+        onClose={() => setPendingRemove(null)}
+        title="Remove this song?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingRemove(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger-solid" onClick={() => void confirmRemoveSong()}>
+              Remove
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--ui-text)]">
+          {pendingRemove ? `"${pendingRemove.title}" will be removed from this setlist.` : ''}
         </p>
       </OverlayDialog>
 
