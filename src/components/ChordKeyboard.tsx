@@ -139,8 +139,8 @@ export default function ChordKeyboard({
 
         {/* Lyric Context (if available) */}
         {lyricContext && (
-          <div className="text-xs text-neutral-600 dark:text-[#999999] font-mono bg-neutral-100 dark:bg-[#101010] p-2 rounded-lg">
-            <span className="text-neutral-400 dark:text-[#777777] block text-[10px] uppercase font-sans font-semibold mb-0.5">
+          <div className="text-xs text-neutral-600 dark:text-ui-text-muted font-mono bg-neutral-100 dark:bg-ui-surface-muted p-2 rounded-lg">
+            <span className="text-neutral-400 dark:text-ui-text-muted block text-[10px] uppercase font-sans font-semibold mb-0.5">
               Above Lyric
             </span>
             <span className="break-words font-medium">&ldquo;{lyricContext}&rdquo;</span>
@@ -159,14 +159,14 @@ export default function ChordKeyboard({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full font-mono text-xl font-bold text-[#255283] dark:text-amber-400 bg-neutral-50 dark:bg-[#101010] border-2 border-neutral-300 dark:border-[#282828] focus:border-[#3368A0] dark:focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
+            className="w-full font-mono text-xl font-bold text-[#255283] dark:text-amber-400 bg-neutral-50 dark:bg-ui-surface-muted border-2 border-neutral-300 dark:border-ui-border focus:border-[#3368A0] dark:focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
           />
           {chord && (
             <button
               type="button"
               onClick={handleClear}
               title="Clear chord"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:text-[#777777] dark:hover:text-[#e5e5e5] p-1 text-xs cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:text-ui-text-muted dark:hover:text-ui-text p-1 text-xs cursor-pointer"
             >
               ✕
             </button>
@@ -177,7 +177,7 @@ export default function ChordKeyboard({
         <div className="space-y-3 pt-1">
           {/* Row 1: Root Notes */}
           <div>
-            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-[#777777] mb-1">
+            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted mb-1">
               Root Note
             </div>
             <div className="grid grid-cols-7 gap-1">
@@ -191,7 +191,7 @@ export default function ChordKeyboard({
                     className={`py-2 text-sm font-bold rounded-lg transition-all active:scale-95 cursor-pointer border ${
                       isActive
                         ? 'bg-[#3368A0] text-white border-[#3368A0] shadow-xs dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                        : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                        : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                     }`}
                   >
                     {note}
@@ -203,7 +203,7 @@ export default function ChordKeyboard({
 
           {/* Row 2: Accidentals, Bass Slash, Backspace */}
           <div>
-            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-[#777777] mb-1">
+            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted mb-1">
               Accidentals & Modifiers
             </div>
             <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
@@ -213,7 +213,7 @@ export default function ChordKeyboard({
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   activeAccidental === '#'
                     ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                    : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                 }`}
               >
                 <span>♯</span>
@@ -226,7 +226,7 @@ export default function ChordKeyboard({
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   activeAccidental === 'b'
                     ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                    : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                 }`}
               >
                 <span>♭</span>
@@ -239,7 +239,7 @@ export default function ChordKeyboard({
                 className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
                   chord.includes('/')
                     ? 'bg-[#C8DFDB]/60 text-[#1c436b] border-[#66A3BF]/50 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/50'
-                    : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                 }`}
                 aria-label="Add bass note"
                 title="Add bass note"
@@ -251,7 +251,7 @@ export default function ChordKeyboard({
               <button
                 type="button"
                 onClick={handleBackspace}
-                className="py-2 bg-neutral-100 dark:bg-[#202020] text-neutral-700 dark:text-[#d4d4d4] border border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                className="py-2 bg-neutral-100 dark:bg-ui-surface-raised text-neutral-700 dark:text-ui-text border border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
                 aria-label="Delete last character"
                 title="Delete last character"
               >
@@ -264,10 +264,10 @@ export default function ChordKeyboard({
           {/* Row 3: Chord Qualities */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-[#777777]">
+              <span className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted">
                 {mode === 'simple' ? 'Simple Qualities' : 'Advanced Qualities & Extensions'}
               </span>
-              <span className="text-[10px] text-neutral-400 dark:text-[#777777]">
+              <span className="text-[10px] text-neutral-400 dark:text-ui-text-muted">
                 {mode === 'simple' ? 'Common types' : 'All extensions'}
               </span>
             </div>
@@ -285,7 +285,7 @@ export default function ChordKeyboard({
                       className={`py-2 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border ${
                         isCurrent
                           ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                          : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                          : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                       }`}
                       title={q.desc}
                     >
@@ -307,7 +307,7 @@ export default function ChordKeyboard({
                       className={`py-1.5 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border truncate ${
                         isCurrent
                           ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                          : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#e5e5e5] border-neutral-200 dark:border-[#2e2e2e] hover:bg-neutral-200 dark:hover:bg-[#2a2a2a]'
+                          : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
                       }`}
                     >
                       {q.label}
@@ -320,7 +320,7 @@ export default function ChordKeyboard({
         </div>
 
         {/* Modal Action Buttons: Delete Chord, Edit Position, Cancel, Save */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-[#282828] gap-2 flex-wrap">
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-ui-border gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Button
               variant="danger"

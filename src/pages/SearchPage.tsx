@@ -245,6 +245,7 @@ export default function SearchPage() {
             error={error}
             description="Find chord sheets across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
             placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
+            className="[&_.ui-field]:bg-ui-surface-raised!"
           />
         ) : (
           <>

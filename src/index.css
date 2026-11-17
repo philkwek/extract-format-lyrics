@@ -114,7 +114,7 @@ html.dark body {
   --ui-canvas: #1a1a1a;
   --ui-surface: #1e1e1e;
   --ui-surface-raised: #242424;
-  --ui-surface-muted: #171717;
+  --ui-surface-muted: #202020;
   --ui-surface-flat: #1e1e1e;
   --ui-text: #ededeb;
   --ui-text-muted: #a5a5a0;
@@ -215,6 +215,7 @@ html.dark body {
 .ui-button--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 9%, transparent); color: var(--ui-text); }
 .ui-button--danger { background: transparent; color: #c43d3d; }
 .ui-button--danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.09); }
+.dark .ui-button--danger { color: #f87171; }
 .ui-button--danger-solid { background: #b91c1c; color: white; border-color: #b91c1c; }
 .ui-button--danger-solid:hover:not(:disabled) { background: #991b1b; border-color: #991b1b; }
 .ui-button--success { background: #15803d; color: white; }
@@ -411,7 +412,7 @@ html.dark body {
   overflow: hidden;
   border: 1px solid var(--ui-border);
   border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--ui-surface-raised) 94%, transparent);
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-lg);
   outline: none;
@@ -451,7 +452,7 @@ html.dark body {
 
 @media (prefers-reduced-transparency: reduce) {
   .ui-overlay { backdrop-filter: none; background: rgba(15, 18, 18, 0.72); }
-  .ui-dialog,
+  .ui-dialog { backdrop-filter: none; background: var(--ui-surface); }
   .ui-popover { backdrop-filter: none; background: var(--ui-surface-raised); }
 }
 

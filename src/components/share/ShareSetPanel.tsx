@@ -107,7 +107,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
 
   if (liveSourceUrl) {
     return (
-      <div className="rounded-xl border border-ui-border bg-ui-surface">
+      <div className="rounded-xl border border-ui-border bg-ui-surface-raised">
         <div className="space-y-3 p-3">
           <p className="text-xs leading-5 text-ui-text-muted">
             This set follows someone else&rsquo;s live share.
@@ -155,7 +155,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   }
 
   return (
-    <div className="rounded-xl border border-ui-border bg-ui-surface">
+    <div className="rounded-xl border border-ui-border bg-ui-surface-raised">
       <div className="px-3 py-3">
         <SendCopyRow session={session} canShareLive={canShareLive} />
       </div>

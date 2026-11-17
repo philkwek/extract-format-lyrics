@@ -132,6 +132,7 @@ export default function AddSongSearchPanel({
         error={error}
         description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
         placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+        className="[&_.ui-field]:bg-ui-surface-raised!"
       />
       <SearchResults
         results={results}
