@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText,
-  Info,
   Link2,
   ListMusic,
   Pencil,
