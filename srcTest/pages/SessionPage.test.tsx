@@ -82,7 +82,6 @@ vi.mock('../../src/lib/sessionStore', () => ({
   sessionStore: {
     getSession: vi.fn(async () => fixtures.session),
     updateSession: vi.fn(),
-    removeSongFromSession: vi.fn(),
     reorderSongsInSession: vi.fn(),
     renameSession: vi.fn(),
     createSession: vi.fn(),
@@ -325,7 +324,7 @@ describe('SessionPage full screen mode', () => {
       ],
     }
     vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongSession as never)
-    vi.mocked(sessionStore.removeSongFromSession).mockClear()
+    vi.mocked(sessionStore.updateSession).mockClear()
 
     try {
       render(<TestHarness />)
@@ -339,20 +338,13 @@ describe('SessionPage full screen mode', () => {
       expect(
         screen.getByText('"Great Are You Lord" will be removed from this setlist.'),
       ).toBeTruthy()
-      expect(sessionStore.removeSongFromSession).not.toHaveBeenCalled()
+      expect(sessionStore.updateSession).not.toHaveBeenCalled()
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       await waitFor(() => {
         expect(screen.queryByRole('heading', { name: 'Remove this song?' })).toBeNull()
       })
-      expect(sessionStore.removeSongFromSession).not.toHaveBeenCalled()
-
-      fireEvent.click(removeButtons[0])
-      fireEvent.click(await screen.findByRole('button', { name: 'Remove' }))
-
-      await waitFor(() => {
-        expect(sessionStore.removeSongFromSession).toHaveBeenCalledWith('session-1', 'entry-a')
-      })
+      expect(sessionStore.updateSession).not.toHaveBeenCalled()
     } finally {
       vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
     }
@@ -376,13 +368,6 @@ describe('SessionPage full screen mode', () => {
         expect(screen.queryByRole('heading', { name: 'Remove this section?' })).toBeNull()
       })
       expect(sessionStore.updateSession).not.toHaveBeenCalled()
-
-      fireEvent.click(screen.getByTitle('Delete Verse 1'))
-      fireEvent.click(await screen.findByRole('button', { name: 'Remove' }))
-
-      await waitFor(() => {
-        expect(sessionStore.updateSession).toHaveBeenCalled()
-      })
     } finally {
       confirmSpy.mockRestore()
     }
@@ -1393,5 +1378,238 @@ describe('SessionPage host change notice', () => {
     await waitFor(() => expect(announced('Removed “Bravo”')).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(announced('Removed “Bravo”')).toBe(false))
+  })
+})
+
+describe('SessionPage undoable removals', () => {
+  const twoSongs = {
+    ...fixtures.session,
+    songs: [
+      { ...fixtures.session.songs[0], entryId: 'entry-a' },
+      { ...fixtures.session.songs[0], entryId: 'entry-b', url: 'https://example.test/second' },
+    ],
+  }
+
+  const sectionSong = {
+    ...fixtures.song,
+    sections: [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'First line', chords: [{ chord: 'G', pos: 0 }] }],
+      },
+      {
+        type: 'Chorus',
+        label: 'Chorus',
+        lines: [{ kind: 'lyric', text: 'Second line', chords: [] }],
+      },
+      {
+        type: 'Verse',
+        label: 'Verse 2',
+        lines: [{ kind: 'lyric', text: 'Third line', chords: [] }],
+      },
+    ],
+    flow: [0, 1, 2, 1],
+    simplifiedSections: [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'First line', chords: [{ chord: 'G', pos: 0 }] }],
+      },
+      {
+        type: 'Chorus',
+        label: 'Chorus',
+        lines: [{ kind: 'lyric', text: 'Second line', chords: [] }],
+      },
+      {
+        type: 'Verse',
+        label: 'Verse 2',
+        lines: [{ kind: 'lyric', text: 'Third line', chords: [] }],
+      },
+    ],
+    simplifiedFlow: [0, 1, 2, 1],
+  }
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.mocked(songCache.getSong).mockImplementation(async () => fixtures.song as never)
+  })
+
+  async function openTwoSongs() {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    render(<TestHarness />)
+    return screen.findAllByRole('button', { name: 'Remove Great Are You Lord' })
+  }
+
+  function songTabs() {
+    return within(screen.getByRole('tablist', { name: 'Songs in setlist' })).getAllByRole('tab')
+  }
+
+  it('hides the song but writes nothing for 5 seconds', async () => {
+    const removeButtons = await openTwoSongs()
+    fireEvent.click(removeButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this song?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    expect(songTabs()).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  it('Undo brings the song back and never writes', async () => {
+    const removeButtons = await openTwoSongs()
+    fireEvent.click(removeButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this song?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await act(async () => {})
+
+    expect(songTabs()).toHaveLength(2)
+
+    await act(async () => {
+      vi.advanceTimersByTime(10000)
+    })
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  it('commits after 5 seconds', async () => {
+    const removeButtons = await openTwoSongs()
+    fireEvent.click(removeButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this song?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    expect(sessionStore.updateSession).toHaveBeenCalled()
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.songs.map((song) => song.entryId)).toEqual(['entry-b'])
+  })
+
+  it('keeps only one removal pending', async () => {
+    const threeSongs = {
+      ...twoSongs,
+      songs: [
+        ...twoSongs.songs,
+        { ...twoSongs.songs[1], entryId: 'entry-c', url: 'https://example.test/third' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(threeSongs as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    render(<TestHarness />)
+
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove Great Are You Lord' })
+    fireEvent.click(removeButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this song?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove Great Are You Lord' })[0])
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    // The first removal settles at once, the second owns the single undo window.
+    expect(sessionStore.updateSession).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
+    expect(songTabs()).toHaveLength(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.songs.map((song) => song.entryId)).toEqual(['entry-c'])
+  })
+
+  it('asks before removing a song from the Arrange drawer', async () => {
+    await openTwoSongs()
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrange setlist' }))
+
+    const arrangeHeading = await screen.findByRole('heading', { name: 'Arrange Setlist' })
+    const drawer = arrangeHeading.closest('[role="dialog"]') as HTMLElement
+    fireEvent.click(within(drawer).getAllByRole('button', { name: 'Remove Great Are You Lord' })[0])
+
+    expect(await screen.findByRole('heading', { name: 'Remove this song?' })).toBeTruthy()
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  async function openSections() {
+    vi.mocked(songCache.getSong).mockResolvedValue(sectionSong as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    render(<TestHarness />)
+    return screen.findAllByTitle('Delete Chorus')
+  }
+
+  it('hides the section but writes nothing for 5 seconds', async () => {
+    const deleteButtons = await openSections()
+    fireEvent.click(deleteButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this section?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    expect(screen.queryAllByTitle('Delete Chorus')).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  it('Undo restores the section and its repeated choruses without writing', async () => {
+    const deleteButtons = await openSections()
+    fireEvent.click(deleteButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this section?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await act(async () => {})
+
+    expect(screen.getAllByTitle('Delete Chorus').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      vi.advanceTimersByTime(10000)
+    })
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+  })
+
+  it('commits after 5 seconds, removing every flow occurrence', async () => {
+    const deleteButtons = await openSections()
+    fireEvent.click(deleteButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this section?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+    expect(sessionStore.updateSession).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    expect(sessionStore.updateSession).toHaveBeenCalled()
+    expect(screen.queryAllByTitle('Delete Chorus')).toHaveLength(0)
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.songs[0].customSections?.map((section) => section.label)).toEqual([
+      'Verse 1',
+      'Verse 2',
+    ])
+    expect(saved.songs[0].customFlow).toEqual([0, 1])
   })
 })

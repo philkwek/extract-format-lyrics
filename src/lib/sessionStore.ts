@@ -344,14 +344,6 @@ export class SessionStore {
     return session
   }
 
-  async removeSongFromSession(sessionId: string, entryId: string): Promise<Session | null> {
-    const session = await this.getSession(sessionId)
-    if (!session) return null
-    session.songs = session.songs.filter((s) => s.entryId !== entryId)
-    await this.updateSession(session)
-    return session
-  }
-
   async reorderSongsInSession(sessionId: string, fromIndex: number, toIndex: number): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null

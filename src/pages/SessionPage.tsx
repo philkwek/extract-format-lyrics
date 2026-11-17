@@ -104,6 +104,7 @@ import { useChromeVisibility } from '../lib/chromeVisibility'
 import { useFitToScreen } from '../lib/useFitToScreen'
 import { useSeo } from '../lib/useSeo'
 import { getFloatingActionMotion } from '../lib/uiMotion'
+import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 
 const SECTION_EDIT_TIP_STORAGE_KEY = 'has_dismissed_section_edit_tip'
 
@@ -116,11 +117,43 @@ interface PositioningChordState {
   currentPos: number
 }
 
+interface SongRemoval {
+  kind: 'song'
+  entryId: string
+  title: string
+}
+
+interface SectionRemoval {
+  kind: 'section'
+  entryId?: string
+  index: number
+  label: string
+  isSimplified: boolean
+  sections: Section[]
+  flow: number[]
+  song: Song
+  songKey: string
+}
+
+/** One removal can be pending at a time, whichever kind it is. */
+type Removal = SongRemoval | SectionRemoval
+
 const FALLBACK_TITLES: Record<SetLinkFallback, string> = {
   expired: 'This set link has expired',
   missing: 'This set link no longer exists',
   empty: 'None of the songs could be loaded',
   error: 'Couldn\u2019t load the latest version',
+}
+
+function withSections(
+  item: SessionSongItem,
+  sections: Section[],
+  flow: number[],
+  isSimplified: boolean,
+): SessionSongItem {
+  return isSimplified
+    ? { ...item, customSimplifiedSections: sections, customSimplifiedFlow: flow }
+    : { ...item, customSections: sections, customFlow: flow }
 }
 
 function describeLinkChanges({
@@ -166,6 +199,7 @@ export default function SessionPage() {
     repeatCount: number
   } | null>(null)
   const [previewError, setPreviewError] = useState<ChangeNote | null>(null)
+  const [removalError, setRemovalError] = useState<Removal | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
@@ -190,6 +224,44 @@ export default function SessionPage() {
     },
     [],
   )
+
+  const commitRemoval = useCallback(
+    async (payload: Removal) => {
+      if (payload.kind === 'song') {
+        const latest = sessionRef.current
+        if (!latest) return
+        const updated = {
+          ...latest,
+          songs: latest.songs.filter((song) => song.entryId !== payload.entryId),
+        }
+        await sessionStore.updateSession(updated)
+        sessionRef.current = updated
+        setSession(updated)
+        setRemovalError(null)
+        return
+      }
+      const sections = payload.sections.filter((_, index) => index !== payload.index)
+      const flow = removeSectionFromFlow(payload.flow, payload.index)
+      const updatedSong: Song = payload.isSimplified
+        ? { ...payload.song, simplifiedSections: sections, simplifiedFlow: flow }
+        : { ...payload.song, sections, flow }
+      await updateSongItem(payload.entryId, (item) =>
+        withSections(item, sections, flow, payload.isSimplified),
+      )
+      setSongsData((prev) => new Map(prev).set(payload.songKey, updatedSong))
+      setRemovalError(null)
+    },
+    [updateSongItem],
+  )
+
+  const {
+    pending: pendingRemoval,
+    start: startRemoval,
+    undo: undoRemoval,
+  } = usePendingRemoval<Removal>({ onCommit: commitRemoval, onError: setRemovalError })
+
+  const pendingSongRemoval = pendingRemoval?.kind === 'song' ? pendingRemoval : null
+  const pendingSectionRemoval = pendingRemoval?.kind === 'section' ? pendingRemoval : null
   const originalSongsRef = useRef<Map<string, Song>>(new Map())
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
@@ -332,11 +404,22 @@ export default function SessionPage() {
 
   const shownSongs = useMemo(() => {
     const songs = session?.songs ?? []
-    if (!removedByHost) return songs
-    const at = Math.min(removedByHost.index, songs.length)
-    return [...songs.slice(0, at), removedByHost.item, ...songs.slice(at)]
-  }, [session?.songs, removedByHost])
+    const withHostRemoved = !removedByHost
+      ? songs
+      : (() => {
+          const at = Math.min(removedByHost.index, songs.length)
+          return [...songs.slice(0, at), removedByHost.item, ...songs.slice(at)]
+        })()
+    return pendingSongRemoval
+      ? withHostRemoved.filter((item) => item.entryId !== pendingSongRemoval.entryId)
+      : withHostRemoved
+  }, [session?.songs, removedByHost, pendingSongRemoval])
   const currentItem = shownSongs[activeIndex]
+  const arrangeSongs = useMemo(
+    () =>
+      (session?.songs ?? []).filter((item) => item.entryId !== pendingSongRemoval?.entryId),
+    [session?.songs, pendingSongRemoval],
+  )
   const isRemovedItem = (item: SessionSongItem) =>
     removedByHost !== null && item.entryId === removedByHost.item.entryId
   const songForItem = (item: SessionSongItem) =>
@@ -546,6 +629,26 @@ export default function SessionPage() {
     }
   }, [hostChanges, shownSongs, activeIndex])
 
+  const undoNote = useMemo<ChangeNote | null>(
+    () =>
+      pendingRemoval
+        ? {
+            text: pendingRemoval.kind === 'song' ? 'Song removed' : 'Section removed',
+            action: { label: 'Undo', run: undoRemoval },
+          }
+        : null,
+    [pendingRemoval, undoRemoval],
+  )
+
+  const undoKey = pendingRemoval
+    ? pendingRemoval.kind === 'song'
+      ? pendingRemoval.entryId
+      : `${pendingRemoval.entryId ?? ''}-${pendingRemoval.index}`
+    : undefined
+
+  const dismissUndoToast = useCallback(() => undefined, [])
+  const deletionPending = pendingRemoval !== null
+
   const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
     setSession(updatedSession)
     await loadSessionSongs(updatedSession)
@@ -591,7 +694,7 @@ export default function SessionPage() {
     currentSong?.simplifiedSections && currentSong.simplifiedSections.length > 0,
   )
   const isSimplified = Boolean(prefs.simplified && canSimplify)
-  const activeSections = useMemo(() => {
+  const baseSections = useMemo(() => {
     if (
       isSimplified &&
       currentSong?.simplifiedSections &&
@@ -602,22 +705,43 @@ export default function SessionPage() {
     return currentSong?.sections ?? []
   }, [isSimplified, currentSong])
 
-  const activeFlow = useMemo(
+  const baseFlow = useMemo(
     () =>
       currentSong && currentItem
-        ? resolveSessionFlow(currentItem, currentSong, isSimplified, activeSections.length)
-        : identityFlow(activeSections.length),
-    [activeSections.length, currentItem, currentSong, isSimplified],
+        ? resolveSessionFlow(currentItem, currentSong, isSimplified, baseSections.length)
+        : identityFlow(baseSections.length),
+    [baseSections.length, currentItem, currentSong, isSimplified],
+  )
+
+  const subtractedSection =
+    pendingSectionRemoval &&
+    currentItem &&
+    pendingSectionRemoval.entryId === currentItem.entryId &&
+    pendingSectionRemoval.isSimplified === isSimplified
+      ? pendingSectionRemoval
+      : null
+
+  const activeSections = useMemo(
+    () =>
+      subtractedSection
+        ? baseSections.filter((_, index) => index !== subtractedSection.index)
+        : baseSections,
+    [baseSections, subtractedSection],
+  )
+
+  const activeFlow = useMemo(
+    () =>
+      subtractedSection
+        ? removeSectionFromFlow(baseFlow, subtractedSection.index)
+        : baseFlow,
+    [baseFlow, subtractedSection],
   )
 
   const withUpdatedSections = (
     item: SessionSongItem,
     sections: Section[],
     flow: number[],
-  ): SessionSongItem =>
-    isSimplified
-      ? { ...item, customSimplifiedSections: sections, customSimplifiedFlow: flow }
-      : { ...item, customSections: sections, customFlow: flow }
+  ): SessionSongItem => withSections(item, sections, flow, isSimplified)
 
   // Compute transposed song
   const displayedSong = useMemo(() => {
@@ -789,22 +913,15 @@ export default function SessionPage() {
     }
   }, [activeIndex, isFullScreen])
 
-  const handleRemoveSong = async (entryId: string) => {
-    if (!session) return
-    const updated = await sessionStore.removeSongFromSession(session.id, entryId)
-    if (updated) {
-      setSession(updated)
-      if (activeIndex >= updated.songs.length) {
-        setSearchParams({ song: Math.max(0, updated.songs.length - 1).toString() })
-      }
-    }
-  }
-
-  const confirmRemoveSong = async () => {
+  const confirmRemoveSong = () => {
     if (!pendingRemove) return
-    const { entryId } = pendingRemove
+    const { entryId, title } = pendingRemove
+    const remaining = shownSongs.filter((item) => item.entryId !== entryId).length
+    if (activeIndex >= remaining) {
+      setSearchParams({ song: Math.max(0, remaining - 1).toString() })
+    }
     setPendingRemove(null)
-    await handleRemoveSong(entryId)
+    startRemoval({ kind: 'song', entryId, title })
   }
 
   const handleReorderSections = async (fromIndex: number, toIndex: number) => {
@@ -925,43 +1042,30 @@ export default function SessionPage() {
 
   const requestDeleteSection = (sectionIndex: number) => {
     const targetSection = activeSections[sectionIndex]
+    const baseIndex = targetSection ? baseSections.indexOf(targetSection) : -1
+    const index = baseIndex >= 0 ? baseIndex : sectionIndex
     setPendingSectionDelete({
-      index: sectionIndex,
+      index,
       label: targetSection?.label || `Section ${sectionIndex + 1}`,
-      repeatCount: activeFlow.filter((index) => index === sectionIndex).length,
+      repeatCount: baseFlow.filter((entry) => entry === index).length,
     })
   }
 
-  const confirmDeleteSection = async () => {
-    if (!pendingSectionDelete) return
-    const { index } = pendingSectionDelete
+  const confirmDeleteSection = () => {
+    if (!pendingSectionDelete || !currentItem || !currentSong) return
+    const payload: SectionRemoval = {
+      kind: 'section',
+      entryId: currentItem.entryId,
+      index: pendingSectionDelete.index,
+      label: pendingSectionDelete.label,
+      isSimplified,
+      sections: baseSections,
+      flow: baseFlow,
+      song: currentSong,
+      songKey: currentItem.entryId || currentItem.url,
+    }
     setPendingSectionDelete(null)
-    await handleDeleteSection(index)
-  }
-
-  const handleDeleteSection = async (sectionIndex: number) => {
-    if (!currentSong || !session) return
-
-    const baseSections =
-      isSimplified && currentSong.simplifiedSections
-        ? currentSong.simplifiedSections
-        : currentSong.sections
-    const updatedSections = baseSections.filter((_, idx) => idx !== sectionIndex)
-    const nextFlow = removeSectionFromFlow(activeFlow, sectionIndex)
-
-    const updatedSong: Song =
-      isSimplified && currentSong.simplifiedSections
-        ? { ...currentSong, simplifiedSections: updatedSections, simplifiedFlow: nextFlow }
-        : { ...currentSong, sections: updatedSections, flow: nextFlow }
-
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
-
-    // Persist custom sections to session so it survives page reloads
-    await updateSongItem(currentItem?.entryId, (s) =>
-      withUpdatedSections(s, updatedSections, nextFlow),
-    )
+    startRemoval(payload)
   }
 
   const handleSplitLine = async (sectionIndex: number, lineIndex: number, splitAt: number) => {
@@ -1486,6 +1590,29 @@ export default function SessionPage() {
         </StatusBanner>
       )}
 
+      {!isFullScreen && removalError && (
+        <StatusBanner
+          tone="error"
+          actions={
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const payload = removalError
+                setRemovalError(null)
+                startRemoval(payload)
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {`Couldn't remove "${
+            removalError.kind === 'song' ? removalError.title : removalError.label
+          }". Nothing was removed.`}
+        </StatusBanner>
+      )}
+
       {/* Session Title Bar */}
       {!isFullScreen && (
         <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1523,7 +1650,7 @@ export default function SessionPage() {
               </div>
             )}
             <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
-              {session.songs.length} song(s) in setlist
+              {shownSongs.length} song(s) in setlist
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 ml-auto">
@@ -1661,7 +1788,7 @@ export default function SessionPage() {
                 )}
 
                 <span className="truncate max-w-[140px]">{tabLabel}</span>
-                {!isFullScreen && session.songs.length > 1 && !isRemovedItem(item) && (
+                {!isFullScreen && shownSongs.length > 1 && !isRemovedItem(item) && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -2027,7 +2154,7 @@ export default function SessionPage() {
         isOpen={isArrangingSongs && !isFullScreen}
         title="Arrange Setlist"
         subtitle={`Reorder songs in "${session.name}"`}
-        items={session.songs.map((item, idx) => {
+        items={arrangeSongs.map((item, idx) => {
           const s = songForItem(item)
           return {
             id: item.entryId || `${item.url}-${idx}`,
@@ -2036,10 +2163,35 @@ export default function SessionPage() {
             badge: `#${idx + 1}`,
           }
         })}
-        onMove={(from, to) => guard(() => void handleReorderSongs(from, to))}
+        onMove={(from, to) => {
+          if (!pendingSongRemoval) {
+            guard(() => void handleReorderSongs(from, to))
+            return
+          }
+          const fromIndex = session.songs.findIndex(
+            (item) => item.entryId === arrangeSongs[from]?.entryId,
+          )
+          const toIndex = session.songs.findIndex(
+            (item) => item.entryId === arrangeSongs[to]?.entryId,
+          )
+          if (fromIndex < 0 || toIndex < 0) return
+          guard(() => void handleReorderSongs(fromIndex, toIndex))
+        }}
         onDelete={
-          session.songs.length > 1
-            ? (idx) => guard(() => void handleRemoveSong(session.songs[idx].entryId || ''))
+          arrangeSongs.length > 1
+            ? (idx) => {
+                const item = arrangeSongs[idx]
+                if (!item) return
+                const s = songForItem(item)
+                guard(() => {
+                  setIsArrangingSongs(false)
+                  setPendingRemove({
+                    entryId: item.entryId || '',
+                    title:
+                      s?.title || item.title || item.url.replace(/^https?:\/\//, ''),
+                  })
+                })
+              }
             : undefined
         }
         onClose={() => setIsArrangingSongs(false)}
@@ -2117,11 +2269,19 @@ export default function SessionPage() {
       )}
 
       {/* Last, so it sits above the other bottom popovers. */}
-      <HostChangeToast note={hostNote} onDismiss={dismissHostNote} />
+      <HostChangeToast note={deletionPending ? null : hostNote} onDismiss={dismissHostNote} />
       <ChangeToast
-        note={previewError}
+        note={deletionPending ? null : previewError}
         onDismiss={() => setPreviewError(null)}
         icon={<AlertTriangle size={16} />}
+      />
+      <ChangeToast
+        note={undoNote}
+        onDismiss={dismissUndoToast}
+        progressMs={UNDO_WINDOW_MS}
+        progressKey={undoKey}
+        pauseOnHover={false}
+        dismissible={false}
       />
     </div>
   )
