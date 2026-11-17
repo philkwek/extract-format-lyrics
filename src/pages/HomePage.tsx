@@ -237,8 +237,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className={`mx-auto max-w-6xl space-y-7 ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
-      <div className="px-1 pt-2 sm:pt-4">
+    <div className={`mx-auto max-w-6xl space-y-7 px-[3%] ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
+      <div className="pt-2 sm:pt-4">
         <div className="flex items-start gap-3 rounded-2xl border border-ui-accent/20 bg-ui-surface/70 px-4 py-3 text-sm leading-6 text-ui-text shadow-sm backdrop-blur-sm">
           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong" aria-hidden="true"><Info size={14} /></span>
           <p>
@@ -250,12 +250,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      <Surface className="overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">New session</h2>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center [&_.ui-segmented]:bg-[var(--ui-surface-flat)]! [&_.ui-segmented__thumb]:bg-ui-accent/10!">
             <SegmentedControl
               label="Session source"
               value={createMode}
@@ -268,7 +268,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="p-4 sm:p-5">
+        <div className="mt-4">
 
         {createMode === 'paste' ? (
           <PasteUrlForm
@@ -280,6 +280,7 @@ export default function HomePage() {
             submitLabel="Extract and open session"
             processingLabel="Extracting songs"
             linkCount={splitUrls(inputText).length}
+            className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
           />
         ) : (
           <div
@@ -298,6 +299,7 @@ export default function HomePage() {
               error={searchError}
               description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
               placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+              className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
             />
             <SearchResults
               results={searchResults}
@@ -351,9 +353,9 @@ export default function HomePage() {
           className="mt-6 border-t border-[var(--ui-border)] pt-4"
         />
         </div>
-      </Surface>
+      </div>
 
-      <Surface className="p-4 sm:p-5">
+      <div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
@@ -403,7 +405,7 @@ export default function HomePage() {
                 }}
                 role="link"
                 tabIndex={0}
-                className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
+                className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-flat)] p-4 outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
                   session.liveSourceId && !session.liveEnded
                     ? 'border-emerald-300 hover:border-emerald-600 dark:border-emerald-400/30 dark:hover:border-emerald-400'
                     : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)]'
@@ -473,7 +475,7 @@ export default function HomePage() {
             ))}
           </div>
         )}
-      </Surface>
+      </div>
 
       {/* Recent Shared Lyrics */}
       {recentLyrics.length > 0 && (
@@ -501,7 +503,7 @@ export default function HomePage() {
                   }}
                   role="link"
                   tabIndex={0}
-                  className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
+                  className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-flat)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
                 >
                   <div>
                     <div className="mb-3 flex items-center justify-between">
