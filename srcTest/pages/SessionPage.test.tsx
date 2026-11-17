@@ -358,6 +358,36 @@ describe('SessionPage full screen mode', () => {
     }
   })
 
+  it('asks before removing a section instead of using the browser prompt', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    vi.mocked(sessionStore.updateSession).mockClear()
+
+    try {
+      render(<TestHarness />)
+
+      fireEvent.click(await screen.findByTitle('Delete Verse 1'))
+
+      expect(await screen.findByRole('heading', { name: 'Remove this section?' })).toBeTruthy()
+      expect(screen.getByText('"Verse 1" will be removed from this song.')).toBeTruthy()
+      expect(confirmSpy).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: 'Remove this section?' })).toBeNull()
+      })
+      expect(sessionStore.updateSession).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByTitle('Delete Verse 1'))
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove' }))
+
+      await waitFor(() => {
+        expect(sessionStore.updateSession).toHaveBeenCalled()
+      })
+    } finally {
+      confirmSpy.mockRestore()
+    }
+  })
+
   it('Arrange setlist on the song-tab row opens the drawer', async () => {
     const twoSongSession = {
       ...fixtures.session,

@@ -160,6 +160,11 @@ export default function SessionPage() {
   const [pendingRemove, setPendingRemove] = useState<{ entryId: string; title: string } | null>(
     null,
   )
+  const [pendingSectionDelete, setPendingSectionDelete] = useState<{
+    index: number
+    label: string
+    repeatCount: number
+  } | null>(null)
   const [previewError, setPreviewError] = useState<ChangeNote | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
@@ -918,20 +923,24 @@ export default function SessionPage() {
     setDragOverSongIdx(null)
   }
 
+  const requestDeleteSection = (sectionIndex: number) => {
+    const targetSection = activeSections[sectionIndex]
+    setPendingSectionDelete({
+      index: sectionIndex,
+      label: targetSection?.label || `Section ${sectionIndex + 1}`,
+      repeatCount: activeFlow.filter((index) => index === sectionIndex).length,
+    })
+  }
+
+  const confirmDeleteSection = async () => {
+    if (!pendingSectionDelete) return
+    const { index } = pendingSectionDelete
+    setPendingSectionDelete(null)
+    await handleDeleteSection(index)
+  }
+
   const handleDeleteSection = async (sectionIndex: number) => {
     if (!currentSong || !session) return
-    const targetSection = activeSections[sectionIndex]
-    const label = targetSection?.label || `Section ${sectionIndex + 1}`
-    const repeatCount = activeFlow.filter((index) => index === sectionIndex).length
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${label}"?${
-        repeatCount > 1
-          ? `\n\nThis removes ${repeatCount} occurrences that share this section.`
-          : ''
-      }\n\nYou can restore it to the original chord sheet at any time.`,
-    )
-    if (!confirmed) return
 
     const baseSections =
       isSimplified && currentSong.simplifiedSections
@@ -1877,7 +1886,7 @@ export default function SessionPage() {
                       : (idx) =>
                           guard(() => {
                             setPositioningChord(null)
-                            void handleDeleteSection(idx)
+                            requestDeleteSection(idx)
                           })
                   }
                   onReorderSections={
@@ -1960,6 +1969,37 @@ export default function SessionPage() {
         <p className="text-sm text-[var(--ui-text)]">
           {pendingRemove ? `"${pendingRemove.title}" will be removed from this setlist.` : ''}
         </p>
+      </OverlayDialog>
+
+      <OverlayDialog
+        isOpen={pendingSectionDelete !== null}
+        onClose={() => setPendingSectionDelete(null)}
+        title="Remove this section?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingSectionDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger-solid" onClick={() => void confirmDeleteSection()}>
+              Remove
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm text-[var(--ui-text)]">
+          <p>
+            {pendingSectionDelete
+              ? `"${pendingSectionDelete.label}" will be removed from this song.`
+              : ''}
+          </p>
+          {pendingSectionDelete && pendingSectionDelete.repeatCount > 1 && (
+            <p>
+              This removes {pendingSectionDelete.repeatCount} occurrences that share this section.
+            </p>
+          )}
+          <p>You can restore it to the original chord sheet at any time.</p>
+        </div>
       </OverlayDialog>
 
       {/* Share Modal */}
