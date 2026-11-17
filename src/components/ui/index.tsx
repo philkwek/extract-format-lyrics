@@ -293,7 +293,8 @@ export function Toast({
   const reduceMotion = useReducedMotion()
   const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-40 flex justify-center px-4">
+    // --song-tray-lift is set by the song tray while its bar is pinned, so this sits just above it.
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1rem+var(--song-tray-lift,0px))] z-40 flex justify-center px-4">
       <span role="status" className="sr-only">
         {open ? message : ''}
       </span>

@@ -13,56 +13,58 @@ const song = (n: number): SearchCandidate => ({
   url: `https://pnwchords.com/song-${n}`,
 })
 
-function setPhone(isPhone: boolean) {
+function setNarrow(isNarrow: boolean) {
   window.matchMedia = ((query: string) => ({
-    matches: isPhone && query.includes('max-width'),
+    matches: isNarrow && query.includes('max-width'),
     media: query,
     addEventListener: () => {},
     removeEventListener: () => {},
   })) as unknown as typeof window.matchMedia
 }
 
+const songs = (n: number) => Array.from({ length: n }, (_, i) => song(i + 1))
+
 const base = {
   failedUrls: new Set<string>(),
   isCreating: false,
   error: null,
   onMove: vi.fn(),
+  onReorder: vi.fn(),
   onRemove: vi.fn(),
   onCreate: vi.fn(),
 }
 
 describe('SongTray', () => {
   it('renders nothing until a song is added', () => {
-    setPhone(false)
+    setNarrow(false)
     const { container } = render(<SongTray {...base} items={[]} />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('shows numbered songs with left and right buttons on wider screens', () => {
-    setPhone(false)
+  it('shows a numbered side panel with up and down buttons and Create set at lg and up', () => {
+    setNarrow(false)
     const onMove = vi.fn()
     render(<SongTray {...base} onMove={onMove} items={[song(1), song(2)]} />)
-    expect(screen.getByText('Your set · 2 of 30 songs')).toBeTruthy()
+    expect(screen.getByText('2 songs added')).toBeTruthy()
     expect(
-      (screen.getByRole('button', { name: 'Move Song 1 left' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Move Song 1 up' }) as HTMLButtonElement).disabled,
     ).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Move Song 1 right' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move Song 1 down' }))
     expect(onMove).toHaveBeenCalledWith(0, 1)
-    expect(screen.queryByRole('button', { name: 'Move Song 1 up' })).toBeNull()
   })
 
-  it('collapses to a count on phones and expands with up and down buttons', () => {
-    setPhone(true)
+  it('collapses to a bottom bar below lg and expands with the same buttons', () => {
+    setNarrow(true)
     render(<SongTray {...base} items={[song(1), song(2)]} />)
     expect(screen.queryByText('Song 1')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /2 of 30 songs/ }))
+    fireEvent.click(screen.getByRole('button', { name: /2 songs added/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 up' }))
     expect(base.onMove).toHaveBeenCalledWith(1, 0)
-    expect(screen.queryByRole('button', { name: 'Move Song 1 left' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Create set' })).toHaveLength(1)
   })
 
   it('removes a song and calls Create set', () => {
-    setPhone(false)
+    setNarrow(false)
     const onRemove = vi.fn()
     const onCreate = vi.fn()
     render(<SongTray {...base} onRemove={onRemove} onCreate={onCreate} items={[song(1)]} />)
@@ -73,7 +75,7 @@ describe('SongTray', () => {
   })
 
   it('marks failed songs in words and explains what to do', () => {
-    setPhone(false)
+    setNarrow(false)
     render(
       <SongTray
         {...base}
@@ -86,5 +88,42 @@ describe('SongTray', () => {
     expect(
       screen.getByText('Some songs could not be loaded. Remove them and try again.'),
     ).toBeTruthy()
+  })
+
+  it('shows the count only, in the singular for one song, with no limit note', () => {
+    setNarrow(false)
+    render(<SongTray {...base} items={songs(1)} />)
+    expect(screen.getByText('1 song added')).toBeTruthy()
+    expect(screen.queryByText(/of 30/)).toBeNull()
+    expect(screen.queryByText(/You can add/)).toBeNull()
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('says how many more fit only from 25 songs', () => {
+    setNarrow(false)
+    const { rerender } = render(<SongTray {...base} items={songs(24)} />)
+    expect(screen.queryByText(/You can add/)).toBeNull()
+    rerender(<SongTray {...base} items={songs(25)} />)
+    expect(screen.getByText('You can add 5 more.')).toBeTruthy()
+    rerender(<SongTray {...base} items={songs(29)} />)
+    expect(screen.getByText('You can add 1 more.')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('explains the limit and announces it at 30 songs', () => {
+    setNarrow(false)
+    render(<SongTray {...base} items={songs(30)} />)
+    const sentence = 'Sets made here hold up to 30 songs. Remove one to add another.'
+    expect(screen.getByRole('status').textContent).toBe(sentence)
+    expect(screen.queryByText(/You can add/)).toBeNull()
+  })
+
+  it('highlights the song a button just moved', () => {
+    setNarrow(false)
+    render(<SongTray {...base} items={[song(1), song(2)]} />)
+    const row = screen.getByText('Song 2').closest('li') as HTMLElement
+    expect(row.className).not.toContain('border-ui-accent')
+    fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 up' }))
+    expect(row.className).toContain('border-ui-accent')
   })
 })

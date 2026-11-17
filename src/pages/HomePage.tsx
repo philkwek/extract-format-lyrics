@@ -237,7 +237,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className={`mx-auto max-w-6xl space-y-7 ${tray.items.length > 0 ? 'pb-24 sm:pb-0' : ''}`}>
+    <div className={`mx-auto max-w-6xl space-y-7 ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
       <div className="px-1 pt-2 sm:pt-4">
         <div className="flex items-start gap-3 rounded-2xl border border-ui-accent/20 bg-ui-surface/70 px-4 py-3 text-sm leading-6 text-ui-text shadow-sm backdrop-blur-sm">
           <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong" aria-hidden="true"><Info size={14} /></span>
@@ -282,7 +282,14 @@ export default function HomePage() {
             linkCount={splitUrls(inputText).length}
           />
         ) : (
-          <div className="space-y-4">
+          <div
+            className={
+              tray.items.length > 0
+                ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5'
+                : ''
+            }
+          >
+          <div className="min-w-0 space-y-4">
             <SearchForm
               query={searchQuery}
               onQueryChange={setSearchQuery}
@@ -291,15 +298,6 @@ export default function HomePage() {
               error={searchError}
               description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
               placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
-            />
-            <SongTray
-              items={tray.items}
-              failedUrls={tray.failedUrls}
-              isCreating={tray.isCreating}
-              error={tray.error}
-              onMove={tray.move}
-              onRemove={tray.remove}
-              onCreate={handleCreateFromTray}
             />
             <SearchResults
               results={searchResults}
@@ -314,7 +312,13 @@ export default function HomePage() {
                 const inTray = tray.urls.has(candidate.url)
                 const starting = creatingFromUrl === candidate.url
                 return {
-                  label: inTray ? 'Added' : 'Add to set',
+                  label: inTray
+                    ? 'Added'
+                    : tray.isFull
+                      ? 'Limit reached'
+                      : tray.items.length === 0
+                        ? 'Add multiple songs'
+                        : 'Add to set',
                   disabled: inTray || tray.isFull || tray.isCreating || Boolean(creatingFromUrl),
                   quick:
                     tray.items.length === 0
@@ -327,6 +331,17 @@ export default function HomePage() {
                       : undefined,
                 }
               }}
+            />
+          </div>
+            <SongTray
+              items={tray.items}
+              failedUrls={tray.failedUrls}
+              isCreating={tray.isCreating}
+              error={tray.error}
+              onMove={tray.move}
+              onReorder={tray.setOrder}
+              onRemove={tray.remove}
+              onCreate={handleCreateFromTray}
             />
           </div>
         )}
@@ -573,10 +588,10 @@ export default function HomePage() {
       </OverlayDialog>
 
       <ChangeToast
-        note={undoNote}
+        note={tray.undoNote ?? undoNote}
         onDismiss={dismissUndoToast}
         progressMs={UNDO_WINDOW_MS}
-        progressKey={pendingSetRemoval?.id}
+        progressKey={tray.undoKey ?? pendingSetRemoval?.id}
         pauseOnHover={false}
         dismissible={false}
       />

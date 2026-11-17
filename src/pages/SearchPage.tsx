@@ -24,6 +24,8 @@ import SongTray from '../components/import/SongTray'
 import { Button, SegmentedControl, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
 import { useSongTray } from '../lib/useSongTray'
+import { UNDO_WINDOW_MS } from '../lib/usePendingRemoval'
+import ChangeToast from '../components/share/ChangeToast'
 
 export default function SearchPage() {
   useSeo({ title: 'Find Chord Sheets | Sets & Sheets', description: 'Search Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net by song title or artist and add the chart to your set.', path: '/search' })
@@ -185,7 +187,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div className={`mx-auto max-w-5xl space-y-5 ${useTray && tray.items.length > 0 ? 'pb-24 sm:pb-0' : ''}`}>
+    <div className={`mx-auto max-w-5xl space-y-5 ${useTray && tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="ghost"
@@ -207,6 +209,14 @@ export default function SearchPage() {
         )}
       </div>
 
+      <div
+        className={
+          mode === 'search' && useTray && tray.items.length > 0
+            ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5'
+            : ''
+        }
+      >
+      <div className="min-w-0 space-y-5">
       <Surface className="overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-[var(--ui-border)] p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div>
@@ -256,18 +266,6 @@ export default function SearchPage() {
         </div>
       </Surface>
 
-      {mode === 'search' && useTray && (
-        <SongTray
-          items={tray.items}
-          failedUrls={tray.failedUrls}
-          isCreating={tray.isCreating}
-          error={tray.error}
-          onMove={tray.move}
-          onRemove={tray.remove}
-          onCreate={handleCreateFromTray}
-        />
-      )}
-
       {/* Results (Only shown in search mode) */}
       {mode === 'search' && (
         <SearchResults
@@ -294,7 +292,13 @@ export default function SearchPage() {
             const inTray = tray.urls.has(candidate.url)
             const starting = addingUrls.has(candidate.url)
             return {
-              label: inTray ? 'Added' : 'Add to set',
+              label: inTray
+                ? 'Added'
+                : tray.isFull
+                  ? 'Limit reached'
+                  : tray.items.length === 0
+                    ? 'Add multiple songs'
+                    : 'Add to set',
               disabled: inTray || tray.isFull || tray.isCreating || addingUrls.size > 0,
               quick:
                 tray.items.length === 0
@@ -307,6 +311,30 @@ export default function SearchPage() {
                   : undefined,
             }
           }}
+        />
+      )}
+      </div>
+      {mode === 'search' && useTray && (
+        <SongTray
+          items={tray.items}
+          failedUrls={tray.failedUrls}
+          isCreating={tray.isCreating}
+          error={tray.error}
+          onMove={tray.move}
+          onReorder={tray.setOrder}
+          onRemove={tray.remove}
+          onCreate={handleCreateFromTray}
+        />
+      )}
+      </div>
+      {useTray && (
+        <ChangeToast
+          note={tray.undoNote}
+          onDismiss={() => undefined}
+          progressMs={UNDO_WINDOW_MS}
+          progressKey={tray.undoKey}
+            pauseOnHover={false}
+          dismissible={false}
         />
       )}
     </div>

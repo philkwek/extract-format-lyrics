@@ -105,13 +105,13 @@ describe('SearchPage import wiring', () => {
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(input, { target: { value: 'song' } })
     fireEvent.submit(input.closest('form')!)
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add to set' })).toHaveLength(2))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2))
     expect(screen.queryByRole('region', { name: 'Songs for your new set' })).toBeNull()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add to set' })[1])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add multiple songs' })[1])
     expect(screen.queryAllByRole('button', { name: 'Start now' })).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: 'Add to set' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 left' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move Song 2 up' }))
     fireEvent.click(screen.getByRole('button', { name: 'Create set' }))
 
     await waitFor(() => expect(importSources).toHaveBeenCalledTimes(1))
@@ -120,6 +120,70 @@ describe('SearchPage import wiring', () => {
     expect(options).toEqual(expect.objectContaining({ requireAll: true }))
     expect(options?.targetSessionId).toBeUndefined()
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/session/new-set'))
+  })
+
+  it('lets a removed tray song be undone from the toast', async () => {
+    vi.mocked(searchApiStream).mockResolvedValue({
+      query: 'song',
+      results: [
+        { site: 'pnwchords', title: 'Song 1', artist: 'Artist 1', url: 'https://pnwchords.com/s1' },
+        { site: 'pnwchords', title: 'Song 2', artist: 'Artist 2', url: 'https://pnwchords.com/s2' },
+      ],
+      sources: [],
+      partial: false,
+    })
+    render(
+      <MemoryRouter initialEntries={['/search']}>
+        <SearchPage />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
+    fireEvent.change(input, { target: { value: 'song' } })
+    fireEvent.submit(input.closest('form')!)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2))
+    for (const button of screen.getAllByRole('button', { name: 'Add multiple songs' })) fireEvent.click(button)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Song 1' }))
+    expect(screen.queryByRole('button', { name: 'Remove Song 1' })).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    expect(screen.getByRole('button', { name: 'Remove Song 1' })).toBeTruthy()
+  })
+
+  it('says Limit reached on cards that no longer fit once the tray holds 30 songs', async () => {
+    const candidate = (n: number) => ({
+      site: 'pnwchords' as const,
+      title: `Song ${n}`,
+      artist: `Artist ${n}`,
+      url: `https://pnwchords.com/song-${n}`,
+    })
+    render(
+      <MemoryRouter initialEntries={['/search']}>
+        <SearchPage />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
+
+    // One search shows at most 8 cards, so fill the tray over four searches.
+    for (let page = 0; page < 4; page += 1) {
+      vi.mocked(searchApiStream).mockResolvedValue({
+        query: `song ${page}`,
+        results: Array.from({ length: 8 }, (_, i) => candidate(page * 8 + i + 1)),
+        sources: [],
+        partial: false,
+      })
+      fireEvent.change(input, { target: { value: `song ${page}` } })
+      fireEvent.submit(input.closest('form')!)
+      await waitFor(() => expect(screen.getByText(`Song ${page * 8 + 1}`)).toBeTruthy())
+      for (const button of screen.queryAllByRole('button', { name: /^Add (multiple songs|to set)$/ })) {
+        if (!(button as HTMLButtonElement).disabled) fireEvent.click(button)
+      }
+    }
+
+    expect(screen.getAllByRole('button', { name: 'Limit reached' })).toHaveLength(2)
+    for (const button of screen.getAllByRole('button', { name: 'Limit reached' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+    expect(screen.getByText(/^Sets made here hold up to 30 songs/, { selector: 'p[role=status]' })).toBeTruthy()
   })
 
   it('does not show the empty state underneath a search error', async () => {

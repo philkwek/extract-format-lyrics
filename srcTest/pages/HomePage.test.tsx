@@ -6,11 +6,17 @@ import HomePage from '../../src/pages/HomePage'
 import * as recentLyricsStore from '../../src/lib/recentLyricsStore'
 import * as sessionStoreModule from '../../src/lib/sessionStore'
 import { getLiveShare } from '../../src/lib/liveShareSync'
+import { searchApiStream } from '../../src/lib/api'
 
 vi.mock('../../src/lib/liveShareSync', () => ({
   getLiveShare: vi.fn(async () => null),
   subscribeLiveShare: vi.fn(() => () => {}),
   subscribeLiveShareStatus: vi.fn(() => () => {}),
+}))
+
+vi.mock('../../src/lib/api', async () => ({
+  ...(await vi.importActual<typeof import('../../src/lib/api')>('../../src/lib/api')),
+  searchApiStream: vi.fn(),
 }))
 
 const mockNavigate = vi.fn()
@@ -261,5 +267,45 @@ describe('HomePage undoable set deletion', () => {
       vi.advanceTimersByTime(5000)
     })
     expect(del).toHaveBeenCalledWith('n')
+  })
+})
+
+describe('HomePage song tray', () => {
+  beforeEach(() => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([])
+  })
+
+  it('says Limit reached on cards that no longer fit once the tray holds 30 songs', async () => {
+    const candidate = (n: number) => ({
+      site: 'pnwchords' as const,
+      title: `Song ${n}`,
+      artist: `Artist ${n}`,
+      url: `https://pnwchords.com/song-${n}`,
+    })
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+    const input = screen.getByPlaceholderText(/e\.g\. Goodness/)
+
+    // One search shows at most 8 cards, so fill the tray over four searches.
+    for (let page = 0; page < 4; page += 1) {
+      vi.mocked(searchApiStream).mockResolvedValue({
+        query: `song ${page}`,
+        results: Array.from({ length: 8 }, (_, i) => candidate(page * 8 + i + 1)),
+        sources: [],
+        partial: false,
+      })
+      fireEvent.change(input, { target: { value: `song ${page}` } })
+      fireEvent.submit(input.closest('form')!)
+      await waitFor(() => expect(screen.getByText(`Song ${page * 8 + 1}`)).toBeTruthy())
+      for (const button of screen.queryAllByRole('button', { name: /^Add (multiple songs|to set)$/ })) {
+        if (!(button as HTMLButtonElement).disabled) fireEvent.click(button)
+      }
+    }
+
+    expect(screen.getAllByRole('button', { name: 'Limit reached' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Added' })).toHaveLength(6)
   })
 })
