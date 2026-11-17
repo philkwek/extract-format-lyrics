@@ -238,22 +238,10 @@ export default function HomePage() {
 
   return (
     <div className={`mx-auto max-w-6xl space-y-7 px-[3%] ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
-      <div className="pt-2 sm:pt-4">
-        <div className="flex items-start gap-3 rounded-2xl border border-ui-accent/20 bg-ui-surface/70 px-4 py-3 text-sm leading-6 text-ui-text shadow-sm backdrop-blur-sm">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong" aria-hidden="true"><Info size={14} /></span>
-          <p>
-            <span className="mr-1 font-bold text-ui-accent-strong">Notice:</span>
-            Sets &amp; Sheets has moved to this new web address! Because of the move, sets you saved
-            on the old address may not show up here. I’m so sorry about that, and I just wanted you
-            to know why they might be missing :&quot;(
-          </p>
-        </div>
-      </div>
-
       <div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">New session</h2>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Start a new session</h2>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center [&_.ui-segmented]:bg-[var(--ui-surface-flat)]! [&_.ui-segmented__thumb]:bg-ui-accent/10!">
             <SegmentedControl

@@ -34,7 +34,7 @@ export function AppShell() {
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
-      <div className="app-canvas min-h-screen text-ui-text transition-colors">
+      <div className="app-canvas flex min-h-screen flex-col text-ui-text transition-colors">
         {!isLyricsView && !chromeHidden && (
           <header data-app-header className="sticky top-0 z-30 border-b border-black/5 bg-ui-canvas/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">
@@ -73,8 +73,8 @@ export function AppShell() {
         <main
           className={
             chromeHidden
-              ? 'w-full max-w-none p-0'
-              : `mx-auto w-[96%] max-w-[92rem] pb-10 ${
+              ? 'w-full max-w-none flex-1 p-0'
+              : `mx-auto w-[96%] max-w-[92rem] flex-1 pb-10 ${
                   isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'
                 }`
           }
@@ -93,7 +93,7 @@ export function AppShell() {
           </AppErrorBoundary>
         </main>
         {!chromeHidden && (
-          <footer className="mx-auto max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
+          <footer className="mx-auto w-full max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
             <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>
             {!isLyricsView && <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>}
           </footer>
