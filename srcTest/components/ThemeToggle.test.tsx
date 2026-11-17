@@ -41,18 +41,27 @@ describe('ThemeToggle', () => {
     const user = userEvent.setup()
     render(<ThemeToggle />)
 
-    await user.click(
-      screen.getByRole('button', { name: 'Theme follows device. Switch to light mode' }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Match device. Switch to light mode' }))
     expect(localStorage.getItem('app_theme')).toBe('light')
 
-    await user.click(screen.getByRole('button', { name: 'Light theme. Switch to dark mode' }))
+    await user.click(screen.getByRole('button', { name: 'Light mode. Switch to dark mode' }))
     expect(localStorage.getItem('app_theme')).toBe('dark')
 
-    await user.click(screen.getByRole('button', { name: 'Dark theme. Switch to device mode' }))
+    await user.click(screen.getByRole('button', { name: 'Dark mode. Switch to device mode' }))
     expect(localStorage.getItem('app_theme')).toBe('system')
-    expect(
-      screen.getByRole('button', { name: 'Theme follows device. Switch to light mode' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Match device. Switch to light mode' })).toBeTruthy()
+  })
+
+  it('shows the current mode as button text', async () => {
+    const user = userEvent.setup()
+    render(<ThemeToggle />)
+
+    expect(screen.getByText('Match device')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Match device. Switch to light mode' }))
+    expect(screen.getByText('Light mode')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Light mode. Switch to dark mode' }))
+    expect(screen.getByText('Dark mode')).toBeTruthy()
   })
 })

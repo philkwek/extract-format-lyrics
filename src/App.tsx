@@ -60,7 +60,7 @@ export function AppShell() {
             <nav className="flex items-center gap-1.5" aria-label="Primary navigation">
               <NavLink
                 to="/search"
-                className={({ isActive }) => `ui-button ui-button--sm ${isActive ? 'ui-button--secondary' : 'ui-button--ghost'}`}
+                className={({ isActive }) => `ui-button ui-button--md ${isActive ? 'ui-button--secondary' : 'ui-button--ghost'}`}
               >
                 <Search size={15} />
                 <span className="hidden sm:inline">Search for a song</span>
