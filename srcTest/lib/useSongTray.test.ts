@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { SearchCandidate } from '../../src/lib/api'
 
@@ -110,5 +110,87 @@ describe('useSongTray', () => {
     expect(result.current.items).toHaveLength(2)
     expect([...result.current.failedUrls]).toEqual([song(2).url])
     expect(result.current.error).toBe('Scrape failed')
+  })
+
+  it('takes a dragged order, but ignores one that adds or drops songs', () => {
+    const { result } = renderHook(() => useSongTray())
+    act(() => {
+      result.current.add(song(1))
+      result.current.add(song(2))
+    })
+    act(() => result.current.setOrder([song(2), song(1)]))
+    expect(result.current.items.map((i) => i.title)).toEqual(['Song 2', 'Song 1'])
+    act(() => result.current.setOrder([song(2)]))
+    act(() => result.current.setOrder([song(2), song(9)]))
+    expect(result.current.items.map((i) => i.title)).toEqual(['Song 2', 'Song 1'])
+  })
+
+  describe('undoing a removal', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    const withThree = () => {
+      const hook = renderHook(() => useSongTray())
+      act(() => {
+        hook.result.current.add(song(1))
+        hook.result.current.add(song(2))
+        hook.result.current.add(song(3))
+      })
+      return hook
+    }
+
+    it('hides the song at once and offers Undo', () => {
+      const { result } = withThree()
+      act(() => result.current.remove(song(2).url))
+      expect(result.current.items.map((i) => i.title)).toEqual(['Song 1', 'Song 3'])
+      expect(result.current.urls.has(song(2).url)).toBe(false)
+      expect(result.current.undoNote?.text).toBe('Song removed')
+    })
+
+    it('puts the song back in its place on Undo', () => {
+      const { result } = withThree()
+      act(() => result.current.remove(song(2).url))
+      act(() => result.current.undoNote?.action.run())
+      expect(result.current.items.map((i) => i.title)).toEqual(['Song 1', 'Song 2', 'Song 3'])
+      expect(result.current.undoNote).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(6000)
+      })
+      expect(result.current.items).toHaveLength(3)
+    })
+
+    it('removes the song for good after 5 seconds', () => {
+      const { result } = withThree()
+      act(() => result.current.remove(song(2).url))
+      act(() => {
+        vi.advanceTimersByTime(4900)
+      })
+      expect(result.current.undoNote).not.toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(result.current.undoNote).toBeNull()
+      expect(result.current.items.map((i) => i.title)).toEqual(['Song 1', 'Song 3'])
+    })
+
+    it('treats picking the removed song again as Undo', () => {
+      const { result } = withThree()
+      act(() => result.current.remove(song(2).url))
+      act(() => result.current.add(song(2)))
+      expect(result.current.items.map((i) => i.title)).toEqual(['Song 1', 'Song 2', 'Song 3'])
+      expect(result.current.undoNote).toBeNull()
+    })
+
+    it('makes the removal final when the order changes', () => {
+      const { result } = withThree()
+      act(() => result.current.remove(song(2).url))
+      act(() => result.current.move(1, 0))
+      expect(result.current.items.map((i) => i.title)).toEqual(['Song 3', 'Song 1'])
+      expect(result.current.undoNote).toBeNull()
+    })
   })
 })
