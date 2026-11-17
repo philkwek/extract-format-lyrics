@@ -1,5 +1,5 @@
 import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText,
@@ -39,9 +39,11 @@ import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
 import LiveShareChip from '../components/share/LiveShareChip'
-import { Button, IconButton, LivePill, SegmentedControl, Surface } from '../components/ui'
+import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
+import { Button, IconButton, LivePill, SegmentedControl, StatusBanner, Surface } from '../components/ui'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
+import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 
 export default function HomePage() {
   useSeo({ title: 'Sets & Sheets – Chord sheets, transposing and worship set lists', description: 'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.', path: '/' })
@@ -78,12 +80,35 @@ export default function HomePage() {
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])
 
-  const handleDeleteSession = async (id: string) => {
-    setDeletingSession(null)
-    await sessionStore.deleteSession(id)
-    const updated = await sessionStore.getAllSessions()
-    setSessions(updated)
-  }
+  const [deleteError, setDeleteError] = useState<Session | null>(null)
+
+  const commitSetRemoval = useCallback(async (target: Session) => {
+    await sessionStore.deleteSession(target.id)
+    setSessions(await sessionStore.getAllSessions())
+    setDeleteError(null)
+  }, [])
+
+  const {
+    pending: pendingSetRemoval,
+    start: startSetRemoval,
+    undo: undoSetRemoval,
+  } = usePendingRemoval<Session>({ onCommit: commitSetRemoval, onError: setDeleteError })
+
+  const visibleSessions = pendingSetRemoval
+    ? sessions.filter((session) => session.id !== pendingSetRemoval.id)
+    : sessions
+
+  const undoNote = useMemo<ChangeNote | null>(
+    () =>
+      pendingSetRemoval
+        ? {
+            text: 'Set deleted',
+            action: { label: 'Undo', run: undoSetRemoval },
+          }
+        : null,
+    [pendingSetRemoval, undoSetRemoval],
+  )
+  const dismissUndoToast = useCallback(() => undefined, [])
 
   const handleDeleteRecentLyrics = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -290,12 +315,34 @@ export default function HomePage() {
             <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
             <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Sessions are saved locally within your browser.</p>
           </div>
-          {(sessions.length > 0 || recentLyrics.length > 0) && (
+          {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
             <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleClearLibrary}>Clear library</Button>
           )}
         </div>
 
-        {sessions.length === 0 ? (
+        {deleteError && (
+          <StatusBanner
+            tone="error"
+            className="mb-4"
+            actions={
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const target = deleteError
+                  setDeleteError(null)
+                  startSetRemoval(target)
+                }}
+              >
+                Try again
+              </Button>
+            }
+          >
+            Couldn't delete "{deleteError.name}". Nothing was removed.
+          </StatusBanner>
+        )}
+
+        {visibleSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-5 py-10 text-center">
             <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong"><ListMusic size={19} /></span>
             <p className="text-sm font-semibold text-[var(--ui-text)]">No saved sessions yet</p>
@@ -303,7 +350,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((session) => (
+            {visibleSessions.map((session) => (
               <article
                 key={session.id}
                 onClick={() => navigate(sessionPath(session))}
@@ -477,7 +524,12 @@ export default function HomePage() {
             </Button>
             <Button
               variant="danger-solid"
-              onClick={() => deletingSession && void handleDeleteSession(deletingSession.id)}
+              onClick={() => {
+                if (!deletingSession) return
+                const target = deletingSession
+                setDeletingSession(null)
+                startSetRemoval(target)
+              }}
             >
               Delete
             </Button>
@@ -486,10 +538,19 @@ export default function HomePage() {
       >
         <p className="text-sm text-[var(--ui-text)]">
           {deletingSession?.liveSourceId
-            ? `"${deletingSession.name}" will be removed from this device. The live set itself is not changed.`
-            : `"${deletingSession?.name}" will be deleted. This can't be undone.`}
+            ? `"${deletingSession.name}" will be removed from this device. The live set itself is not changed. You can undo for 5 seconds.`
+            : `"${deletingSession?.name}" will be deleted. You can undo for 5 seconds.`}
         </p>
       </OverlayDialog>
+
+      <ChangeToast
+        note={undoNote}
+        onDismiss={dismissUndoToast}
+        progressMs={UNDO_WINDOW_MS}
+        progressKey={pendingSetRemoval?.id}
+        pauseOnHover={false}
+        dismissible={false}
+      />
     </div>
   )
 }

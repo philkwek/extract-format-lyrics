@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import HomePage from '../../src/pages/HomePage'
 import * as recentLyricsStore from '../../src/lib/recentLyricsStore'
@@ -151,9 +151,9 @@ describe('HomePage set card actions', () => {
   const base = { createdAt: 0, songs: [] }
 
   it('asks before deleting a set', async () => {
-    const getAll = vi
-      .spyOn(sessionStoreModule.sessionStore, 'getAllSessions')
-      .mockResolvedValue([{ ...base, id: 'n', name: 'Normal' }] as never)
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
     const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
 
     render(
@@ -164,10 +164,11 @@ describe('HomePage set card actions', () => {
 
     fireEvent.click(await screen.findByLabelText('Delete session'))
     expect(del).not.toHaveBeenCalled()
+    expect(await screen.findByText('"Normal" will be deleted. You can undo for 5 seconds.')).toBeTruthy()
+    expect(del).not.toHaveBeenCalled()
 
-    getAll.mockResolvedValue([])
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
-    await waitFor(() => expect(del).toHaveBeenCalledWith('n'))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(del).not.toHaveBeenCalled()
   })
 
   it('keeps the set when delete is cancelled', async () => {
@@ -201,5 +202,64 @@ describe('HomePage set card actions', () => {
 
     await screen.findByText('Followed')
     expect(screen.getAllByLabelText('Rename set')).toHaveLength(1)
+  })
+})
+
+describe('HomePage undoable set deletion', () => {
+  const stored = { createdAt: 0, songs: [], id: 'n', name: 'Normal' }
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
+  async function openDialog() {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      stored,
+    ] as never)
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByLabelText('Delete session'))
+    await screen.findByRole('heading', { name: 'Delete this set?' })
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await act(async () => {})
+  }
+
+  it('hides the set but does not delete it for 5 seconds', async () => {
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+    await openDialog()
+
+    expect(screen.queryByRole('link', { name: /Normal/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    expect(del).not.toHaveBeenCalled()
+  })
+
+  it('Undo brings the set back and never deletes', async () => {
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+    await openDialog()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await act(async () => {})
+    expect(screen.getByRole('link', { name: /Normal/ })).toBeTruthy()
+
+    await act(async () => {
+      vi.advanceTimersByTime(10000)
+    })
+    expect(del).not.toHaveBeenCalled()
+  })
+
+  it('deletes after 5 seconds', async () => {
+    const del = vi.spyOn(sessionStoreModule.sessionStore, 'deleteSession').mockResolvedValue()
+    await openDialog()
+    expect(del).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+    expect(del).toHaveBeenCalledWith('n')
   })
 })
