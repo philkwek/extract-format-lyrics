@@ -32,16 +32,18 @@ Do not reopen these.
    label as Home (the owner chose the short form up front).
 6. **Duplicates.** Keyed by chart URL. Different versions of one song are allowed.
 7. **Cap: 30 songs**, using `SET_LINK_MAX_SONGS` (`src/lib/setLinkSync.ts`) so a tray set can always be
-   shared by link or live. At the cap, **Add to set** is disabled and the tray says so in plain words.
+   shared by link or live. At the cap, **Add to set** is disabled and the tray says so in plain words. The
+   exact copy and when the limit shows up are in [tray-limit-wording.md](tray-limit-wording.md).
 8. **Create set** makes one `importSources(sources, { requireAll: true })` call. On failure the whole
    import fails, the tray is kept, and failed songs are marked in it (text, not colour alone) so the
    user can remove them and retry.
-9. **Tray layout.**
-   - Phone (<640px): a fixed bottom bar once it has songs with the song count and **Create set**; it expands to a list.
-     Each row has **Move up**, **Move down** and **Remove**.
-   - Tablet and up: inline above the results as wrapping, numbered chips. Each chip has **Move left**,
-     **Move right** and **Remove**.
-   - No drag. One shared `moveSong(from, to)`. Disabled at the ends, as in `ArrangeDrawer`.
+9. **Tray layout** (changed after the first build, from the owner's layout notes).
+   - From `lg` (1024px) up: a sticky side panel (20rem) beside the search form and results, on both
+     pages. It slides in once when the first song is added (not under reduced motion). It has a heading,
+     a numbered list with **Move up**, **Move down** and **Remove**, and **Create set** at the bottom.
+   - Below `lg` (phone and iPad portrait): a fixed bottom bar with the song count and **Create set**;
+     tapping the count expands the same list in place (max 50% of the screen). No spring sheet.
+   - Results stay two columns beside the panel. No drag, no left and right buttons.
 10. **Lifecycle.** Page memory only. No persistence. It survives new searches on the same page.
     Switching to **Paste links** hides it but keeps it.
 11. **Card redesign** (shared card, so it shows on every screen that uses it): title one size up, artist
