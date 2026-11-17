@@ -63,9 +63,13 @@ function TrayRow({ item, index, count, failed, moved, onMove, onRemove }: TrayRo
       layout="position"
       transition={reduceMotion ? reducedMotionTransition : { layout: rowSpring }}
       animate={moved && !reduceMotion ? { scale: [1, 1.03, 1] } : { scale: 1 }}
-      whileDrag={reduceMotion ? undefined : { scale: 1.03, boxShadow: 'var(--ui-shadow-lg)' }}
-      className={`relative flex items-center gap-1 rounded-xl border bg-ui-surface p-2 shadow-[var(--ui-shadow-sm)] ${
-        failed ? 'border-amber-500' : moved ? 'border-ui-accent' : 'border-ui-border'
+      whileDrag={
+        reduceMotion
+          ? undefined
+          : { scale: 1.03, boxShadow: 'var(--ui-shadow-lg)', backgroundColor: 'var(--ui-surface)' }
+      }
+      className={`relative flex items-center gap-1 rounded-xl border px-0.5 py-1 ${
+        failed ? 'border-amber-500' : moved ? 'border-ui-accent' : 'border-transparent'
       }`}
       style={{ zIndex: moved ? 1 : undefined }}
     >
@@ -178,7 +182,7 @@ export default function SongTray({
       <section
         ref={barRef}
         aria-label="Songs for your new set"
-        className={`ui-surface space-y-3 p-3 sm:p-4 ${
+        className={`ui-surface flex flex-col gap-3 p-3 sm:p-4 ${
           pinned
             ? 'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 shadow-lg'
             : 'song-tray-enter lg:sticky lg:top-20'
@@ -189,7 +193,7 @@ export default function SongTray({
         <p className="sr-only" role="status">
           {isFull ? fullNote : ''}
         </p>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-1">
           {isNarrow ? (
             <button
               type="button"
@@ -234,10 +238,9 @@ export default function SongTray({
             values={items}
             onReorder={onReorder}
             layoutScroll
-            // Padding cancelled by negative margins gives a lifted row room to grow without being clipped.
-            // The bottom margin keeps the usual 12px gap above the Create set button (8px padding + 4px).
-            className={`-mx-3 -mt-2 flex flex-col gap-2 overflow-y-auto overscroll-contain px-3 py-2 ${
-              isNarrow ? '-mb-2 max-h-[50vh]' : 'mb-1 max-h-[calc(100vh-18rem)]'
+            // Side padding, cancelled by negative margins, gives a lifted row room to grow unclipped.
+            className={`-mx-2 flex flex-col gap-1 overflow-y-auto overscroll-contain px-2 ${
+              isNarrow ? 'max-h-[50vh]' : 'max-h-[calc(100vh-18rem)]'
             }`}
           >
             {items.map((item, index) => (
