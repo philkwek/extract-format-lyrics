@@ -6,6 +6,8 @@ export interface ChangeNote {
   text: string
   /** Set when the note is about something the viewer can open. */
   onShow?: () => void
+  /** A single follow-up action, such as Undo. */
+  action?: { label: string; run: () => void }
 }
 
 interface Props {
@@ -15,10 +17,28 @@ interface Props {
   /** Prefix such as "Host". Omit for a neutral notice. */
   label?: string
   icon?: ReactNode
+  /** Shows a draining ring before the icon over this many milliseconds. */
+  progressMs?: number
+  /** Restarts the ring when this changes. */
+  progressKey?: string | number
+  /** Default true. Set false for a timed action that must not wait. */
+  pauseOnHover?: boolean
+  /** Default true. */
+  dismissible?: boolean
 }
 
 /** A short note that tells someone a shared set changed. */
-export default function ChangeToast({ note, onDismiss, durationMs = 5000, label, icon }: Props) {
+export default function ChangeToast({
+  note,
+  onDismiss,
+  durationMs = 5000,
+  label,
+  icon,
+  progressMs,
+  progressKey,
+  pauseOnHover = true,
+  dismissible = true,
+}: Props) {
   const [paused, setPaused] = useState(false)
 
   const close = useCallback(() => {
@@ -33,13 +53,16 @@ export default function ChangeToast({ note, onDismiss, durationMs = 5000, label,
   }, [note, paused, close, durationMs])
 
   const show = note?.onShow
+  const action = note?.action
   return (
     <Toast
       open={note !== null}
       message={note ? (label ? `${label}: ${note.text}` : note.text) : ''}
       icon={icon}
-      onPause={() => setPaused(true)}
-      onResume={() => setPaused(false)}
+      progressMs={progressMs}
+      progressKey={progressKey}
+      onPause={pauseOnHover ? () => setPaused(true) : undefined}
+      onResume={pauseOnHover ? () => setPaused(false) : undefined}
       actions={
         <>
           {show && (
@@ -54,9 +77,23 @@ export default function ChangeToast({ note, onDismiss, durationMs = 5000, label,
               Show
             </Button>
           )}
-          <IconButton label="Dismiss" variant="ghost" onClick={close}>
-            <X size={16} />
-          </IconButton>
+          {action && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                action.run()
+                close()
+              }}
+            >
+              {action.label}
+            </Button>
+          )}
+          {dismissible && (
+            <IconButton label="Dismiss" variant="ghost" onClick={close}>
+              <X size={16} />
+            </IconButton>
+          )}
         </>
       }
     />

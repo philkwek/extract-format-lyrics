@@ -270,10 +270,26 @@ interface ToastProps {
   actions?: ReactNode
   onPause?: () => void
   onResume?: () => void
+  /** Draws a draining ring before the icon over this many milliseconds. */
+  progressMs?: number
+  /** Restarts the ring when this changes, for a second action inside one window. */
+  progressKey?: string | number
 }
 
+const UNDO_RING_RADIUS = 6.5
+const UNDO_RING_CIRCUMFERENCE = 2 * Math.PI * UNDO_RING_RADIUS
+
 /** A short note at the bottom of the screen. It covers nothing in the page layout. */
-export function Toast({ open, message, icon, actions, onPause, onResume }: ToastProps) {
+export function Toast({
+  open,
+  message,
+  icon,
+  actions,
+  onPause,
+  onResume,
+  progressMs,
+  progressKey,
+}: ToastProps) {
   const reduceMotion = useReducedMotion()
   const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }
   return (
@@ -294,6 +310,31 @@ export function Toast({ open, message, icon, actions, onPause, onResume }: Toast
             onBlur={onResume}
             className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] py-1 pl-3 pr-1 text-sm text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)]"
           >
+            {progressMs !== undefined && progressMs > 0 && (
+              <svg
+                key={progressKey}
+                aria-hidden="true"
+                width={16}
+                height={16}
+                viewBox="0 0 16 16"
+                className="shrink-0 -rotate-90"
+              >
+                <motion.circle
+                  data-undo-ring
+                  aria-hidden="true"
+                  cx={8}
+                  cy={8}
+                  r={UNDO_RING_RADIUS}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeDasharray={UNDO_RING_CIRCUMFERENCE}
+                  initial={{ strokeDashoffset: 0 }}
+                  animate={{ strokeDashoffset: UNDO_RING_CIRCUMFERENCE }}
+                  transition={{ duration: progressMs / 1000, ease: 'linear' }}
+                />
+              </svg>
+            )}
             {icon && (
               <span aria-hidden="true" className="flex shrink-0">
                 {icon}
