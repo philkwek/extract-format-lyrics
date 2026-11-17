@@ -184,7 +184,7 @@ export default function SongTray({
         aria-label="Songs for your new set"
         className={`ui-surface flex flex-col gap-3 p-3 sm:p-4 ${
           pinned
-            ? 'fixed inset-x-[max(1.5rem,env(safe-area-inset-left))] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 shadow-lg'
+            ? 'fixed inset-x-[max(1.75rem,env(safe-area-inset-left))] bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] z-30 shadow-lg'
             : 'song-tray-enter lg:sticky lg:top-20'
         }`}
       >
