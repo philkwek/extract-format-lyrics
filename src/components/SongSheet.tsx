@@ -389,6 +389,8 @@ export default function SongSheet({
     lineIndex: number
   } | null>(null)
   const [availableWidthCh, setAvailableWidthCh] = useState<number | undefined>(undefined)
+  // Columns actually drawn side by side; a phone stacks them even when 2-4 are chosen.
+  const [renderedColumnCount, setRenderedColumnCount] = useState<number | undefined>(undefined)
   const [overflowingLineKeys, setOverflowingLineKeys] = useState<Set<string>>(new Set())
   const columnPartitions = useMemo(() => partitionSections(sections, columns), [sections, columns])
   const visibleColumnPartitions = useMemo(() => {
@@ -409,7 +411,7 @@ export default function SongSheet({
     if (!wrapLines) return []
     return visibleColumnPartitions.map((_, index) => {
       if (availableWidthCh === undefined) return undefined
-      const allocated = hasAdaptiveColumns
+      const allocated = hasAdaptiveColumns && renderedColumnCount !== 1
         ? allocatedColumnWidths[index]
         : availableWidthCh
       if (allocated === undefined || !Number.isFinite(allocated)) return undefined
@@ -420,6 +422,7 @@ export default function SongSheet({
     allocatedColumnWidths,
     availableWidthCh,
     hasAdaptiveColumns,
+    renderedColumnCount,
     visibleColumnPartitions,
     wrapLines,
   ])
@@ -454,7 +457,14 @@ export default function SongSheet({
             ? parseFloat(window.getComputedStyle(gridRef.current).columnGap)
             : NaN
         const gapPx = Number.isFinite(computedGap) ? computedGap : 32
-        const usableWidthPx = gridWidthPx - gapPx * (desktopColumnCount - 1)
+        const trackCount = window
+          .getComputedStyle(gridRef.current)
+          .gridTemplateColumns.split(/\s+/)
+          .filter(Boolean).length
+        const drawnColumns =
+          trackCount > 0 ? Math.min(trackCount, desktopColumnCount) : desktopColumnCount
+        setRenderedColumnCount((current) => (current === drawnColumns ? current : drawnColumns))
+        const usableWidthPx = gridWidthPx - gapPx * (drawnColumns - 1)
 
         if (usableWidthPx > 0 && chWidthPx > 0) {
           const nextAvailableCh = Math.max(
