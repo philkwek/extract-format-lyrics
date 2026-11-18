@@ -36,6 +36,7 @@ export default function ThemeToggle({ variant = 'secondary', size = 16 }: ThemeT
   return (
     <Button
       variant={variant}
+      size="sm"
       aria-label={getLabel(mode)}
       onClick={cycleMode}
       icon={

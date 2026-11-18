@@ -40,7 +40,7 @@ import SearchResults from '../components/import/SearchResults'
 import SongTray from '../components/import/SongTray'
 import LiveShareChip from '../components/share/LiveShareChip'
 import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
-import { Button, IconButton, LivePill, SegmentedControl, StatusBanner, Surface } from '../components/ui'
+import { Button, IconButton, LivePill, SegmentedControl, StatusBanner } from '../components/ui'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
@@ -466,7 +466,7 @@ export default function HomePage() {
 
       {/* Recent Shared Lyrics */}
       {recentLyrics.length > 0 && (
-        <Surface className="p-4 sm:p-5">
+        <div>
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">
@@ -533,7 +533,7 @@ export default function HomePage() {
               )
             })}
           </div>
-        </Surface>
+        </div>
       )}
 
       {/* Share Modal */}

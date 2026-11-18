@@ -95,10 +95,14 @@ export default function LyricsViewerContent({
   const activeSong = songs.find((s) => s.entryId === activeEntryId) || songs[0]
 
   return (
-    <div className={isModal ? 'w-full min-w-0' : 'mx-auto max-w-3xl w-full min-w-0 space-y-6'}>
+    <div className={isModal ? 'w-full min-w-0' : 'mx-auto max-w-3xl w-full min-w-0 space-y-3'}>
       {/* Set Header */}
       {setName && (
-        <div className="flex items-center justify-between border-b border-[var(--ui-border)] pb-3">
+        <div
+          className={`flex items-center justify-between ${
+            isModal ? 'border-b border-[var(--ui-border)] pb-3' : ''
+          }`}
+        >
           <div className="min-w-0">
             <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)] break-words">
               {setName}
@@ -128,10 +132,10 @@ export default function LyricsViewerContent({
       {songs.length > 0 && (
         <div
           ref={tabListRef}
-          className={`no-scrollbar z-20 flex w-full max-w-full min-w-0 space-x-1.5 overflow-x-auto border-b border-[var(--ui-border)] py-2.5 ${
+          className={`no-scrollbar z-20 flex w-full max-w-full min-w-0 overflow-x-auto border-b border-[var(--ui-border)] ${
             isModal
-              ? 'sticky top-0 bg-[var(--ui-surface-raised)] px-4 sm:px-6'
-              : 'sticky top-0 bg-[var(--ui-canvas)]/95 backdrop-blur-md'
+              ? 'sticky top-0 space-x-1.5 bg-[var(--ui-surface-raised)] px-4 py-2.5 sm:px-6'
+              : 'sticky top-0 items-center gap-2 border-t bg-[var(--ui-canvas)]/95 py-3 backdrop-blur-md'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
