@@ -34,7 +34,7 @@ describe('searchSites', () => {
       }),
     }))
 
-    const running = searchSites(adapters, 'good grace')
+    const running = searchSites(adapters, 'song')
     await Promise.resolve()
     expect(started).toEqual(['ultimate-guitar', 'pnwchords', 'worshiptogether'])
 
@@ -87,6 +87,31 @@ describe('searchSites', () => {
     })
     expect(result.outcomes[0]).toMatchObject({ status: 'failed', failure: 'parser' })
     expect(result.outcomes[1]).toMatchObject({ status: 'empty', candidates: [] })
+  })
+
+  it('filters out unrelated candidates per site and marks zero-match sites as empty', async () => {
+    const adapters: SearchAdapter[] = [
+      {
+        site: 'worshiptogether',
+        search: async () => [
+          { site: 'worshiptogether', title: 'Fall Like Rain', artist: 'Worship Together Artist', url: 'https://wt.com/1' },
+          { site: 'worshiptogether', title: 'Holy Forever', artist: 'Worship Together Artist', url: 'https://wt.com/2' },
+        ],
+      },
+      {
+        site: 'ultimate-guitar',
+        search: async () => [
+          { site: 'ultimate-guitar', title: 'You Saved Me', artist: 'Artist', url: 'https://ug.com/1' },
+        ],
+      },
+    ]
+
+    const result = await searchSites(adapters, 'You saved me', {
+      limiter: new RateLimiterAndCircuitBreaker(),
+    })
+    expect(result.outcomes[0]).toMatchObject({ site: 'worshiptogether', status: 'empty', candidates: [] })
+    expect(result.outcomes[1]).toMatchObject({ site: 'ultimate-guitar', status: 'ok' })
+    expect(result.candidates).toHaveLength(1)
   })
 
   it('opens the existing host pause after repeated blocked responses', async () => {

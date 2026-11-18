@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   PARTIAL_SOURCE_RESULT_LIMIT,
   canonicalCandidateUrl,
+  filterRelevantCandidates,
   selectCombinedSearchResults,
   selectNativeSourceResults,
   selectSearchResults,
@@ -76,7 +77,7 @@ describe('selectSearchResults', () => {
     expect(results.map((item) => item.versionLabel)).toEqual(['Ver 1', 'Ver 2'])
   })
 
-  it('prefers relevant candidates and falls back when nothing matches', () => {
+  it('drops unrelated candidates instead of falling back when nothing matches', () => {
     const mixed = selectSearchResults(
       [
         result('ultimate-guitar', 'Unrelated Song', 'https://ug.com/unrelated', 5),
@@ -86,11 +87,11 @@ describe('selectSearchResults', () => {
     )
     expect(mixed.map((item) => item.title)).toEqual(['Good Grace'])
 
-    const fallback = selectSearchResults(
+    const none = selectSearchResults(
       [result('ultimate-guitar', 'Unrelated Song', 'https://ug.com/unrelated', 5)],
       'good grace'
     )
-    expect(fallback).toHaveLength(1)
+    expect(none).toEqual([])
   })
 
   it('caps a single streamed source so other sources still have room', () => {
@@ -214,5 +215,63 @@ describe('combined Ultimate Guitar selection', () => {
     expect(sites).toContain('worshiptogether')
     expect(sites).toContain('worshipchords-net')
     expect(sites).toContain('worshipchords')
+  })
+
+  it('filters Ultimate Guitar results by query relevance while preserving UG order', () => {
+    const candidates = [
+      result('ultimate-guitar', 'Holy Forever', 'https://ug.com/1', 5),
+      result('ultimate-guitar', 'You Saved Me', 'https://ug.com/2', 4),
+      result('ultimate-guitar', 'You Save Me (Acoustic)', 'https://ug.com/3', 3),
+    ]
+    const selected = selectCombinedSearchResults(candidates, 'you saved me', 8)
+    expect(selected.map((c) => c.title)).toEqual(['You Saved Me', 'You Save Me (Acoustic)'])
+  })
+})
+
+describe('filterRelevantCandidates', () => {
+  it('filters out unrelated Worship Together results for multi-word queries', () => {
+    const candidates = [
+      result('worshiptogether', 'Fall Like Rain', 'https://wt.com/1'),
+      result('worshiptogether', "God I'm Just Grateful", 'https://wt.com/2'),
+      result('worshiptogether', 'Holy Forever', 'https://wt.com/3'),
+      result('worshiptogether', 'Never Change', 'https://wt.com/4'),
+      result('worshiptogether', 'Reasons', 'https://wt.com/5'),
+      result('worshiptogether', 'Good Good Father', 'https://wt.com/6'),
+      result('worshiptogether', 'How Good Is The Lord', 'https://wt.com/7'),
+      result('worshiptogether', 'Giants (How Good Is The Lord)', 'https://wt.com/8'),
+    ]
+
+    const filtered = filterRelevantCandidates(candidates, 'Giants how good the lord is')
+    expect(filtered.map((c) => c.title)).toEqual([
+      'How Good Is The Lord',
+      'Giants (How Good Is The Lord)',
+    ])
+  })
+
+  it('rejects false positives like "You Bless Me" for "You saved me" while allowing close inflections', () => {
+    const candidates = [
+      result('worshiptogether', 'You Bless Me (Thank You)', 'https://wt.com/1'),
+      result('worshiptogether', 'Fall Like Rain', 'https://wt.com/2'),
+      result('worshiptogether', 'You Save Me', 'https://wt.com/3'),
+      result('pnwchords', 'You Saved Me', 'https://pnw.com/1'),
+    ]
+
+    const filtered = filterRelevantCandidates(candidates, 'You saved me')
+    expect(filtered.map((c) => c.title)).toEqual(['You Save Me', 'You Saved Me'])
+  })
+
+  it('normalizes apostrophes, punctuation, and casing', () => {
+    const candidates = [
+      result('pnwchords', "The Lord's Prayer", 'https://pnw.com/1'),
+      result('pnwchords', 'Lords Prayer (Live)', 'https://pnw.com/2'),
+    ]
+    expect(filterRelevantCandidates(candidates, "lord's prayer")).toHaveLength(2)
+    expect(filterRelevantCandidates(candidates, 'lords prayer')).toHaveLength(2)
+  })
+
+  it('ignores stop words unless the entire query consists of stop words', () => {
+    const candidates = [result('pnwchords', 'How Great Is Our God', 'https://pnw.com/1')]
+    expect(filterRelevantCandidates(candidates, 'how great is the god')).toHaveLength(1)
+    expect(filterRelevantCandidates([result('pnwchords', 'The Stand', 'https://pnw.com/2')], 'the')).toHaveLength(1)
   })
 })

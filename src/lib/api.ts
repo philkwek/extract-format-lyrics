@@ -5,7 +5,7 @@ import {
   selectNativeSourceResults,
   selectSearchResults,
 } from '../../functions/src/search/selectResults'
-import { SEARCH_SITES } from '../../functions/src/search/types'
+import { SEARCH_SITES, UG_SEARCH_RESULT_LIMIT } from '../../functions/src/search/types'
 
 export type ScrapeStatus = 'ok' | 'error'
 
@@ -139,7 +139,7 @@ export async function searchApiStream(
         ...source,
         candidates:
           site === 'ultimate-guitar'
-            ? selectNativeSourceResults(candidates)
+            ? selectNativeSourceResults(candidates, UG_SEARCH_RESULT_LIMIT, query)
             : selectSearchResults(candidates, query, PARTIAL_SOURCE_RESULT_LIMIT),
       })
       return { source, candidates }

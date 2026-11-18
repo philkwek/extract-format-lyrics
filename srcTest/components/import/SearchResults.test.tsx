@@ -48,6 +48,39 @@ describe('SearchResults', () => {
     expect(button.disabled).toBe(true)
   })
 
+  it('shows per-source chip counts matching the shown results alongside empty and failed chips', () => {
+    render(
+      <SearchResults
+        results={[
+          candidate,
+          {
+            site: 'ultimate-guitar',
+            title: 'Good Grace',
+            artist: 'Hillsong',
+            url: 'https://ultimate-guitar.com/1',
+          },
+        ]}
+        sources={[
+          { site: 'pnwchords', status: 'ok', count: 5, durationMs: 100 },
+          { site: 'ultimate-guitar', status: 'ok', count: 3, durationMs: 100 },
+          { site: 'worshiptogether', status: 'empty', count: 0, durationMs: 100 },
+          { site: 'essentialworship', status: 'failed', count: 0, durationMs: 100 },
+        ]}
+        isSearching={false}
+        hasSearched
+        emptyMessage="Nothing here"
+        onSelect={vi.fn()}
+        getActionState={() => ({ label: 'Add to setlist' })}
+      />
+    )
+
+    expect(screen.getByText('Search results · 2')).toBeTruthy()
+    expect(screen.getByText('PNW Chords: 1 result')).toBeTruthy()
+    expect(screen.getByText('Ultimate Guitar: 1 result')).toBeTruthy()
+    expect(screen.getByText('Worship Together: No matches')).toBeTruthy()
+    expect(screen.getByText('Essential Worship: Unavailable')).toBeTruthy()
+  })
+
   it('shows the empty message after a completed search', () => {
     render(
       <SearchResults

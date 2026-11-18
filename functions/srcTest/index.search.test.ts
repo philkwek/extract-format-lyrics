@@ -72,7 +72,7 @@ describe('GET /api/search', () => {
   })
 
   it('still answers the combined search without a site', async () => {
-    const { res, done } = search({ q: 'all sources' })
+    const { res, done } = search({ q: 'song' })
     await done
 
     expect(searchSites.mock.calls[0][0]).toHaveLength(SEARCH_SITES.length)

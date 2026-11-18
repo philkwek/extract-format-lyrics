@@ -14,11 +14,13 @@ export const PARTIAL_SOURCE_RESULT_LIMIT = Math.ceil(
  */
 export function selectNativeSourceResults(
   candidates: SearchCandidate[],
-  limit = UG_SEARCH_RESULT_LIMIT
+  limit = UG_SEARCH_RESULT_LIMIT,
+  query = ''
 ): SearchCandidate[] {
+  const relevant = query ? filterRelevantCandidates(candidates, query) : candidates
   const selected: SearchCandidate[] = []
   const seen = new Set<string>()
-  for (const candidate of candidates) {
+  for (const candidate of relevant) {
     const key = canonicalCandidateUrl(candidate.url)
     if (seen.has(key)) continue
     seen.add(key)
@@ -39,7 +41,8 @@ export function selectCombinedSearchResults(
 ): SearchCandidate[] {
   const ultimateGuitar = selectNativeSourceResults(
     candidates.filter((candidate) => candidate.site === 'ultimate-guitar'),
-    Math.min(UG_SEARCH_RESULT_LIMIT, limit)
+    Math.min(UG_SEARCH_RESULT_LIMIT, limit),
+    query
   )
   const otherSources = selectSearchResults(
     candidates.filter((candidate) => candidate.site !== 'ultimate-guitar'),
@@ -84,18 +87,77 @@ export function canonicalCandidateUrl(input: string): string {
   }
 }
 
-function queryTokens(query: string): string[] {
-  return query
+const SEARCH_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'at',
+  'by',
+  'for',
+  'from',
+  'in',
+  'is',
+  'it',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'with',
+])
+
+function normalizeSearchText(text: string): string {
+  return text
     .toLowerCase()
-    .split(/[^a-z0-9#]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 1)
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9#]+/g, ' ')
+    .trim()
+}
+
+function tokenizeWords(text: string): string[] {
+  const normalized = normalizeSearchText(text)
+  return normalized ? normalized.split(/\s+/) : []
+}
+
+function queryTokens(query: string): string[] {
+  const words = tokenizeWords(query)
+  if (words.length === 0) return []
+  const meaningful = words.filter((word) => !SEARCH_STOP_WORDS.has(word))
+  return meaningful.length > 0 ? meaningful : words
+}
+
+function tokenMatchesWords(token: string, candidateWords: string[]): boolean {
+  if (token.length <= 3) {
+    return candidateWords.includes(token)
+  }
+  return candidateWords.some(
+    (word) =>
+      word === token ||
+      (word.length >= 4 && (word.startsWith(token) || token.startsWith(word)))
+  )
 }
 
 function relevance(candidate: SearchCandidate, tokens: string[]): number {
   if (tokens.length === 0) return 0
-  const haystack = `${candidate.title} ${candidate.artist} ${candidate.versionLabel ?? ''}`.toLowerCase()
-  return tokens.reduce((score, token) => (haystack.includes(token) ? score + 1 : score), 0)
+  const candidateWords = tokenizeWords(
+    `${candidate.title} ${candidate.artist} ${candidate.versionLabel ?? ''}`
+  )
+  return tokens.reduce((score, token) => (tokenMatchesWords(token, candidateWords) ? score + 1 : score), 0)
+}
+
+function minimumRelevanceThreshold(tokenCount: number): number {
+  if (tokenCount <= 3) return tokenCount
+  return Math.ceil(tokenCount * 0.6)
+}
+
+export function filterRelevantCandidates(
+  candidates: SearchCandidate[],
+  query: string
+): SearchCandidate[] {
+  const tokens = queryTokens(query)
+  if (tokens.length === 0) return candidates
+  const minMatches = minimumRelevanceThreshold(tokens.length)
+  return candidates.filter((candidate) => relevance(candidate, tokens) >= minMatches)
 }
 
 interface RankedCandidate {
@@ -108,8 +170,7 @@ interface RankedCandidate {
 /**
  * Result selection rule:
  *
- * 1. Drop candidates that do not match any query token when at least one
- *    relevant candidate exists.
+ * 1. Drop candidates that do not meet the query relevance threshold.
  * 2. De-duplicate by canonical URL, keeping the most relevant/highest-rated
  *    representative.
  * 3. Order within each source by relevance, then source-local rating. Ratings
@@ -150,8 +211,8 @@ export function selectSearchResults(
   })
 
   const unique = [...byUrl.values()]
-  const relevant = tokens.length > 0 ? unique.filter((item) => item.relevance > 0) : unique
-  const pool = relevant.length > 0 ? relevant : unique
+  const minMatches = minimumRelevanceThreshold(tokens.length)
+  const pool = tokens.length > 0 ? unique.filter((item) => item.relevance >= minMatches) : unique
 
   pool.sort((a, b) => {
     if (a.sourceOrder !== b.sourceOrder) return a.sourceOrder - b.sourceOrder

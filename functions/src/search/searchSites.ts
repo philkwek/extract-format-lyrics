@@ -3,6 +3,7 @@ import { RateLimiterAndCircuitBreaker, rateLimiter } from '../rateLimit.js'
 import { elapsedMs, recordTiming } from '../metrics.js'
 import type { SearchAdapter, SearchCandidate, SearchFailureReason, SearchSiteOutcome } from './types.js'
 import { SearchParseError } from './types.js'
+import { filterRelevantCandidates } from './selectResults.js'
 
 export const SEARCH_HOSTS: Record<string, string> = {
   'ultimate-guitar': 'www.ultimate-guitar.com',
@@ -69,7 +70,7 @@ export async function searchSite(
   }
 
   try {
-    const candidates = await adapter.search(query)
+    const candidates = filterRelevantCandidates(await adapter.search(query), query)
     const durationMs = elapsedMs(startedAt)
     limiter.recordHostSuccess(host)
     recordTiming({
