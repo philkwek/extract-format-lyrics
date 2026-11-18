@@ -40,6 +40,7 @@ describe('searchApiStream', () => {
       'pnwchords',
       'worshiptogether',
       'worshipchords-net',
+      'worshipchords',
     ])
 
     // The slowest source is still pending when the first one is reported.
@@ -50,6 +51,7 @@ describe('searchApiStream', () => {
 
     answer('ultimate-guitar', 3)
     answer('worshipchords-net', 0)
+    answer('worshipchords', 0)
     pending.get('worshiptogether')!(
       Response.json({ error: { message: 'Source failed' } }, { status: 500 })
     )
@@ -60,6 +62,7 @@ describe('searchApiStream', () => {
       'ok',
       'ok',
       'failed',
+      'empty',
       'empty',
     ])
     // Ultimate Guitar's three first, then the rest of the eight from PNW Chords.

@@ -1,5 +1,11 @@
 /** Request order; the browser asks for each of these separately. */
-export const SEARCH_SITES = ['ultimate-guitar', 'pnwchords', 'worshiptogether', 'worshipchords-net'] as const
+export const SEARCH_SITES = [
+  'ultimate-guitar',
+  'pnwchords',
+  'worshiptogether',
+  'worshipchords-net',
+  'worshipchords',
+] as const
 
 /** Search pages answer in about a second; a slower source is treated as down. */
 export const SEARCH_TIMEOUT_MS = 3_000
