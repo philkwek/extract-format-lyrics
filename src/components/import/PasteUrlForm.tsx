@@ -35,7 +35,7 @@ export default function PasteUrlForm({
   return (
     <div className={classes('space-y-4', className)}>
       <p className="text-sm leading-6 text-[var(--ui-text-muted)]">
-        Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Worship Chords .com or .net, Worship Together).
+        Paste one or more chord sheet URLs (Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords .com or .net, Worship Together).
       </p>
 
       <textarea

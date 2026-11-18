@@ -28,7 +28,7 @@ import { UNDO_WINDOW_MS } from '../lib/usePendingRemoval'
 import ChangeToast from '../components/share/ChangeToast'
 
 export default function SearchPage() {
-  useSeo({ title: 'Find Chord Sheets | Sets & Sheets', description: 'Search Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net by song title or artist and add the chart to your set.', path: '/search' })
+  useSeo({ title: 'Find Chord Sheets | Sets & Sheets', description: 'Search Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords by song title or artist and add the chart to your set.', path: '/search' })
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const targetSessionId = searchParams.get('session')
@@ -243,7 +243,7 @@ export default function SearchPage() {
             onSubmit={handleSearch}
             isSearching={isSearching}
             error={error}
-            description="Find chord sheets across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
+            description="Find chord sheets across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
             placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
             className="[&_.ui-field]:bg-ui-surface-raised!"
           />

@@ -109,6 +109,8 @@ export function sourceLabel(site: string): string {
       return 'Worship Chords (.net)'
     case 'worshiptogether':
       return 'Worship Together'
+    case 'essentialworship':
+      return 'Essential Worship'
     default:
       return site
   }

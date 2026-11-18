@@ -95,7 +95,7 @@ const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 
 /** Cloudflare rejects undici's TLS/HTTP2 fingerprint on these hosts. */
-const IMPIT_HOSTS = ['worshipchords.com', 'worshipchords.net'] as const
+const IMPIT_HOSTS = ['worshipchords.com', 'worshipchords.net', 'essentialworship.com'] as const
 
 export function usesImpitTransport(hostname: string): boolean {
   const host = hostname.toLowerCase()

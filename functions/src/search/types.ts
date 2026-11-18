@@ -2,6 +2,7 @@
 export const SEARCH_SITES = [
   'ultimate-guitar',
   'pnwchords',
+  'essentialworship',
   'worshiptogether',
   'worshipchords-net',
   'worshipchords',

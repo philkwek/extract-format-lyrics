@@ -38,6 +38,7 @@ describe('searchApiStream', () => {
     expect([...pending.keys()]).toEqual([
       'ultimate-guitar',
       'pnwchords',
+      'essentialworship',
       'worshiptogether',
       'worshipchords-net',
       'worshipchords',
@@ -50,6 +51,7 @@ describe('searchApiStream', () => {
     expect(onSource.mock.calls[0][0].candidates).toHaveLength(2)
 
     answer('ultimate-guitar', 3)
+    answer('essentialworship', 0)
     answer('worshipchords-net', 0)
     answer('worshipchords', 0)
     pending.get('worshiptogether')!(
@@ -61,6 +63,7 @@ describe('searchApiStream', () => {
     expect(response.sources?.map((source) => source.status)).toEqual([
       'ok',
       'ok',
+      'empty',
       'failed',
       'empty',
       'empty',

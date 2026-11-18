@@ -76,7 +76,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 
 ## Before you rely on it
 
-- **Supported chord sites:** Ultimate Guitar, PNW Chords, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
+- **Supported chord sites:** Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
 - **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
