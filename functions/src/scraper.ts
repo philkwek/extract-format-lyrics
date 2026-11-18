@@ -10,6 +10,7 @@ import { pnwChordsAdapter } from './adapters/pnwChords.js'
 import { worshipChordsAdapter } from './adapters/worshipChords.js'
 import { worshipChordsNetAdapter } from './adapters/worshipChordsNet.js'
 import { worshipTogetherAdapter } from './adapters/worshipTogether.js'
+import { essentialWorshipAdapter } from './adapters/essentialWorship.js'
 import { genericFallbackAdapter } from './adapters/genericFallback.js'
 import type { SiteAdapter } from './adapters/types.js'
 import { elapsedMs, recordTiming } from './metrics.js'
@@ -20,6 +21,7 @@ const ADAPTERS: SiteAdapter[] = [
   worshipChordsAdapter,
   worshipChordsNetAdapter,
   worshipTogetherAdapter,
+  essentialWorshipAdapter,
   genericFallbackAdapter,
 ]
 

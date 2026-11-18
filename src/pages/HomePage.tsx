@@ -284,7 +284,7 @@ export default function HomePage() {
               onSubmit={handleSearch}
               isSearching={isSearching}
               error={searchError}
-              description="Search by title or artist across Ultimate Guitar, PNW Chords, Worship Together and WorshipChords.net"
+              description="Search by title or artist across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
               placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
               className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
             />

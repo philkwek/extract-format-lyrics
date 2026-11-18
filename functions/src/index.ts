@@ -12,6 +12,7 @@ import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
 import { worshipChordsSearchAdapter } from './search/worshipChordsSearch.js'
 import { worshipChordsNetSearchAdapter } from './search/worshipChordsNetSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
+import { essentialWorshipSearchAdapter } from './search/essentialWorshipSearch.js'
 import { searchSites } from './search/searchSites.js'
 import { searchCache } from './search/searchCache.js'
 import { DEFAULT_SEARCH_RESULT_LIMIT, selectCombinedSearchResults } from './search/selectResults.js'
@@ -81,6 +82,7 @@ function rejectIfLimited(req: Request, res: Response): boolean {
 const SEARCH_ADAPTERS = [
   ultimateGuitarSearchAdapter,
   pnwChordsSearchAdapter,
+  essentialWorshipSearchAdapter,
   worshipTogetherSearchAdapter,
   worshipChordsNetSearchAdapter,
   worshipChordsSearchAdapter,

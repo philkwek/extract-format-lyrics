@@ -7,6 +7,7 @@ export const ALLOWED_DOMAINS = [
   'worshipchords.com',
   'worshipchords.net',
   'worshiptogether.com',
+  'essentialworship.com',
 ] as const
 
 export const MAX_URLS_PER_REQUEST = 20
@@ -17,6 +18,7 @@ export type SiteId =
   | 'worshipchords'
   | 'worshipchords-net'
   | 'worshiptogether'
+  | 'essentialworship'
 
 const SITE_BY_DOMAIN: Record<(typeof ALLOWED_DOMAINS)[number], SiteId> = {
   'ultimate-guitar.com': 'ultimate-guitar',
@@ -24,6 +26,7 @@ const SITE_BY_DOMAIN: Record<(typeof ALLOWED_DOMAINS)[number], SiteId> = {
   'worshipchords.com': 'worshipchords',
   'worshipchords.net': 'worshipchords-net',
   'worshiptogether.com': 'worshiptogether',
+  'essentialworship.com': 'essentialworship',
 }
 
 export function isAllowedHost(hostname: string): boolean {

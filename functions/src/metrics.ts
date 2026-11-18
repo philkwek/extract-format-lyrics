@@ -12,6 +12,7 @@ export type MetricSite =
   | 'worshipchords'
   | 'worshipchords-net'
   | 'worshiptogether'
+  | 'essentialworship'
   | 'generic'
   | 'unknown'
 
