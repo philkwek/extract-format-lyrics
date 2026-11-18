@@ -238,6 +238,10 @@ html.dark body {
 /* Smaller icon buttons for the dense song tray rows; must come after .ui-button--icon. */
 .song-tray-icon { width: 1.75rem; height: 1.75rem; }
 
+/* Clear button inside a text field; the shared icon button is as tall as the field itself. */
+.ui-field-clear { width: 2.75rem; height: 100%; border-radius: 0 0.8rem 0.8rem 0; }
+.ui-field-clear:focus-visible { outline-offset: -3px; }
+
 @keyframes song-tray-enter { from { opacity: 0; transform: translateX(1rem); } }
 @media (prefers-reduced-motion: no-preference) {
   .song-tray-enter { animation: song-tray-enter 220ms ease-out; }

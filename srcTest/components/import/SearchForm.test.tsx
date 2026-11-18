@@ -50,4 +50,23 @@ describe('SearchForm', () => {
     renderForm({ error: 'Search failed' })
     expect(screen.getByText('Search failed')).toBeTruthy()
   })
+
+  it('shows the clear button only when the field has text', () => {
+    renderForm()
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    cleanup()
+
+    renderForm({ query: ' ' })
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeTruthy()
+  })
+
+  it('clears the query and returns focus to the input', () => {
+    const props = renderForm({ query: 'Grace alone' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(props.onQueryChange).toHaveBeenCalledWith('')
+    expect(document.activeElement).toBe(screen.getByRole('textbox'))
+    expect(props.onSubmit).not.toHaveBeenCalled()
+  })
 })
