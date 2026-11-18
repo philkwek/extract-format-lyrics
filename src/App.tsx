@@ -31,6 +31,7 @@ export function AppShell() {
     return () => window.removeEventListener('storage', sync)
   }, [])
   const isLyricsView = location.pathname.startsWith('/lyrics/')
+  const isSessionView = location.pathname.startsWith('/session/')
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
@@ -75,7 +76,7 @@ export function AppShell() {
             chromeHidden
               ? 'w-full max-w-none flex-1 p-0'
               : `mx-auto w-[96%] max-w-[92rem] flex-1 pb-10 ${
-                  isLyricsView ? 'pt-2 sm:pt-3' : 'pt-4 sm:pt-5'
+                  isLyricsView ? 'pt-2 sm:pt-3' : isSessionView ? 'pt-2.5' : 'pt-4 sm:pt-5'
                 }`
           }
         >

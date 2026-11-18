@@ -1471,7 +1471,7 @@ export default function SessionPage() {
       className={
         isFullScreen
           ? 'flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[var(--ui-canvas)]'
-          : 'ui-surface space-y-5 p-4 sm:p-6'
+          : 'space-y-3 px-1 sm:px-0'
       }
     >
       {!isFullScreen && linkPreview && (
@@ -1615,7 +1615,7 @@ export default function SessionPage() {
 
       {/* Session Title Bar */}
       {!isFullScreen && (
-        <div className="flex flex-col gap-3 border-b border-[var(--ui-border)] pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             {isEditingName ? (
               <div className="flex items-center gap-2">
@@ -1692,7 +1692,7 @@ export default function SessionPage() {
         className={
           isFullScreen
             ? 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
-            : 'flex items-start gap-2 border-b border-[var(--ui-border)] pt-1'
+            : 'flex items-center gap-2 border-y border-[var(--ui-border)] py-3'
         }
       >
         {!isFullScreen && session.songs.length > 1 && (
@@ -1710,8 +1710,8 @@ export default function SessionPage() {
         )}
         <div
           ref={tabListRef}
-          className={`no-scrollbar relative flex space-x-1.5 overflow-x-auto ${
-            isFullScreen ? 'flex-1 py-1.5' : 'min-w-0 flex-1 px-1 pb-2'
+          className={`no-scrollbar relative flex overflow-x-auto ${
+            isFullScreen ? 'flex-1 space-x-1.5 py-1.5' : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
@@ -1832,7 +1832,7 @@ export default function SessionPage() {
       {currentItem && (
         <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
           {displayedSong ? (
-            <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-4'}>
+            <div className={isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'space-y-3'}>
               {/* Header and Toolbar tightly grouped */}
               <div
                 className={
