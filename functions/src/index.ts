@@ -9,6 +9,7 @@ import { rateLimiter } from './rateLimit.js'
 import { clientIpFromRequest } from './clientIp.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
+import { worshipChordsSearchAdapter } from './search/worshipChordsSearch.js'
 import { worshipChordsNetSearchAdapter } from './search/worshipChordsNetSearch.js'
 import { worshipTogetherSearchAdapter } from './search/worshipTogetherSearch.js'
 import { searchSites } from './search/searchSites.js'
@@ -82,6 +83,7 @@ const SEARCH_ADAPTERS = [
   pnwChordsSearchAdapter,
   worshipTogetherSearchAdapter,
   worshipChordsNetSearchAdapter,
+  worshipChordsSearchAdapter,
 ]
 
 async function runSearch(upstreamQuery: string, adapter?: SearchAdapter) {

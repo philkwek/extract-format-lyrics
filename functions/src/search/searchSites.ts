@@ -9,6 +9,7 @@ export const SEARCH_HOSTS: Record<string, string> = {
   pnwchords: 'pnwchords.com',
   'worshipchords-net': 'www.worshipchords.net',
   worshiptogether: 'www.worshiptogether.com',
+  worshipchords: 'worshipchords.com',
 }
 
 export interface SearchSiteDeps {

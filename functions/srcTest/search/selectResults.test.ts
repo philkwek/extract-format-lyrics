@@ -193,4 +193,26 @@ describe('combined Ultimate Guitar selection', () => {
       selectSearchResults(input, 'song', 8)
     )
   })
+
+  it('gives every worship source at least 1 slot when all 5 sources return results', () => {
+    const candidates = [
+      result('ultimate-guitar', 'Song', 'https://ug.com/1'),
+      result('ultimate-guitar', 'Song', 'https://ug.com/2'),
+      result('ultimate-guitar', 'Song', 'https://ug.com/3'),
+      result('pnwchords', 'Song', 'https://pnw.com/1'),
+      result('pnwchords', 'Song', 'https://pnw.com/2'),
+      result('worshiptogether', 'Song', 'https://wt.com/1'),
+      result('worshipchords-net', 'Song', 'https://wcn.com/1'),
+      result('worshipchords', 'Song', 'https://wc.com/1'),
+    ]
+
+    const selected = selectCombinedSearchResults(candidates, 'song', 8)
+    expect(selected).toHaveLength(8)
+    const sites = selected.map((c) => c.site)
+    expect(sites.filter((s) => s === 'ultimate-guitar')).toHaveLength(3)
+    expect(sites).toContain('pnwchords')
+    expect(sites).toContain('worshiptogether')
+    expect(sites).toContain('worshipchords-net')
+    expect(sites).toContain('worshipchords')
+  })
 })
