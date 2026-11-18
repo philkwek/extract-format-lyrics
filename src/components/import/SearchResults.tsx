@@ -37,12 +37,7 @@ function SourceStatus({ source }: { source: SearchSourceStatus }) {
         : `${source.count} result${source.count === 1 ? '' : 's'}`
   return (
     <span
-      className={classes(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold',
-        source.status === 'failed'
-          ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-          : 'border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)]'
-      )}
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2 py-1 text-[10px] font-semibold text-[var(--ui-text-muted)]"
       title={source.message}
     >
       {label}: {detail}
@@ -105,7 +100,7 @@ export default function SearchResults({
         )}
 
         {partial && !allFailed && (
-          <p className="px-1 text-xs text-amber-700 dark:text-amber-400" role="status">
+          <p className="px-1 text-xs text-[var(--ui-text-muted)]" role="status">
             Some sources are unavailable right now. Showing results from the rest.
           </p>
         )}
