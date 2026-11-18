@@ -4,7 +4,7 @@ import { essentialWorshipAdapter } from '../../src/adapters/essentialWorship.js'
 describe('essentialWorshipAdapter', () => {
   it('matches essentialworship.com URLs', () => {
     expect(
-      essentialWorshipAdapter.matches('https://essentialworship.com/songs/demo-artist/demo-song/')
+      essentialWorshipAdapter.matches('https://essentialworship.com/songs/demo-artist/demo-song/'),
     ).toBe(true)
     expect(essentialWorshipAdapter.matches('https://pnwchords.com/song')).toBe(false)
   })
@@ -23,7 +23,10 @@ Morning light breaks through the night
         </body>
       </html>
     `
-    const raw = essentialWorshipAdapter.extract(html, 'https://essentialworship.com/songs/demo-worship/morning-light/')
+    const raw = essentialWorshipAdapter.extract(
+      html,
+      'https://essentialworship.com/songs/demo-worship/morning-light/',
+    )
     expect(raw.title).toBe('Morning Light')
     expect(raw.artist).toBe('Demo Worship')
     expect(raw.originalKey).toBe('G')
@@ -33,7 +36,10 @@ Morning light breaks through the night
 
   it('throws when <pre> tag is missing', () => {
     expect(() =>
-      essentialWorshipAdapter.extract('<html><body><h1>No Chords</h1></body></html>', 'https://essentialworship.com/songs/x/')
+      essentialWorshipAdapter.extract(
+        '<html><body><h1>No Chords</h1></body></html>',
+        'https://essentialworship.com/songs/x/',
+      ),
     ).toThrow('Could not find chord content')
   })
 })

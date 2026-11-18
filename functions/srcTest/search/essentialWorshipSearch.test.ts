@@ -80,7 +80,7 @@ describe('essentialWorshipSearchAdapter', () => {
     expect(results).toEqual([])
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://essentialworship.com/find-a-song/?search=morning',
-      { timeoutMs: 3000 }
+      { timeoutMs: 3000 },
     )
     fetchSpy.mockRestore()
   })
