@@ -30,6 +30,7 @@ export default function LyricsViewerPage() {
   const previousSongIdsRef = useRef<Set<string> | null>(null)
   const appliedPublicationRef = useRef<string | null>(null)
   const requestGenerationRef = useRef(0)
+  const lyricsDataRef = useRef<GetSharedLyricsResult | null>(null)
 
   const applyLyrics = useCallback((result: GetSharedLyricsResult) => {
     if (appliedPublicationRef.current !== result.id) {
@@ -38,6 +39,7 @@ export default function LyricsViewerPage() {
       setChangeNotice(null)
     }
 
+    lyricsDataRef.current = result
     setLyricsData(result)
     setStatusKind('ok')
     setSelectedEntryId((prev) => {
@@ -90,14 +92,23 @@ export default function LyricsViewerPage() {
         if (generation !== requestGenerationRef.current) return
         if (err instanceof ShareApiError) {
           if (err.code === 'EXPIRED' || err.status === 410) {
+            lyricsDataRef.current = null
             setStatusKind('expired')
             return
           }
           if (err.code === 'NOT_FOUND' || err.status === 404) {
+            lyricsDataRef.current = null
             void removeRecentSharedLyrics(shortId)
             setStatusKind('missing')
             return
           }
+        }
+        if (lyricsDataRef.current) {
+          setChangeNotice({
+            publicationId: shortId,
+            note: { text: 'Couldn’t refresh lyrics right now' },
+          })
+          return
         }
         setError((err as Error).message || 'Failed to load lyrics')
         setStatusKind('error')
@@ -113,6 +124,7 @@ export default function LyricsViewerPage() {
   // Initial load
   useEffect(() => {
     let isCancelled = false
+    lyricsDataRef.current = null
 
     async function load() {
       if (!shortId) {
@@ -125,11 +137,13 @@ export default function LyricsViewerPage() {
 
       const cached = await getCachedSharedLyrics(shortId)
       if (cached && !isCancelled) {
-        setLyricsData({
+        const cachedResult: GetSharedLyricsResult = {
           id: cached.id,
           lyrics: { v: 1, name: cached.name, songs: cached.songs },
           expiresAt: cached.expiresAt,
-        })
+        }
+        lyricsDataRef.current = cachedResult
+        setLyricsData(cachedResult)
         setSelectedEntryId(cached.songs[0]?.entryId || null)
         setStatusKind('ok')
         setLoading(false)
@@ -144,18 +158,20 @@ export default function LyricsViewerPage() {
         if (isCancelled || generation !== requestGenerationRef.current) return
         if (err instanceof ShareApiError) {
           if (err.code === 'EXPIRED' || err.status === 410) {
+            lyricsDataRef.current = null
             setStatusKind('expired')
             setLoading(false)
             return
           }
           if (err.code === 'NOT_FOUND' || err.status === 404) {
+            lyricsDataRef.current = null
             void removeRecentSharedLyrics(shortId)
             setStatusKind('missing')
             setLoading(false)
             return
           }
         }
-        if (!cached) {
+        if (!cached && !lyricsDataRef.current) {
           setError((err as Error).message || 'Failed to load lyrics')
           setStatusKind('error')
         }
