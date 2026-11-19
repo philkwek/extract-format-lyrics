@@ -1612,4 +1612,86 @@ describe('SessionPage undoable removals', () => {
     ])
     expect(saved.songs[0].customFlow).toEqual([0, 1])
   })
+
+  it('preserves edits made to another section during the 5-second section deletion window', async () => {
+    const deleteVerse1Buttons = await (async () => {
+      vi.mocked(songCache.getSong).mockResolvedValue(sectionSong as never)
+      vi.mocked(sessionStore.updateSession).mockClear()
+      render(<TestHarness />)
+      return screen.findAllByTitle('Delete Verse 1')
+    })()
+
+    fireEvent.click(deleteVerse1Buttons[0])
+    await screen.findByRole('heading', { name: 'Remove this section?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    // Rename Verse 2 (displayed at index 1 while Verse 1 is pending deletion)
+    fireEvent.click(screen.getByRole('heading', { name: 'Verse 2' }))
+    const input = screen.getByDisplayValue('Verse 2')
+    fireEvent.change(input, { target: { value: 'Bridge' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await act(async () => {})
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    expect(saved.songs[0].customSections?.map((s) => s.label)).toEqual(['Chorus', 'Bridge'])
+  })
+
+  it('disables tab dragging while a song removal is pending undo', async () => {
+    const threeSongs = {
+      ...twoSongs,
+      songs: [
+        ...twoSongs.songs,
+        { ...twoSongs.songs[1], entryId: 'entry-c', url: 'https://example.test/third' },
+      ],
+    }
+    vi.mocked(sessionStore.getSession).mockResolvedValue(threeSongs as never)
+    render(<TestHarness />)
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove Great Are You Lord' })
+
+    fireEvent.click(removeButtons[0])
+    await screen.findByRole('heading', { name: 'Remove this song?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    const tabs = songTabs()
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0].getAttribute('draggable')).toBe('false')
+    expect(tabs[1].getAttribute('draggable')).toBe('false')
+  })
+
+  it('clamps out-of-bounds ?song= query parameter to the last song', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    render(
+      <ChromeVisibilityContext.Provider value={{ hidden: false, setHidden: vi.fn() }}>
+        <MemoryRouter initialEntries={['/session/session-1?song=99']}>
+          <Routes>
+            <Route path="/session/:sessionId" element={<SessionPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ChromeVisibilityContext.Provider>,
+    )
+
+    expect(await screen.findByText('You give life, You are love')).toBeTruthy()
+    expect(songTabs()[1].getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('shows a clear unavailable message instead of loading forever when songCache misses', async () => {
+    vi.mocked(songCache.getSong).mockResolvedValue(null)
+    render(<TestHarness />)
+
+    expect(
+      await screen.findByText(/isn.?t saved in this browser|not available in this browser/i),
+    ).toBeTruthy()
+    expect(screen.queryByText(/Loading song sheet\.\.\./i)).toBeNull()
+  })
 })
+

@@ -41,7 +41,7 @@ import SetLinkImportView, {
   type SetLinkNavState,
 } from '../components/SetLinkImportView'
 import OverlayDialog from '../components/ui/OverlayDialog'
-import { simplifyApi } from '../lib/api'
+import { scrapeApi, simplifyApi } from '../lib/api'
 import { mergeOfficialSimplification } from '../lib/simplification'
 import {
   getDefaultSongPrefs,
@@ -204,7 +204,11 @@ export default function SessionPage() {
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
+  const songsDataRef = useRef<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null)
+  const [reloadingSong, setReloadingSong] = useState(false)
+  const [reloadError, setReloadError] = useState<string | null>(null)
   const [prefsRevision, setPrefsRevision] = useState(0)
   const simplificationAttempts = useRef<Set<string>>(new Set())
   const sessionRef = useRef<Session | null>(null)
@@ -240,15 +244,30 @@ export default function SessionPage() {
         setRemovalError(null)
         return
       }
-      const sections = payload.sections.filter((_, index) => index !== payload.index)
-      const flow = removeSectionFromFlow(payload.flow, payload.index)
+      const latestSong = songsDataRef.current.get(payload.songKey) ?? payload.song
+      const latestItem = sessionRef.current?.songs.find(
+        (item) => (item.entryId || item.url) === payload.songKey,
+      )
+      const currentSections =
+        payload.isSimplified && latestSong.simplifiedSections
+          ? latestSong.simplifiedSections
+          : latestSong.sections
+      const currentFlow = latestItem
+        ? resolveSessionFlow(latestItem, latestSong, payload.isSimplified, currentSections.length)
+        : payload.flow
+      const sections = currentSections.filter((_, index) => index !== payload.index)
+      const flow = removeSectionFromFlow(currentFlow, payload.index)
       const updatedSong: Song = payload.isSimplified
-        ? { ...payload.song, simplifiedSections: sections, simplifiedFlow: flow }
-        : { ...payload.song, sections, flow }
+        ? { ...latestSong, simplifiedSections: sections, simplifiedFlow: flow }
+        : { ...latestSong, sections, flow }
       await updateSongItem(payload.entryId, (item) =>
         withSections(item, sections, flow, payload.isSimplified),
       )
-      setSongsData((prev) => new Map(prev).set(payload.songKey, updatedSong))
+      setSongsData((prev) => {
+        const next = new Map(prev).set(payload.songKey, updatedSong)
+        songsDataRef.current = next
+        return next
+      })
       setRemovalError(null)
     },
     [updateSongItem],
@@ -313,7 +332,7 @@ export default function SessionPage() {
   }
 
   // Song index from ?song= query param, default 0
-  const activeIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
+  const rawActiveIndex = Math.max(0, parseInt(searchParams.get('song') || '0', 10) || 0)
 
   const loadSessionSongs = useCallback(async (nextSession: Session) => {
     const map = new Map<string, Song>()
@@ -341,8 +360,11 @@ export default function SessionPage() {
         map.set(item.entryId || item.url, songToUse)
       }
     }
+    songsDataRef.current = map
     setSongsData(map)
     setOriginalSongs(origMap)
+    setLoadedSessionId(nextSession.id)
+    setReloadError(null)
   }, [])
 
   const adoptSession = useCallback((stored: Session) => {
@@ -380,16 +402,20 @@ export default function SessionPage() {
 
   useEffect(() => {
     if (!sessionId) return
+    let cancelled = false
     sessionStore.getSession(sessionId).then(async (s) => {
+      if (cancelled) return
       setRemovedByHost(null)
       setHostChanges(null)
       setLinkPreview(null)
       if (!s) {
         setSession(null)
+        setLoadedSessionId(null)
         setNotFoundId(sessionId)
         return
       }
       setNotFoundId(null)
+      setLoadedSessionId(null)
       setSession(s)
       // Opened by legacy id: show the shareable address instead.
       if (s.publicId && sessionId !== s.publicId) {
@@ -398,6 +424,9 @@ export default function SessionPage() {
       void ensureSetLinkFresh(s)
       await loadSessionSongs(s)
     })
+    return () => {
+      cancelled = true
+    }
   // location.state is only read to carry it across the one-time address replace.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, loadSessionSongs, navigate])
@@ -414,6 +443,7 @@ export default function SessionPage() {
       ? withHostRemoved.filter((item) => item.entryId !== pendingSongRemoval.entryId)
       : withHostRemoved
   }, [session?.songs, removedByHost, pendingSongRemoval])
+  const activeIndex = shownSongs.length > 0 ? Math.min(rawActiveIndex, shownSongs.length - 1) : 0
   const currentItem = shownSongs[activeIndex]
   const arrangeSongs = useMemo(
     () =>
@@ -429,6 +459,10 @@ export default function SessionPage() {
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    songsDataRef.current = songsData
+  }, [songsData])
 
   useEffect(() => {
     viewRef.current = { activeIndex, shown: shownSongs, songs: songsData }
@@ -589,6 +623,7 @@ export default function SessionPage() {
       saveSongPrefs(currentSong.id, { ...newPrefs, simplified: undefined })
       setPrefsRevision((revision) => revision + 1)
       if (Boolean(newPrefs.simplified) !== Boolean(currentItem.simplified)) {
+        setPositioningChord(null)
         guard(() => {
           void updateSongItem(currentItem.entryId, (item) => ({
             ...item,
@@ -650,7 +685,7 @@ export default function SessionPage() {
   const deletionPending = pendingRemoval !== null
 
   const handleSessionUpdated = async (updatedSession: Session, firstNewIndex?: number) => {
-    setSession(updatedSession)
+    adoptSession(updatedSession)
     await loadSessionSongs(updatedSession)
     if (typeof firstNewIndex === 'number') {
       selectSong(firstNewIndex)
@@ -720,6 +755,11 @@ export default function SessionPage() {
     pendingSectionRemoval.isSimplified === isSimplified
       ? pendingSectionRemoval
       : null
+
+  const toBaseSectionIndex = (displayedSectionIndex: number) =>
+    subtractedSection && displayedSectionIndex >= subtractedSection.index
+      ? displayedSectionIndex + 1
+      : displayedSectionIndex
 
   const activeSections = useMemo(
     () =>
@@ -916,8 +956,11 @@ export default function SessionPage() {
   const confirmRemoveSong = () => {
     if (!pendingRemove) return
     const { entryId, title } = pendingRemove
+    const removedIndex = shownSongs.findIndex((item) => item.entryId === entryId)
     const remaining = shownSongs.filter((item) => item.entryId !== entryId).length
-    if (activeIndex >= remaining) {
+    if (removedIndex >= 0 && removedIndex < activeIndex) {
+      setSearchParams({ song: (activeIndex - 1).toString() })
+    } else if (activeIndex >= remaining) {
       setSearchParams({ song: Math.max(0, remaining - 1).toString() })
     }
     setPendingRemove(null)
@@ -950,9 +993,12 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: baseSections, simplifiedFlow: nextFlow }
         : { ...currentSong, sections: baseSections, flow: nextFlow }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
 
     // Persist reordered sections to session so it survives page reloads
     await updateSongItem(currentItem?.entryId, (s) =>
@@ -964,24 +1010,28 @@ export default function SessionPage() {
     if (!currentSong || !session) return
     const trimmed = newLabel.trim()
     if (!trimmed) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
-    const baseSections = (
+    const nextSections = (
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
-    ).map((sec, idx) => (idx === sectionIndex ? { ...sec, label: trimmed } : sec))
+    ).map((sec, idx) => (idx === targetIndex ? { ...sec, label: trimmed } : sec))
 
     const updatedSong: Song =
       isSimplified && currentSong.simplifiedSections
-        ? { ...currentSong, simplifiedSections: baseSections }
-        : { ...currentSong, sections: baseSections }
+        ? { ...currentSong, simplifiedSections: nextSections }
+        : { ...currentSong, sections: nextSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
 
     await updateSongItem(currentItem?.entryId, (s) =>
-      withUpdatedSections(s, baseSections, activeFlow),
+      withUpdatedSections(s, nextSections, baseFlow),
     )
   }
 
@@ -995,7 +1045,7 @@ export default function SessionPage() {
     )
       return
 
-    const currentActiveEntryId = session.songs[activeIndex]?.entryId
+    const currentActiveEntryId = shownSongs[activeIndex]?.entryId
 
     const updatedSession = await sessionStore.reorderSongsInSession(session.id, fromIndex, toIndex)
     if (updatedSession) {
@@ -1070,12 +1120,13 @@ export default function SessionPage() {
 
   const handleSplitLine = async (sectionIndex: number, lineIndex: number, splitAt: number) => {
     if (!currentSong || !session) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
     const sourceSections =
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
-    const updatedSections = splitSectionLyricLine(sourceSections, sectionIndex, lineIndex, splitAt)
+    const updatedSections = splitSectionLyricLine(sourceSections, targetIndex, lineIndex, splitAt)
     if (!updatedSections) return
 
     const updatedSong: Song =
@@ -1083,16 +1134,20 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: updatedSections }
         : { ...currentSong, sections: updatedSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
     await updateSongItem(currentItem?.entryId, (song) =>
-      withUpdatedSections(song, updatedSections, activeFlow),
+      withUpdatedSections(song, updatedSections, baseFlow),
     )
   }
 
   const handleMergeLineWithPrevious = async (sectionIndex: number, lineIndex: number) => {
     if (!currentSong || !session) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
     const sourceSections =
       isSimplified && currentSong.simplifiedSections
@@ -1100,7 +1155,7 @@ export default function SessionPage() {
         : currentSong.sections
     const updatedSections = mergeSectionLyricLineWithPrevious(
       sourceSections,
-      sectionIndex,
+      targetIndex,
       lineIndex,
     )
     if (!updatedSections) return
@@ -1110,11 +1165,14 @@ export default function SessionPage() {
         ? { ...currentSong, simplifiedSections: updatedSections }
         : { ...currentSong, sections: updatedSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
     await updateSongItem(currentItem?.entryId, (song) =>
-      withUpdatedSections(song, updatedSections, activeFlow),
+      withUpdatedSections(song, updatedSections, baseFlow),
     )
   }
 
@@ -1125,6 +1183,7 @@ export default function SessionPage() {
     newChord: string,
   ) => {
     if (!currentSong || !session) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
     // If currently transposed, map edited chord back to original key for base storage
     let baseChord = newChord
@@ -1135,12 +1194,12 @@ export default function SessionPage() {
       baseChord = transposeChord(newChord, -offset, useFlats)
     }
 
-    const baseSections: Section[] = (
+    const nextSections: Section[] = (
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
     ).map((sec, sIdx) => {
-      if (sIdx !== sectionIndex) return sec
+      if (sIdx !== targetIndex) return sec
       return {
         ...sec,
         lines: sec.lines.map((ln, lIdx) => {
@@ -1166,27 +1225,31 @@ export default function SessionPage() {
 
     const updatedSong: Song =
       isSimplified && currentSong.simplifiedSections
-        ? { ...currentSong, simplifiedSections: baseSections }
-        : { ...currentSong, sections: baseSections }
+        ? { ...currentSong, simplifiedSections: nextSections }
+        : { ...currentSong, sections: nextSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
 
     await updateSongItem(currentItem?.entryId, (s) =>
-      withUpdatedSections(s, baseSections, activeFlow),
+      withUpdatedSections(s, nextSections, baseFlow),
     )
   }
 
   const handleDeleteChord = async (sectionIndex: number, lineIndex: number, chordIndex: number) => {
     if (!currentSong || !session) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
-    const baseSections: Section[] = (
+    const nextSections: Section[] = (
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
     ).map((sec, sIdx) => {
-      if (sIdx !== sectionIndex) return sec
+      if (sIdx !== targetIndex) return sec
       return {
         ...sec,
         lines: sec.lines.map((ln, lIdx) => {
@@ -1210,15 +1273,18 @@ export default function SessionPage() {
 
     const updatedSong: Song =
       isSimplified && currentSong.simplifiedSections
-        ? { ...currentSong, simplifiedSections: baseSections }
-        : { ...currentSong, sections: baseSections }
+        ? { ...currentSong, simplifiedSections: nextSections }
+        : { ...currentSong, sections: nextSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
 
     await updateSongItem(currentItem?.entryId, (s) =>
-      withUpdatedSections(s, baseSections, activeFlow),
+      withUpdatedSections(s, nextSections, baseFlow),
     )
   }
 
@@ -1229,25 +1295,29 @@ export default function SessionPage() {
     newPos: number,
   ) => {
     if (!currentSong || !session) return
+    const targetIndex = toBaseSectionIndex(sectionIndex)
 
     const source =
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
 
-    const baseSections = setChordPos(source, sectionIndex, lineIndex, chordIndex, newPos)
+    const nextSections = setChordPos(source, targetIndex, lineIndex, chordIndex, newPos)
 
     const updatedSong: Song =
       isSimplified && currentSong.simplifiedSections
-        ? { ...currentSong, simplifiedSections: baseSections }
-        : { ...currentSong, sections: baseSections }
+        ? { ...currentSong, simplifiedSections: nextSections }
+        : { ...currentSong, sections: nextSections }
 
-    setSongsData((prev) =>
-      new Map(prev).set(currentItem?.entryId || currentSong.sourceUrl, updatedSong),
-    )
+    const songKey = currentItem?.entryId || currentSong.sourceUrl
+    setSongsData((prev) => {
+      const next = new Map(prev).set(songKey, updatedSong)
+      songsDataRef.current = next
+      return next
+    })
 
     await updateSongItem(currentItem?.entryId, (s) =>
-      withUpdatedSections(s, baseSections, activeFlow),
+      withUpdatedSections(s, nextSections, baseFlow),
     )
   }
 
@@ -1262,7 +1332,12 @@ export default function SessionPage() {
       isSimplified && currentSong.simplifiedSections
         ? currentSong.simplifiedSections
         : currentSong.sections
-    const pos = getChordPos(sections, target.sectionIndex, target.lineIndex, target.chordIndex)
+    const pos = getChordPos(
+      sections,
+      toBaseSectionIndex(target.sectionIndex),
+      target.lineIndex,
+      target.chordIndex,
+    )
     if (pos === null) return
 
     setPositioningChord({
@@ -1725,7 +1800,8 @@ export default function SessionPage() {
             const isDragging = draggedSongIdx === idx
             const isOver =
               dragOverSongIdx === idx && draggedSongIdx !== null && draggedSongIdx !== idx
-            const canDrag = !isFullScreen && session.songs.length > 1 && !removedByHost
+            const canDrag =
+              !isFullScreen && shownSongs.length > 1 && !removedByHost && !pendingSongRemoval
 
             return (
               <div
@@ -2017,7 +2093,7 @@ export default function SessionPage() {
                           })
                   }
                   onReorderSections={
-                    isFullScreen
+                    isFullScreen || pendingSectionRemoval
                       ? undefined
                       : (from, to) =>
                           guard(() => {
@@ -2044,14 +2120,66 @@ export default function SessionPage() {
                 />
               </div>
             </div>
+          ) : loadedSessionId === session.id ? (
+            <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
+              <StatusBanner
+                tone={reloadError ? 'error' : 'warning'}
+                icon={<AlertTriangle size={16} />}
+                title="This song sheet isn’t saved in this browser."
+                actions={
+                  currentItem.url.startsWith('https://') ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={reloadingSong}
+                      onClick={async () => {
+                        setReloadingSong(true)
+                        setReloadError(null)
+                        try {
+                          const res = await scrapeApi([currentItem.url])
+                          const first = res.results[0]
+                          if (first?.status === 'ok' && first.song) {
+                            await songCache.saveSong(first.song, currentItem.url)
+                            await loadSessionSongs(session)
+                          } else {
+                            setReloadError(
+                              first?.message || 'Couldn’t reload this song from its source.',
+                            )
+                          }
+                        } catch (err) {
+                          setReloadError(
+                            err instanceof Error
+                              ? err.message
+                              : 'Couldn’t reload this song from its source.',
+                          )
+                        } finally {
+                          setReloadingSong(false)
+                        }
+                      }}
+                    >
+                      Reload from source
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {reloadError ??
+                  (currentItem.url.startsWith('https://')
+                    ? 'You can try reloading it from its original link.'
+                    : 'Uploaded or pasted sheets are stored only on the device where they were added.')}
+              </StatusBanner>
+            </div>
           ) : (
             <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
-              <div className="py-8 text-center text-xs text-neutral-500 animate-pulse">
+              <div className="py-8 text-center text-xs text-[var(--ui-text-muted)] animate-pulse">
                 Loading song sheet...
               </div>
             </div>
           )}
         </div>
+      )}
+
+      {!currentItem && loadedSessionId === session.id && (
+        <StatusBanner tone="info">No songs in this setlist yet.</StatusBanner>
       )}
 
       {editGuardDialog}
