@@ -209,6 +209,22 @@ describe('HomePage set card actions', () => {
     await screen.findByText('Followed')
     expect(screen.getAllByLabelText('Rename set')).toHaveLength(1)
   })
+
+  it('does not navigate when pressing Enter on an action button inside a set card', async () => {
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
+      { ...base, id: 'n', name: 'Normal' },
+    ] as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+
+    const shareButton = await screen.findByLabelText('Share setlist')
+    fireEvent.keyDown(shareButton, { key: 'Enter', bubbles: true })
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
 })
 
 describe('HomePage undoable set deletion', () => {
