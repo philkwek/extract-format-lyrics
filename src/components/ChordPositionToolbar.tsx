@@ -21,7 +21,10 @@ export default function ChordPositionToolbar({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if an input or textarea is currently focused
       const target = e.target as HTMLElement | null
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+        return
+      }
+      if (target?.tagName === 'BUTTON' && e.key === 'Enter') {
         return
       }
 
