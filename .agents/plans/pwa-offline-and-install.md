@@ -19,7 +19,7 @@ Read-only for anything remote. Local edits keep working.
 | D2 | One `online` listener re-runs pending shares immediately instead of waiting for the next open. |
 | D3 | Updates use a waiting worker and the existing banner. Never swap under an open tab. |
 | D4 | Install notice: an in-flow card directly above **New session** on the home page. Offline card replaces it while offline; one slot, never both. |
-| D5 | Install card shows only when Chromium has fired `beforeinstallprompt`, or on iOS/iPadOS Safari with **Show me how**. Nothing on desktop Safari or Firefox. Never in standalone. |
+| D5 | Install card shows only when Chromium has fired `beforeinstallprompt`, or on iOS/iPadOS Safari with **Show me how!**. Nothing on desktop Safari or Firefox. Never in standalone. |
 | D6 | One **Dismiss** on the card, permanent for that browser (`localStorage`). |
 | D7 | iOS cannot detect an install done from another tab (separate storage, no API). Accepted; the dismiss covers it. |
 | D8 | Offline copy on home, search (`You're currently offline`, submit disabled), `/s`, `/lyrics`, `/live`, and the session's uncached-song banner. |
@@ -60,7 +60,7 @@ Read-only for anything remote. Local edits keep working.
 
 `HomeNotice` chooses: offline card → install card → nothing. Both use the same neutral surface
 and body text: the offline card reads **You're currently offline**; the install card carries
-**Install app** or **Show me how** plus the dismiss icon.
+**Install app** or **Show me how!** plus the dismiss icon.
 
 `/s/:id`, `/lyrics/:id`, `/live/:id`: an offline line above their existing states.
 
@@ -110,7 +110,7 @@ active worker with `PAD_URLS`. Interrupted downloads resume because cached files
   standalone means never visible.
 - `serviceWorker`: waiting worker prompts, `update()` posts `SKIP_WAITING` and reloads once.
 - `useAppUpdate`: SW path, version fallback still works.
-- `HomeNotice`: offline hides install; dismissed install hides; iOS shows **Show me how**.
+- `HomeNotice`: offline hides install; dismissed install hides; iOS shows **Show me how!**.
 - `SearchForm` disabled prop; `LiveShareChip` offline label.
 - `prefetchPads`: only standalone, only online, skips `saveData`.
 

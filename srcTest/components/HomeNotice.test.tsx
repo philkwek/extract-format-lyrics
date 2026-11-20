@@ -8,6 +8,8 @@ import {
   type BeforeInstallPromptEvent,
 } from '../../src/lib/installPrompt'
 
+const INSTALL_TITLE = 'You can now install Sets & Sheets :)'
+
 interface FakeWindowOptions {
   userAgent?: string
   platform?: string
@@ -70,6 +72,7 @@ describe('HomeNotice', () => {
     const store = chromiumStoreWithPrompt()
     render(<HomeNotice install={store} />)
 
+    expect(screen.getByText(INSTALL_TITLE)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Install app' }))
     expect(store.getSnapshot().visible).toBe(false)
   })
@@ -84,7 +87,7 @@ describe('HomeNotice', () => {
     const store = createInstallPromptStore({ window: win, storage: memoryStorage() })
     render(<HomeNotice install={store} />)
 
-    await user.click(screen.getByRole('button', { name: 'Show me how' }))
+    await user.click(screen.getByRole('button', { name: 'Show me how!' }))
     expect(screen.getByText('Add to Home Screen')).toBeTruthy()
   })
 
@@ -92,7 +95,7 @@ describe('HomeNotice', () => {
     const store = chromiumStoreWithPrompt()
     store.dismiss()
     render(<HomeNotice install={store} />)
-    expect(screen.queryByText('Install Sets & Sheets')).toBeNull()
+    expect(screen.queryByText(INSTALL_TITLE)).toBeNull()
   })
 
   it('offline wins over the install offer, even with a prompt ready', () => {
@@ -101,13 +104,13 @@ describe('HomeNotice', () => {
     render(<HomeNotice install={store} />)
 
     expect(screen.getByText('You’re currently offline')).toBeTruthy()
-    expect(screen.queryByText('Install Sets & Sheets')).toBeNull()
+    expect(screen.queryByText(INSTALL_TITLE)).toBeNull()
   })
 
   it('says nothing for a browser with no way to install', () => {
     const { win } = fakeWindow({ userAgent: 'Mozilla/5.0 (X11) Firefox/120', platform: 'Linux' })
     const store = createInstallPromptStore({ window: win, storage: memoryStorage() })
     render(<HomeNotice install={store} />)
-    expect(screen.queryByText('Install Sets & Sheets')).toBeNull()
+    expect(screen.queryByText(INSTALL_TITLE)).toBeNull()
   })
 })
