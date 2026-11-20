@@ -54,6 +54,7 @@ import { fitCaption, songCount } from '../lib/plural'
 import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
+import SongSwipe from '../components/SongSwipe'
 import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
@@ -1525,6 +1526,12 @@ export default function SessionPage() {
     }
   }
 
+  const neighbourTitle = (item: SessionSongItem | undefined) =>
+    item ? songForItem(item)?.title || item.title || item.url : ''
+  const prevTitle = neighbourTitle(activeIndex > 0 ? shownSongs[activeIndex - 1] : undefined)
+  const nextTitle =
+    neighbourTitle(activeIndex < shownSongs.length - 1 ? shownSongs[activeIndex + 1] : undefined)
+
   return (
     <div
       className={
@@ -2043,68 +2050,81 @@ export default function SessionPage() {
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
-              <div
-                ref={setSheetViewportRef}
-                tabIndex={isFullScreen ? -1 : undefined}
-                className={
-                  isFullScreen
-                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 outline-none [scrollbar-gutter:stable] ${
-                        fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
-                      }`
-                    : 'pt-1'
-                }
+              <SongSwipe
+                enabled={isFullScreen && !isEditingChords}
+                canPrev={activeIndex > 0}
+                canNext={activeIndex < shownSongs.length - 1}
+                prevTitle={prevTitle}
+                nextTitle={nextTitle}
+                onPrev={() => selectSong(Math.max(0, activeIndex - 1))}
+                onNext={() => selectSong(Math.min(shownSongs.length - 1, activeIndex + 1))}
               >
-                <SongSheet
-                  key={isFullScreen ? 'fullscreen' : 'normal'}
-                  sections={displayedSections}
-                  fontSizePx={effectiveFontSizePx}
-                  columns={effectiveColumns}
-                  isEditingChords={isEditingChords}
-                  selectedChord={
-                    positioningChord
-                      ? {
-                          sectionIndex: positioningChord.sectionIndex,
-                          lineIndex: positioningChord.lineIndex,
-                          chordIndex: positioningChord.chordIndex,
-                        }
-                      : null
-                  }
-                  onDeleteSection={
+                <div
+                  ref={setSheetViewportRef}
+                  tabIndex={isFullScreen ? -1 : undefined}
+                  className={
                     isFullScreen
-                      ? undefined
-                      : (idx) =>
-                          guard(() => {
-                            setPositioningChord(null)
-                            requestDeleteSection(idx)
-                          })
+                      ? `min-h-0 flex-1 px-3 pb-2 pt-2 outline-none [scrollbar-gutter:stable] ${
+                          fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
+                        } ${
+                          // Wrapped lines never scroll sideways, so sideways touches can change songs.
+                          prefs.wrapLines && !isEditingChords ? 'touch-pan-y' : ''
+                        }`
+                      : 'pt-1'
                   }
-                  onReorderSections={
-                    isFullScreen || pendingSectionRemoval
-                      ? undefined
-                      : (from, to) =>
-                          guard(() => {
-                            setPositioningChord(null)
-                            void handleReorderSections(from, to)
-                          })
-                  }
-                  onRenameSection={isFullScreen ? undefined : (index, label) => guard(() => void handleRenameSection(index, label))}
-                  onEditChord={(section, line, chord, value) =>
-                    guard(() => void handleEditChord(section, line, chord, value))
-                  }
-                  onDeleteChord={(section, line, chord) =>
-                    guard(() => void handleDeleteChord(section, line, chord))
-                  }
-                  onStartEditPosition={(target) => guard(() => handleStartEditPosition(target))}
-                  onSplitLine={(section, line, at) =>
-                    guard(() => void handleSplitLine(section, line, at))
-                  }
-                  onMergeLineWithPrevious={(section, line) =>
-                    guard(() => void handleMergeLineWithPrevious(section, line))
-                  }
-                  onLyricOverflowChange={setHasLyricOverflow}
-                  wrapLines={prefs.wrapLines}
-                />
-              </div>
+                >
+                  <SongSheet
+                    key={isFullScreen ? 'fullscreen' : 'normal'}
+                    sections={displayedSections}
+                    fontSizePx={effectiveFontSizePx}
+                    columns={effectiveColumns}
+                    isEditingChords={isEditingChords}
+                    selectedChord={
+                      positioningChord
+                        ? {
+                            sectionIndex: positioningChord.sectionIndex,
+                            lineIndex: positioningChord.lineIndex,
+                            chordIndex: positioningChord.chordIndex,
+                          }
+                        : null
+                    }
+                    onDeleteSection={
+                      isFullScreen
+                        ? undefined
+                        : (idx) =>
+                            guard(() => {
+                              setPositioningChord(null)
+                              requestDeleteSection(idx)
+                            })
+                    }
+                    onReorderSections={
+                      isFullScreen || pendingSectionRemoval
+                        ? undefined
+                        : (from, to) =>
+                            guard(() => {
+                              setPositioningChord(null)
+                              void handleReorderSections(from, to)
+                            })
+                    }
+                    onRenameSection={isFullScreen ? undefined : (index, label) => guard(() => void handleRenameSection(index, label))}
+                    onEditChord={(section, line, chord, value) =>
+                      guard(() => void handleEditChord(section, line, chord, value))
+                    }
+                    onDeleteChord={(section, line, chord) =>
+                      guard(() => void handleDeleteChord(section, line, chord))
+                    }
+                    onStartEditPosition={(target) => guard(() => handleStartEditPosition(target))}
+                    onSplitLine={(section, line, at) =>
+                      guard(() => void handleSplitLine(section, line, at))
+                    }
+                    onMergeLineWithPrevious={(section, line) =>
+                      guard(() => void handleMergeLineWithPrevious(section, line))
+                    }
+                    onLyricOverflowChange={setHasLyricOverflow}
+                    wrapLines={prefs.wrapLines}
+                  />
+                </div>
+              </SongSwipe>
             </div>
           ) : loadedSessionId === session.id ? (
             <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
