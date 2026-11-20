@@ -1728,3 +1728,53 @@ describe('SessionPage undoable removals', () => {
   })
 })
 
+describe('SessionPage song arrow keys', () => {
+  const twoSongs = {
+    ...fixtures.session,
+    songs: [
+      { ...fixtures.session.songs[0], entryId: 'entry-a' },
+      { ...fixtures.session.songs[0], entryId: 'entry-b', url: 'https://example.test/second' },
+    ],
+  }
+
+  function songTabs() {
+    return within(screen.getByRole('tablist', { name: 'Songs in setlist' })).getAllByRole('tab')
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+  })
+
+  it('moves through the set without wrapping at either end', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    render(<TestHarness />)
+    await screen.findByRole('button', { name: 'Add song' })
+    expect(songTabs()[0].getAttribute('aria-selected')).toBe('true')
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    await waitFor(() => expect(songTabs()[1].getAttribute('aria-selected')).toBe('true'))
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    await act(async () => {})
+    expect(songTabs()[1].getAttribute('aria-selected')).toBe('true')
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    await waitFor(() => expect(songTabs()[0].getAttribute('aria-selected')).toBe('true'))
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    await act(async () => {})
+    expect(songTabs()[0].getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('focuses the sheet scroll box in full screen so page keys still scroll it', async () => {
+    render(<TestHarness />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Go full screen' }))
+
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('tabindex')).toBe('-1')
+      expect(document.activeElement?.textContent).toContain('You give life, You are love')
+    })
+  })
+})
+
+

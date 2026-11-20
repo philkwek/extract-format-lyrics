@@ -94,6 +94,7 @@ import {
   type HostChange,
 } from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
+import { useSongArrowKeys } from '../lib/useSongArrowKeys'
 import {
   ambientPadPlayer,
   resolvePadKey,
@@ -642,6 +643,13 @@ export default function SessionPage() {
     setSearchParams({ song: target.toString() })
   }
 
+  useSongArrowKeys({
+    enabled: !isEditingChords,
+    count: shownSongs.length,
+    activeIndex,
+    onSelect: selectSong,
+  })
+
   const selectSongRef = useRef(selectSong)
   useEffect(() => {
     selectSongRef.current = selectSong
@@ -814,6 +822,11 @@ export default function SessionPage() {
     preferredFontSizePx: prefs.fontSizePx,
     revision: showFullScreenDisplayControls,
   })
+  const fullScreenScrollRef = useRef<HTMLDivElement | null>(null)
+  const setSheetViewportRef = useCallback((node: HTMLDivElement | null) => {
+    fullScreenScrollRef.current = node
+    fitViewportRef(node)
+  }, [fitViewportRef])
   const effectiveColumns = fitEnabled ? fitLayout.columns : prefs.columns
   const effectiveFontSizePx = fitEnabled ? fitLayout.fontSizePx : prefs.fontSizePx
   const fitNotice =
@@ -911,6 +924,13 @@ export default function SessionPage() {
       html.style.overflow = previousHtmlOverflow
       body.style.overflow = previousBodyOverflow
     }
+  }, [isFullScreen])
+
+  // The page is locked in full screen, so the sheet's scroll box takes focus to
+  // keep the browser's own scrolling keys (arrows, page keys, space) working.
+  useEffect(() => {
+    if (!isFullScreen) return
+    fullScreenScrollRef.current?.focus({ preventScroll: true })
   }, [isFullScreen])
 
   useEffect(() => {
@@ -2026,10 +2046,11 @@ export default function SessionPage() {
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
               <div
-                ref={fitViewportRef}
+                ref={setSheetViewportRef}
+                tabIndex={isFullScreen ? -1 : undefined}
                 className={
                   isFullScreen
-                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 [scrollbar-gutter:stable] ${
+                    ? `min-h-0 flex-1 px-3 pb-2 pt-2 outline-none [scrollbar-gutter:stable] ${
                         fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
                       }`
                     : 'pt-1'
