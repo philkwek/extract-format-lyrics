@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { registerServiceWorker } from '../../src/lib/serviceWorker'
+import {
+  registerServiceWorker,
+  resetServiceWorker,
+  serviceWorkerResetRequested,
+} from '../../src/lib/serviceWorker'
 
 interface FakeWorker {
   state: string
@@ -189,5 +193,48 @@ describe('registerServiceWorker', () => {
 
     expect(onUnavailable).toHaveBeenCalledOnce()
     uninstall()
+  })
+})
+
+describe('resetServiceWorker', () => {
+  it('unregisters every worker and deletes all Cache Storage buckets', async () => {
+    const unregisterA = vi.fn(async () => true)
+    const unregisterB = vi.fn(async () => true)
+    install({
+      getRegistrations: vi.fn(async () => [
+        { unregister: unregisterA },
+        { unregister: unregisterB },
+      ]),
+    })
+    const deleteCache = vi.fn(async () => true)
+    vi.stubGlobal('caches', {
+      keys: vi.fn(async () => ['workbox-precache-v2', 'pads-v1']),
+      delete: deleteCache,
+    })
+
+    try {
+      await expect(resetServiceWorker()).resolves.toBe(true)
+      expect(unregisterA).toHaveBeenCalledOnce()
+      expect(unregisterB).toHaveBeenCalledOnce()
+      expect(deleteCache).toHaveBeenCalledWith('workbox-precache-v2')
+      expect(deleteCache).toHaveBeenCalledWith('pads-v1')
+    } finally {
+      vi.unstubAllGlobals()
+      uninstall()
+    }
+  })
+
+  it('returns false when service workers are unsupported', async () => {
+    uninstall()
+    await expect(resetServiceWorker()).resolves.toBe(false)
+  })
+})
+
+describe('serviceWorkerResetRequested', () => {
+  it('matches only ?sw=off', () => {
+    expect(serviceWorkerResetRequested('?sw=off')).toBe(true)
+    expect(serviceWorkerResetRequested('?foo=1&sw=off')).toBe(true)
+    expect(serviceWorkerResetRequested('?sw=on')).toBe(false)
+    expect(serviceWorkerResetRequested('')).toBe(false)
   })
 })
