@@ -21,7 +21,7 @@ const baseOptions = {
 }
 
 describe('selectFitLayout', () => {
-  it('leaves the preferred layout alone when it already fits', () => {
+  it('grows a short song above the preferred size to fill a big screen', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [makeSection('Verse', 4)],
@@ -31,10 +31,39 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result).toEqual({ columns: 1, fontSizePx: 14, fitsOnScreen: true })
+    expect(result.fontSizePx).toBeGreaterThan(14)
+    expect(result).toEqual({ columns: 1, fontSizePx: 24, fitsOnScreen: true })
   })
 
-  it('adds columns at the same font size before shrinking text', () => {
+  it('stops growing at maxFontSizePx', () => {
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections: [makeSection('Verse', 4)],
+      viewportWidthPx: 1000,
+      viewportHeightPx: 2000,
+      preferredColumns: 1,
+      preferredFontSizePx: 14,
+      maxFontSizePx: 18,
+    })
+
+    expect(result).toEqual({ columns: 1, fontSizePx: 18, fitsOnScreen: true })
+  })
+
+  it('starts at the preferred size when it is larger than maxFontSizePx', () => {
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections: [makeSection('Verse', 4)],
+      viewportWidthPx: 1000,
+      viewportHeightPx: 2000,
+      preferredColumns: 1,
+      preferredFontSizePx: 28,
+      maxFontSizePx: 18,
+    })
+
+    expect(result).toEqual({ columns: 1, fontSizePx: 28, fitsOnScreen: true })
+  })
+
+  it('picks the widest column count that fits at the largest font size', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [makeSection('Verse 1', 10), makeSection('Chorus', 10)],
@@ -44,10 +73,31 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result).toEqual({ columns: 2, fontSizePx: 14, fitsOnScreen: true })
+    expect(result).toEqual({ columns: 2, fontSizePx: 16, fitsOnScreen: true })
   })
 
-  it('uses a fourth column when it is the first layout that fits', () => {
+  it('prefers three columns over two when both fit at the largest size', () => {
+    const sections = [
+      makeSection('Verse 1', 8),
+      makeSection('Chorus', 8),
+      makeSection('Verse 2', 8),
+      makeSection('Bridge', 8),
+      makeSection('Verse 3', 8),
+      makeSection('Ending', 8),
+    ]
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections,
+      viewportWidthPx: 640,
+      viewportHeightPx: 1800,
+      preferredColumns: 2,
+      preferredFontSizePx: 14,
+    })
+
+    expect(result).toEqual({ columns: 3, fontSizePx: 24, fitsOnScreen: true })
+  })
+
+  it('uses a fourth column when it fits at the largest font size', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [
@@ -62,10 +112,10 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result).toEqual({ columns: 4, fontSizePx: 14, fitsOnScreen: true })
+    expect(result).toEqual({ columns: 4, fontSizePx: 16, fitsOnScreen: true })
   })
 
-  it('keeps a manually preferred fourth column when it fits', () => {
+  it('grows four columns when the sheet is short', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [
@@ -80,7 +130,7 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result.columns).toBe(4)
+    expect(result).toEqual({ columns: 4, fontSizePx: 24, fitsOnScreen: true })
   })
 
   it('rejects a fourth column when the columns would overflow horizontally', () => {
@@ -102,17 +152,36 @@ describe('selectFitLayout', () => {
     expect(result.columns).toBeLessThan(4)
   })
 
-  it('shrinks the font only after all other column counts fail', () => {
+  it('drops to fewer columns when the longest line would be too narrow', () => {
+    const longLine = 'This is a deliberately very long lyric line that needs plenty of width'
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections: [
+        makeSection('Verse 1', 3, longLine),
+        makeSection('Chorus', 3),
+        makeSection('Verse 2', 3),
+        makeSection('Bridge', 3),
+      ],
+      viewportWidthPx: 1450,
+      viewportHeightPx: 1000,
+      preferredColumns: 4,
+      preferredFontSizePx: 14,
+    })
+
+    expect(result).toEqual({ columns: 3, fontSizePx: 24, fitsOnScreen: true })
+  })
+
+  it('shrinks text only as far as needed to fit one column', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [makeSection('Verse', 13)],
       viewportWidthPx: 1000,
-      viewportHeightPx: 510,
+      viewportHeightPx: 800,
       preferredColumns: 1,
       preferredFontSizePx: 14,
     })
 
-    expect(result).toEqual({ columns: 1, fontSizePx: 13, fitsOnScreen: true })
+    expect(result).toEqual({ columns: 1, fontSizePx: 21, fitsOnScreen: true })
   })
 
   it('reports that the sheet cannot fit at the minimum readable size', () => {
@@ -129,7 +198,7 @@ describe('selectFitLayout', () => {
     expect(result.fitsOnScreen).toBe(false)
   })
 
-  it('uses one column below the responsive multi-column breakpoint', () => {
+  it('grows text but keeps one column below the responsive breakpoint', () => {
     const result = selectFitLayout({
       ...baseOptions,
       sections: [
@@ -144,7 +213,7 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result.columns).toBe(1)
+    expect(result).toEqual({ columns: 1, fontSizePx: 24, fitsOnScreen: true })
   })
 
   it('returns the preferred layout for an empty sheet', () => {

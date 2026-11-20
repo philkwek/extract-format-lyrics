@@ -23,15 +23,19 @@ export interface SelectFitLayoutOptions {
   preferredFontSizePx: number
   charWidthAt16Px: number
   minFontSizePx?: number
+  maxFontSizePx?: number
   columnGapPx?: number
   sectionGapPx?: number
   safetyPx?: number
 }
 
 const DEFAULT_MIN_FONT_SIZE_PX = 11
+const DEFAULT_MAX_FONT_SIZE_PX = 24
 const DEFAULT_SAFETY_PX = 8
 const MONOSPACE_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 const COLUMN_COUNTS: SheetColumns[] = [1, 2, 3, 4]
+/** Widest first: at a given font size, more columns always wins. */
+const COLUMN_ORDER: SheetColumns[] = [4, 3, 2, 1]
 /**
  * Upper bound on DOM-verification passes in one fit run. Font size can only
  * move down, so a run always terminates; this just guards against pathological
@@ -41,14 +45,9 @@ const MAX_VERIFY_PASSES = 12
 /** Window resizes are coalesced so dragging a window edge refits once. */
 const RESIZE_DEBOUNCE_MS = 150
 
-function orderedColumnCounts(preferred: SheetColumns): SheetColumns[] {
-  return [preferred, ...COLUMN_COUNTS.filter((column) => column !== preferred)]
-}
-
 /**
- * Picks the largest readable layout that keeps the whole sheet inside the
- * viewport. The preferred column count and font size always come first, so a
- * layout that already fits is left untouched.
+ * Picks the largest readable font size that fits the viewport, then the widest
+ * column count that fits at that size, so a short song fills a big screen.
  */
 export function selectFitLayout({
   sections,
@@ -58,18 +57,20 @@ export function selectFitLayout({
   preferredFontSizePx,
   charWidthAt16Px,
   minFontSizePx = DEFAULT_MIN_FONT_SIZE_PX,
+  maxFontSizePx = DEFAULT_MAX_FONT_SIZE_PX,
   columnGapPx = viewportWidthPx < 640 ? 24 : 32,
   sectionGapPx = viewportWidthPx < 640 ? 24 : 32,
   safetyPx = DEFAULT_SAFETY_PX,
 }: SelectFitLayoutOptions): FitLayout {
-  const startFontSizePx = Math.max(1, Math.round(preferredFontSizePx))
-  const floorFontSizePx = Math.min(minFontSizePx, startFontSizePx)
+  const preferredFontSize = Math.max(1, Math.round(preferredFontSizePx))
+  const startFontSizePx = Math.max(maxFontSizePx, preferredFontSize)
+  const floorFontSizePx = Math.min(minFontSizePx, preferredFontSize)
   const preferred = COLUMN_COUNTS.includes(preferredColumns) ? preferredColumns : 1
 
   if (sections.length === 0 || viewportWidthPx <= 0 || viewportHeightPx <= 0) {
     return {
       columns: preferred,
-      fontSizePx: startFontSizePx,
+      fontSizePx: preferredFontSize,
       fitsOnScreen: true,
     }
   }
@@ -77,7 +78,7 @@ export function selectFitLayout({
   // SongSheet uses a single-column grid below Tailwind's `sm` breakpoint.
   // Keep the fit candidate set in sync with that responsive layout.
   const maxColumns: SheetColumns = viewportWidthPx < 640 ? 1 : 4
-  const columnOrder = orderedColumnCounts(preferred).filter((columns) => columns <= maxColumns)
+  const columnOrder = COLUMN_ORDER.filter((columns) => columns <= maxColumns)
   let fallback: { columns: SheetColumns; height: number } | null = null
 
   const measureColumns = (columns: SheetColumns, fontSizePx: number) => {
