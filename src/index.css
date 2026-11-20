@@ -434,6 +434,20 @@ html.dark body {
   .ui-dialog { max-height: 92dvh; border-radius: 1.25rem 1.25rem 0 0; border-bottom: 0; }
 }
 
+/* Apple's minimum touch target is 44px; keep the dense chrome tappable on touch screens. */
+@media (pointer: coarse) {
+  .ui-button--sm { min-height: 2.75rem; }
+  .ui-button--icon { width: 2.75rem; height: 2.75rem; }
+  .ui-segmented__item { min-height: 2.75rem; }
+  .ui-segmented--compact { height: 2.75rem; }
+  .ui-segmented--compact .ui-segmented__item {
+    height: calc(2.75rem - (var(--seg-pad) * 2));
+    min-height: calc(2.75rem - (var(--seg-pad) * 2));
+  }
+  .song-tray-icon { width: 2.75rem; height: 2.75rem; }
+  .ui-field--sm { min-height: 2.75rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
