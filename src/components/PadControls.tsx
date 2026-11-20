@@ -27,6 +27,7 @@ export default function PadControls({
   onChangePadKeyMode,
   onSelectCustomPadKey,
   onTogglePad,
+  variant = 'default',
 }: PadControlsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -111,7 +112,14 @@ export default function PadControls({
             ) : (
               <Volume2 size={14} />
             )}
-            <span>{buttonLabel}</span>
+            {variant === 'fullscreen' ? (
+              <>
+                <span className="lg:hidden">{isPadPlaying ? 'Stop pad' : 'Pad'}</span>
+                <span className="hidden lg:inline">{buttonLabel}</span>
+              </>
+            ) : (
+              <span>{buttonLabel}</span>
+            )}
           </button>
         )}
 

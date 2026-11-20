@@ -243,3 +243,26 @@ describe('songLayout - partitionSections', () => {
     )
   })
 })
+
+describe('songLayout - title block', () => {
+  const four = ['A', 'B', 'C', 'D'].map((label) => makeMockSection(label, 3))
+
+  it('balances column 1 with the title block counted', () => {
+    expect(partitionSections(four, 2).map((column) => column.length)).toEqual([2, 2])
+    // The block weighs as much as two sections, so column 1 gets one section.
+    const withBlock = partitionSections(four, 2, getSectionWeight(four[0]) * 2)
+    expect(withBlock.map((column) => column.length)).toEqual([1, 3])
+  })
+
+  it('keeps every section in order and never adds the block as a section', () => {
+    const columns = partitionSections(four, 3, 12)
+    expect(columns.flat().map((item) => item.originalIndex)).toEqual([0, 1, 2, 3])
+  })
+
+  it('adds the block and one section gap to a column estimate', () => {
+    const column = [{ section: four[0], originalIndex: 0 }]
+    expect(estimateColumnHeightPx(column, 14, 24, 50)).toBe(
+      estimateColumnHeightPx(column, 14, 24) + 50 + 24,
+    )
+  })
+})

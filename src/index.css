@@ -450,6 +450,14 @@ html.dark body {
   .ui-field--sm { min-height: 2.75rem; }
 }
 
+/* Owner's call: a phone turned sideways has little height, so its full screen header stays 32px. */
+.fullscreen-compact-row [role='tab'] { min-height: 2rem; }
+@media (pointer: coarse) {
+  .fullscreen-compact-row .ui-button--sm,
+  .fullscreen-compact-row [class*='pointer-coarse:h-11'] { min-height: 2rem; }
+  .fullscreen-compact-row [class*='pointer-coarse:h-11'] { height: 2rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;

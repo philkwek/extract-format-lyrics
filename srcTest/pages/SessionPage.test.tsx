@@ -242,6 +242,76 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: 'Add song' })).toBeTruthy()
   })
 
+  it('puts the controls in the song tab row and the title at the top of the song', async () => {
+    render(<TestHarness />)
+    fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+
+    const tabList = screen.getByRole('tablist', { name: 'Songs in setlist' })
+    const tabRow = tabList.parentElement as HTMLElement
+    for (const name of [/exit full screen/i, /customise song sheet display/i, /play ambient pad/i]) {
+      expect(tabRow.contains(screen.getByRole('button', { name }))).toBe(true)
+    }
+
+    const sheet = document.querySelector('[data-song-sheet]') as HTMLElement
+    const title = screen.getByRole('heading', { name: 'Great Are You Lord' })
+    expect(sheet.contains(title)).toBe(true)
+    expect(screen.getAllByRole('heading', { name: 'Great Are You Lord' })).toHaveLength(1)
+    expect(screen.getByText('All Sons & Daughters')).toBeTruthy()
+    // No separate row for the name and controls any more.
+    expect(sheet.closest('[data-sheet-page]')?.previousElementSibling).toBeNull()
+  })
+
+  it('stacks the controls under the tabs on a phone held upright', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(max-width: 639px)',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    try {
+      render(<TestHarness />)
+      fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+
+      const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+        .parentElement as HTMLElement
+      expect(tabRow.className).toContain('grid')
+      expect(tabRow.contains(screen.getByRole('button', { name: /exit full screen/i }))).toBe(true)
+      expect(tabRow.contains(screen.getByRole('button', { name: /customise song sheet/i }))).toBe(
+        true,
+      )
+      expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
+  it('marks the one-row header compact on a phone turned sideways', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('pointer: coarse'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    try {
+      render(<TestHarness />)
+      fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+      const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+        .parentElement as HTMLElement
+      expect(tabRow.className).toContain('fullscreen-compact-row')
+      expect(tabRow.className).not.toContain('grid')
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
+  it('keeps one header row on a regular screen', async () => {
+    render(<TestHarness />)
+    fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+    const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+      .parentElement as HTMLElement
+    expect(tabRow.className).not.toContain('grid')
+  })
+
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 

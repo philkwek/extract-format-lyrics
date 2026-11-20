@@ -1,21 +1,12 @@
-import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useDragControls, useReducedMotion, type PanInfo } from 'motion/react'
 import { momentumSpring, reducedMotionTransition } from '../../lib/uiMotion'
-
-const mobileQuery = '(max-width: 639px)'
+import { PHONE_PORTRAIT_QUERY, useMediaQuery } from '../../lib/useMediaQuery'
 
 export function useSheetDrag(onClose: () => void) {
   const reduceMotion = useReducedMotion()
   const dragControls = useDragControls()
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia?.(mobileQuery)?.matches ?? false)
-
-  useEffect(() => {
-    const query = window.matchMedia?.(mobileQuery)
-    if (!query) return
-    const update = (event: MediaQueryListEvent) => setIsMobile(event.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
+  const isMobile = useMediaQuery(PHONE_PORTRAIT_QUERY)
 
   const canDrag = isMobile && !reduceMotion
 
