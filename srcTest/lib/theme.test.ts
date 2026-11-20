@@ -14,6 +14,8 @@ interface MockMediaQueryList extends MediaQueryList {
   trigger: (matches: boolean) => void
 }
 
+type MockMetaElement = { setAttribute: (name: string, value: string) => void }
+
 function createMediaQueryList(initialMatches: boolean): MockMediaQueryList {
   let matches = initialMatches
   const listeners = new Set<() => void>()
@@ -47,6 +49,7 @@ function createMediaQueryList(initialMatches: boolean): MockMediaQueryList {
 describe('theme', () => {
   let mockStorage: Record<string, string>
   let classListSet: Set<string>
+  let metaContent: string
   let mockDocument: {
     documentElement: {
       classList: {
@@ -56,12 +59,14 @@ describe('theme', () => {
       }
       style: { colorScheme: string }
     }
+    querySelector: (selector: string) => MockMetaElement | null
   }
   let mediaQuery: MockMediaQueryList
 
   beforeEach(() => {
     mockStorage = {}
     classListSet = new Set<string>()
+    metaContent = ''
 
     globalThis.localStorage = {
       getItem: (key: string) => mockStorage[key] ?? null,
@@ -87,6 +92,11 @@ describe('theme', () => {
         },
         style: { colorScheme: '' },
       },
+      querySelector: () => ({
+        setAttribute: (_name: string, value: string) => {
+          metaContent = value
+        },
+      }),
     }
 
     // @ts-expect-error mocking document for node env
@@ -154,6 +164,14 @@ describe('theme', () => {
     applyTheme(true)
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.style.colorScheme).toBe('dark')
+  })
+
+  it('applyTheme updates the theme-color meta', () => {
+    applyTheme(true)
+    expect(metaContent).toBe('#1a1a1a')
+
+    applyTheme(false)
+    expect(metaContent).toBe('#ffffff')
   })
 
   it('saveThemeMode stores the mode, applies it, and dispatches the resolved theme', () => {

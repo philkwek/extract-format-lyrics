@@ -35,7 +35,7 @@ export function AppShell() {
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
-      <div className="app-canvas flex min-h-screen flex-col text-ui-text transition-colors">
+      <div className="app-canvas flex min-h-screen flex-col text-ui-text">
         {!isLyricsView && !chromeHidden && (
           <header data-app-header className="sticky top-0 z-30 border-b border-black/5 bg-ui-canvas/78 px-3 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7 sm:px-[4%]">
           <div className="mx-auto flex max-w-[92rem] items-center justify-between">

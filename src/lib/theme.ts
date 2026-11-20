@@ -3,6 +3,9 @@ const SYSTEM_THEME_QUERY = '(prefers-color-scheme: dark)'
 
 export const THEME_CHANGED_EVENT = 'app_theme_changed'
 
+// Keep in sync with the inline theme script in index.html.
+export const THEME_COLORS = { light: '#ffffff', dark: '#1a1a1a' }
+
 export type ThemeMode = 'light' | 'dark' | 'system'
 
 export interface ThemeChangedDetail {
@@ -50,6 +53,8 @@ export function applyTheme(isDark: boolean): void {
     root.classList.remove('dark')
     root.style.colorScheme = 'light'
   }
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', isDark ? THEME_COLORS.dark : THEME_COLORS.light)
 }
 
 export function saveThemeMode(mode: ThemeMode): void {
