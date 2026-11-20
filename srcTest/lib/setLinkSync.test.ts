@@ -451,6 +451,23 @@ describe('setLinkSync', () => {
     expect(env.api).toHaveBeenCalledTimes(0)
     expect(env.identities.has('s1')).toBe(false)
   })
+
+  it('flush retries a session after retries gave up', async () => {
+    const env = setup()
+    env.api.mockRejectedValue(new ShareApiError('offline', undefined, 503))
+    env.emit(ev('created', makeSession()))
+    await vi.advanceTimersByTimeAsync(200_000)
+    expect(env.api).toHaveBeenCalledTimes(4)
+
+    env.api.mockResolvedValue({
+      id: 'x',
+      expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
+      unchanged: false,
+    })
+    await env.sync.flush()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(env.api).toHaveBeenCalledTimes(5)
+  })
 })
 
 describe('ensureSetLinkFresh', () => {
