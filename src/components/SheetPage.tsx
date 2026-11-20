@@ -81,6 +81,7 @@ function SheetPage({
     preferredColumns: columns,
     preferredFontSizePx: fontSizePx,
     revision,
+    wrapLines,
   })
 
   const setViewport = useCallback(
