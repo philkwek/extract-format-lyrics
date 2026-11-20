@@ -100,6 +100,7 @@ import {
 } from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import { useSongArrowKeys } from '../lib/useSongArrowKeys'
+import { useFullScreenLayout } from '../lib/useMediaQuery'
 import {
   ambientPadPlayer,
   resolvePadKey,
@@ -315,6 +316,9 @@ export default function SessionPage() {
   const [hostChanges, setHostChanges] = useState<HostChange[] | null>(null)
   const [padState, setPadState] = useState<AmbientPadState>(() => ambientPadPlayer.getState())
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const fullScreenLayout = useFullScreenLayout()
+  const isPhonePortrait = fullScreenLayout === 'phone-portrait'
+  const showFitCaption = fullScreenLayout === 'regular'
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
   const [activeSheetLayout, setActiveSheetLayout] = useState<FitLayout | null>(null)
@@ -874,7 +878,8 @@ export default function SessionPage() {
     (hasLyricOverflow
       ? 'Lyric overflow detected. Try fewer columns, a smaller text size, or turn on Wrap.'
       : null)
-  const fullScreenCaption = fitEnabled ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
+  const fullScreenCaption =
+    fitEnabled && showFitCaption ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
 
   const handleToggleFit = () => {
     if (!currentSong || !currentItem || !session) return
@@ -1569,7 +1574,7 @@ export default function SessionPage() {
         offset={-1}
         active={false}
         sections={previousSections}
-        titleBlock={<FullScreenTitleBlock song={previousSong} reserveCaption />}
+        titleBlock={<FullScreenTitleBlock song={previousSong} reserveCaption={showFitCaption} />}
         columns={previousPrefs.columns}
         fontSizePx={previousPrefs.fontSizePx}
         fitToScreen={previousPrefs.fitToScreen ?? true}
@@ -1596,7 +1601,7 @@ export default function SessionPage() {
             song={currentSong}
             warning={fullScreenWarning}
             caption={fullScreenCaption}
-            reserveCaption
+            reserveCaption={showFitCaption}
           />
         }
         columns={prefs.columns}
@@ -1638,7 +1643,7 @@ export default function SessionPage() {
         offset={1}
         active={false}
         sections={nextSections}
-        titleBlock={<FullScreenTitleBlock song={nextSong} reserveCaption />}
+        titleBlock={<FullScreenTitleBlock song={nextSong} reserveCaption={showFitCaption} />}
         columns={nextPrefs.columns}
         fontSizePx={nextPrefs.fontSizePx}
         fitToScreen={nextPrefs.fitToScreen ?? true}
@@ -1874,7 +1879,9 @@ export default function SessionPage() {
       <div
         className={
           isFullScreen
-            ? 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
+            ? isPhonePortrait
+              ? 'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--ui-border)] px-3 py-2'
+              : 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
             : 'flex items-center gap-2 border-y border-[var(--ui-border)] py-3'
         }
       >
@@ -1894,7 +1901,9 @@ export default function SessionPage() {
         <div
           ref={tabListRef}
           className={`no-scrollbar relative flex overflow-x-auto ${
-            isFullScreen ? 'min-w-0 flex-1 space-x-1.5 py-1.5' : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
+            isFullScreen
+              ? `min-w-0 flex-1 space-x-1.5 ${isPhonePortrait ? 'col-start-1 row-start-1' : 'py-1.5'}`
+              : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
@@ -1992,7 +2001,13 @@ export default function SessionPage() {
           })}
         </div>
         {isFullScreen && displayedSong && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={
+              isPhonePortrait
+                ? 'col-span-2 row-start-2 flex flex-wrap items-center gap-2'
+                : 'flex shrink-0 items-center gap-2'
+            }
+          >
             <TransposeSelector
               originalKey={displayedSong.originalKey}
               currentKey={currentKey}
@@ -2055,7 +2070,7 @@ export default function SessionPage() {
             onClick={handleExitFullScreen}
             title="Exit full screen"
             aria-label="Exit full screen"
-            className="shrink-0"
+            className={`shrink-0${isPhonePortrait ? ' col-start-2 row-start-1' : ''}`}
           >
             <span className="hidden lg:inline">Exit full screen</span>
           </Button>

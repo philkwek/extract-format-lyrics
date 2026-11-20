@@ -261,6 +261,39 @@ describe('SessionPage full screen mode', () => {
     expect(sheet.closest('[data-sheet-page]')?.previousElementSibling).toBeNull()
   })
 
+  it('stacks the controls under the tabs on a phone held upright, without the fit caption', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(max-width: 639px)',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    try {
+      render(<TestHarness />)
+      fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+
+      const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+        .parentElement as HTMLElement
+      expect(tabRow.className).toContain('grid')
+      expect(tabRow.contains(screen.getByRole('button', { name: /exit full screen/i }))).toBe(true)
+      expect(tabRow.contains(screen.getByRole('button', { name: /customise song sheet/i }))).toBe(
+        true,
+      )
+      expect(screen.queryByText(/Fits the screen/)).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
+  it('keeps one header row on a regular screen', async () => {
+    render(<TestHarness />)
+    fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+    const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+      .parentElement as HTMLElement
+    expect(tabRow.className).not.toContain('grid')
+  })
+
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 
