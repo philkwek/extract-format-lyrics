@@ -242,6 +242,25 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('button', { name: 'Add song' })).toBeTruthy()
   })
 
+  it('puts the controls in the song tab row and the title at the top of the song', async () => {
+    render(<TestHarness />)
+    fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+
+    const tabList = screen.getByRole('tablist', { name: 'Songs in setlist' })
+    const tabRow = tabList.parentElement as HTMLElement
+    for (const name of [/exit full screen/i, /customise song sheet display/i, /play ambient pad/i]) {
+      expect(tabRow.contains(screen.getByRole('button', { name }))).toBe(true)
+    }
+
+    const sheet = document.querySelector('[data-song-sheet]') as HTMLElement
+    const title = screen.getByRole('heading', { name: 'Great Are You Lord' })
+    expect(sheet.contains(title)).toBe(true)
+    expect(screen.getAllByRole('heading', { name: 'Great Are You Lord' })).toHaveLength(1)
+    expect(screen.getByText('All Sons & Daughters')).toBeTruthy()
+    // No separate row for the name and controls any more.
+    expect(sheet.closest('[data-sheet-page]')?.previousElementSibling).toBeNull()
+  })
+
   it('groups set sharing behind one Share modal with both share options', async () => {
     render(<TestHarness />)
 

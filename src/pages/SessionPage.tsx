@@ -51,8 +51,9 @@ import {
 } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
 import { fitCaption, songCount } from '../lib/plural'
-import { keyOffset, formatOffset } from '../lib/keys'
+import { keyOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
+import FullScreenTitleBlock from '../components/FullScreenTitleBlock'
 import SongSheet from '../components/SongSheet'
 import SongSwipe from '../components/SongSwipe'
 import SheetPage from '../components/SheetPage'
@@ -868,12 +869,12 @@ export default function SessionPage() {
     fitEnabled && !fitLayout.fitsOnScreen
       ? 'Smallest readable text applied. Scroll to see the rest.'
       : null
-  const fullScreenStatus =
+  const fullScreenWarning =
     fitNotice ??
     (hasLyricOverflow
       ? 'Lyric overflow detected. Try fewer columns, a smaller text size, or turn on Wrap.'
-      : null) ??
-    (fitEnabled ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null)
+      : null)
+  const fullScreenCaption = fitEnabled ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
 
   const handleToggleFit = () => {
     if (!currentSong || !currentItem || !session) return
@@ -1459,11 +1460,6 @@ export default function SessionPage() {
     )
   }
 
-  const offset =
-    currentSong && currentSong.originalKey && currentKey
-      ? keyOffset(currentSong.originalKey, currentKey)
-      : 0
-
   const handleStartRename = () => {
     if (!session) return
     setEditedName(session.name)
@@ -1573,6 +1569,7 @@ export default function SessionPage() {
         offset={-1}
         active={false}
         sections={previousSections}
+        titleBlock={<FullScreenTitleBlock song={previousSong} reserveCaption />}
         columns={previousPrefs.columns}
         fontSizePx={previousPrefs.fontSizePx}
         fitToScreen={previousPrefs.fitToScreen ?? true}
@@ -1593,6 +1590,14 @@ export default function SessionPage() {
           positioningChord || subtractedSection
             ? displayedSections
             : getSheetSections(currentSong, currentItem)
+        }
+        titleBlock={
+          <FullScreenTitleBlock
+            song={currentSong}
+            warning={fullScreenWarning}
+            caption={fullScreenCaption}
+            reserveCaption
+          />
         }
         columns={prefs.columns}
         fontSizePx={prefs.fontSizePx}
@@ -1633,6 +1638,7 @@ export default function SessionPage() {
         offset={1}
         active={false}
         sections={nextSections}
+        titleBlock={<FullScreenTitleBlock song={nextSong} reserveCaption />}
         columns={nextPrefs.columns}
         fontSizePx={nextPrefs.fontSizePx}
         fitToScreen={nextPrefs.fitToScreen ?? true}
@@ -1888,7 +1894,7 @@ export default function SessionPage() {
         <div
           ref={tabListRef}
           className={`no-scrollbar relative flex overflow-x-auto ${
-            isFullScreen ? 'flex-1 space-x-1.5 py-1.5' : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
+            isFullScreen ? 'min-w-0 flex-1 space-x-1.5 py-1.5' : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
           }`}
           role="tablist"
           aria-label="Songs in setlist"
@@ -1985,6 +1991,62 @@ export default function SessionPage() {
             )
           })}
         </div>
+        {isFullScreen && displayedSong && (
+          <div className="flex shrink-0 items-center gap-2">
+            <TransposeSelector
+              originalKey={displayedSong.originalKey}
+              currentKey={currentKey}
+              onSelectKey={guardedSelectKey}
+              onReset={guardedResetKey}
+              compact
+            />
+            {canSimplify && (
+              <Button
+                size="sm"
+                variant="secondary"
+                pressed={Boolean(prefs.simplified)}
+                icon={<WandSparkles size={14} />}
+                onClick={() => handleUpdatePrefs({ ...prefs, simplified: !prefs.simplified })}
+                aria-label={prefs.simplified ? 'Simplified' : 'Simplify'}
+                title={
+                  prefs.simplified
+                    ? currentSong?.simplifiedSource === 'algorithmic'
+                      ? 'Simplified chords are active. Extra chord notes may be removed.'
+                      : 'Simplified chords are active'
+                    : 'Use simpler chords where possible'
+                }
+              >
+                <span className="hidden lg:inline">
+                  {prefs.simplified ? 'Simplified' : 'Simplify'}
+                </span>
+              </Button>
+            )}
+            <PadControls
+              currentKey={currentKey}
+              padKeyMode={padKeyMode}
+              customPadKey={customPadKey}
+              isPadPlaying={padState.isPlaying}
+              isPadLoading={padState.isLoading}
+              onChangePadKeyMode={guardedChangePadKeyMode}
+              onSelectCustomPadKey={guardedSelectCustomPadKey}
+              onTogglePad={handleTogglePad}
+              variant="fullscreen"
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              pressed={showFullScreenDisplayControls}
+              icon={<SlidersHorizontal size={14} />}
+              onClick={() => setShowFullScreenDisplayControls((visible) => !visible)}
+              aria-expanded={showFullScreenDisplayControls}
+              aria-controls="fullscreen-display-controls"
+              title="Customise song sheet display"
+              aria-label="Customise song sheet display"
+            >
+              <span className="hidden lg:inline">Customise</span>
+            </Button>
+          </div>
+        )}
         {isFullScreen && (
           <Button
             size="sm"
@@ -1995,7 +2057,7 @@ export default function SessionPage() {
             aria-label="Exit full screen"
             className="shrink-0"
           >
-            <span className="hidden sm:inline">Exit full screen</span>
+            <span className="hidden lg:inline">Exit full screen</span>
           </Button>
         )}
       </div>
@@ -2015,106 +2077,27 @@ export default function SessionPage() {
               <div
                 className={
                   isFullScreen
-                    ? 'shrink-0 border-b border-ui-border px-3 pb-1.5 pt-1.5'
+                    ? showFullScreenDisplayControls
+                      ? 'shrink-0 border-b border-ui-border px-3 py-1.5'
+                      : 'hidden'
                     : 'space-y-1.5 pb-2 border-b border-ui-border'
                 }
               >
                 {isFullScreen ? (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-col">
-                        <SongHeader
-                          song={displayedSong}
-                          currentKey={currentKey}
-                          offsetDisplay={offset !== 0 ? formatOffset(offset) : undefined}
-                          onResetKey={guardedResetKey}
-                          onSelectKey={guardedSelectKey}
-                          variant="fullscreen"
-                        />
-                        <div
-                          role="status"
-                          className="min-h-[14px] text-[10px] leading-[14px] text-[var(--ui-text-muted)]"
-                        >
-                          {fullScreenStatus ?? '\u00A0'}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-between">
-                        <TransposeSelector
-                          originalKey={displayedSong.originalKey}
-                          currentKey={currentKey}
-                          onSelectKey={guardedSelectKey}
-                          onReset={guardedResetKey}
-                          compact
-                        />
-                        {canSimplify && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            pressed={Boolean(prefs.simplified)}
-                            icon={<WandSparkles size={14} />}
-                            onClick={() =>
-                              handleUpdatePrefs({
-                                ...prefs,
-                                simplified: !prefs.simplified,
-                              })
-                            }
-                            title={
-                              prefs.simplified
-                                ? currentSong?.simplifiedSource === 'algorithmic'
-                                  ? 'Simplified chords are active. Extra chord notes may be removed.'
-                                  : 'Simplified chords are active'
-                                : 'Use simpler chords where possible'
-                            }
-                          >
-                            {prefs.simplified ? 'Simplified' : 'Simplify'}
-                          </Button>
-                        )}
-                        <PadControls
-                          currentKey={currentKey}
-                          padKeyMode={padKeyMode}
-                          customPadKey={customPadKey}
-                          isPadPlaying={padState.isPlaying}
-                          isPadLoading={padState.isLoading}
-                          onChangePadKeyMode={guardedChangePadKeyMode}
-                          onSelectCustomPadKey={guardedSelectCustomPadKey}
-                          onTogglePad={handleTogglePad}
-                          variant="fullscreen"
-                        />
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          pressed={showFullScreenDisplayControls}
-                          icon={<SlidersHorizontal size={14} />}
-                          onClick={() => setShowFullScreenDisplayControls((visible) => !visible)}
-                          aria-expanded={showFullScreenDisplayControls}
-                          aria-controls="fullscreen-display-controls"
-                          title="Customise song sheet display"
-                          aria-label="Customise song sheet display"
-                        >
-                          <span className="hidden sm:inline">Customise</span>
-                        </Button>
-                      </div>
+                  showFullScreenDisplayControls && (
+                    <div id="fullscreen-display-controls">
+                      <DisplayControls
+                        prefs={prefs}
+                        onChangePrefs={handleUpdatePrefs}
+                        variant="fullscreen"
+                        showPads={false}
+                        showStatus={false}
+                        fitActive={fitEnabled}
+                        fitLayout={fitLayout}
+                        onToggleFit={handleToggleFit}
+                      />
                     </div>
-
-                    {showFullScreenDisplayControls && (
-                      <div
-                        id="fullscreen-display-controls"
-                        className="mt-2 border-t border-[var(--ui-border)] pt-2"
-                      >
-                        <DisplayControls
-                          prefs={prefs}
-                          onChangePrefs={handleUpdatePrefs}
-                          variant="fullscreen"
-                          showPads={false}
-                          showStatus={false}
-                          fitActive={fitEnabled}
-                          fitLayout={fitLayout}
-                          onToggleFit={handleToggleFit}
-                        />
-                      </div>
-                    )}
-                  </>
+                  )
                 ) : (
                   <>
                     <SongHeader song={displayedSong} />
