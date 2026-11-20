@@ -78,6 +78,14 @@ describe('touch targets', () => {
     }
   })
 
+  it('keeps the sideways phone full screen header at 32px', () => {
+    expect(css).toMatch(/\.fullscreen-compact-row \.ui-button--sm,[^}]*min-height: 2rem/)
+    expect(css).toMatch(/\.fullscreen-compact-row \[class\*='pointer-coarse:h-11'\] \{ height: 2rem; \}/)
+    expect(css.indexOf('.fullscreen-compact-row .ui-button--sm')).toBeGreaterThan(
+      css.indexOf('.ui-field--sm { min-height: 2.75rem; }'),
+    )
+  })
+
   it('leaves the desktop sizes alone', () => {
     expect(css).toMatch(/\.ui-button--sm \{ min-height: 2rem;/)
     expect(css).toMatch(/\.ui-button--icon \{ width: 2\.65rem; height: 2\.65rem;/)

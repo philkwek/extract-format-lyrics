@@ -318,6 +318,7 @@ export default function SessionPage() {
   const [isFullScreen, setIsFullScreen] = useState(false)
   const fullScreenLayout = useFullScreenLayout()
   const isPhonePortrait = fullScreenLayout === 'phone-portrait'
+  const isPhoneLandscape = fullScreenLayout === 'phone-landscape'
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
   const [activeSheetLayout, setActiveSheetLayout] = useState<FitLayout | null>(null)
@@ -1873,7 +1874,9 @@ export default function SessionPage() {
           isFullScreen
             ? isPhonePortrait
               ? 'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--ui-border)] px-3 py-2'
-              : 'flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2'
+              : `flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2${
+                  isPhoneLandscape ? ' fullscreen-compact-row' : ''
+                }`
             : 'flex items-center gap-2 border-y border-[var(--ui-border)] py-3'
         }
       >
@@ -1894,7 +1897,7 @@ export default function SessionPage() {
           ref={tabListRef}
           className={`no-scrollbar relative flex overflow-x-auto ${
             isFullScreen
-              ? `min-w-0 flex-1 space-x-1.5 ${isPhonePortrait ? 'col-start-1 row-start-1' : 'py-1.5'}`
+              ? `min-w-0 flex-1 space-x-1.5 ${isPhonePortrait ? 'col-start-1 row-start-1' : isPhoneLandscape ? 'py-1' : 'py-1.5'}`
               : '-m-[3px] min-w-0 flex-1 items-center gap-2 p-[3px]'
           }`}
           role="tablist"

@@ -285,6 +285,25 @@ describe('SessionPage full screen mode', () => {
     }
   })
 
+  it('marks the one-row header compact on a phone turned sideways', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('pointer: coarse'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+    try {
+      render(<TestHarness />)
+      fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
+      const tabRow = screen.getByRole('tablist', { name: 'Songs in setlist' })
+        .parentElement as HTMLElement
+      expect(tabRow.className).toContain('fullscreen-compact-row')
+      expect(tabRow.className).not.toContain('grid')
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
   it('keeps one header row on a regular screen', async () => {
     render(<TestHarness />)
     fireEvent.click(await screen.findByRole('button', { name: /full screen/i }))
