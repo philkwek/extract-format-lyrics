@@ -94,7 +94,7 @@ export function AppShell() {
         )}
         {!online && isSharedLinkView && (
           <div className="mx-auto w-[96%] max-w-lg pt-4">
-            <OfflineNotice />
+            <OfflineNotice online={online} />
           </div>
         )}
         <main

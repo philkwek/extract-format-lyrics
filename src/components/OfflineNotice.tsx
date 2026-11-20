@@ -2,11 +2,15 @@ import { WifiOff } from 'lucide-react'
 import { StatusBanner } from './ui'
 import { classes } from '../lib/classes'
 import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
-import { useOnlineStatus } from '../lib/useOnlineStatus'
 
 /** One quiet line wherever a network action is unavailable. */
-export default function OfflineNotice({ className }: { className?: string }) {
-  const online = useOnlineStatus()
+export default function OfflineNotice({
+  online,
+  className,
+}: {
+  online: boolean
+  className?: string
+}) {
   if (online) return null
   return (
     <StatusBanner
