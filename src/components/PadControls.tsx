@@ -82,7 +82,7 @@ export default function PadControls({
       }}
     >
       <div
-        className={`inline-flex h-8 items-center overflow-hidden rounded-[0.7rem] border transition ${
+        className={`inline-flex h-8 pointer-coarse:h-11 items-center overflow-hidden rounded-[0.7rem] border transition ${
           isPadPlaying
             ? 'border-transparent bg-[var(--ui-accent)] text-ui-on-accent shadow-xs'
             : 'border-[var(--ui-border)] bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-2xs hover:border-[var(--ui-border-strong)]'

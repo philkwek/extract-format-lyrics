@@ -171,13 +171,13 @@ export default function DisplayControls({
           <div
             role="group"
             aria-label="Font size"
-            className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
+            className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
           >
             <button
               type="button"
               aria-label="Decrease song font size"
               onClick={() => handleFontSizeChange(-1)}
-              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
             >
               A−
             </button>
@@ -188,7 +188,7 @@ export default function DisplayControls({
               type="button"
               aria-label="Increase song font size"
               onClick={() => handleFontSizeChange(1)}
-              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
             >
               A+
             </button>

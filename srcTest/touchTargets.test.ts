@@ -68,6 +68,16 @@ describe('touch targets', () => {
     expect(block.indexOf('.song-tray-icon')).toBeGreaterThan(block.indexOf('.ui-button--icon'))
   })
 
+  it('gives the Key, pad and text size controls the same touch height as the buttons beside them', () => {
+    for (const file of ['TransposeSelector.tsx', 'PadControls.tsx', 'DisplayControls.tsx']) {
+      const source = readFileSync(new URL(`../src/components/${file}`, import.meta.url), 'utf8')
+      const fixedHeights = source.match(/\bh-8\b/g) ?? []
+      const touchHeights = source.match(/\bpointer-coarse:h-11\b/g) ?? []
+      expect(fixedHeights.length).toBeGreaterThan(0)
+      expect(touchHeights.length).toBe(fixedHeights.length)
+    }
+  })
+
   it('leaves the desktop sizes alone', () => {
     expect(css).toMatch(/\.ui-button--sm \{ min-height: 2rem;/)
     expect(css).toMatch(/\.ui-button--icon \{ width: 2\.65rem; height: 2\.65rem;/)
