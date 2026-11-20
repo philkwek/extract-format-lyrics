@@ -2039,7 +2039,7 @@ export default function SessionPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-between">
                         <TransposeSelector
                           originalKey={displayedSong.originalKey}
                           currentKey={currentKey}
