@@ -234,7 +234,7 @@ describe('DisplayControls — columns and fit', () => {
     expect(fitButton.getAttribute('aria-pressed')).toBe('true')
     expect(fitButton.className).toContain('ui-button--pressed')
     expect(fitButton.className).not.toContain('ui-button--primary')
-    expect(screen.getByText('Auto layout · 4 columns · 12px')).toBeTruthy()
+    expect(screen.getByText('Fits the screen · 4 columns · text size 12')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
     expect(onChangePrefs).toHaveBeenCalledWith(

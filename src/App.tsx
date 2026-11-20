@@ -96,7 +96,9 @@ export function AppShell() {
         {!chromeHidden && (
           <footer className="mx-auto w-full max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
             <NavLink to="/privacy" className="underline">Privacy and usage tracking</NavLink>
-            {!isLyricsView && <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>}
+            {(location.pathname === '/' || location.pathname === '/privacy') && (
+              <span> · We use Google Analytics to understand how this site is used. You can turn it off.</span>
+            )}
           </footer>
         )}
       </div>

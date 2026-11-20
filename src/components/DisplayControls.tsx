@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { AlertTriangle, Pencil, RotateCcw, Scan, WandSparkles, WrapText } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
+import { fitCaption } from '../lib/plural'
 import type { PadKeyMode } from '../lib/sessionStore'
 import type { SheetColumns } from '../lib/songLayout'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
@@ -102,14 +103,12 @@ export default function DisplayControls({
     })
   }
 
-  const fitCaption =
-    fitActive && fitLayout
-      ? `Auto layout · ${fitLayout.columns} column${fitLayout.columns === 1 ? '' : 's'} · ${fitLayout.fontSizePx}px`
-      : null
+  const caption =
+    fitActive && fitLayout ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
   const overflowMessage = hasLyricOverflow
     ? 'Lyric overflow detected. Try fewer columns or a smaller text size, or turn on Wrap.'
     : null
-  const statusMessage = fitNotice ?? overflowMessage ?? fitCaption
+  const statusMessage = fitNotice ?? overflowMessage ?? caption
 
   return (
     <div className={`${isFullScreen ? 'space-y-1.5 pb-0' : 'space-y-2 pb-1'} text-xs`}>

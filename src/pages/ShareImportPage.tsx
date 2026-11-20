@@ -8,6 +8,7 @@ import { songCache } from '../lib/songCache'
 import { sessionSongsFromSnapshot } from '../lib/shareSnapshot'
 import { Button, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
+import { songCount } from '../lib/plural'
 
 export default function ShareImportPage() {
   useSeo({ title: 'Shared Set | Sets & Sheets', noindex: true })
@@ -30,7 +31,7 @@ export default function ShareImportPage() {
 
         if (isCancelled) return
 
-        setProgressMsg(`Importing "${snapshot.name}" (${snapshot.songs.length} song(s))...`)
+        setProgressMsg(`Importing "${snapshot.name}" (${songCount(snapshot.songs.length)})...`)
         for (const entry of snapshot.songs) {
           if (!(await songCache.getSong(entry.song.sourceUrl))) await songCache.saveSong(entry.song)
         }

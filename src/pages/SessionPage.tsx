@@ -50,6 +50,7 @@ import {
   type SongDisplayPrefs,
 } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
+import { fitCaption, songCount } from '../lib/plural'
 import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
@@ -838,11 +839,7 @@ export default function SessionPage() {
     (hasLyricOverflow
       ? 'Lyric overflow detected. Try fewer columns, a smaller text size, or turn on Wrap.'
       : null) ??
-    (fitEnabled
-      ? `Auto layout · ${fitLayout.columns} column${
-          fitLayout.columns === 1 ? '' : 's'
-        } · ${fitLayout.fontSizePx}px`
-      : null)
+    (fitEnabled ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null)
 
   const handleToggleFit = () => {
     if (!currentSong || !currentItem || !session) return
@@ -1712,7 +1709,7 @@ export default function SessionPage() {
               </div>
             )}
             <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
-              {shownSongs.length} song(s) in setlist
+              {songCount(shownSongs.length)} in setlist
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 ml-auto">
@@ -2321,30 +2318,24 @@ export default function SessionPage() {
           {showSectionEditTip && activeIndex === 0 && Boolean(displayedSong) && (
             <aside
               role="complementary"
-              aria-label="Section customization tip"
+              aria-label="Tip: customise sections"
               className="ui-surface ui-surface--elevated pointer-events-auto flex max-w-xs flex-col gap-2.5 p-3.5 sm:max-w-sm"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-ui-accent-strong">
                   <Lightbulb size={14} />
-                  <span>Customize sections</span>
+                  <span>Customise sections</span>
                 </div>
-                <IconButton label="Dismiss tip" variant="ghost" onClick={handleDismissSectionEditTip}>
-                  <X size={14} />
-                </IconButton>
               </div>
               <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                You can delete duplicate sections with{' '}
-                <strong className="text-neutral-800 dark:text-neutral-100">✕</strong>, rename sections
-                with <strong className="text-neutral-800 dark:text-neutral-100">✎</strong>, and reorder
-                them anytime by{' '}
-                <strong className="text-neutral-800 dark:text-neutral-100">
-                  dragging and dropping
-                </strong>
-                .
+                Tap <strong className="text-neutral-800 dark:text-neutral-100">✎</strong> to rename a
+                section, <strong className="text-neutral-800 dark:text-neutral-100">✕</strong> to
+                remove a duplicate, and drag{' '}
+                <strong className="text-neutral-800 dark:text-neutral-100">⋮⋮</strong> to reorder
+                (with a mouse or trackpad).
               </p>
               <div className="flex justify-end pt-0.5">
-                <Button size="sm" variant="primary" onClick={handleDismissSectionEditTip}>
+                <Button size="sm" variant="secondary" onClick={handleDismissSectionEditTip}>
                   Close
                 </Button>
               </div>

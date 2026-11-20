@@ -43,6 +43,7 @@ import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import { Button, IconButton, LivePill, SegmentedControl, StatusBanner } from '../components/ui'
 import OverlayDialog from '../components/ui/OverlayDialog'
 import { useSeo } from '../lib/useSeo'
+import { songCount } from '../lib/plural'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 import { useSongTray } from '../lib/useSongTray'
 
@@ -424,7 +425,7 @@ export default function HomePage() {
                     <LiveShareChip sessionId={session.id} className="mt-1" />
                   )}
                   <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                    {session.songs.length} song(s) · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {songCount(session.songs.length)} · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <div className="mt-4 flex items-center justify-end gap-1 border-t border-[var(--ui-border)] pt-2">

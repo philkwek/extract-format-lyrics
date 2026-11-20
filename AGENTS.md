@@ -74,7 +74,7 @@ The full token tables and component patterns are in [docs/THEME.md](docs/THEME.m
 version:
 
 - **Two identities, both first-class.** Light: white canvas, sea blue `#3368A0` (hover
-  `#255283`), sage borders `#C8DFDB`. Dark: matte charcoal `#101010` / `#1a1a1a`, text
+  `#255283`), sage borders `#C8DFDB`. Dark: matte charcoal `#1a1a1a` / `#1e1e1e`, text
   `#e5e5e5`, amber accent (`amber-400`/`amber-500`). Every new colour must work in both modes.
 - **Chrome colours use the `ui-*` utilities** (`bg-ui-accent`, `text-ui-text-muted`,
   `border-ui-border`). Each one already follows dark mode, so it needs no `dark:` pair. No hex

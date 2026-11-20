@@ -210,7 +210,7 @@ describe('SessionPage full screen mode', () => {
 
     expect(screen.getByTestId('chrome-hidden').textContent).toBe('true')
     expect(screen.queryByRole('button', { name: /share set/i })).toBeNull()
-    expect(screen.queryByText('1 song(s) in setlist')).toBeNull()
+    expect(screen.queryByText('1 song in setlist')).toBeNull()
     expect(screen.getByRole('button', { name: /exit full screen/i })).toBeTruthy()
     expect(screen.queryByText('Original key')).toBeNull()
     expect(screen.getByRole('button', { name: /play ambient pad/i })).toBeTruthy()

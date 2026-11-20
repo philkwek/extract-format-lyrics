@@ -413,11 +413,10 @@ html.dark body {
   overflow: hidden;
   border: 1px solid var(--ui-border);
   border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  background: var(--ui-surface);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-lg);
   outline: none;
-  backdrop-filter: blur(24px) saturate(155%);
 }
 
 .ui-dialog--sm { max-width: 28rem; }
@@ -467,7 +466,6 @@ html.dark body {
 
 @media (prefers-reduced-transparency: reduce) {
   .ui-overlay { backdrop-filter: none; background: rgba(15, 18, 18, 0.72); }
-  .ui-dialog { backdrop-filter: none; background: var(--ui-surface); }
   .ui-popover { backdrop-filter: none; background: var(--ui-surface-raised); }
 }
 
