@@ -20,7 +20,7 @@ export function platformOf(
 ): InstallPlatform {
   const ios = /iPhone|iPad|iPod/i.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1)
   if (ios) return 'ios'
-  if (/Firefox|FxiOS/i.test(userAgent)) return 'other'
+  if (/Firefox/i.test(userAgent)) return 'other'
   return /Chrome|Chromium|Edg\/|EdgA\/|OPR\/|SamsungBrowser/i.test(userAgent) ? 'chromium' : 'other'
 }
 

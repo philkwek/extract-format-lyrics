@@ -230,7 +230,7 @@ export default function SearchPage() {
         )}
       </div>
 
-      <OfflineNotice online={online} className="px-1" />
+      <OfflineNotice online={online} />
 
       <div
         className={
