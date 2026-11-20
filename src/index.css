@@ -198,6 +198,9 @@ html.dark body {
 .ui-button--primary:hover:not(:disabled) { background: var(--ui-accent-strong); }
 .ui-button--secondary { background: var(--ui-surface-raised); color: var(--ui-text); border-color: var(--ui-border); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
 .ui-button--secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 8%, var(--ui-surface-raised)); border-color: var(--ui-border-strong); }
+/* A toggle that is switched on, quiet enough to sit beside the song sheet. */
+.ui-button--pressed { background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface-raised)); border-color: var(--ui-border-strong); color: var(--ui-accent-strong); }
+.ui-button--pressed:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-surface-raised)); border-color: var(--ui-border-strong); }
 /* A small floating action, such as the full screen shortcut over a scrolled sheet. */
 .ui-button--floating {
   width: 3rem;
@@ -410,11 +413,10 @@ html.dark body {
   overflow: hidden;
   border: 1px solid var(--ui-border);
   border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  background: var(--ui-surface);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-lg);
   outline: none;
-  backdrop-filter: blur(24px) saturate(155%);
 }
 
 .ui-dialog--sm { max-width: 28rem; }
@@ -434,6 +436,20 @@ html.dark body {
   .ui-dialog { max-height: 92dvh; border-radius: 1.25rem 1.25rem 0 0; border-bottom: 0; }
 }
 
+/* Apple's minimum touch target is 44px; keep the dense chrome tappable on touch screens. */
+@media (pointer: coarse) {
+  .ui-button--sm { min-height: 2.75rem; }
+  .ui-button--icon { width: 2.75rem; height: 2.75rem; }
+  .ui-segmented__item { min-height: 2.75rem; }
+  .ui-segmented--compact { height: 2.75rem; }
+  .ui-segmented--compact .ui-segmented__item {
+    height: calc(2.75rem - (var(--seg-pad) * 2));
+    min-height: calc(2.75rem - (var(--seg-pad) * 2));
+  }
+  .song-tray-icon { width: 2.75rem; height: 2.75rem; }
+  .ui-field--sm { min-height: 2.75rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
@@ -450,7 +466,6 @@ html.dark body {
 
 @media (prefers-reduced-transparency: reduce) {
   .ui-overlay { backdrop-filter: none; background: rgba(15, 18, 18, 0.72); }
-  .ui-dialog { backdrop-filter: none; background: var(--ui-surface); }
   .ui-popover { backdrop-filter: none; background: var(--ui-surface-raised); }
 }
 
@@ -458,4 +473,5 @@ html.dark body {
   :root { --ui-border: rgba(23, 23, 23, 0.56); --ui-border-strong: var(--ui-text); }
   :root.dark { --ui-border: rgba(255, 255, 255, 0.5); --ui-border-strong: var(--ui-text); }
   .ui-dialog, .ui-popover, .ui-surface, .ui-button--secondary { box-shadow: none; }
+  .ui-button--pressed { border-color: var(--ui-accent); }
 }

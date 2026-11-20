@@ -230,8 +230,11 @@ describe('DisplayControls — columns and fit', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'Fit screen' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Auto layout · 4 columns · 12px')).toBeTruthy()
+    const fitButton = screen.getByRole('button', { name: 'Fit screen' })
+    expect(fitButton.getAttribute('aria-pressed')).toBe('true')
+    expect(fitButton.className).toContain('ui-button--pressed')
+    expect(fitButton.className).not.toContain('ui-button--primary')
+    expect(screen.getByText('Fits the screen · 4 columns · text size 12')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
     expect(onChangePrefs).toHaveBeenCalledWith(
@@ -254,6 +257,8 @@ describe('DisplayControls — columns and fit', () => {
 
     const wrapButton = screen.getByRole('button', { name: 'Wrapped' })
     expect(wrapButton.getAttribute('aria-pressed')).toBe('true')
+    expect(wrapButton.className).toContain('ui-button--pressed')
+    expect(wrapButton.className).not.toContain('ui-button--primary')
 
     fireEvent.click(wrapButton)
     expect(onChangePrefs).toHaveBeenCalledWith(

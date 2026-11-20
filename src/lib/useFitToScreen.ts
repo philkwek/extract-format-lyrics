@@ -5,14 +5,19 @@ import {
   allocateColumnWidths,
   estimateColumnHeightPx,
   getColumnDisplayWidths,
+  getLineDisplayWidth,
   partitionSections,
+  type ColumnSectionItem,
   type SheetColumns,
 } from './songLayout'
+import { wrapLyricLine } from './lyricWrap'
 
 export interface FitLayout {
   columns: SheetColumns
   fontSizePx: number
   fitsOnScreen: boolean
+  /** Tallest column's estimated height, before any `heightScale`. */
+  estimatedHeightPx?: number
 }
 
 export interface SelectFitLayoutOptions {
@@ -23,15 +28,30 @@ export interface SelectFitLayoutOptions {
   preferredFontSizePx: number
   charWidthAt16Px: number
   minFontSizePx?: number
+  maxFontSizePx?: number
   columnGapPx?: number
   sectionGapPx?: number
   safetyPx?: number
+  wrapLines?: boolean
+  /**
+   * Calibration for estimated column heights (1 = trust the estimate). The DOM
+   * usually reports content shorter than the estimate, so a smaller scale lets
+   * the pick try a larger font.
+   */
+  heightScale?: number
 }
 
 const DEFAULT_MIN_FONT_SIZE_PX = 11
+const DEFAULT_MAX_FONT_SIZE_PX = 24
 const DEFAULT_SAFETY_PX = 8
+/** A wrapped column narrower than this is too cramped to read while playing. */
+const MIN_WRAP_WIDTH_CH = 12
+/** Rows a wrapped lyric may take before the layout is rejected. */
+const MAX_WRAPPED_ROWS = 2
 const MONOSPACE_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 const COLUMN_COUNTS: SheetColumns[] = [1, 2, 3, 4]
+/** Widest first: at a given font size, more columns always wins. */
+const COLUMN_ORDER: SheetColumns[] = [4, 3, 2, 1]
 /**
  * Upper bound on DOM-verification passes in one fit run. Font size can only
  * move down, so a run always terminates; this just guards against pathological
@@ -41,14 +61,9 @@ const MAX_VERIFY_PASSES = 12
 /** Window resizes are coalesced so dragging a window edge refits once. */
 const RESIZE_DEBOUNCE_MS = 150
 
-function orderedColumnCounts(preferred: SheetColumns): SheetColumns[] {
-  return [preferred, ...COLUMN_COUNTS.filter((column) => column !== preferred)]
-}
-
 /**
- * Picks the largest readable layout that keeps the whole sheet inside the
- * viewport. The preferred column count and font size always come first, so a
- * layout that already fits is left untouched.
+ * Picks the largest readable font size that fits the viewport, then the widest
+ * column count that fits at that size, so a short song fills a big screen.
  */
 export function selectFitLayout({
   sections,
@@ -58,18 +73,22 @@ export function selectFitLayout({
   preferredFontSizePx,
   charWidthAt16Px,
   minFontSizePx = DEFAULT_MIN_FONT_SIZE_PX,
+  maxFontSizePx = DEFAULT_MAX_FONT_SIZE_PX,
   columnGapPx = viewportWidthPx < 640 ? 24 : 32,
   sectionGapPx = viewportWidthPx < 640 ? 24 : 32,
   safetyPx = DEFAULT_SAFETY_PX,
+  wrapLines = false,
+  heightScale = 1,
 }: SelectFitLayoutOptions): FitLayout {
-  const startFontSizePx = Math.max(1, Math.round(preferredFontSizePx))
-  const floorFontSizePx = Math.min(minFontSizePx, startFontSizePx)
+  const preferredFontSize = Math.max(1, Math.round(preferredFontSizePx))
+  const startFontSizePx = Math.max(maxFontSizePx, preferredFontSize)
+  const floorFontSizePx = Math.min(minFontSizePx, preferredFontSize)
   const preferred = COLUMN_COUNTS.includes(preferredColumns) ? preferredColumns : 1
 
   if (sections.length === 0 || viewportWidthPx <= 0 || viewportHeightPx <= 0) {
     return {
       columns: preferred,
-      fontSizePx: startFontSizePx,
+      fontSizePx: preferredFontSize,
       fitsOnScreen: true,
     }
   }
@@ -77,7 +96,7 @@ export function selectFitLayout({
   // SongSheet uses a single-column grid below Tailwind's `sm` breakpoint.
   // Keep the fit candidate set in sync with that responsive layout.
   const maxColumns: SheetColumns = viewportWidthPx < 640 ? 1 : 4
-  const columnOrder = orderedColumnCounts(preferred).filter((columns) => columns <= maxColumns)
+  const columnOrder = COLUMN_ORDER.filter((columns) => columns <= maxColumns)
   let fallback: { columns: SheetColumns; height: number } | null = null
 
   const measureColumns = (columns: SheetColumns, fontSizePx: number) => {
@@ -102,7 +121,20 @@ export function selectFitLayout({
     )
     const intrinsicWidths = getColumnDisplayWidths(visiblePartitions)
     const allocatedWidths = allocateColumnWidths(intrinsicWidths, availableWidthCh)
-    const valid = allocatedWidths.every((width, index) => width + 0.01 >= intrinsicWidths[index])
+    // Match SongSheet's wrap width: one column gets the full width, and it keeps one
+    // character of room, so a line must fit inside floor(width) - 1 or it wraps.
+    const wrapWidths = allocatedWidths.length === 1 ? [availableWidthCh] : allocatedWidths
+
+    if (wrapLines) {
+      return {
+        ...measureWrappedColumns(visiblePartitions, wrapWidths, fontSizePx, sectionGapPx),
+        columns: effectiveColumns,
+      }
+    }
+
+    const valid = wrapWidths.every(
+      (width, index) => Math.floor(width + 0.01) - 1 >= intrinsicWidths[index],
+    )
     const height = Math.max(
       ...visiblePartitions.map((column) =>
         estimateColumnHeightPx(column, fontSizePx, sectionGapPx),
@@ -122,11 +154,12 @@ export function selectFitLayout({
         fallback = { columns: result.columns, height: result.height }
       }
 
-      if (result.height + safetyPx <= viewportHeightPx) {
+      if (result.height * heightScale + safetyPx <= viewportHeightPx) {
         return {
           columns: result.columns,
           fontSizePx,
           fitsOnScreen: true,
+          estimatedHeightPx: result.height,
         }
       }
     }
@@ -139,6 +172,48 @@ export function selectFitLayout({
     fontSizePx: floorFontSizePx,
     fitsOnScreen: false,
   }
+}
+
+/**
+ * Measures a wrapped layout: a lyric line may take up to two rows, and each
+ * extra row adds the same height the sheet gives an ordinary lyric line.
+ */
+function measureWrappedColumns(
+  columns: ColumnSectionItem[][],
+  wrapWidths: number[],
+  fontSizePx: number,
+  sectionGapPx: number,
+) {
+  let valid = true
+  let height = 0
+
+  columns.forEach((column, index) => {
+    const wrapWidth = Math.max(1, Math.floor(wrapWidths[index] ?? 0) - 1)
+    if (wrapWidth < MIN_WRAP_WIDTH_CH) {
+      valid = false
+    }
+
+    let extraHeightPx = 0
+    for (const item of column) {
+      for (const line of item.section.lines) {
+        if (line.kind === 'lyric') {
+          if (line.text.length === 0) continue
+          const rows = wrapLyricLine(line, wrapWidth).length
+          if (rows > MAX_WRAPPED_ROWS) valid = false
+          extraHeightPx += (Math.max(1, rows) - 1) * fontSizePx * 2.625
+        } else if (getLineDisplayWidth(line) > wrapWidth) {
+          valid = false
+        }
+      }
+    }
+
+    height = Math.max(
+      height,
+      estimateColumnHeightPx(column, fontSizePx, sectionGapPx) + extraHeightPx,
+    )
+  })
+
+  return { valid, height }
 }
 
 /**
@@ -209,6 +284,7 @@ export interface UseFitToScreenOptions {
   minFontSizePx?: number
   /** Pass a value that changes when surrounding chrome changes height. */
   revision?: unknown
+  wrapLines?: boolean
 }
 
 /**
@@ -217,6 +293,8 @@ export interface UseFitToScreenOptions {
  * debounced window resize) and never by its own output. Within a run it picks a
  * layout, then verifies against the rendered DOM and steps the font down until
  * nothing overflows, using synchronous renders so the run finishes in one task.
+ * If the estimate fits untouched, it measures the real content and re-picks at
+ * most once at that scale, so a high estimate does not cost a font size.
  * Because nothing observes the viewport's size, a scrollbar appearing or the
  * layout changing the box cannot start another run, so there is no feedback loop.
  * The hook never steps below the readable minimum and never clips content;
@@ -229,6 +307,7 @@ export function useFitToScreen({
   preferredFontSizePx,
   minFontSizePx = DEFAULT_MIN_FONT_SIZE_PX,
   revision,
+  wrapLines = false,
 }: UseFitToScreenOptions) {
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const [resizeTick, setResizeTick] = useState(0)
@@ -267,7 +346,7 @@ export function useFitToScreen({
       if (!viewportWidth || !viewportHeight) return
 
       const floorFontSizePx = Math.min(minFontSizePx, Math.max(1, Math.round(preferredFontSizePx)))
-      let current = selectFitLayout({
+      const fitOptions = {
         sections,
         viewportWidthPx: viewportWidth,
         viewportHeightPx: viewportHeight,
@@ -275,9 +354,9 @@ export function useFitToScreen({
         preferredFontSizePx,
         minFontSizePx,
         charWidthAt16Px: measureCharWidthAt16Px(viewport),
-      })
+        wrapLines,
+      }
       const commit = (next: FitLayout) => {
-        current = next
         flushSync(() =>
           setLayout((previous) =>
             previous.columns === next.columns &&
@@ -288,38 +367,81 @@ export function useFitToScreen({
           ),
         )
       }
-      commit(current)
 
-      for (let pass = 0; pass < MAX_VERIFY_PASSES && !cancelled; pass += 1) {
-        const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
-        if (!sheet) return
+      /** Commits a layout, then shrinks it until the rendered sheet fits. */
+      const verify = (start: FitLayout) => {
+        let current = start
+        let measuredHeightPx = 0
+        commit(current)
 
-        const { height: availableHeightPx } = getViewportContentSize(viewport)
-        const horizontal = hasHorizontalOverflow(sheet)
-        const overflow = sheet.scrollHeight > availableHeightPx + 1 || horizontal
-        if (!overflow) {
-          if (!current.fitsOnScreen) commit({ ...current, fitsOnScreen: true })
-          return
+        for (let pass = 0; pass < MAX_VERIFY_PASSES && !cancelled; pass += 1) {
+          const sheet = viewport.querySelector<HTMLElement>('[data-song-sheet]')
+          if (!sheet) return null
+
+          const { height: availableHeightPx } = getViewportContentSize(viewport)
+          const horizontal = hasHorizontalOverflow(sheet)
+          measuredHeightPx = sheet.scrollHeight
+          if (measuredHeightPx <= availableHeightPx + 1 && !horizontal) {
+            if (!current.fitsOnScreen) {
+              current = { ...current, fitsOnScreen: true }
+              commit(current)
+            }
+            return { layout: current, measuredHeightPx }
+          }
+          if (current.fontSizePx <= floorFontSizePx) {
+            if (current.fitsOnScreen) {
+              current = { ...current, fitsOnScreen: false }
+              commit(current)
+            }
+            return { layout: current, measuredHeightPx }
+          }
+          current = {
+            ...current,
+            fitsOnScreen: true,
+            fontSizePx: horizontal
+              ? current.fontSizePx - 1
+              : nextFontSizeAfterOverflow(
+                  current.fontSizePx,
+                  floorFontSizePx,
+                  availableHeightPx,
+                  measuredHeightPx,
+                ),
+          }
+          commit(current)
         }
-        if (current.fontSizePx <= floorFontSizePx) {
-          if (current.fitsOnScreen) commit({ ...current, fitsOnScreen: false })
-          return
+
+        // Passes exhausted while still overflowing: allow scrolling rather than clip.
+        if (!cancelled && current.fitsOnScreen) {
+          current = { ...current, fitsOnScreen: false }
+          commit(current)
         }
-        commit({
-          ...current,
-          fitsOnScreen: true,
-          fontSizePx: horizontal
-            ? current.fontSizePx - 1
-            : nextFontSizeAfterOverflow(
-                current.fontSizePx,
-                floorFontSizePx,
-                availableHeightPx,
-                sheet.scrollHeight,
-              ),
-        })
+        return { layout: current, measuredHeightPx }
       }
-      // Passes exhausted while still overflowing: allow scrolling rather than clip.
-      if (!cancelled && current.fitsOnScreen) commit({ ...current, fitsOnScreen: false })
+
+      const first = selectFitLayout(fitOptions)
+      const verified = verify(first)
+      if (!verified || !verified.layout.fitsOnScreen) return
+
+      // One calibrated re-pick: the estimate runs high, and the DOM passes only ever
+      // shrink, so measure the real content and retry once at the corrected scale.
+      // Only when the estimate itself fit; after a shrink the estimate is no longer
+      // the limit. Never repeats, so a run always terminates.
+      const estimatedHeightPx = verified.layout.estimatedHeightPx
+      const unchanged =
+        verified.layout.fontSizePx === first.fontSizePx && verified.layout.columns === first.columns
+      if (!unchanged || !estimatedHeightPx || estimatedHeightPx <= 0) return
+
+      const scale = verified.measuredHeightPx / estimatedHeightPx
+      if (scale >= 0.97) return
+
+      const repicked = selectFitLayout({ ...fitOptions, heightScale: scale * 1.02 })
+      const grew =
+        repicked.fontSizePx > verified.layout.fontSizePx ||
+        (repicked.fontSizePx === verified.layout.fontSizePx &&
+          repicked.columns > verified.layout.columns)
+      if (!grew) return
+
+      verify(repicked)
     })
 
     return () => {
@@ -335,6 +457,7 @@ export function useFitToScreen({
     minFontSizePx,
     revision,
     resizeTick,
+    wrapLines,
   ])
 
   return {

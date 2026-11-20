@@ -20,6 +20,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize
   icon?: ReactNode
   loading?: boolean
+  /** For toggles that stay on, such as Wrap or Fit screen. */
+  pressed?: boolean
 }
 
 const buttonVariants: Record<ButtonVariant, string> = {
@@ -42,6 +44,7 @@ export function Button({
   size = 'md',
   icon,
   loading = false,
+  pressed,
   className,
   children,
   disabled,
@@ -53,7 +56,14 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={classes('ui-button', buttonVariants[variant], buttonSizes[size], className)}
+      aria-pressed={typeof pressed === 'boolean' ? pressed : undefined}
+      className={classes(
+        'ui-button',
+        buttonVariants[variant],
+        buttonSizes[size],
+        pressed && 'ui-button--pressed',
+        className,
+      )}
       {...props}
     >
       {loading ? <span className="ui-spinner" aria-hidden="true" /> : icon}

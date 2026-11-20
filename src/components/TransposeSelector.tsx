@@ -20,7 +20,7 @@ export default function TransposeSelector({
   if (!originalKey) {
     if (compact) return null
     return (
-      <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 text-xs text-[var(--ui-text-muted)]">
+      <div className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 text-xs text-[var(--ui-text-muted)]">
         <span>Key unknown</span>
       </div>
     )
@@ -35,7 +35,7 @@ export default function TransposeSelector({
   const isModified = activeKey !== matchedOriginal
 
   return (
-    <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)]">
+    <div className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)]">
       <span className="mr-1.5 text-[11px] font-semibold text-[var(--ui-text-muted)] select-none">
         Key
       </span>

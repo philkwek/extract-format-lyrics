@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, GripHorizontal, Trash2, X } from 'lucide-react'
 import { momentumSpring, reducedMotionTransition } from '../lib/uiMotion'
 import { Button, IconButton } from './ui'
 import { useModalFocus } from './ui/useModalFocus'
+import { useSheetDrag } from './ui/useSheetDrag'
 
 export interface ArrangeItem {
   id: string
@@ -34,16 +35,23 @@ export default function ArrangeDrawer({
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const reduceMotion = useReducedMotion()
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+  const { panelMotion, dragProps, onPointerDown } = useSheetDrag(onClose)
+  const desktopMotion = reduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: reducedMotionTransition,
+      }
+    : {
+        initial: { opacity: 0, y: 18, scale: 0.97 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: 16, scale: 0.98 },
+        transition: momentumSpring,
+      }
+  const sheetMotion = panelMotion ?? desktopMotion
   const [moveFeedback, setMoveFeedback] = useState<{ itemId: string; direction: 'up' | 'down' } | null>(null)
   const handlePanelKeyDown = useModalFocus(isOpen, panelRef, onClose)
-
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 639px)')
-    const update = (event: MediaQueryListEvent) => setIsMobile(event.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
 
   useEffect(() => {
     if (!moveFeedback) return
@@ -77,23 +85,25 @@ export default function ArrangeDrawer({
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            drag={isMobile && !reduceMotion ? 'y' : false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.34 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 110 || info.velocity.y > 700) onClose()
-            }}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: isMobile ? '100%' : 18, scale: isMobile ? 1 : 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: isMobile ? '100%' : 16, scale: isMobile ? 1 : 0.98 }}
-            transition={reduceMotion ? reducedMotionTransition : momentumSpring}
+            {...dragProps}
+            initial={sheetMotion.initial}
+            animate={sheetMotion.animate}
+            exit={sheetMotion.exit}
+            transition={sheetMotion.transition}
             onKeyDown={handlePanelKeyDown}
             className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.35rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)] outline-none sm:rounded-[1.35rem]"
           >
-            <div className="flex h-7 shrink-0 touch-none items-center justify-center sm:hidden" aria-hidden="true">
+            <div
+              aria-hidden="true"
+              onPointerDown={onPointerDown}
+              className="flex h-7 shrink-0 touch-none items-center justify-center sm:hidden"
+            >
               <GripHorizontal size={25} className="text-[var(--ui-text-muted)]" />
             </div>
-            <header className="flex items-start justify-between gap-3 border-b border-[var(--ui-border)] px-4 pb-3 pt-1 sm:pt-4">
+            <header
+              onPointerDown={onPointerDown}
+              className="flex touch-none items-start justify-between gap-3 border-b border-[var(--ui-border)] px-4 pb-3 pt-1 sm:pt-4"
+            >
               <div className="min-w-0">
                 <h2 id={titleId} className="text-base font-bold tracking-[-0.02em]">{title}</h2>
                 {subtitle && <p className="mt-1 truncate text-xs text-[var(--ui-text-muted)]">{subtitle}</p>}

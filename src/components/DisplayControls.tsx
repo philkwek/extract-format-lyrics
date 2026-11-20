@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { AlertTriangle, Pencil, RotateCcw, Scan, WandSparkles, WrapText } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { resolvePadKey, type PadKey } from '../lib/ambientPadPlayer'
+import { fitCaption } from '../lib/plural'
 import type { PadKeyMode } from '../lib/sessionStore'
 import type { SheetColumns } from '../lib/songLayout'
 import type { SongDisplayPrefs } from '../lib/songPrefs'
@@ -102,14 +103,12 @@ export default function DisplayControls({
     })
   }
 
-  const fitCaption =
-    fitActive && fitLayout
-      ? `Auto layout · ${fitLayout.columns} column${fitLayout.columns === 1 ? '' : 's'} · ${fitLayout.fontSizePx}px`
-      : null
+  const caption =
+    fitActive && fitLayout ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
   const overflowMessage = hasLyricOverflow
     ? 'Lyric overflow detected. Try fewer columns or a smaller text size, or turn on Wrap.'
     : null
-  const statusMessage = fitNotice ?? overflowMessage ?? fitCaption
+  const statusMessage = fitNotice ?? overflowMessage ?? caption
 
   return (
     <div className={`${isFullScreen ? 'space-y-1.5 pb-0' : 'space-y-2 pb-1'} text-xs`}>
@@ -125,10 +124,10 @@ export default function DisplayControls({
             {isFullScreen && onToggleFit && (
               <Button
                 size="sm"
-                variant={fitActive ? 'primary' : 'secondary'}
+                variant="secondary"
+                pressed={fitActive}
                 icon={<Scan size={14} />}
                 onClick={onToggleFit}
-                aria-pressed={fitActive}
                 title={fitActive ? 'Turn off fit to screen' : 'Fit the whole song on screen'}
               >
                 Fit screen
@@ -172,13 +171,13 @@ export default function DisplayControls({
           <div
             role="group"
             aria-label="Font size"
-            className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
+            className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
           >
             <button
               type="button"
               aria-label="Decrease song font size"
               onClick={() => handleFontSizeChange(-1)}
-              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
             >
               A−
             </button>
@@ -189,7 +188,7 @@ export default function DisplayControls({
               type="button"
               aria-label="Increase song font size"
               onClick={() => handleFontSizeChange(1)}
-              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
             >
               A+
             </button>
@@ -197,7 +196,8 @@ export default function DisplayControls({
 
           <Button
             size="sm"
-            variant={prefs.wrapLines ? 'primary' : 'secondary'}
+            variant="secondary"
+            pressed={Boolean(prefs.wrapLines)}
             icon={<WrapText size={14} />}
             onClick={() =>
               onChangePrefs({
@@ -206,7 +206,6 @@ export default function DisplayControls({
                 fitToScreen: fitActive ? false : prefs.fitToScreen,
               })
             }
-            aria-pressed={Boolean(prefs.wrapLines)}
             title={
               prefs.wrapLines
                 ? 'Turn off automatic line wrapping'
@@ -231,7 +230,8 @@ export default function DisplayControls({
               <div className="inline-flex items-center gap-1">
                 <Button
                   size="sm"
-                  variant={prefs.simplified ? 'primary' : 'secondary'}
+                  variant="secondary"
+                  pressed={Boolean(prefs.simplified)}
                   icon={<WandSparkles size={14} />}
                   onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
                 >
@@ -264,7 +264,8 @@ export default function DisplayControls({
             {!isFullScreen && onToggleEditChords && (
               <Button
                 size="sm"
-                variant={isEditingChords ? 'primary' : 'secondary'}
+                variant="secondary"
+                pressed={Boolean(isEditingChords)}
                 icon={<Pencil size={14} />}
                 onClick={onToggleEditChords}
                 title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}

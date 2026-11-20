@@ -17,7 +17,32 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
-  <meta name="theme-color" content="#3368A0" />
+  <meta name="theme-color" content="#ffffff" />
+  <script>
+    // Apply the saved theme before first paint so a dark-mode load never flashes white.
+    (function () {
+      try {
+        var mode = localStorage.getItem('app_theme');
+        if (mode !== 'light' && mode !== 'dark') mode = 'system';
+        var dark =
+          mode === 'dark' ||
+          (mode === 'system' &&
+            typeof matchMedia === 'function' &&
+            matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        if (dark) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+        root.style.colorScheme = dark ? 'dark' : 'light';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#1a1a1a' : '#ffffff');
+      } catch (e) {
+        // Storage or matchMedia may be unavailable; the app applies the theme later.
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sets &amp; Sheets</title>
   <meta name="description"

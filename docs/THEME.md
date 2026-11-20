@@ -7,7 +7,7 @@ This document outlines the design system, color palettes, typography, and compon
 ## 1. Design Philosophy
 
 - **Performance-Oriented:** Optimized for musicians and worship leaders performing on tablets or laptops in both bright daylight rehearsals and dimly lit stages.
-- **Anti-Glare Dark Mode:** Uses low-contrast matte dark tones (`#101010`, `#1a1a1a`, soft text `#e5e5e5`) paired with a warm amber accent (`amber-400` / `amber-500`) to avoid screen glare and eye fatigue.
+- **Anti-Glare Dark Mode:** Uses low-contrast matte dark tones (`#1a1a1a`, `#1e1e1e`, soft text `#ededeb`) paired with a warm amber accent (`amber-400` / `amber-500`) to avoid screen glare and eye fatigue.
 - **White Light Mode:** Uses a clean white primary canvas and main surfaces (`#FFFFFF`) paired with a deep sea blue accent (`#3368A0` / `#255283`) and soft sage borders (`#C8DFDB`). Only muted supporting panels retain a subtle neutral off-white to preserve hierarchy.
 - **Monospace Alignment:** Chords sit on their own line with character-exact spacing directly above lyrics, demanding strict monospace formatting (`font-sheet`).
 
@@ -17,7 +17,7 @@ The application shell and workflow controls use a restrained, Apple-inspired hie
 
 - Shared primitives in `src/components/ui/` provide buttons, icon buttons, segmented controls, status banners, surfaces, and accessible overlays.
 - Controls use immediate CSS feedback. Interruptible spring motion is reserved for dialogs, drawers, and direct manipulation.
-- Light mode retains the parchment and sea-blue identity. Dark mode retains matte charcoal surfaces and amber accents.
+- Light mode keeps the white canvas and sea-blue identity. Dark mode retains matte charcoal surfaces and amber accents.
 - `prefers-reduced-motion`, `prefers-reduced-transparency`, and `prefers-contrast: more` receive simplified motion and stronger, more opaque surfaces.
 - UI icons come from the shared SVG icon set; status and meaning are never communicated by icon or colour alone.
 
@@ -62,10 +62,10 @@ only in `src/index.css` and the protected song sheet.
 
 | Element | Light | Dark | Class |
 | :--- | :--- | :--- | :--- |
-| **Page canvas** | `#FFFFFF` | `#101010` | `bg-ui-canvas` |
-| **Card / surface** | `#FFFFFF` | `#191919` | `bg-ui-surface` (or the `Surface` primitive) |
-| **Raised panel, popover** | `#FFFFFF` | `#1E1E1E` | `bg-ui-surface-raised` |
-| **Muted sub-panel** | `#FAFAFA` | `#141414` | `bg-ui-surface-muted` |
+| **Page canvas** | `#FFFFFF` | `#1A1A1A` | `bg-ui-canvas` |
+| **Card / surface** | `#FFFFFF` | `#1E1E1E` | `bg-ui-surface` (or the `Surface` primitive) |
+| **Raised panel, popover** | `#FFFFFF` | `#242424` | `bg-ui-surface-raised` |
+| **Muted sub-panel** | `#FAFAFA` | `#202020` | `bg-ui-surface-muted` |
 | **Borders** | `rgba(74,105,106,0.2)` | `rgba(255,255,255,0.09)` | `border-ui-border` |
 | **Hover / emphasised borders** | sea blue 32% | amber 30% | `border-ui-border-strong` |
 | **Primary text** | `#171717` | `#EDEDEB` | `text-ui-text` |
@@ -82,14 +82,17 @@ error) live in `.ui-status--*` and the `success`/`danger` button variants.
 The song sheet keeps its own colours (chord text is `text-[#3368A0] dark:text-amber-400`);
 see section 1.
 
+Switched-on toggles use `ui-button--pressed`. The `@media (pointer: coarse)` block raises
+small controls to a 44px touch target on touch screens.
+
 ---
 
 ## 3. Typography Guidelines
 
 - **UI & Controls Font:** `'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
-  - Body copy: `text-sm text-neutral-800 dark:text-[#e5e5e5]`
-  - Section headers: `text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]`
-  - Field labels / Metadata: `text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-[#999999]`
+  - Body copy: `text-sm text-ui-text`
+  - Section headers: `text-lg font-bold text-ui-text`
+  - Field labels / Metadata: `text-[11px] font-semibold uppercase tracking-wider text-ui-text-muted`
 - **Sheet & Musical Notation Font (`.font-sheet`):**
   - Definition: `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
   - Purpose: Guarantees character-grid alignment so chords sit exactly above their target lyric syllable.
@@ -123,119 +126,26 @@ Use the primitives in `src/components/ui/` first: `Button`, `IconButton`, `Segme
 `Switch`, `Surface`, `StatusBanner`, `Toast`, `OverlayDialog`, and `useModalFocus` for any custom dialog
 or drawer. Form fields use the `ui-field` class (`ui-field--sm` for compact ones). Colours use
 the `ui-*` utilities from section 2. Hex colour classes in `.tsx` files are allowed only in the
-protected song sheet; `srcTest/designTokens.test.ts` fails on new ones. The class strings
-quoted in the patterns below are historical; where they show a hex pair, use the matching
-`ui-*` utility.
+protected song sheet; `srcTest/designTokens.test.ts` fails on new ones.
 
 ### A. Modals & Dialogs
 
-Used in [`ShareModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-lyrics/src/components/ShareModal.tsx) and [`UploadSheetModal.tsx`](file:///Users/philkwek/CodeWorkspace/extract-format-lyrics/src/components/UploadSheetModal.tsx):
+Use `OverlayDialog`. It supplies the blurred backdrop, the solid surface, the header, the focus
+trap, and overscroll containment. Don't rebuild one with raw `<div>`s.
 
-```tsx
-/* Backdrop overlay */
-<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+### B. Buttons
 
-  /* Modal container card */
-  <div className="w-full max-w-4xl bg-white dark:bg-[#1a1a1a] border border-[#C8DFDB] dark:border-[#282828] rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-    
-    /* Header */
-    <div className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] px-6 py-4 bg-white dark:bg-[#1a1a1a]">
-      <h2 className="text-lg font-bold text-neutral-900 dark:text-[#e5e5e5]">Modal Title</h2>
-      <button className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer">
-        ✕
-      </button>
-    </div>
-
-    /* Content Body */
-    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-neutral-50/60 dark:bg-[#151515]">
-      {/* Content */}
-    </div>
-
-    /* Footer Actions */
-    <div className="border-t border-[#C8DFDB] dark:border-[#282828] px-6 py-4 flex items-center justify-between bg-white dark:bg-[#1a1a1a]">
-      {/* Action buttons */}
-    </div>
-  </div>
-</div>
-```
-
----
-
-### B. Action Buttons & Pills
-
-#### 1. Primary Action Button
-```tsx
-<button className="px-5 py-2 rounded-lg text-xs font-semibold bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black transition shadow-xs cursor-pointer">
-  Save changes
-</button>
-```
-
-#### 2. Header / Secondary Action Bar Pill (e.g. `+ Add song`, `Arrange`, `Upload sheet`)
-```tsx
-<button className="text-xs bg-white/80 hover:bg-[#C8DFDB]/30 border border-[#C8DFDB] dark:bg-[#1a1a1a] dark:hover:bg-[#252525] text-neutral-800 dark:text-[#e5e5e5] dark:border-[#282828] px-3 py-1.5 rounded transition-colors cursor-pointer whitespace-nowrap shadow-2xs flex items-center gap-1.5">
-  <span>📄</span>
-  <span>Upload sheet</span>
-</button>
-```
-
-#### 3. Success / Confirm Button
-```tsx
-<button className="px-5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black transition shadow-xs cursor-pointer">
-  Import to setlist
-</button>
-```
-
-#### 4. Ghost / Cancel Button
-```tsx
-<button className="px-4 py-2 rounded-lg text-xs font-medium text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5] hover:bg-neutral-100 dark:hover:bg-[#252525] transition cursor-pointer">
-  Cancel
-</button>
-```
-
----
+Use `Button` with the `primary`, `secondary`, `ghost`, `danger` or `success` variant. Add
+`pressed` for a toggle that is switched on. Use `IconButton` for a square icon-only control.
 
 ### C. Form Inputs & Textareas
 
-```tsx
-<input
-  type="text"
-  className="w-full bg-neutral-50 dark:bg-[#101010] border border-neutral-300 dark:border-[#282828] rounded px-3 py-2 text-xs text-neutral-900 dark:text-[#e5e5e5] placeholder:text-neutral-400 dark:placeholder:text-[#666666] focus:outline-none focus:border-[#3368A0] dark:focus:border-amber-500"
-/>
-```
+Use the `ui-field` class (`ui-field--sm` for compact fields) instead of hand-built borders and
+focus rings.
 
----
+### D. Mode Switchers & Tabs
 
-### D. File Dropzones
-
-```tsx
-<div className="border-2 border-dashed border-[#C8DFDB] hover:border-[#3368A0] dark:border-[#282828] dark:hover:border-amber-500/70 bg-white hover:bg-neutral-50 dark:bg-[#1a1a1a]/60 dark:hover:bg-[#1a1a1a] transition rounded-xl p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3 shadow-xs">
-  <div className="w-12 h-12 rounded-full bg-[#3368A0]/10 dark:bg-amber-500/10 flex items-center justify-center text-[#3368A0] dark:text-amber-400 text-2xl">
-    📄
-  </div>
-  <p className="text-sm font-medium text-neutral-800 dark:text-[#e5e5e5]">Click or drop files here</p>
-  <p className="text-xs text-neutral-500 dark:text-[#999999]">Supported formats: .pdf, .png, .jpg</p>
-</div>
-```
-
----
-
-### E. Mode Switchers & Tabs
-
-```tsx
-/* Tab Container */
-<div className="flex bg-neutral-100 dark:bg-[#101010] p-1 rounded-lg border border-neutral-200 dark:border-[#282828]">
-
-  /* Active Tab */
-  <button className="px-3 py-1.5 rounded-md text-xs font-semibold bg-[#3368A0] text-white shadow-xs dark:bg-amber-500 dark:text-black">
-    Paste Links
-  </button>
-
-  /* Inactive Tab */
-  <button className="px-3 py-1.5 rounded-md text-xs font-semibold text-neutral-600 dark:text-[#999999] hover:text-neutral-900 dark:hover:text-[#e5e5e5]">
-    Search Songs
-  </button>
-</div>
-```
+Use `SegmentedControl`. It handles the active state, labels, and `aria-pressed`.
 
 ---
 
