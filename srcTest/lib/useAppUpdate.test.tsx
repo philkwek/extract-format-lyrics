@@ -113,6 +113,7 @@ describe('useAppUpdate', () => {
 
     try {
       renderHook(() => useAppUpdate(true))
+      await pass(0)
       await pass(ANSWER_DELAY)
 
       expect(registration.update).toHaveBeenCalled()
