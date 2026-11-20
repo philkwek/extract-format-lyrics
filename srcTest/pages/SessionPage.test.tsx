@@ -1777,4 +1777,68 @@ describe('SessionPage song arrow keys', () => {
   })
 })
 
+describe('SessionPage full screen neighbour pages', () => {
+  const secondSong = {
+    ...fixtures.song,
+    id: 'song-2',
+    title: 'Lantern Song',
+    sourceUrl: 'https://example.test/lantern-song',
+    sections: [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [
+          {
+            kind: 'lyric',
+            text: 'Carry the lantern home',
+            chords: [{ chord: 'C', pos: 0 }],
+          },
+        ],
+      },
+    ],
+    simplifiedSections: undefined,
+  }
+  const twoSongs = {
+    ...fixtures.session,
+    songs: [
+      { entryId: 'entry-a', url: fixtures.song.sourceUrl, title: fixtures.song.title },
+      { entryId: 'entry-b', url: secondSong.sourceUrl, title: secondSong.title },
+    ],
+  }
+
+  afterEach(() => {
+    vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
+    vi.mocked(songCache.getSong).mockImplementation(async () => fixtures.song as never)
+  })
+
+  it('pre-renders the next song and reuses its page when it becomes active', async () => {
+    vi.mocked(sessionStore.getSession).mockResolvedValue(twoSongs as never)
+    vi.mocked(songCache.getSong).mockImplementation(async (url) =>
+      url === secondSong.sourceUrl ? (secondSong as never) : (fixtures.song as never),
+    )
+    render(<TestHarness />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Go full screen' }))
+
+    const nextLyric = await screen.findByText('Carry the lantern home')
+    const nextPage = nextLyric.closest<HTMLElement>('[data-sheet-page]')
+    expect(nextPage).toBeTruthy()
+    expect(nextPage!.getAttribute('aria-hidden')).toBe('true')
+    expect(nextPage!.contains(screen.getByText('You give life, You are love'))).toBe(false)
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('tablist', { name: 'Songs in setlist' }))
+          .getAllByRole('tab')[1]
+          .getAttribute('aria-selected'),
+      ).toBe('true'),
+    )
+
+    expect(nextPage!.isConnected).toBe(true)
+    expect(nextPage!.getAttribute('aria-hidden')).toBeNull()
+    expect(nextPage!.contains(screen.getByText('Carry the lantern home'))).toBe(true)
+  })
+})
+
 

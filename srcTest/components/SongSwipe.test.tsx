@@ -45,6 +45,7 @@ function renderSwipe({
 }: SwipeProps = {}) {
   render(
     <SongSwipe
+      contentKey={0}
       enabled={enabled}
       canPrev={canPrev}
       canNext={canNext}
@@ -118,6 +119,7 @@ describe('SongSwipe hint pill', () => {
     for (let open = 1; open <= 3; open += 1) {
       const { unmount } = render(
         <SongSwipe
+          contentKey={0}
           enabled
           canPrev={false}
           canNext
@@ -137,6 +139,7 @@ describe('SongSwipe hint pill', () => {
 
     render(
       <SongSwipe
+        contentKey={0}
         enabled
         canPrev={false}
         canNext
@@ -167,5 +170,78 @@ describe('SongSwipe disabled', () => {
     expect(screen.getByText('Sheet body')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /song:/ })).toBeNull()
     expect(screen.queryByText('Lantern Song')).toBeNull()
+  })
+})
+
+function trackOffset(track: HTMLElement): number {
+  const match = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(track.style.transform)
+  return match ? Number(match[1]) : 0
+}
+
+describe('SongSwipe track', () => {
+  it('renders the pages inside one moving track', () => {
+    render(
+      <SongSwipe
+        contentKey={0}
+        enabled
+        canPrev={false}
+        canNext
+        prevTitle=""
+        nextTitle="Lantern Song"
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+      >
+        <p>Sheet body</p>
+        <p>Next sheet</p>
+      </SongSwipe>,
+    )
+
+    const track = document.querySelector<HTMLElement>('[data-song-track]')
+    expect(track).toBeTruthy()
+    expect(track!.contains(screen.getByText('Sheet body'))).toBe(true)
+    expect(track!.contains(screen.getByText('Next sheet'))).toBe(true)
+  })
+
+  it('slides the track towards the neighbour and resets it when the content key changes', async () => {
+    const onNext = vi.fn()
+    const view = render(
+      <SongSwipe
+        contentKey={0}
+        enabled
+        canPrev={false}
+        canNext
+        prevTitle=""
+        nextTitle="Lantern Song"
+        onPrev={vi.fn()}
+        onNext={onNext}
+      >
+        <p>Sheet body</p>
+        <p>Next sheet</p>
+      </SongSwipe>,
+    )
+
+    const track = document.querySelector<HTMLElement>('[data-song-track]')!
+    fireEvent.click(screen.getByRole('button', { name: 'Next song: Lantern Song' }))
+    await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1), { timeout: 2000 })
+    await waitFor(() => expect(trackOffset(track)).toBeLessThan(0))
+
+    // The neighbours shift left in the same commit, so the track must return to 0.
+    view.rerender(
+      <SongSwipe
+        contentKey={1}
+        enabled
+        canPrev
+        canNext={false}
+        prevTitle="Early Light"
+        nextTitle=""
+        onPrev={vi.fn()}
+        onNext={onNext}
+      >
+        <p>Sheet body</p>
+        <p>Next sheet</p>
+      </SongSwipe>,
+    )
+
+    await waitFor(() => expect(trackOffset(track)).toBe(0))
   })
 })

@@ -1,18 +1,12 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useTransform,
-} from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { reducedMotionTransition, uiSpring } from '../lib/uiMotion'
 import { IconButton } from './ui'
@@ -36,6 +30,8 @@ export function decideSwipe(
 }
 
 interface SongSwipeProps {
+  /** Changes when the shown song changes; the new page is already at offset 0. */
+  contentKey: string | number
   enabled: boolean
   canPrev: boolean
   canNext: boolean
@@ -43,6 +39,7 @@ interface SongSwipeProps {
   nextTitle: string
   onPrev: () => void
   onNext: () => void
+  /** The track: pages absolutely positioned at -100%, 0 and +100%. */
   children: ReactNode
 }
 
@@ -63,8 +60,8 @@ const EDGE_RESISTANCE = 0.3
 const SAMPLE_LIMIT = 6
 
 // Time-based springs drop inherited velocity, so the release handoff uses physics springs.
-// Critically damped with a loose rest test: the sheet is off screen by then, so the
-// song can change without waiting for a sub-pixel settle.
+// Critically damped with a loose rest test: the incoming page is already at offset 0, so
+// the commit can happen at the end of the slide without waiting for a sub-pixel settle.
 const slideSpring = {
   type: 'spring' as const,
   stiffness: 420,
@@ -109,6 +106,7 @@ function resisted(offset: number, canPrev: boolean, canNext: boolean): number {
 }
 
 export default function SongSwipe({
+  contentKey,
   enabled,
   canPrev,
   canNext,
@@ -132,19 +130,6 @@ export default function SongSwipe({
   useEffect(() => {
     latestRef.current = { canPrev, canNext, onPrev, onNext }
   })
-
-  const prevPillOpacity = useTransform(x, (value) => {
-    const width = widthRef.current
-    if (!dragging || reduceMotion || !canPrev || width <= 0 || value <= 0) return 0
-    return Math.min(1, value / (width * 0.3))
-  })
-  const nextPillOpacity = useTransform(x, (value) => {
-    const width = widthRef.current
-    if (!dragging || reduceMotion || !canNext || width <= 0 || value >= 0) return 0
-    return Math.min(1, -value / (width * 0.3))
-  })
-  const prevPillX = useTransform(prevPillOpacity, (value) => (1 - value) * -12)
-  const nextPillX = useTransform(nextPillOpacity, (value) => (1 - value) * 12)
 
   // Stop a half-finished slide when the page leaves full screen.
   useEffect(() => {
@@ -188,6 +173,19 @@ export default function SongSwipe({
     [opacity, x],
   )
 
+  // The offsets shifted in this same commit, so putting the track back at 0
+  // swaps the incoming page into place before the browser paints.
+  useLayoutEffect(() => {
+    generationRef.current += 1
+    x.stop()
+    x.set(0)
+    gestureRef.current = null
+    if (opacity.get() < 1) {
+      opacity.stop()
+      animate(opacity, 1, reduceMotion ? reducedMotionTransition : uiSpring)
+    }
+  }, [contentKey, opacity, reduceMotion, x])
+
   const settle = (velocity: number) => {
     generationRef.current += 1
     x.stop()
@@ -200,7 +198,7 @@ export default function SongSwipe({
     generationRef.current += 1
     const generation = generationRef.current
     opacity.stop()
-    animate(opacity, 0.35, reducedMotionTransition).then(() => {
+    animate(opacity, 0, reducedMotionTransition).then(() => {
       if (generationRef.current !== generation) return
       if (direction === 'next') latestRef.current.onNext()
       else latestRef.current.onPrev()
@@ -216,13 +214,9 @@ export default function SongSwipe({
     const outX = direction === 'next' ? -width : width
     animate(x, outX, { ...slideSpring, velocity }).then(() => {
       if (generationRef.current !== generation) return
+      // The neighbour is already laid out and fills the viewport at this offset.
       if (direction === 'next') latestRef.current.onNext()
       else latestRef.current.onPrev()
-      // The new song enters from the edge the old one left towards.
-      x.set(direction === 'next' ? width * 0.3 : -width * 0.3)
-      opacity.set(0.6)
-      animate(x, 0, uiSpring)
-      animate(opacity, 1, uiSpring)
     })
   }
 
@@ -247,7 +241,7 @@ export default function SongSwipe({
     if (gestureRef.current) return
     if (startsInHorizontalScroller(event.target, event.currentTarget)) return
     widthRef.current = rootRef.current?.clientWidth ?? 0
-    // A new touch takes over whatever is on screen, so the sheet never jumps.
+    // A new touch takes over whatever is on screen, so the track never jumps.
     generationRef.current += 1
     if (!reduceMotion) {
       x.stop()
@@ -299,7 +293,12 @@ export default function SongSwipe({
 
   const finishGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
     const gesture = gestureRef.current
-    if (!gesture || gesture.pointerId !== event.pointerId) return
+    if (!gesture) {
+      // A commit may have cleared the gesture mid-drag; the finger can still lift.
+      setDragging(false)
+      return
+    }
+    if (gesture.pointerId !== event.pointerId) return
     gestureRef.current = null
     setDragging(false)
     if (!gesture.horizontal) {
@@ -323,7 +322,11 @@ export default function SongSwipe({
 
   const handlePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
     const gesture = gestureRef.current
-    if (!gesture || gesture.pointerId !== event.pointerId) return
+    if (!gesture) {
+      setDragging(false)
+      return
+    }
+    if (gesture.pointerId !== event.pointerId) return
     gestureRef.current = null
     setDragging(false)
     if (!reduceMotion) settle(0)
@@ -348,33 +351,12 @@ export default function SongSwipe({
       onPointerCancel={handlePointerCancel}
     >
       <motion.div
-        className="flex min-h-0 flex-1 flex-col will-change-transform"
+        data-song-track
+        className="relative min-h-0 flex-1 will-change-transform"
         style={{ x, opacity }}
       >
         {children}
       </motion.div>
-
-      {dragging && canPrev && (
-        <motion.div
-          aria-hidden="true"
-          style={{ opacity: prevPillOpacity, x: prevPillX, y: '-50%' }}
-          className="pointer-events-none fixed left-14 top-1/2 z-20 flex max-w-[11rem] items-center gap-1 rounded-full border border-ui-border bg-ui-surface-raised px-2.5 py-1 text-[11px] font-semibold text-ui-text shadow-sm"
-        >
-          <ChevronLeft size={12} aria-hidden="true" />
-          <span className="truncate">{prevTitle}</span>
-        </motion.div>
-      )}
-
-      {dragging && canNext && (
-        <motion.div
-          aria-hidden="true"
-          style={{ opacity: nextPillOpacity, x: nextPillX, y: '-50%' }}
-          className="pointer-events-none fixed right-14 top-1/2 z-20 flex max-w-[11rem] items-center gap-1 rounded-full border border-ui-border bg-ui-surface-raised px-2.5 py-1 text-[11px] font-semibold text-ui-text shadow-sm"
-        >
-          <span className="truncate">{nextTitle}</span>
-          <ChevronRight size={12} aria-hidden="true" />
-        </motion.div>
-      )}
 
       <AnimatePresence>
         {showHint && canNext && !dragging && (

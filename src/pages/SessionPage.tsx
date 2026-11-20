@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
@@ -55,6 +55,8 @@ import { keyOffset, formatOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
 import SongSheet from '../components/SongSheet'
 import SongSwipe from '../components/SongSwipe'
+import SheetPage from '../components/SheetPage'
+import { getSheetSections } from '../lib/sheetSections'
 import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
@@ -104,7 +106,7 @@ import {
   type PadKey,
 } from '../lib/ambientPadPlayer'
 import { useChromeVisibility } from '../lib/chromeVisibility'
-import { useFitToScreen } from '../lib/useFitToScreen'
+import type { FitLayout } from '../lib/useFitToScreen'
 import { useSeo } from '../lib/useSeo'
 import { getFloatingActionMotion } from '../lib/uiMotion'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
@@ -314,6 +316,7 @@ export default function SessionPage() {
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
+  const [activeSheetLayout, setActiveSheetLayout] = useState<FitLayout | null>(null)
   const fullScreenTriggerRef = useRef<HTMLElement | null>(null)
   const fullScreenScrollYRef = useRef(0)
   const tabListRef = useRef<HTMLDivElement | null>(null)
@@ -816,21 +819,51 @@ export default function SessionPage() {
     )
   }, [displayedSong, positioningChord])
 
+  // Neighbour pages are rendered ahead of a swipe, so they need the same
+  // simplified/transposed sections their own prefs would show.
+  const previousItem = activeIndex > 0 ? shownSongs[activeIndex - 1] : undefined
+  const nextItem = activeIndex < shownSongs.length - 1 ? shownSongs[activeIndex + 1] : undefined
+  const previousSong = previousItem ? songForItem(previousItem) : undefined
+  const nextSong = nextItem ? songForItem(nextItem) : undefined
+  const previousUrl = previousItem?.url
+  const previousTargetKey = previousItem?.targetKey
+  const previousSimplified = previousItem?.simplified
+  const nextUrl = nextItem?.url
+  const nextTargetKey = nextItem?.targetKey
+  const nextSimplified = nextItem?.simplified
+  const previousSections = useMemo(
+    () =>
+      previousSong && previousUrl
+        ? getSheetSections(previousSong, {
+            targetKey: previousTargetKey,
+            simplified: previousSimplified,
+          })
+        : [],
+    [previousSong, previousUrl, previousTargetKey, previousSimplified],
+  )
+  const nextSections = useMemo(
+    () =>
+      nextSong && nextUrl
+        ? getSheetSections(nextSong, {
+            targetKey: nextTargetKey,
+            simplified: nextSimplified,
+          })
+        : [],
+    [nextSong, nextUrl, nextTargetKey, nextSimplified],
+  )
+  const previousPrefs = previousSong ? getSongPrefs(previousSong.id) : null
+  const nextPrefs = nextSong ? getSongPrefs(nextSong.id) : null
+
   const fitEnabled = isFullScreen && (prefs.fitToScreen ?? true)
-  const { viewportRef: fitViewportRef, layout: fitLayout } = useFitToScreen({
-    enabled: fitEnabled,
-    sections: displayedSections,
-    preferredColumns: prefs.columns,
-    preferredFontSizePx: prefs.fontSizePx,
-    revision: showFullScreenDisplayControls,
-  })
+  const fitLayout: FitLayout = activeSheetLayout ?? {
+    columns: prefs.columns,
+    fontSizePx: prefs.fontSizePx,
+    fitsOnScreen: true,
+  }
   const fullScreenScrollRef = useRef<HTMLDivElement | null>(null)
-  const setSheetViewportRef = useCallback((node: HTMLDivElement | null) => {
+  const setFullScreenScrollRef = useCallback((node: HTMLDivElement | null) => {
     fullScreenScrollRef.current = node
-    fitViewportRef(node)
-  }, [fitViewportRef])
-  const effectiveColumns = fitEnabled ? fitLayout.columns : prefs.columns
-  const effectiveFontSizePx = fitEnabled ? fitLayout.fontSizePx : prefs.fontSizePx
+  }, [])
   const fitNotice =
     fitEnabled && !fitLayout.fitsOnScreen
       ? 'Smallest readable text applied. Scroll to see the rest.'
@@ -1532,6 +1565,84 @@ export default function SessionPage() {
   const nextTitle =
     neighbourTitle(activeIndex < shownSongs.length - 1 ? shownSongs[activeIndex + 1] : undefined)
 
+  const sheetPages: ReactNode[] = []
+  if (previousItem && previousSong && previousPrefs) {
+    sheetPages.push(
+      <SheetPage
+        key={previousItem.entryId || previousItem.url}
+        offset={-1}
+        active={false}
+        sections={previousSections}
+        columns={previousPrefs.columns}
+        fontSizePx={previousPrefs.fontSizePx}
+        fitToScreen={previousPrefs.fitToScreen ?? true}
+        wrapLines={previousPrefs.wrapLines ?? false}
+        revision={showFullScreenDisplayControls}
+        scrollRef={setFullScreenScrollRef}
+      />,
+    )
+  }
+  if (currentItem && currentSong) {
+    sheetPages.push(
+      <SheetPage
+        key={currentItem.entryId || currentItem.url}
+        offset={0}
+        active
+        sections={
+          // Reuse the exact array the page had as a neighbour unless an edit is in progress.
+          positioningChord || subtractedSection
+            ? displayedSections
+            : getSheetSections(currentSong, currentItem)
+        }
+        columns={prefs.columns}
+        fontSizePx={prefs.fontSizePx}
+        fitToScreen={prefs.fitToScreen ?? true}
+        wrapLines={prefs.wrapLines ?? false}
+        revision={showFullScreenDisplayControls}
+        onLayoutChange={setActiveSheetLayout}
+        scrollRef={setFullScreenScrollRef}
+        isEditingChords={isEditingChords}
+        selectedChord={
+          positioningChord
+            ? {
+                sectionIndex: positioningChord.sectionIndex,
+                lineIndex: positioningChord.lineIndex,
+                chordIndex: positioningChord.chordIndex,
+              }
+            : null
+        }
+        onEditChord={(section, line, chord, value) =>
+          guard(() => void handleEditChord(section, line, chord, value))
+        }
+        onDeleteChord={(section, line, chord) =>
+          guard(() => void handleDeleteChord(section, line, chord))
+        }
+        onStartEditPosition={(target) => guard(() => handleStartEditPosition(target))}
+        onSplitLine={(section, line, at) => guard(() => void handleSplitLine(section, line, at))}
+        onMergeLineWithPrevious={(section, line) =>
+          guard(() => void handleMergeLineWithPrevious(section, line))
+        }
+        onLyricOverflowChange={setHasLyricOverflow}
+      />,
+    )
+  }
+  if (nextItem && nextSong && nextPrefs) {
+    sheetPages.push(
+      <SheetPage
+        key={nextItem.entryId || nextItem.url}
+        offset={1}
+        active={false}
+        sections={nextSections}
+        columns={nextPrefs.columns}
+        fontSizePx={nextPrefs.fontSizePx}
+        fitToScreen={nextPrefs.fitToScreen ?? true}
+        wrapLines={nextPrefs.wrapLines ?? false}
+        revision={showFullScreenDisplayControls}
+        scrollRef={setFullScreenScrollRef}
+      />,
+    )
+  }
+
   return (
     <div
       className={
@@ -2050,34 +2161,25 @@ export default function SessionPage() {
               </div>
 
               {/* Song Sheet Rendered with Columns and Monospace Offsets */}
-              <SongSwipe
-                enabled={isFullScreen && !isEditingChords}
-                canPrev={activeIndex > 0}
-                canNext={activeIndex < shownSongs.length - 1}
-                prevTitle={prevTitle}
-                nextTitle={nextTitle}
-                onPrev={() => selectSong(Math.max(0, activeIndex - 1))}
-                onNext={() => selectSong(Math.min(shownSongs.length - 1, activeIndex + 1))}
-              >
-                <div
-                  ref={setSheetViewportRef}
-                  tabIndex={isFullScreen ? -1 : undefined}
-                  className={
-                    isFullScreen
-                      ? `min-h-0 flex-1 px-3 pb-2 pt-2 outline-none [scrollbar-gutter:stable] ${
-                          fitEnabled && fitLayout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
-                        } ${
-                          // Wrapped lines never scroll sideways, so sideways touches can change songs.
-                          prefs.wrapLines && !isEditingChords ? 'touch-pan-y' : ''
-                        }`
-                      : 'pt-1'
-                  }
+              {isFullScreen ? (
+                <SongSwipe
+                  contentKey={currentItem.entryId || currentItem.url}
+                  enabled={!isEditingChords}
+                  canPrev={activeIndex > 0}
+                  canNext={activeIndex < shownSongs.length - 1}
+                  prevTitle={prevTitle}
+                  nextTitle={nextTitle}
+                  onPrev={() => selectSong(Math.max(0, activeIndex - 1))}
+                  onNext={() => selectSong(Math.min(shownSongs.length - 1, activeIndex + 1))}
                 >
+                  {sheetPages}
+                </SongSwipe>
+              ) : (
+                <div className="pt-1">
                   <SongSheet
-                    key={isFullScreen ? 'fullscreen' : 'normal'}
                     sections={displayedSections}
-                    fontSizePx={effectiveFontSizePx}
-                    columns={effectiveColumns}
+                    fontSizePx={prefs.fontSizePx}
+                    columns={prefs.columns}
                     isEditingChords={isEditingChords}
                     selectedChord={
                       positioningChord
@@ -2088,17 +2190,14 @@ export default function SessionPage() {
                           }
                         : null
                     }
-                    onDeleteSection={
-                      isFullScreen
-                        ? undefined
-                        : (idx) =>
-                            guard(() => {
-                              setPositioningChord(null)
-                              requestDeleteSection(idx)
-                            })
+                    onDeleteSection={(idx) =>
+                      guard(() => {
+                        setPositioningChord(null)
+                        requestDeleteSection(idx)
+                      })
                     }
                     onReorderSections={
-                      isFullScreen || pendingSectionRemoval
+                      pendingSectionRemoval
                         ? undefined
                         : (from, to) =>
                             guard(() => {
@@ -2106,7 +2205,9 @@ export default function SessionPage() {
                               void handleReorderSections(from, to)
                             })
                     }
-                    onRenameSection={isFullScreen ? undefined : (index, label) => guard(() => void handleRenameSection(index, label))}
+                    onRenameSection={(index, label) =>
+                      guard(() => void handleRenameSection(index, label))
+                    }
                     onEditChord={(section, line, chord, value) =>
                       guard(() => void handleEditChord(section, line, chord, value))
                     }
@@ -2124,7 +2225,7 @@ export default function SessionPage() {
                     wrapLines={prefs.wrapLines}
                   />
                 </div>
-              </SongSwipe>
+              )}
             </div>
           ) : loadedSessionId === session.id ? (
             <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
