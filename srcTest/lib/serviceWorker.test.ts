@@ -179,21 +179,6 @@ describe('registerServiceWorker', () => {
     expect(registration.update).toHaveBeenCalledOnce()
     uninstall()
   })
-
-  it('reports when registration fails so the version file can take over', async () => {
-    install({
-      controller: null,
-      register: vi.fn(() => Promise.reject(new Error('blocked'))),
-      addEventListener: vi.fn(),
-    })
-    const onUnavailable = vi.fn()
-
-    registerServiceWorker({ onNeedRefresh: vi.fn(), onUnavailable })
-    await settle()
-
-    expect(onUnavailable).toHaveBeenCalledOnce()
-    uninstall()
-  })
 })
 
 describe('resetServiceWorker', () => {

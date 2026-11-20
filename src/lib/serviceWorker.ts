@@ -8,8 +8,6 @@ export interface ServiceWorkerClient {
 
 interface RegisterServiceWorkerOptions {
   onNeedRefresh: () => void
-  /** Called when registration fails, so the caller can fall back to the version file. */
-  onUnavailable?: () => void
   /** Injected by tests; defaults to reloading the page. */
   reload?: () => void
 }
@@ -20,7 +18,6 @@ interface RegisterServiceWorkerOptions {
  */
 export function registerServiceWorker({
   onNeedRefresh,
-  onUnavailable,
   reload = () => window.location.reload(),
 }: RegisterServiceWorkerOptions): ServiceWorkerClient | null {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null
@@ -50,7 +47,7 @@ export function registerServiceWorker({
       watchInstalling(reg.installing)
       reg.addEventListener('updatefound', () => watchInstalling(reg.installing))
     })
-    .catch(() => onUnavailable?.())
+    .catch(() => undefined)
 
   return {
     get registration() {
