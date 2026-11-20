@@ -1,5 +1,11 @@
 {
+  "id": "/",
   "name": "Sets & Sheets",
+  "short_name": "Sets & Sheets",
+  "description": "Chord sheets, transposing and set lists for worship teams and cell groups.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",

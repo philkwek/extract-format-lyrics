@@ -134,6 +134,11 @@ export function startLyricsSync(): () => void {
   return stopDefault
 }
 
+/** Retries pending shared-lyrics updates now, e.g. when the connection returns. */
+export async function flushLyricsSync(): Promise<void> {
+  await defaultSync?.flush()
+}
+
 /** Publishes now (no debounce) if never published, changed, or close to expiring. Never throws. */
 export async function ensureLyricsFresh(session: Session): Promise<EnsureFreshResult> {
   try {

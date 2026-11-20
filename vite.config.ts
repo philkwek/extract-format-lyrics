@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -25,7 +26,26 @@ function versionFile(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), versionFile()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    versionFile(),
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      // The app owns the "new version" prompt; see src/lib/serviceWorker.ts.
+      registerType: 'prompt',
+      injectRegister: null,
+      // public/site.webmanifest stays the one manifest.
+      manifest: false,
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        globIgnores: ['pads/**', 'og-image.png'],
+      },
+      devOptions: { enabled: false },
+    }),
+  ],
   server: {
     proxy: {
       '/api': {

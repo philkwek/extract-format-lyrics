@@ -71,4 +71,13 @@ describe('SearchForm', () => {
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
     expect(props.onSubmit).not.toHaveBeenCalled()
   })
+
+  it('disables search while offline, but still accepts typing', () => {
+    renderForm({ query: 'Goodness of God', disabled: true })
+
+    expect((screen.getByRole('button', { name: 'Search' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
+    expect(screen.getByRole('textbox')).toHaveProperty('disabled', false)
+  })
 })

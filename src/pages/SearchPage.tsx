@@ -24,6 +24,9 @@ import SongTray from '../components/import/SongTray'
 import { Button, SegmentedControl, Surface } from '../components/ui'
 import { useSeo } from '../lib/useSeo'
 import { useSongTray } from '../lib/useSongTray'
+import OfflineNotice from '../components/OfflineNotice'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
 import { UNDO_WINDOW_MS } from '../lib/usePendingRemoval'
 import ChangeToast from '../components/share/ChangeToast'
 
@@ -39,6 +42,7 @@ export default function SearchPage() {
   const targetSessionId = searchParams.get('session')
   const [targetSession, setTargetSession] = useState<Session | null>(null)
   const tray = useSongTray()
+  const online = useOnlineStatus()
   const useTray = !targetSessionId
 
   const [mode, setMode] = useState<'search' | 'paste'>('search')
@@ -73,6 +77,10 @@ export default function SearchPage() {
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!query.trim()) return
+    if (!online) {
+      setError(OFFLINE_MESSAGE)
+      return
+    }
 
     const startedAt = Date.now()
     searchAbortRef.current?.abort()
@@ -155,6 +163,10 @@ export default function SearchPage() {
 
   const handlePasteExtract = async () => {
     setPasteError(null)
+    if (!online) {
+      setPasteError(OFFLINE_MESSAGE)
+      return
+    }
     const { sources, invalid, tokenCount } = parsePastedSources(pasteText)
     if (tokenCount === 0) {
       setPasteError('Please paste at least one chord sheet URL.')
@@ -218,6 +230,8 @@ export default function SearchPage() {
         )}
       </div>
 
+      <OfflineNotice online={online} />
+
       <div
         className={
           mode === 'search' && useTray && tray.items.length > 0
@@ -257,6 +271,7 @@ export default function SearchPage() {
                   onQueryChange={setQuery}
                   onSubmit={handleSearch}
                   isSearching={isSearching}
+                  disabled={!online}
                   error={error}
                   description="Find chord sheets across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
                   placeholder="e.g. Goodness of God, Hallelujah, Holy Forever..."
@@ -269,6 +284,7 @@ export default function SearchPage() {
                     onChange={setPasteText}
                     onSubmit={handlePasteExtract}
                     isProcessing={isProcessingPaste}
+                    disabled={!online}
                     error={pasteError}
                     submitLabel={targetSessionId ? 'Add to setlist' : 'Extract and open'}
                     linkCount={splitUrls(pasteText).length}

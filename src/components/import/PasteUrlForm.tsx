@@ -7,6 +7,7 @@ interface PasteUrlFormProps {
   onChange: (value: string) => void
   onSubmit: () => void
   isProcessing: boolean
+  disabled?: boolean
   error?: string | null
   submitLabel: string
   processingLabel?: string
@@ -24,6 +25,7 @@ export default function PasteUrlForm({
   onChange,
   onSubmit,
   isProcessing,
+  disabled,
   error,
   submitLabel,
   processingLabel,
@@ -42,7 +44,7 @@ export default function PasteUrlForm({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        disabled={isProcessing}
+        disabled={isProcessing || disabled}
         placeholder={placeholder}
         rows={rows}
         className="ui-field min-h-32 resize-y p-3.5 font-mono text-sm leading-6"
@@ -61,7 +63,7 @@ export default function PasteUrlForm({
         <Button
           variant="primary"
           onClick={onSubmit}
-          disabled={isProcessing || !value.trim()}
+          disabled={disabled || isProcessing || !value.trim()}
           loading={isProcessing}
         >
           {isProcessing ? processingLabel || submitLabel : submitLabel}

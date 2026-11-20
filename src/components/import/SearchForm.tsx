@@ -8,6 +8,7 @@ interface SearchFormProps {
   onQueryChange: (value: string) => void
   onSubmit: (event?: FormEvent) => void
   isSearching: boolean
+  disabled?: boolean
   error?: string | null
   description?: string
   placeholder?: string
@@ -19,6 +20,7 @@ export default function SearchForm({
   onQueryChange,
   onSubmit,
   isSearching,
+  disabled,
   error,
   description,
   placeholder,
@@ -60,7 +62,7 @@ export default function SearchForm({
           type="submit"
           variant="primary"
           icon={<Search size={15} />}
-          disabled={isSearching || !query.trim()}
+          disabled={disabled || isSearching || !query.trim()}
           loading={isSearching}
         >
           Search

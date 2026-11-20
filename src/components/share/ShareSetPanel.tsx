@@ -9,6 +9,7 @@ import {
   type LiveShareStatus,
 } from '../../lib/liveShareSync'
 import { sessionPath, sessionStore, type Session } from '../../lib/sessionStore'
+import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { Button, Switch } from '../ui'
 import SendCopyRow from './SendCopyRow'
 
@@ -22,6 +23,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const [liveUrl, setLiveUrl] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [status, setStatus] = useState<LiveShareStatus>('ok')
+  const online = useOnlineStatus()
   const [busy, setBusy] = useState<'start' | 'stop' | 'create' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingLive, setPendingLive] = useState<boolean | null>(null)
@@ -198,7 +200,9 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
               </div>
               {status === 'failing' && (
                 <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
-                  Not updating. People can&rsquo;t see your latest changes yet.
+                  {online
+                    ? 'Not updating. People can’t see your latest changes yet.'
+                    : 'Offline. Followers get your changes when you’re back online.'}
                 </p>
               )}
             </div>
