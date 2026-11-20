@@ -15,11 +15,14 @@ import { trackPage, setTrackingEnabled } from './lib/analytics'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import ThemeToggle from './components/ThemeToggle'
+import UpdateBanner from './components/UpdateBanner'
 import { ChromeVisibilityContext } from './lib/chromeVisibility'
+import { useAppUpdate } from './lib/useAppUpdate'
 
 export function AppShell() {
   const location = useLocation()
   const [chromeHidden, setChromeHidden] = useState(false)
+  const { updateAvailable, reload, dismiss } = useAppUpdate()
   useEffect(() => {
     trackPage(location.pathname)
   }, [location.pathname])
@@ -120,6 +123,7 @@ export function AppShell() {
             )}
           </footer>
         )}
+        <UpdateBanner open={updateAvailable} onReload={reload} onDismiss={dismiss} />
       </div>
     </ChromeVisibilityContext.Provider>
   )

@@ -387,6 +387,13 @@ html.dark body {
 .ui-status--success { color: #166534; background: rgba(22, 163, 74, 0.08); border-color: rgba(22, 163, 74, 0.22); }
 .ui-status--warning { color: #92400e; background: rgba(245, 158, 11, 0.09); border-color: rgba(245, 158, 11, 0.24); }
 .ui-status--error { color: #b42323; background: rgba(220, 38, 38, 0.08); border-color: rgba(220, 38, 38, 0.22); }
+
+/* A banner that floats over the page keeps a solid surface, so lyrics stay unread behind it. */
+.ui-status--floating {
+  background: var(--ui-surface-raised);
+  border-color: var(--ui-border-strong);
+  box-shadow: var(--ui-shadow-lg);
+}
 .dark .ui-status--info { color: #bfdbfe; }
 .dark .ui-status--success { color: #86efac; }
 .dark .ui-status--warning { color: #fde68a; }
