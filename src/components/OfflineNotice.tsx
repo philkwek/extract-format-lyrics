@@ -1,6 +1,7 @@
 import { WifiOff } from 'lucide-react'
 import { StatusBanner } from './ui'
 import { classes } from '../lib/classes'
+import { NEUTRAL_NOTICE } from '../lib/noticeSurface'
 import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
 
 /** One quiet line wherever a network action is unavailable. */
@@ -16,10 +17,7 @@ export default function OfflineNotice({
     <StatusBanner
       tone={null}
       icon={<WifiOff size={15} />}
-      className={classes(
-        'border-[var(--ui-border)] bg-[var(--ui-surface-muted)] text-[var(--ui-text)]',
-        className,
-      )}
+      className={classes(NEUTRAL_NOTICE, className)}
     >
       {OFFLINE_MESSAGE}
     </StatusBanner>

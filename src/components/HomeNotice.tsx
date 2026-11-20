@@ -4,6 +4,7 @@ import { Button, IconButton, StatusBanner } from './ui'
 import InstallStepsDialog from './InstallStepsDialog'
 import OfflineNotice from './OfflineNotice'
 import { useInstallNotice, installStore, type InstallPromptStore } from '../lib/installPrompt'
+import { NEUTRAL_NOTICE } from '../lib/noticeSurface'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 
 /** The one slot above "Start a new session": offline status first, then the install offer. */
@@ -22,9 +23,10 @@ export default function HomeNotice({
   return (
     <>
       <StatusBanner
-        tone="info"
+        tone={null}
+        className={NEUTRAL_NOTICE}
         icon={<Download size={15} />}
-        title="Install Sets & Sheets"
+        title="You can now install Sets & Sheets!"
         actions={
           <>
             <Button
@@ -35,7 +37,7 @@ export default function HomeNotice({
                 else setStepsOpen(true)
               }}
             >
-              {install.canPrompt ? 'Install app' : 'Show me how'}
+              {install.canPrompt ? 'Install app' : 'Show me how!'}
             </Button>
             <IconButton label="Dismiss" variant="ghost" onClick={install.dismiss}>
               <X size={15} />

@@ -58,9 +58,9 @@ Read-only for anything remote. Local edits keep working.
 
 `src/lib/useOnlineStatus.ts` reads `navigator.onLine` and listens for `online` / `offline`.
 
-`HomeNotice` chooses: offline card → install card → nothing. The offline card is a neutral
-`StatusBanner` (muted surface, no amber) reading **You're currently offline**. The install card
-is `StatusBanner tone="info"` with **Install app** or **Show me how**, and the dismiss icon.
+`HomeNotice` chooses: offline card → install card → nothing. Both use the same neutral surface
+and body text: the offline card reads **You're currently offline**; the install card carries
+**Install app** or **Show me how** plus the dismiss icon.
 
 `/s/:id`, `/lyrics/:id`, `/live/:id`: an offline line above their existing states.
 
