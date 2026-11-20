@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Section } from '../../src/types/song'
+import { getColumnDisplayWidths, partitionSections } from '../../src/lib/songLayout'
 import { nextFontSizeAfterOverflow, selectFitLayout } from '../../src/lib/useFitToScreen'
 
 function makeSection(label: string, lineCount: number, lineText = 'Line text'): Section {
@@ -168,7 +169,26 @@ describe('selectFitLayout', () => {
       preferredFontSizePx: 14,
     })
 
-    expect(result).toEqual({ columns: 3, fontSizePx: 24, fitsOnScreen: true })
+    // Three columns would leave the long line one character short of the wrap room.
+    expect(result).toEqual({ columns: 2, fontSizePx: 24, fitsOnScreen: true })
+  })
+
+  it('leaves the one-character room the sheet keeps before it wraps a line', () => {
+    const section = makeSection('Verse', 1, 'x'.repeat(30))
+    const [intrinsic] = getColumnDisplayWidths(partitionSections([section], 1))
+    // At 24px each character is 14.4px; this width gives exactly `intrinsic` characters.
+    const viewportWidthPx = (intrinsic + 1) * 14.4 + 1
+
+    const result = selectFitLayout({
+      ...baseOptions,
+      sections: [section],
+      viewportWidthPx,
+      viewportHeightPx: 2000,
+      preferredColumns: 1,
+      preferredFontSizePx: 14,
+    })
+
+    expect(result.fontSizePx).toBeLessThan(24)
   })
 
   it('shrinks text only as far as needed to fit one column', () => {

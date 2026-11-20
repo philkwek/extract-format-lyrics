@@ -103,7 +103,12 @@ export function selectFitLayout({
     )
     const intrinsicWidths = getColumnDisplayWidths(visiblePartitions)
     const allocatedWidths = allocateColumnWidths(intrinsicWidths, availableWidthCh)
-    const valid = allocatedWidths.every((width, index) => width + 0.01 >= intrinsicWidths[index])
+    // Match SongSheet's wrap width: one column gets the full width, and it keeps one
+    // character of room, so a line must fit inside floor(width) - 1 or it wraps.
+    const wrapWidths = allocatedWidths.length === 1 ? [availableWidthCh] : allocatedWidths
+    const valid = wrapWidths.every(
+      (width, index) => Math.floor(width + 0.01) - 1 >= intrinsicWidths[index],
+    )
     const height = Math.max(
       ...visiblePartitions.map((column) =>
         estimateColumnHeightPx(column, fontSizePx, sectionGapPx),
