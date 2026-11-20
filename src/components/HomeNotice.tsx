@@ -26,7 +26,7 @@ export default function HomeNotice({
         tone={null}
         className={NEUTRAL_NOTICE}
         icon={<Download size={15} />}
-        title="You can now install Sets & Sheets!"
+        title="You can now install Sets & Sheets :)"
         actions={
           <>
             <Button
@@ -45,7 +45,7 @@ export default function HomeNotice({
           </>
         }
       >
-        Open your sets from the home screen, even without a connection.
+        Open this site directly from your device, now also with offline view support!
       </StatusBanner>
       <InstallStepsDialog isOpen={stepsOpen} onClose={() => setStepsOpen(false)} />
     </>
