@@ -50,8 +50,8 @@ export default function AddSongPastePanel({
         onProgress: setStatuses,
       })
       trackSongImport('pasted_link', result.imported, tokenCount)
-      setPasteText('')
       if (result.session && result.imported > 0) {
+        setPasteText('')
         setSuccessMessage(
           result.imported === 1
             ? 'Song added to the set.'

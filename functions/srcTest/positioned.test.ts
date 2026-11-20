@@ -32,4 +32,14 @@ describe('positionedLineToModelLine', () => {
     const e = line.chords.find((c) => c.chord === 'E')!
     expect(line.text.slice(e.pos).startsWith('trembling')).toBe(true)
   })
+
+  it('assigns distinct positions when words is empty and multiple chords are present', () => {
+    const line = positionedLineToModelLine([], [
+      { chord: 'G', x0: 10, x1: 20 },
+      { chord: 'C', x0: 50, x1: 60 },
+    ])
+    if (line.kind !== 'lyric') throw new Error('expected lyric')
+    expect(line.chords).toHaveLength(2)
+    expect(new Set(line.chords.map((c) => c.pos)).size).toBe(2)
+  })
 })

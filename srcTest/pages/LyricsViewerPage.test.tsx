@@ -332,4 +332,23 @@ describe('LyricsViewerPage', () => {
 
     expect(screen.getByRole('status').textContent).toBe('')
   })
+
+  it('keeps loaded lyrics visible when a background or manual refresh fails transiently', async () => {
+    vi.mocked(api.getSharedLyricsApi)
+      .mockResolvedValueOnce(mockLyricsData)
+      .mockRejectedValueOnce(new Error('Network offline'))
+
+    renderViewer()
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Way Maker' })).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /refresh/i }))
+
+    await waitFor(() => {
+      expect(api.getSharedLyricsApi).toHaveBeenCalledTimes(2)
+    })
+    expect(screen.getByRole('heading', { level: 2, name: 'Way Maker' })).toBeTruthy()
+    expect(screen.queryByText(/Could not load lyrics/i)).toBeNull()
+  })
 })

@@ -222,7 +222,11 @@ export default function HomePage() {
     try {
       const result = await importSources([sourceFromCandidate(candidate)], { requireAll: true })
       trackSongImport('search', result.imported, 1)
-      if (result.session) navigate(sessionPath(result.session))
+      if (result.session) {
+        navigate(sessionPath(result.session))
+        return
+      }
+      setCreatingFromUrl(null)
     } catch (err) {
       trackSongImport('search', 0, 1)
       alert(`Could not create setlist: ${(err as Error).message}`)
@@ -388,7 +392,11 @@ export default function HomePage() {
                 key={session.id}
                 onClick={() => navigate(sessionPath(session))}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') navigate(sessionPath(session))
+                  if (event.target !== event.currentTarget) return
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    navigate(sessionPath(session))
+                  }
                 }}
                 role="link"
                 tabIndex={0}
@@ -486,7 +494,11 @@ export default function HomePage() {
                   key={item.id}
                   onClick={() => navigate(`/lyrics/${item.id}`)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') navigate(`/lyrics/${item.id}`)
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      navigate(`/lyrics/${item.id}`)
+                    }
                   }}
                   role="link"
                   tabIndex={0}

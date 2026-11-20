@@ -117,7 +117,7 @@ export default function ChordKeyboard({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      onSave(chord.trim())
+      if (chord.trim()) onSave(chord.trim())
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onCancel()
@@ -346,7 +346,7 @@ export default function ChordKeyboard({
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-            <Button variant="primary" size="sm" onClick={() => onSave(chord.trim())}>Save</Button>
+            <Button variant="primary" size="sm" disabled={!chord.trim()} onClick={() => onSave(chord.trim())}>Save</Button>
           </div>
         </div>
       </div>

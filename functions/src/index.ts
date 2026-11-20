@@ -119,7 +119,7 @@ async function handleExtractSheet(req: Request, res: Response): Promise<void> {
 
   const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
   for (const f of files) {
-    if (!f.mimeType || !f.base64Data) {
+    if (!f || typeof f !== 'object' || typeof f.mimeType !== 'string' || typeof f.base64Data !== 'string' || !f.mimeType || !f.base64Data) {
       sendJsonError(res, 400, 'INVALID_FILE_PAYLOAD', 'Each file must contain "mimeType" and "base64Data"')
       return
     }
@@ -363,7 +363,7 @@ export const api = onRequest(async (req, res) => {
       sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Shared set data is too large')
       return
     }
-    if (snapshot?.songs?.length > MAX_SHARED_SET_SONGS) {
+    if (Array.isArray(snapshot?.songs) && snapshot.songs.length > MAX_SHARED_SET_SONGS) {
       sendJsonError(res, 400, 'SONG_LIMIT_EXCEEDED', `Shared sets are limited to ${MAX_SHARED_SET_SONGS} songs`)
       return
     }

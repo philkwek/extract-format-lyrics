@@ -395,7 +395,14 @@ export function positionedLineToModelLine(
     .sort((a, b) => a.x0 - b.x0)
 
   if (ws.length === 0) {
-    return { kind: 'lyric', text: '', chords: cs.map((c, i) => ({ pos: i === 0 ? 0 : 0, chord: c.chord })) }
+    let cursor = 0
+    const chords = cs.map((c) => {
+      const pos = cursor
+      cursor += c.chord.length + 1
+      return { pos, chord: c.chord }
+    })
+    const text = cursor > 1 ? ' '.repeat(cursor - 1) : ''
+    return { kind: 'lyric', text, chords }
   }
 
   const totalChars = ws.reduce((n, w) => n + w.text.length, 0)
