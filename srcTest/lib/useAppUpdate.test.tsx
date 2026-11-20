@@ -91,4 +91,34 @@ describe('useAppUpdate', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(result.current.updateAvailable).toBe(false)
   })
+
+  it('asks the service worker for updates instead of polling the version file', async () => {
+    const registration = {
+      installing: null,
+      waiting: null,
+      active: {},
+      update: vi.fn(async () => undefined),
+      addEventListener: vi.fn(),
+    }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        controller: {},
+        register: vi.fn(async () => registration),
+        addEventListener: vi.fn(),
+      },
+    })
+    const fetchMock = vi.fn(() => versionResponse('index-new.js'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      renderHook(() => useAppUpdate(true))
+      await pass(ANSWER_DELAY)
+
+      expect(registration.update).toHaveBeenCalled()
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      Reflect.deleteProperty(navigator, 'serviceWorker')
+    }
+  })
 })

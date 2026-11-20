@@ -1,23 +1,7 @@
-import { parseKey } from './transpose'
+import { PAD_KEYS, getPadAudioUrl, resolvePadKey, type PadKey } from './padKeys'
 
-export const PAD_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
-
-export type PadKey = (typeof PAD_KEYS)[number]
-
-/**
- * Resolves any major key string (including enharmonic spellings like C#, F#, G#, D#, A#)
- * to its corresponding canonical PadKey used for `/pads/${padKey}.mp3`.
- */
-export function resolvePadKey(key: string | null | undefined): PadKey | null {
-  if (!key) return null
-  const parsed = parseKey(key)
-  if (!parsed || parsed.minor) return null
-  return PAD_KEYS[((parsed.root % 12) + 12) % 12] ?? null
-}
-
-export function getPadAudioUrl(padKey: PadKey): string {
-  return `/pads/${padKey}.mp3`
-}
+export { PAD_KEYS, getPadAudioUrl, resolvePadKey }
+export type { PadKey }
 
 export interface AmbientPadState {
   isPlaying: boolean

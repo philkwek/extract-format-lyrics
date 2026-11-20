@@ -22,7 +22,7 @@ export async function fetchLatestBuildId(fetcher: typeof fetch = fetch): Promise
     if (!response.ok) return null
     const body: unknown = await response.json()
     const entry = (body as { entry?: unknown } | null)?.entry
-    return typeof entry === 'string' && entry ? entry.split('/').pop() ?? null : null
+    return typeof entry === 'string' && entry ? (entry.split('/').pop() ?? null) : null
   } catch {
     return null
   }

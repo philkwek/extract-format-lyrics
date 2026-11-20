@@ -40,7 +40,9 @@ describe('fetchLatestBuildId', () => {
 
   it('stays quiet when the file is absent, unreadable or the wrong shape', async () => {
     await expect(fetchLatestBuildId(vi.fn(async () => jsonResponse({}, false)))).resolves.toBeNull()
-    await expect(fetchLatestBuildId(vi.fn(async () => jsonResponse({ entry: 7 })))).resolves.toBeNull()
+    await expect(
+      fetchLatestBuildId(vi.fn(async () => jsonResponse({ entry: 7 }))),
+    ).resolves.toBeNull()
     await expect(fetchLatestBuildId(vi.fn(async () => jsonResponse(null)))).resolves.toBeNull()
     await expect(
       fetchLatestBuildId(
@@ -51,7 +53,9 @@ describe('fetchLatestBuildId', () => {
     ).resolves.toBeNull()
     await expect(
       fetchLatestBuildId(
-        vi.fn(async () => ({ ok: true, json: async () => JSON.parse('<html>') }) as unknown as Response),
+        vi.fn(
+          async () => ({ ok: true, json: async () => JSON.parse('<html>') }) as unknown as Response,
+        ),
       ),
     ).resolves.toBeNull()
   })
