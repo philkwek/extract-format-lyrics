@@ -261,7 +261,7 @@ describe('SessionPage full screen mode', () => {
     expect(sheet.closest('[data-sheet-page]')?.previousElementSibling).toBeNull()
   })
 
-  it('stacks the controls under the tabs on a phone held upright, without the fit caption', async () => {
+  it('stacks the controls under the tabs on a phone held upright', async () => {
     const originalMatchMedia = window.matchMedia
     window.matchMedia = ((query: string) => ({
       matches: query === '(max-width: 639px)',
@@ -279,7 +279,6 @@ describe('SessionPage full screen mode', () => {
       expect(tabRow.contains(screen.getByRole('button', { name: /customise song sheet/i }))).toBe(
         true,
       )
-      expect(screen.queryByText(/Fits the screen/)).toBeNull()
       expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
     } finally {
       window.matchMedia = originalMatchMedia

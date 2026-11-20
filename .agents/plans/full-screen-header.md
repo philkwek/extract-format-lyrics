@@ -24,9 +24,8 @@ need, most of all on phones.
    "first in the array"). It is not pinned in the header. Columns 2 to 4 start higher because of
    it. On phones it scrolls with the song.
 3. **Title block contents:** title (wraps to two lines at most), then one line with artist,
-   capo and details. Missing parts are left out. The fit status line ("Fits the screen · 4
-   columns · text size 15") shows on desktop and tablet only. The overflow warning shows on every
-   layout.
+   capo and details. Missing parts are left out. There is no fit status line (removed by the
+   owner, 2026-11-20). The overflow warning shows on every layout.
 4. **Three layouts**, chosen by one shared hook and evaluated live:
 
    | Layout | Query | Header |
@@ -69,9 +68,9 @@ need, most of all on phones.
 ### 3. `feat(session)`: one-row header for desktop and tablet
 
 - In `SessionPage.tsx` full screen: remove the name/controls block (`SongHeader` fullscreen
-  variant and its status line). Put Key, Simplified, Pad, **Customise** and **Exit full
+  variant and its status line, which is dropped). Put Key, Simplified, Pad, **Customise** and **Exit full
   screen** in the tab row, left to right after the tabs.
-- Build the title block (title, artist, capo, details, fit status, overflow warning) and pass
+- Build the title block (title, artist, capo, overflow warning) and pass
   it to the sheet from task 1, inside `SheetPage` so swipe and neighbour pre-rendering still
   work.
 - Labels collapse to icons below ~1024px; every icon-only button keeps its accessible name.
@@ -81,9 +80,9 @@ need, most of all on phones.
 ### 4. `feat(session)`: phone upright and landscape
 
 - `phone-portrait`: two header rows as in the "Final · Phone · Light" board; Simplified,
-  **Customise** and **Exit full screen** icon-only; no fit status line in the title block.
+  **Customise** and **Exit full screen** icon-only.
 - `phone-landscape`: one compact row as in the landscape board.
-- Tests: `SessionPage.test.tsx` with each layout mocked (rows, icon-only names, no status line).
+- Tests: `SessionPage.test.tsx` with each layout mocked (rows, icon-only names).
 
 ## Checks
 

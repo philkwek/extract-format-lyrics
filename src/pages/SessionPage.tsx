@@ -50,7 +50,7 @@ import {
   type SongDisplayPrefs,
 } from '../lib/songPrefs'
 import { transposeSong, transposeChord, keyUsesFlats } from '../lib/transpose'
-import { fitCaption, songCount } from '../lib/plural'
+import { songCount } from '../lib/plural'
 import { keyOffset } from '../lib/keys'
 import SongHeader from '../components/SongHeader'
 import FullScreenTitleBlock from '../components/FullScreenTitleBlock'
@@ -318,7 +318,6 @@ export default function SessionPage() {
   const [isFullScreen, setIsFullScreen] = useState(false)
   const fullScreenLayout = useFullScreenLayout()
   const isPhonePortrait = fullScreenLayout === 'phone-portrait'
-  const showFitCaption = fullScreenLayout === 'regular'
   const [showFullScreenDisplayControls, setShowFullScreenDisplayControls] = useState(false)
   const [showFloatingFullScreen, setShowFloatingFullScreen] = useState(false)
   const [activeSheetLayout, setActiveSheetLayout] = useState<FitLayout | null>(null)
@@ -878,8 +877,6 @@ export default function SessionPage() {
     (hasLyricOverflow
       ? 'Lyric overflow detected. Try fewer columns, a smaller text size, or turn on Wrap.'
       : null)
-  const fullScreenCaption =
-    fitEnabled && showFitCaption ? fitCaption(fitLayout.columns, fitLayout.fontSizePx) : null
 
   const handleToggleFit = () => {
     if (!currentSong || !currentItem || !session) return
@@ -1574,7 +1571,7 @@ export default function SessionPage() {
         offset={-1}
         active={false}
         sections={previousSections}
-        titleBlock={<FullScreenTitleBlock song={previousSong} reserveCaption={showFitCaption} />}
+        titleBlock={<FullScreenTitleBlock song={previousSong} />}
         columns={previousPrefs.columns}
         fontSizePx={previousPrefs.fontSizePx}
         fitToScreen={previousPrefs.fitToScreen ?? true}
@@ -1597,12 +1594,7 @@ export default function SessionPage() {
             : getSheetSections(currentSong, currentItem)
         }
         titleBlock={
-          <FullScreenTitleBlock
-            song={currentSong}
-            warning={fullScreenWarning}
-            caption={fullScreenCaption}
-            reserveCaption={showFitCaption}
-          />
+          <FullScreenTitleBlock song={currentSong} warning={fullScreenWarning} />
         }
         columns={prefs.columns}
         fontSizePx={prefs.fontSizePx}
@@ -1643,7 +1635,7 @@ export default function SessionPage() {
         offset={1}
         active={false}
         sections={nextSections}
-        titleBlock={<FullScreenTitleBlock song={nextSong} reserveCaption={showFitCaption} />}
+        titleBlock={<FullScreenTitleBlock song={nextSong} />}
         columns={nextPrefs.columns}
         fontSizePx={nextPrefs.fontSizePx}
         fitToScreen={nextPrefs.fitToScreen ?? true}

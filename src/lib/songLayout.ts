@@ -181,9 +181,9 @@ export function estimateSectionHeightPx(section: Section, fontSizePx: number): n
 
 /**
  * Height the full screen title block is estimated to take above the first section
- * (title, one details line, status). The fit run corrects it against the real DOM.
+ * (title and one details line). The fit run corrects it against the real DOM.
  */
-export const TITLE_BLOCK_ESTIMATE_PX = 72
+export const TITLE_BLOCK_ESTIMATE_PX = 56
 /** The same block in `getSectionWeight` line units (about 20px each). */
 export const TITLE_BLOCK_WEIGHT = TITLE_BLOCK_ESTIMATE_PX / 20
 
