@@ -30,6 +30,7 @@ dist-ssr
 .runtimeconfig.json
 
 # Firebase
+firebase-export-*/
 .firebase/
 firebase-debug.log*
 firestore-debug.log
