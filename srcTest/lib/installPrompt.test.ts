@@ -140,4 +140,22 @@ describe('install notice store', () => {
     target.dispatchEvent(new Event('appinstalled'))
     expect(store.getSnapshot().visible).toBe(false)
   })
+
+  it('survives when reading localStorage throws a SecurityError', async () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'localStorage')
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('Blocked', 'SecurityError')
+      },
+    })
+    try {
+      vi.resetModules()
+      const mod = await import('../../src/lib/installPrompt')
+      expect(() => mod.installStore.dismiss()).not.toThrow()
+      expect(mod.installStore.getSnapshot().visible).toBe(false)
+    } finally {
+      if (original) Object.defineProperty(window, 'localStorage', original)
+    }
+  })
 })

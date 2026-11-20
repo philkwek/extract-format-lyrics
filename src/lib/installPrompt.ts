@@ -42,7 +42,8 @@ export interface InstallPromptStore {
   dismiss(): void
 }
 
-function wasDismissed(storage: StorageLike): boolean {
+function wasDismissed(storage: StorageLike | null | undefined): boolean {
+  if (!storage) return false
   try {
     return storage.getItem(DISMISS_KEY) === '1'
   } catch {
@@ -50,9 +51,17 @@ function wasDismissed(storage: StorageLike): boolean {
   }
 }
 
+function safeLocalStorage(): StorageLike | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
 export function createInstallPromptStore(deps: {
   window: Window
-  storage: StorageLike
+  storage?: StorageLike | null
 }): InstallPromptStore {
   const { window: win, storage } = deps
   const platform = platformOf(
@@ -112,7 +121,7 @@ export function createInstallPromptStore(deps: {
     dismiss() {
       dismissed = true
       try {
-        storage.setItem(DISMISS_KEY, '1')
+        storage?.setItem(DISMISS_KEY, '1')
       } catch {
         // Private mode: the card stays hidden for this page load only.
       }
@@ -121,7 +130,7 @@ export function createInstallPromptStore(deps: {
   }
 }
 
-export const installStore = createInstallPromptStore({ window, storage: localStorage })
+export const installStore = createInstallPromptStore({ window, storage: safeLocalStorage() })
 
 /** Subscribes to the install notice state; starts nothing on its own. */
 export function useInstallNotice(store: InstallPromptStore = installStore) {
