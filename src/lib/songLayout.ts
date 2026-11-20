@@ -179,16 +179,26 @@ export function estimateSectionHeightPx(section: Section, fontSizePx: number): n
   return height
 }
 
+/**
+ * Height the full screen title block is estimated to take above the first section
+ * (title, one details line, status). The fit run corrects it against the real DOM.
+ */
+export const TITLE_BLOCK_ESTIMATE_PX = 72
+/** The same block in `getSectionWeight` line units (about 20px each). */
+export const TITLE_BLOCK_WEIGHT = TITLE_BLOCK_ESTIMATE_PX / 20
+
 /** Estimates the tallest column height for a partitioned section set. */
 export function estimateColumnHeightPx(
   column: ColumnSectionItem[],
   fontSizePx: number,
   sectionGapPx = 24,
+  leadingPx = 0,
 ): number {
   if (column.length === 0) return 0
   return (
     column.reduce((total, item) => total + estimateSectionHeightPx(item.section, fontSizePx), 0) +
-    (column.length - 1) * sectionGapPx
+    (column.length - 1) * sectionGapPx +
+    (leadingPx > 0 ? leadingPx + sectionGapPx : 0)
   )
 }
 
@@ -236,10 +246,14 @@ function prunePartitionCandidates(candidates: PartitionCandidate[]): PartitionCa
  *
  * This eliminates the WebKit / Safari CSS multi-column bug where column-fill:
  * balance stops filling at the viewport height and leaves trailing columns empty.
+ *
+ * `leadingWeight` is extra weight stacked above the first section (the full screen
+ * title block), so column 1 is balanced with it counted.
  */
 export function partitionSections(
   sections: Section[],
   numColumns: SheetColumns,
+  leadingWeight = 0,
 ): ColumnSectionItem[][] {
   if (!sections || sections.length === 0) {
     return [[]]
@@ -252,7 +266,7 @@ export function partitionSections(
   const items = sections.map((section, originalIndex) => ({
     section,
     originalIndex,
-    weight: getSectionWeight(section),
+    weight: getSectionWeight(section) + (originalIndex === 0 ? leadingWeight : 0),
   }))
 
   const M = items.length

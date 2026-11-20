@@ -50,3 +50,23 @@ describe('SongSheet wrap width', () => {
     expect(renderedRows(container)).toBeGreaterThan(3)
   })
 })
+
+describe('SongSheet title block', () => {
+  it('draws the block once, above the first section of column 1', () => {
+    mockLayout('120px 120px 120px')
+    const { container, getAllByText } = render(
+      <SongSheet sections={sections} columns={3} titleBlock={<div data-testid="title">Morning</div>} />,
+    )
+    const blocks = getAllByText('Morning')
+    expect(blocks).toHaveLength(1)
+    const firstColumn = container.querySelector('.song-sheet-grid > div')
+    expect(firstColumn?.firstElementChild).toBe(blocks[0])
+  })
+
+  it('draws nothing extra without a title block', () => {
+    mockLayout('120px 120px 120px')
+    const { container } = render(<SongSheet sections={sections} columns={3} />)
+    const firstColumn = container.querySelector('.song-sheet-grid > div')
+    expect(firstColumn?.firstElementChild?.className).toContain('section-block')
+  })
+})

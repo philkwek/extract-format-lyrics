@@ -7,6 +7,8 @@ import {
   getColumnDisplayWidths,
   getLineDisplayWidth,
   partitionSections,
+  TITLE_BLOCK_ESTIMATE_PX,
+  TITLE_BLOCK_WEIGHT,
   type ColumnSectionItem,
   type SheetColumns,
 } from './songLayout'
@@ -33,6 +35,8 @@ export interface SelectFitLayoutOptions {
   sectionGapPx?: number
   safetyPx?: number
   wrapLines?: boolean
+  /** A title block sits above the first section, so column 1 is taller. */
+  leadingBlock?: boolean
   /**
    * Calibration for estimated column heights (1 = trust the estimate). The DOM
    * usually reports content shorter than the estimate, so a smaller scale lets
@@ -78,6 +82,7 @@ export function selectFitLayout({
   sectionGapPx = viewportWidthPx < 640 ? 24 : 32,
   safetyPx = DEFAULT_SAFETY_PX,
   wrapLines = false,
+  leadingBlock = false,
   heightScale = 1,
 }: SelectFitLayoutOptions): FitLayout {
   const preferredFontSize = Math.max(1, Math.round(preferredFontSizePx))
@@ -100,7 +105,7 @@ export function selectFitLayout({
   let fallback: { columns: SheetColumns; height: number } | null = null
 
   const measureColumns = (columns: SheetColumns, fontSizePx: number) => {
-    const partitions = partitionSections(sections, columns)
+    const partitions = partitionSections(sections, columns, leadingBlock ? TITLE_BLOCK_WEIGHT : 0)
     const visiblePartitions = partitions.filter((partition) => partition.length > 0)
     if (visiblePartitions.length === 0) {
       return { valid: true, columns: 1 as SheetColumns, height: 0 }
@@ -127,7 +132,13 @@ export function selectFitLayout({
 
     if (wrapLines) {
       return {
-        ...measureWrappedColumns(visiblePartitions, wrapWidths, fontSizePx, sectionGapPx),
+        ...measureWrappedColumns(
+          visiblePartitions,
+          wrapWidths,
+          fontSizePx,
+          sectionGapPx,
+          leadingBlock,
+        ),
         columns: effectiveColumns,
       }
     }
@@ -137,7 +148,7 @@ export function selectFitLayout({
     )
     const height = Math.max(
       ...visiblePartitions.map((column) =>
-        estimateColumnHeightPx(column, fontSizePx, sectionGapPx),
+        estimateColumnHeightPx(column, fontSizePx, sectionGapPx, leadingPxFor(column, leadingBlock)),
       ),
       0,
     )
@@ -174,6 +185,11 @@ export function selectFitLayout({
   }
 }
 
+/** The title block sits above the section that was first in the song. */
+function leadingPxFor(column: ColumnSectionItem[], leadingBlock: boolean): number {
+  return leadingBlock && column[0]?.originalIndex === 0 ? TITLE_BLOCK_ESTIMATE_PX : 0
+}
+
 /**
  * Measures a wrapped layout: a lyric line may take up to two rows, and each
  * extra row adds the same height the sheet gives an ordinary lyric line.
@@ -183,6 +199,7 @@ function measureWrappedColumns(
   wrapWidths: number[],
   fontSizePx: number,
   sectionGapPx: number,
+  leadingBlock: boolean,
 ) {
   let valid = true
   let height = 0
@@ -209,7 +226,12 @@ function measureWrappedColumns(
 
     height = Math.max(
       height,
-      estimateColumnHeightPx(column, fontSizePx, sectionGapPx) + extraHeightPx,
+      estimateColumnHeightPx(
+        column,
+        fontSizePx,
+        sectionGapPx,
+        leadingPxFor(column, leadingBlock),
+      ) + extraHeightPx,
     )
   })
 
@@ -285,6 +307,8 @@ export interface UseFitToScreenOptions {
   /** Pass a value that changes when surrounding chrome changes height. */
   revision?: unknown
   wrapLines?: boolean
+  /** True when a title block is drawn above the first section. */
+  leadingBlock?: boolean
 }
 
 /**
@@ -308,6 +332,7 @@ export function useFitToScreen({
   minFontSizePx = DEFAULT_MIN_FONT_SIZE_PX,
   revision,
   wrapLines = false,
+  leadingBlock = false,
 }: UseFitToScreenOptions) {
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const [resizeTick, setResizeTick] = useState(0)
@@ -355,6 +380,7 @@ export function useFitToScreen({
         minFontSizePx,
         charWidthAt16Px: measureCharWidthAt16Px(viewport),
         wrapLines,
+        leadingBlock,
       }
       const commit = (next: FitLayout) => {
         flushSync(() =>
@@ -458,6 +484,7 @@ export function useFitToScreen({
     revision,
     resizeTick,
     wrapLines,
+    leadingBlock,
   ])
 
   return {

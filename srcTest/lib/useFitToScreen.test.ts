@@ -113,6 +113,22 @@ const baseOptions = {
 }
 
 describe('selectFitLayout', () => {
+  it('steps the text down when a title block takes height from column 1', () => {
+    const options = {
+      ...baseOptions,
+      sections: [makeSection('Verse', 4)],
+      viewportWidthPx: 1000,
+      viewportHeightPx: 320,
+      preferredColumns: 1 as SheetColumns,
+      preferredFontSizePx: 14,
+    }
+
+    expect(selectFitLayout(options).fontSizePx).toBe(24)
+    const withBlock = selectFitLayout({ ...options, leadingBlock: true })
+    expect(withBlock.fontSizePx).toBeLessThan(24)
+    expect(withBlock.fitsOnScreen).toBe(true)
+  })
+
   it('grows a short song above the preferred size to fill a big screen', () => {
     const result = selectFitLayout({
       ...baseOptions,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect } from 'react'
+import { memo, useCallback, useLayoutEffect, type ReactNode } from 'react'
 import type { Section } from '../types/song'
 import type { SheetColumns } from '../lib/songLayout'
 import { useFitToScreen, type FitLayout } from '../lib/useFitToScreen'
@@ -16,6 +16,8 @@ interface SheetPageProps {
   fontSizePx: number
   fitToScreen: boolean
   wrapLines: boolean
+  /** Full screen only: shown above the first section, in column 1. */
+  titleBlock?: ReactNode
   revision: unknown
   /** -1 for the previous song, 0 for the current one, 1 for the next. */
   offset: -1 | 0 | 1
@@ -57,6 +59,7 @@ function SheetPage({
   fontSizePx,
   fitToScreen,
   wrapLines,
+  titleBlock,
   revision,
   offset,
   active,
@@ -82,6 +85,7 @@ function SheetPage({
     preferredFontSizePx: fontSizePx,
     revision,
     wrapLines,
+    leadingBlock: Boolean(titleBlock),
   })
 
   const setViewport = useCallback(
@@ -125,6 +129,7 @@ function SheetPage({
         onMergeLineWithPrevious={onMergeLineWithPrevious}
         onLyricOverflowChange={onLyricOverflowChange}
         wrapLines={wrapLines}
+        titleBlock={titleBlock}
       />
     </div>
   )

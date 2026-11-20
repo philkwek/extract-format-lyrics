@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from 'react'
 import type { Section, Line, ChordPlacement } from '../types/song'
 import ChordKeyboard from './ChordKeyboard'
@@ -12,6 +13,7 @@ import {
   allocateColumnWidths,
   getColumnDisplayWidths,
   partitionSections,
+  TITLE_BLOCK_WEIGHT,
   type SheetColumns,
 } from '../lib/songLayout'
 import { getLyricSplitPositions } from '../lib/lineSplit'
@@ -48,6 +50,8 @@ interface SongSheetProps {
   onLyricOverflowChange?: (hasOverflow: boolean) => void
   /** Draw long lyric lines on multiple rows instead of overflowing horizontally. */
   wrapLines?: boolean
+  /** Full screen only: drawn above the first section, in column 1. */
+  titleBlock?: ReactNode
 }
 
 interface EditingChordTarget {
@@ -375,6 +379,7 @@ export default function SongSheet({
   onMergeLineWithPrevious,
   onLyricOverflowChange,
   wrapLines = false,
+  titleBlock,
 }: SongSheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -392,7 +397,11 @@ export default function SongSheet({
   // Columns actually drawn side by side; a phone stacks them even when 2-4 are chosen.
   const [renderedColumnCount, setRenderedColumnCount] = useState<number | undefined>(undefined)
   const [overflowingLineKeys, setOverflowingLineKeys] = useState<Set<string>>(new Set())
-  const columnPartitions = useMemo(() => partitionSections(sections, columns), [sections, columns])
+  const hasTitleBlock = Boolean(titleBlock)
+  const columnPartitions = useMemo(
+    () => partitionSections(sections, columns, hasTitleBlock ? TITLE_BLOCK_WEIGHT : 0),
+    [sections, columns, hasTitleBlock],
+  )
   const visibleColumnPartitions = useMemo(() => {
     const nonEmptyPartitions = columnPartitions.filter((partition) => partition.length > 0)
     return nonEmptyPartitions.length > 0 ? nonEmptyPartitions : [[]]
@@ -641,6 +650,7 @@ export default function SongSheet({
       >
         {visibleColumnPartitions.map((colItems, colIdx) => (
           <div key={colIdx} className="space-y-6 min-w-0">
+            {colIdx === 0 && titleBlock}
             {colItems.map(({ section, originalIndex }) => {
               const isDragging = draggedIdx === originalIndex
               const isOver = dragOverIdx === originalIndex && draggedIdx !== originalIndex
