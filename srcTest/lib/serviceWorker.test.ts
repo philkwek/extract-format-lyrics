@@ -104,6 +104,24 @@ describe('registerServiceWorker', () => {
     uninstall()
   })
 
+  it('reports a worker that was already installing when register resolved', async () => {
+    const installing = fakeWorker()
+    const registration = fakeRegistration(installing)
+    install({
+      controller: {},
+      register: vi.fn(async () => registration),
+      addEventListener: vi.fn(),
+    })
+    const onNeedRefresh = vi.fn()
+
+    registerServiceWorker({ onNeedRefresh })
+    await settle()
+    installing.finishInstall()
+
+    expect(onNeedRefresh).toHaveBeenCalledOnce()
+    uninstall()
+  })
+
   it('asks the waiting worker to take over, then reloads once', async () => {
     const waiting = fakeWorker('installed')
     const registration = fakeRegistration(null, waiting)

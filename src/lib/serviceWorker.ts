@@ -34,19 +34,21 @@ export function registerServiceWorker({
     onNeedRefresh()
   }
 
+  const watchInstalling = (installing: ServiceWorker | null) => {
+    if (!installing) return
+    installing.addEventListener('statechange', () => {
+      if (installing.state === 'installed' && navigator.serviceWorker.controller) announce()
+    })
+  }
+
   void navigator.serviceWorker
     .register('/sw.js')
     .then((reg) => {
       registration = reg
       // A worker left waiting by an earlier visit.
       if (reg.waiting && navigator.serviceWorker.controller) announce()
-      reg.addEventListener('updatefound', () => {
-        const installing = reg.installing
-        if (!installing) return
-        installing.addEventListener('statechange', () => {
-          if (installing.state === 'installed' && navigator.serviceWorker.controller) announce()
-        })
-      })
+      watchInstalling(reg.installing)
+      reg.addEventListener('updatefound', () => watchInstalling(reg.installing))
     })
     .catch(() => onUnavailable?.())
 
