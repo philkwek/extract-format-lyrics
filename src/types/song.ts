@@ -14,7 +14,6 @@ export type {
   LiveSongContent,
 } from '../../functions/src/types'
 
-
 /** Per-song data kept on the server for a set link: source URL and set-level choices only. */
 export interface SetLinkSong {
   entryId: string

@@ -83,9 +83,9 @@ export default function PadControls({
       }}
     >
       <div
-        className={`inline-flex h-8 pointer-coarse:h-11 items-center overflow-hidden rounded-[0.7rem] border transition ${
+        className={`inline-flex h-8 items-center overflow-hidden rounded-[0.7rem] border transition pointer-coarse:h-11 ${
           isPadPlaying
-            ? 'border-transparent bg-[var(--ui-accent)] text-ui-on-accent shadow-xs'
+            ? 'text-ui-on-accent border-transparent bg-[var(--ui-accent)] shadow-xs'
             : 'border-[var(--ui-border)] bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-2xs hover:border-[var(--ui-border-strong)]'
         }`}
       >
@@ -101,7 +101,7 @@ export default function PadControls({
                 ? `Stop ambient pad (${effectivePadKey})`
                 : `Play ambient pad in ${effectivePadKey}`
             }
-            className={`inline-flex h-full cursor-pointer items-center gap-1.5 px-2.5 text-[0.78rem] font-[650] leading-none transition-[background-color,transform] duration-100 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 select-none ${
+            className={`inline-flex h-full cursor-pointer items-center gap-1.5 px-2.5 text-[0.78rem] leading-none font-[650] transition-[background-color,transform] duration-100 ease-out select-none active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 ${
               isPadPlaying
                 ? 'hover:bg-[var(--ui-accent-strong)]'
                 : 'hover:bg-[color-mix(in_srgb,var(--ui-accent)_8%,var(--ui-surface-raised))]'
@@ -134,9 +134,9 @@ export default function PadControls({
             aria-label="Change pad key"
             aria-expanded={isMenuOpen}
             title="Change pad key"
-            className={`inline-flex h-full cursor-pointer items-center justify-center border-l px-1.5 transition-[background-color,color,transform] duration-100 ease-out active:scale-[0.95] select-none ${
+            className={`inline-flex h-full cursor-pointer items-center justify-center border-l px-1.5 transition-[background-color,color,transform] duration-100 ease-out select-none active:scale-[0.95] ${
               isPadPlaying
-                ? 'border-white/20 dark:border-black/20 hover:bg-[var(--ui-accent-strong)]'
+                ? 'border-white/20 hover:bg-[var(--ui-accent-strong)] dark:border-black/20'
                 : 'border-[var(--ui-border)] text-[var(--ui-text-muted)] hover:bg-[color-mix(in_srgb,var(--ui-accent)_8%,var(--ui-surface-raised))] hover:text-[var(--ui-text)]'
             }`}
           >
@@ -161,7 +161,7 @@ export default function PadControls({
             animate={popoverMotion.animate}
             exit={popoverMotion.exit}
             transition={popoverMotion.transition}
-            className="ui-popover absolute left-1/2 top-full -translate-x-1/2 z-30 mt-1.5 flex w-[11.25rem] flex-col gap-1.5 p-2"
+            className="ui-popover absolute top-full left-1/2 z-30 mt-1.5 flex w-[11.25rem] -translate-x-1/2 flex-col gap-1.5 p-2"
           >
             <SegmentedControl
               label="Pads Key"
@@ -180,7 +180,7 @@ export default function PadControls({
                   aria-label="Custom pad key"
                   value={resolvedCustomKey}
                   onChange={(e) => onSelectCustomPadKey(e.target.value as PadKey)}
-                  className="ui-field ui-field--sm font-mono font-bold cursor-pointer h-7"
+                  className="ui-field ui-field--sm h-7 cursor-pointer font-mono font-bold"
                 >
                   {PAD_KEYS.map((k) => (
                     <option key={k} value={k}>

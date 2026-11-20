@@ -15,7 +15,10 @@ export type LiveFollowResult =
 
 export interface LiveFollowDeps {
   fetchLive: (id: string) => Promise<GetLiveSetResult>
-  sessions: Pick<typeof sessionStore, 'findByLiveSourceId' | 'createSession' | 'updateSession' | 'getSession'>
+  sessions: Pick<
+    typeof sessionStore,
+    'findByLiveSourceId' | 'createSession' | 'updateSession' | 'getSession'
+  >
   saveSong: (song: Song) => Promise<unknown>
   getSong: (url: string) => Promise<Song | null>
 }

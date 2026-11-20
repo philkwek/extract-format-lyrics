@@ -62,7 +62,7 @@ describe('parseUgSearchHtml', () => {
   it('reports a recognisable schema/parser failure instead of an empty search', () => {
     expect(() => parseUgSearchHtml('<html><body>no store</body></html>')).toThrow(SearchParseError)
     expect(() =>
-      parseUgSearchHtml('<div class="js-store" data-content="{not-json}"></div>')
+      parseUgSearchHtml('<div class="js-store" data-content="{not-json}"></div>'),
     ).toThrow(SearchParseError)
   })
 })
@@ -79,7 +79,7 @@ describe('isAccessibleUgChordResult', () => {
       isAccessibleUgChordResult({
         tab_url: publicChord.tab_url,
         type_name: 'Chords',
-      })
+      }),
     ).toBe(true)
   })
 

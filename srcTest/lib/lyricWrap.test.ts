@@ -75,10 +75,7 @@ describe('wrapLyricLine', () => {
   })
 
   it('hard-breaks a single word that is wider than the column', () => {
-    const rows = wrapLyricLine(
-      { kind: 'lyric', text: 'Supercalifragilistic', chords: [] },
-      8,
-    )
+    const rows = wrapLyricLine({ kind: 'lyric', text: 'Supercalifragilistic', chords: [] }, 8)
 
     expect(rows.length).toBeGreaterThan(1)
     expect(rows.map((row) => row.text).join('')).toBe('Supercalifragilistic')
@@ -93,10 +90,7 @@ describe('wrapLyricLine', () => {
   })
 
   it('keeps a line with no text unchanged when it only has chords', () => {
-    const rows = wrapLyricLine(
-      { kind: 'lyric', text: '', chords: [{ chord: 'G', pos: 0 }] },
-      4,
-    )
+    const rows = wrapLyricLine({ kind: 'lyric', text: '', chords: [{ chord: 'G', pos: 0 }] }, 4)
 
     expect(rows).toEqual([
       {

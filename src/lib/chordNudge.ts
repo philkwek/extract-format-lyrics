@@ -8,7 +8,7 @@ export function getChordPos(
   sections: Section[],
   sectionIndex: number,
   lineIndex: number,
-  chordIndex: number
+  chordIndex: number,
 ): number | null {
   const line = sections[sectionIndex]?.lines[lineIndex]
   if (!line || line.kind !== 'lyric') return null
@@ -21,7 +21,7 @@ export function setChordPos(
   sectionIndex: number,
   lineIndex: number,
   chordIndex: number,
-  pos: number
+  pos: number,
 ): Section[] {
   return sections.map((section, si) => {
     if (si !== sectionIndex) return section
@@ -45,7 +45,7 @@ export function nudgeChord(
   sectionIndex: number,
   lineIndex: number,
   chordIndex: number,
-  delta: number
+  delta: number,
 ): Section[] {
   const current = getChordPos(sections, sectionIndex, lineIndex, chordIndex)
   if (current === null) return sections

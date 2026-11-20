@@ -22,7 +22,7 @@ describe('set link identity', () => {
   it('concurrent get-or-create for one session yields a single identity', async () => {
     const store = memoryStore()
     const results = await Promise.all(
-      Array.from({ length: 5 }, () => getOrCreateSetLinkIdentity('session_race', store))
+      Array.from({ length: 5 }, () => getOrCreateSetLinkIdentity('session_race', store)),
     )
     const ids = new Set(results.map((r) => r.publicId))
     expect(ids.size).toBe(1)

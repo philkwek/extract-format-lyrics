@@ -48,17 +48,28 @@ describe('recordTiming', () => {
   it('bounds diagnostic numbers and drops non-finite values', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
     recordTiming({
-      operation: 'search.site', outcome: 'blocked', durationMs: 0,
-      blockReason: 'host_paused', upstreamStatus: 999,
-      retryAfterSeconds: Infinity, cooldownRemainingSeconds: Number.MAX_SAFE_INTEGER,
+      operation: 'search.site',
+      outcome: 'blocked',
+      durationMs: 0,
+      blockReason: 'host_paused',
+      upstreamStatus: 999,
+      retryAfterSeconds: Infinity,
+      cooldownRemainingSeconds: Number.MAX_SAFE_INTEGER,
     })
     expect(JSON.parse(info.mock.calls[0][0] as string)).toEqual({
-      type: 'perf', operation: 'search.site', outcome: 'blocked', duration_ms: 0,
-      block_reason: 'host_paused', cooldown_remaining_seconds: 604_800,
+      type: 'perf',
+      operation: 'search.site',
+      outcome: 'blocked',
+      duration_ms: 0,
+      block_reason: 'host_paused',
+      cooldown_remaining_seconds: 604_800,
     })
     recordTiming({
-      operation: 'search.site', outcome: 'blocked', durationMs: 1,
-      retryAfterSeconds: -1, cooldownRemainingSeconds: NaN,
+      operation: 'search.site',
+      outcome: 'blocked',
+      durationMs: 1,
+      retryAfterSeconds: -1,
+      cooldownRemainingSeconds: NaN,
     })
     const event = JSON.parse(info.mock.calls[1][0] as string)
     expect(event.retry_after_seconds).toBe(0)

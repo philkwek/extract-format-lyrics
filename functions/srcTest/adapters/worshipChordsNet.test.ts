@@ -9,14 +9,16 @@ describe('worshipChordsNetAdapter', () => {
   it('matches worshipchords.net but not worshipchords.com', () => {
     expect(worshipChordsNetAdapter.matches('https://www.worshipchords.net/guitar/a/b-1')).toBe(true)
     expect(worshipChordsNetAdapter.matches('https://worshipchords.net/guitar/a/b')).toBe(true)
-    expect(worshipChordsNetAdapter.matches('https://worshipchords.com/goodness-of-god-chords/')).toBe(false)
+    expect(
+      worshipChordsNetAdapter.matches('https://worshipchords.com/goodness-of-god-chords/'),
+    ).toBe(false)
     expect(worshipChordsNetAdapter.matches('https://worshipchords.net.evil.com/song')).toBe(false)
   })
 
   it('detects Cloudflare verification block', () => {
     const blockedHtml = `<html><head><title>Just a moment...</title></head><body><div id="challenge-error-text"></div></body></html>`
     expect(() =>
-      worshipChordsNetAdapter.extract(blockedHtml, 'https://www.worshipchords.net/guitar/a/b')
+      worshipChordsNetAdapter.extract(blockedHtml, 'https://www.worshipchords.net/guitar/a/b'),
     ).toThrow(/anti-bot verification/)
   })
 
@@ -26,7 +28,7 @@ describe('worshipChordsNetAdapter', () => {
 
     const raw = worshipChordsNetAdapter.extract(
       html,
-      'https://www.worshipchords.net/guitar/bethel-music/goodness-of-god-169394'
+      'https://www.worshipchords.net/guitar/bethel-music/goodness-of-god-169394',
     )
     expect(raw.title).toBe('Goodness Of God')
     expect(raw.artist).toBe('Bethel Music')
@@ -39,12 +41,7 @@ describe('worshipChordsNetAdapter', () => {
     expect(raw.content).not.toContain('Psalm 40')
 
     const sections = normalizeSongText(raw.content)
-    expect(sections.map((section) => section.type)).toEqual([
-      'Intro',
-      'Verse',
-      'Chorus',
-      'Other',
-    ])
+    expect(sections.map((section) => section.type)).toEqual(['Intro', 'Verse', 'Chorus', 'Other'])
     expect(sections[3].label).toBe('Tag')
   })
 
@@ -52,8 +49,8 @@ describe('worshipChordsNetAdapter', () => {
     expect(() =>
       worshipChordsNetAdapter.extract(
         '<html><body><span class="stitle">Artist page</span></body></html>',
-        'https://www.worshipchords.net/artists/1/test'
-      )
+        'https://www.worshipchords.net/artists/1/test',
+      ),
     ).toThrow(/Could not locate chord chart content/)
   })
 

@@ -20,7 +20,7 @@ export default function TransposeSelector({
   if (!originalKey) {
     if (compact) return null
     return (
-      <div className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 text-xs text-[var(--ui-text-muted)]">
+      <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 text-xs text-[var(--ui-text-muted)] pointer-coarse:h-11">
         <span>Key unknown</span>
       </div>
     )
@@ -35,7 +35,7 @@ export default function TransposeSelector({
   const isModified = activeKey !== matchedOriginal
 
   return (
-    <div className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)]">
+    <div className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] px-2.5 text-xs shadow-2xs transition hover:border-[var(--ui-border-strong)] pointer-coarse:h-11">
       <span className="mr-1.5 text-[11px] font-semibold text-[var(--ui-text-muted)] select-none">
         Key
       </span>
@@ -67,7 +67,7 @@ export default function TransposeSelector({
           onClick={onReset}
           title={`Reset to original key (${matchedOriginal})`}
           aria-label={`Reset to original key (${matchedOriginal})`}
-          className="ml-1 -mr-1 inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)] active:scale-[0.92]"
+          className="-mr-1 ml-1 inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)] active:scale-[0.92]"
         >
           <RotateCcw size={12} />
         </button>

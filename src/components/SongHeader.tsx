@@ -11,7 +11,7 @@ export default function SongHeader({ song }: SongHeaderProps) {
     <div className="flex flex-col justify-between gap-2 pb-0.5 sm:flex-row sm:items-center">
       <div className="min-w-0">
         <div>
-          <h2 className="break-words text-xl font-bold tracking-[-0.025em] text-ui-text sm:text-2xl">
+          <h2 className="text-ui-text text-xl font-bold tracking-[-0.025em] break-words sm:text-2xl">
             {song.title}
           </h2>
         </div>
@@ -31,7 +31,7 @@ export default function SongHeader({ song }: SongHeaderProps) {
             href={song.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-medium transition-colors hover:text-ui-accent-strong"
+            className="hover:text-ui-accent-strong inline-flex items-center gap-1 font-medium transition-colors"
           >
             {sourceLabel(song.sourceSite)} <ExternalLink size={11} />
           </a>

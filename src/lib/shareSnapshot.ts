@@ -5,7 +5,13 @@ export class ShareSnapshotError extends Error {}
 
 export function snapshotEntry(item: SessionSongItem, song: Song) {
   return {
-    entryId: item.entryId || (() => { throw new ShareSnapshotError('Set entry is missing an identifier. Please reload and try again.') })(),
+    entryId:
+      item.entryId ||
+      (() => {
+        throw new ShareSnapshotError(
+          'Set entry is missing an identifier. Please reload and try again.',
+        )
+      })(),
     song,
     customSections: item.customSections,
     customFlow: item.customFlow,
@@ -19,18 +25,31 @@ export function snapshotEntry(item: SessionSongItem, song: Song) {
 }
 
 export function sessionSongsFromSnapshot(snapshot: SharedSetSnapshot): SessionSongItem[] {
-  return snapshot.songs.map(({ entryId, song, customSections, customFlow, customSimplifiedSections, customSimplifiedFlow, targetKey, padKeyMode, customPadKey, simplified }) => ({
-    entryId,
-    url: song.sourceUrl,
-    title: song.title,
-    artist: song.artist,
-    customSections,
-    customFlow,
-    customSimplifiedSections,
-    customSimplifiedFlow,
-    targetKey,
-    padKeyMode,
-    customPadKey,
-    simplified: simplified ?? false,
-  }))
+  return snapshot.songs.map(
+    ({
+      entryId,
+      song,
+      customSections,
+      customFlow,
+      customSimplifiedSections,
+      customSimplifiedFlow,
+      targetKey,
+      padKeyMode,
+      customPadKey,
+      simplified,
+    }) => ({
+      entryId,
+      url: song.sourceUrl,
+      title: song.title,
+      artist: song.artist,
+      customSections,
+      customFlow,
+      customSimplifiedSections,
+      customSimplifiedFlow,
+      targetKey,
+      padKeyMode,
+      customPadKey,
+      simplified: simplified ?? false,
+    }),
+  )
 }

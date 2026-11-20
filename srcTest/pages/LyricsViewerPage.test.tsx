@@ -72,7 +72,7 @@ const anotherNewSong = {
 }
 
 function withExtraSongs(
-  songs: Array<{ entryId: string; title: string; sections: { label: string; lines: string[] }[] }>
+  songs: Array<{ entryId: string; title: string; sections: { label: string; lines: string[] }[] }>,
 ): GetSharedLyricsResult {
   return {
     ...mockLyricsData,
@@ -90,7 +90,7 @@ function renderViewer(shortId = 'pub-123') {
         <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
         <Route path="/" element={<div>Home Page</div>} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
@@ -117,7 +117,7 @@ describe('LyricsViewerPage', () => {
 
   it('renders missing state on 404 NOT_FOUND error', async () => {
     vi.mocked(api.getSharedLyricsApi).mockRejectedValue(
-      new api.ShareApiError('Not found', 'NOT_FOUND', 404)
+      new api.ShareApiError('Not found', 'NOT_FOUND', 404),
     )
     renderViewer()
     await waitFor(() => {
@@ -127,7 +127,7 @@ describe('LyricsViewerPage', () => {
 
   it('renders expired state on 410 EXPIRED error', async () => {
     vi.mocked(api.getSharedLyricsApi).mockRejectedValue(
-      new api.ShareApiError('Link expired', 'EXPIRED', 410)
+      new api.ShareApiError('Link expired', 'EXPIRED', 410),
     )
     renderViewer()
     await waitFor(() => {
@@ -201,7 +201,6 @@ describe('LyricsViewerPage', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Way Maker' })).toBeTruthy()
     })
 
-
     const tabs = screen.getAllByRole('tab')
     // ArrowRight moves to next song
     fireEvent.keyDown(tabs[0], { key: 'ArrowRight' })
@@ -234,9 +233,8 @@ describe('LyricsViewerPage', () => {
   })
 
   it('renders instantly from local cache and saves to recent store', async () => {
-    const { saveRecentSharedLyrics, getRecentSharedLyrics, clearRecentSharedLyrics } = await import(
-      '../../src/lib/recentLyricsStore'
-    )
+    const { saveRecentSharedLyrics, getRecentSharedLyrics, clearRecentSharedLyrics } =
+      await import('../../src/lib/recentLyricsStore')
     await clearRecentSharedLyrics()
     await saveRecentSharedLyrics('pub-cached', mockLyricsData.lyrics, mockLyricsData.expiresAt)
 
@@ -296,9 +294,7 @@ describe('LyricsViewerPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show' }))
 
-    expect(screen.getByRole('tab', { name: /New Song/ }).getAttribute('aria-selected')).toBe(
-      'true'
-    )
+    expect(screen.getByRole('tab', { name: /New Song/ }).getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('status').textContent).toBe('')
   })
 

@@ -118,9 +118,7 @@ describe('usage events at action boundaries', () => {
   it('records successful search and cached import only after persistence', async () => {
     vi.mocked(searchApiStream).mockResolvedValue({
       query: 'Private title',
-      results: [
-        { url: song.sourceUrl, title: song.title, artist: song.artist, site: 'PNW' },
-      ],
+      results: [{ url: song.sourceUrl, title: song.title, artist: song.artist, site: 'PNW' }],
       sources: [],
       partial: false,
     })

@@ -60,7 +60,7 @@ export function resetRecentLyricsStore(): void {
 export async function saveRecentSharedLyrics(
   id: string,
   payload: SharedLyricsPayload,
-  expiresAt: string
+  expiresAt: string,
 ): Promise<RecentSharedLyrics> {
   const current = (await activeStore.get<RecentSharedLyrics[]>(RECENT_LIST_KEY)) || []
   const filtered = current.filter((item) => item.id !== id)

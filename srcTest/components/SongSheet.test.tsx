@@ -23,7 +23,17 @@ function mockLayout(gridTemplateColumns: string) {
     this: HTMLElement,
   ) {
     const width = this.textContent === '0000000000' ? 100 : 0
-    return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) }
+    return {
+      width,
+      height: 0,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }
   })
   const real = window.getComputedStyle.bind(window)
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element) =>
@@ -55,7 +65,11 @@ describe('SongSheet title block', () => {
   it('draws the block once, above the first section of column 1', () => {
     mockLayout('120px 120px 120px')
     const { container, getAllByText } = render(
-      <SongSheet sections={sections} columns={3} titleBlock={<div data-testid="title">Morning</div>} />,
+      <SongSheet
+        sections={sections}
+        columns={3}
+        titleBlock={<div data-testid="title">Morning</div>}
+      />,
     )
     const blocks = getAllByText('Morning')
     expect(blocks).toHaveLength(1)

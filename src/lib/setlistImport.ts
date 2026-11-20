@@ -115,7 +115,7 @@ export function sourceFromCandidate(candidate: SearchCandidate): ImportSource {
  */
 export async function loadSources(
   sources: ImportSource[],
-  options: LoadSourcesOptions = {}
+  options: LoadSourcesOptions = {},
 ): Promise<LoadSourcesResult> {
   const deps = {
     cache: options.deps?.cache ?? songCache,
@@ -234,7 +234,7 @@ export async function loadSources(
   const items = outcomes.flatMap((outcome) => (outcome.item ? [outcome.item] : []))
   const failures: ImportFailure[] = [
     ...outcomes.flatMap((outcome) =>
-      outcome.item ? [] : [{ url: outcome.url, reason: outcome.reason || 'Import failed' }]
+      outcome.item ? [] : [{ url: outcome.url, reason: outcome.reason || 'Import failed' }],
     ),
     ...invalidInputs.map((input) => ({ url: input.input, reason: input.reason })),
   ]
@@ -260,7 +260,7 @@ export async function loadSources(
  */
 export async function importSources(
   sources: ImportSource[],
-  options: ImportSourcesOptions = {}
+  options: ImportSourcesOptions = {},
 ): Promise<ImportSourcesResult> {
   const loaded = await loadSources(sources, options)
   const sessions = options.deps?.sessions ?? sessionStore
@@ -269,7 +269,7 @@ export async function importSources(
     const appended = await sessions.addSongsToSession(
       options.targetSessionId,
       loaded.items,
-      loaded.failures
+      loaded.failures,
     )
     if (!appended) throw new Error('Setlist is unavailable')
     return {

@@ -20,14 +20,11 @@ export function isMobileOrTablet(): boolean {
   // Mobile / tablet user agent check (iPhone, iPad, iPod, Android, etc.)
   const isMobileUA =
     typeof navigator.userAgent === 'string' &&
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    )
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
   // Primary pointer is coarse (finger/touch screen) with active touch points
   const hasCoarsePointer =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches
+    typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
 
   const hasTouchPoints =
     typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0

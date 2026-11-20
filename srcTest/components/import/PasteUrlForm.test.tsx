@@ -42,7 +42,9 @@ describe('PasteUrlForm', () => {
 
   it('disables the action for empty input or while processing', () => {
     renderForm()
-    expect((screen.getByRole('button', { name: 'Extract and open' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Extract and open' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
   })
 
   it('shows a custom processing label and disables the textarea', () => {
@@ -52,7 +54,9 @@ describe('PasteUrlForm', () => {
       processingLabel: 'Extracting songs',
     })
 
-    expect((screen.getByRole('button', { name: 'Extracting songs' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Extracting songs' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true)
   })
 

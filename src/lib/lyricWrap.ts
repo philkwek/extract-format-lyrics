@@ -66,10 +66,7 @@ export function wrapLyricLine(line: LyricLine, maxWidthCh: number): WrappedLyric
     // the break belongs to the next row, so it is excluded from this measurement.
     let fittingEnd = start + 1
     for (let end = start + 1; end < line.text.length; end++) {
-      const width = rowDisplayWidth(
-        line.text.slice(start, end),
-        chordsFrom(chords, start, end),
-      )
+      const width = rowDisplayWidth(line.text.slice(start, end), chordsFrom(chords, start, end))
       if (width > limit) break
       fittingEnd = end
     }

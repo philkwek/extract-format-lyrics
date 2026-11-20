@@ -116,10 +116,10 @@ export default function DisplayControls({
         className={
           isFullScreen
             ? 'flex flex-wrap items-center justify-start gap-x-3 gap-y-2'
-            : 'flex flex-wrap items-center lg:items-center justify-between gap-x-3 gap-y-4 flex-col lg:flex-row'
+            : 'flex flex-col flex-wrap items-center justify-between gap-x-3 gap-y-4 lg:flex-row lg:items-center'
         }
       >
-        <div className="flex flex-wrap items-center gap-2 mr-auto">
+        <div className="mr-auto flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
             {isFullScreen && onToggleFit && (
               <Button
@@ -171,24 +171,24 @@ export default function DisplayControls({
           <div
             role="group"
             aria-label="Font size"
-            className="inline-flex h-8 pointer-coarse:h-11 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px]"
+            className="inline-flex h-8 items-center rounded-[0.7rem] border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-[2px] pointer-coarse:h-11"
           >
             <button
               type="button"
               aria-label="Decrease song font size"
               onClick={() => handleFontSizeChange(-1)}
-              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out select-none hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 pointer-coarse:h-10"
             >
               A−
             </button>
-            <span className="w-6 text-center font-mono text-[11px] font-bold tabular-nums text-[var(--ui-text)] select-none">
+            <span className="w-6 text-center font-mono text-[11px] font-bold text-[var(--ui-text)] tabular-nums select-none">
               {displayFontSizePx}
             </span>
             <button
               type="button"
               aria-label="Increase song font size"
               onClick={() => handleFontSizeChange(1)}
-              className="h-[26px] pointer-coarse:h-10 cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 select-none"
+              className="h-[26px] cursor-pointer rounded-[0.55rem] px-2 text-[11px] font-semibold text-[var(--ui-text-muted)] transition-[color,background-color,transform] duration-100 ease-out select-none hover:bg-[var(--ui-surface-raised)] hover:text-[var(--ui-text)] active:scale-[0.95] disabled:opacity-30 pointer-coarse:h-10"
             >
               A+
             </button>
@@ -217,7 +217,7 @@ export default function DisplayControls({
         </div>
 
         {showRightGroup && (
-          <div className="grow flex flex-wrap gap-1.5 lg:ml-auto lg:justify-end">
+          <div className="flex grow flex-wrap gap-1.5 lg:ml-auto lg:justify-end">
             {!isFullScreen && onSelectKey && (
               <TransposeSelector
                 originalKey={originalKey ?? null}

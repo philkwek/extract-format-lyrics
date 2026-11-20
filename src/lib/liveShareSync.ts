@@ -65,7 +65,7 @@ export function hashLivePayload(payload: LivePayload): Promise<string> {
 
 export async function buildLivePayload(
   session: Session,
-  getSong: (url: string) => Promise<Song | null>
+  getSong: (url: string) => Promise<Song | null>,
 ): Promise<{ payload: LivePayload | null; reason?: 'empty' | 'too_many' }> {
   const contents = new Map<string, LiveSongContent>()
   const entries: LiveSetManifestInput['entries'] = []
@@ -108,7 +108,7 @@ export interface LiveShareApi {
     id: string,
     secret: string,
     manifest: LiveSetManifestInput,
-    options: { keepalive?: boolean }
+    options: { keepalive?: boolean },
   ) => Promise<{ expiresAt: string }>
 }
 
@@ -129,7 +129,7 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
   async function publish(
     identity: LiveIdentityRecord,
     { manifest, contents }: LivePayload,
-    options: { keepalive?: boolean }
+    options: { keepalive?: boolean },
   ): Promise<{ expiresAt: string }> {
     const { publicId, secret, sessionId } = identity
     const uploaded = new Set<string>()
@@ -172,7 +172,10 @@ export function createLiveShareSync(deps: LiveShareSyncDeps): SetLinkSync {
 
 function createLiveIdentityAccess(): LiveIdentityAccess {
   return {
-    get: (id) => getSetLinkIdentityStore().get<LiveIdentityRecord>(liveKey(id)).then((r) => r ?? null),
+    get: (id) =>
+      getSetLinkIdentityStore()
+        .get<LiveIdentityRecord>(liveKey(id))
+        .then((r) => r ?? null),
     async update(id, patch) {
       const store = getSetLinkIdentityStore()
       const record = await store.get<LiveIdentityRecord>(liveKey(id))
@@ -193,7 +196,7 @@ function setStatus(sessionId: string, status: LiveShareStatus): void {
 
 export function subscribeLiveShareStatus(
   sessionId: string,
-  cb: (status: LiveShareStatus) => void
+  cb: (status: LiveShareStatus) => void,
 ): () => void {
   let set = statusListeners.get(sessionId)
   if (!set) statusListeners.set(sessionId, (set = new Set()))
@@ -283,7 +286,7 @@ export async function getLiveShare(sessionId: string): Promise<LiveShareLink | n
 
 /** Creates the live identity, publishes now, and returns the link. */
 export async function startLiveShare(
-  sessionId: string
+  sessionId: string,
 ): Promise<{ url: string; expiresAt: string }> {
   const session = await sessionStore.getSession(sessionId)
   if (!session) throw new Error('This set no longer exists.')

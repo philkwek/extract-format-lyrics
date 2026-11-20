@@ -9,10 +9,7 @@ import { sessionStore } from '../../src/lib/sessionStore'
 import { simplifyApi } from '../../src/lib/api'
 import { songCache } from '../../src/lib/songCache'
 import { loadSetLinkPreview, savePreviewAsNew } from '../../src/lib/setLinkImport'
-import {
-  followLiveSet,
-  type FollowHandlers,
-} from '../../src/lib/liveFollow'
+import { followLiveSet, type FollowHandlers } from '../../src/lib/liveFollow'
 
 const shareMocks = vi.hoisted(() => ({
   getLyricsPublicationIdentity: vi.fn(async () => null),
@@ -248,7 +245,11 @@ describe('SessionPage full screen mode', () => {
 
     const tabList = screen.getByRole('tablist', { name: 'Songs in setlist' })
     const tabRow = tabList.parentElement as HTMLElement
-    for (const name of [/exit full screen/i, /customise song sheet display/i, /play ambient pad/i]) {
+    for (const name of [
+      /exit full screen/i,
+      /customise song sheet display/i,
+      /play ambient pad/i,
+    ]) {
       expect(tabRow.contains(screen.getByRole('button', { name }))).toBe(true)
     }
 
@@ -590,7 +591,6 @@ describe('SessionPage full screen mode', () => {
   })
 })
 
-
 describe('SessionPage floating full screen button', () => {
   const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
   let header: HTMLElement
@@ -906,10 +906,7 @@ describe('SessionPage set links', () => {
   it('updates the saved copy from the preview after confirmation', async () => {
     const copy = {
       ...savedCopy,
-      linkSnapshot: [
-        { entryId: 'entry-1', targetKey: 'G' },
-        { entryId: 'entry-2' },
-      ],
+      linkSnapshot: [{ entryId: 'entry-1', targetKey: 'G' }, { entryId: 'entry-2' }],
     }
     const changedPreview = {
       ...preview,
@@ -934,9 +931,7 @@ describe('SessionPage set links', () => {
 
     renderAt(`/session/${PUBLIC_ID}`)
 
-    expect(
-      await screen.findByText('You saved a copy of this set before.'),
-    ).toBeTruthy()
+    expect(await screen.findByText('You saved a copy of this set before.')).toBeTruthy()
     expect(screen.getByText('Since you saved it: 1 song added, 1 key changed.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save as new' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open my copy' })).toBeTruthy()
@@ -1043,9 +1038,7 @@ describe('SessionPage set links', () => {
 
     renderAt(`/session/${PUBLIC_ID}`)
 
-    expect(
-      await screen.findByText('You saved a copy of this set before.'),
-    ).toBeTruthy()
+    expect(await screen.findByText('You saved a copy of this set before.')).toBeTruthy()
     expect(screen.queryByText(/Since you saved it/)).toBeNull()
     expect(screen.queryByText(/re-keyed/)).toBeNull()
   })
@@ -1144,7 +1137,6 @@ describe('SessionPage set links', () => {
     vi.mocked(sessionStore.getSession).mockImplementation(async () => fixtures.session as never)
   })
 })
-
 
 describe('SessionPage following a live set', () => {
   const followed = { ...fixtures.session, liveSourceId: 'live-1' }
@@ -1429,22 +1421,16 @@ describe('SessionPage host change notice', () => {
     await open()
     const keyed = [twoSongs.songs[0], { ...twoSongs.songs[1], targetKey: 'A' }]
     await act(async () => handlers.onUpdate({ ...twoSongs, songs: keyed } as never))
-    await act(async () =>
-      handlers.onUpdate({ ...twoSongs, name: 'Youth', songs: keyed } as never),
-    )
+    await act(async () => handlers.onUpdate({ ...twoSongs, name: 'Youth', songs: keyed } as never))
 
     await waitFor(() =>
-      expect(announced('“Bravo” is now in A. Renamed the set to “Youth”')).toBe(
-        true,
-      ),
+      expect(announced('“Bravo” is now in A. Renamed the set to “Youth”')).toBe(true),
     )
   })
 
   it('closes on Dismiss', async () => {
     await open()
-    await act(async () =>
-      handlers.onUpdate({ ...twoSongs, songs: [twoSongs.songs[0]] } as never),
-    )
+    await act(async () => handlers.onUpdate({ ...twoSongs, songs: [twoSongs.songs[0]] } as never))
     await waitFor(() => expect(announced('Removed “Bravo”')).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(announced('Removed “Bravo”')).toBe(false))
@@ -1582,7 +1568,9 @@ describe('SessionPage undoable removals', () => {
     vi.mocked(sessionStore.updateSession).mockClear()
     render(<TestHarness />)
 
-    const removeButtons = await screen.findAllByRole('button', { name: 'Remove Great Are You Lord' })
+    const removeButtons = await screen.findAllByRole('button', {
+      name: 'Remove Great Are You Lord',
+    })
     fireEvent.click(removeButtons[0])
     await screen.findByRole('heading', { name: 'Remove this song?' })
 
@@ -1718,7 +1706,10 @@ describe('SessionPage undoable removals', () => {
       ...sectionSong,
       sections: sectionSong.sections.map((sec, i) =>
         i === 2
-          ? { ...sec, lines: [{ kind: 'lyric', text: 'Third line', chords: [{ chord: 'D', pos: 0 }] }] }
+          ? {
+              ...sec,
+              lines: [{ kind: 'lyric', text: 'Third line', chords: [{ chord: 'D', pos: 0 }] }],
+            }
           : sec,
       ),
     }
@@ -1756,7 +1747,9 @@ describe('SessionPage undoable removals', () => {
     }
     vi.mocked(sessionStore.getSession).mockResolvedValue(threeSongs as never)
     render(<TestHarness />)
-    const removeButtons = await screen.findAllByRole('button', { name: 'Remove Great Are You Lord' })
+    const removeButtons = await screen.findAllByRole('button', {
+      name: 'Remove Great Are You Lord',
+    })
 
     fireEvent.click(removeButtons[0])
     await screen.findByRole('heading', { name: 'Remove this song?' })
@@ -1910,5 +1903,3 @@ describe('SessionPage full screen neighbour pages', () => {
     expect(nextPage!.contains(screen.getByText('Carry the lantern home'))).toBe(true)
   })
 })
-
-

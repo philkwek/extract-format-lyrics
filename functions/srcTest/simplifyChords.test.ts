@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  classifyChordQuality,
-  simplifyChord,
-  simplifySections,
-} from '../src/simplifyChords.js'
+import { classifyChordQuality, simplifyChord, simplifySections } from '../src/simplifyChords.js'
 import type { Section } from '../src/types.js'
 
 describe('classifyChordQuality', () => {

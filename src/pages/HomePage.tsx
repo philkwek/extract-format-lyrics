@@ -1,16 +1,7 @@
 import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  FileText,
-  Link2,
-  ListMusic,
-  Pencil,
-  Radio,
-  Search,
-  Share2,
-  Trash2,
-} from 'lucide-react'
+import { FileText, Link2, ListMusic, Pencil, Radio, Search, Share2, Trash2 } from 'lucide-react'
 import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
@@ -48,7 +39,12 @@ import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 import { useSongTray } from '../lib/useSongTray'
 
 export default function HomePage() {
-  useSeo({ title: 'Sets & Sheets – Chord sheets, transposing and worship set lists', description: 'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.', path: '/' })
+  useSeo({
+    title: 'Sets & Sheets – Chord sheets, transposing and worship set lists',
+    description:
+      'Import chord sheets from Ultimate Guitar, PNW Chords, Worship Together and more. Transpose keys, simplify chords, play pads and share set lists. Free, no account needed.',
+    path: '/',
+  })
   const navigate = useNavigate()
   const tray = useSongTray()
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
@@ -142,7 +138,9 @@ export default function HomePage() {
     }
 
     if (sources.length === 0 && invalid.length > 0) {
-      setGeneralError(`No valid URLs found: ${invalid.map((i) => `${i.input} (${i.reason})`).join(', ')}`)
+      setGeneralError(
+        `No valid URLs found: ${invalid.map((i) => `${i.input} (${i.reason})`).join(', ')}`,
+      )
       return
     }
 
@@ -241,13 +239,17 @@ export default function HomePage() {
   }
 
   return (
-    <div className={`mx-auto max-w-6xl space-y-7 px-[3%] ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}>
+    <div
+      className={`mx-auto max-w-6xl space-y-7 px-[3%] ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}
+    >
       <div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Start a new session</h2>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">
+              Start a new session
+            </h2>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center [&_.ui-segmented]:bg-[var(--ui-surface-flat)]! [&_.ui-segmented__thumb]:bg-ui-accent/10!">
+          <div className="[&_.ui-segmented__thumb]:bg-ui-accent/10! flex flex-col gap-2 sm:flex-row sm:items-center [&_.ui-segmented]:bg-[var(--ui-surface-flat)]!">
             <SegmentedControl
               label="Session source"
               value={createMode}
@@ -261,100 +263,111 @@ export default function HomePage() {
         </div>
 
         <div className="mt-4">
-
-        {createMode === 'paste' ? (
-          <PasteUrlForm
-            value={inputText}
-            onChange={setInputText}
-            onSubmit={handleExtract}
-            isProcessing={isProcessing}
-            error={generalError}
-            submitLabel="Extract and open session"
-            processingLabel="Extracting songs"
-            linkCount={splitUrls(inputText).length}
-            className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
-          />
-        ) : (
-          <div
-            className={
-              tray.items.length > 0
-                ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5'
-                : ''
-            }
-          >
-          <div className="min-w-0 space-y-4">
-            <SearchForm
-              query={searchQuery}
-              onQueryChange={setSearchQuery}
-              onSubmit={handleSearch}
-              isSearching={isSearching}
-              error={searchError}
-              description="Search by title or artist across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
-              placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+          {createMode === 'paste' ? (
+            <PasteUrlForm
+              value={inputText}
+              onChange={setInputText}
+              onSubmit={handleExtract}
+              isProcessing={isProcessing}
+              error={generalError}
+              submitLabel="Extract and open session"
+              processingLabel="Extracting songs"
+              linkCount={splitUrls(inputText).length}
               className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
             />
-            <SearchResults
-              results={searchResults}
-              isSearching={isSearching}
-              hasSearched={hasSearched}
-              hasError={Boolean(searchError)}
-              sources={searchSources}
-              partial={searchPartial}
-              emptyMessage="No matching chord sheets found. Try a different title or artist name."
-              onSelect={tray.add}
-              getActionState={(candidate) => {
-                const inTray = tray.urls.has(candidate.url)
-                const starting = creatingFromUrl === candidate.url
-                return {
-                  label: inTray
-                    ? 'Added'
-                    : tray.isFull
-                      ? 'Limit reached'
-                      : tray.items.length === 0
-                        ? 'Add multiple songs'
-                        : 'Add to set',
-                  disabled: inTray || tray.isFull || tray.isCreating || Boolean(creatingFromUrl),
-                  quick:
-                    tray.items.length === 0
-                      ? {
-                          label: 'Start now',
-                          disabled: starting || Boolean(creatingFromUrl),
-                          loading: starting,
-                          onSelect: () => handleCreateFromSearch(candidate),
-                        }
-                      : undefined,
-                }
-              }}
-            />
-          </div>
-            <SongTray
-              items={tray.items}
-              failedUrls={tray.failedUrls}
-              isCreating={tray.isCreating}
-              error={tray.error}
-              onMove={tray.move}
-              onReorder={tray.setOrder}
-              onRemove={tray.remove}
-              onCreate={handleCreateFromTray}
-            />
-          </div>
-        )}
+          ) : (
+            <div
+              className={
+                tray.items.length > 0
+                  ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5'
+                  : ''
+              }
+            >
+              <div className="min-w-0 space-y-4">
+                <SearchForm
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  onSubmit={handleSearch}
+                  isSearching={isSearching}
+                  error={searchError}
+                  description="Search by title or artist across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
+                  placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."
+                  className="[&_.ui-field]:bg-[var(--ui-surface-flat)]!"
+                />
+                <SearchResults
+                  results={searchResults}
+                  isSearching={isSearching}
+                  hasSearched={hasSearched}
+                  hasError={Boolean(searchError)}
+                  sources={searchSources}
+                  partial={searchPartial}
+                  emptyMessage="No matching chord sheets found. Try a different title or artist name."
+                  onSelect={tray.add}
+                  getActionState={(candidate) => {
+                    const inTray = tray.urls.has(candidate.url)
+                    const starting = creatingFromUrl === candidate.url
+                    return {
+                      label: inTray
+                        ? 'Added'
+                        : tray.isFull
+                          ? 'Limit reached'
+                          : tray.items.length === 0
+                            ? 'Add multiple songs'
+                            : 'Add to set',
+                      disabled:
+                        inTray || tray.isFull || tray.isCreating || Boolean(creatingFromUrl),
+                      quick:
+                        tray.items.length === 0
+                          ? {
+                              label: 'Start now',
+                              disabled: starting || Boolean(creatingFromUrl),
+                              loading: starting,
+                              onSelect: () => handleCreateFromSearch(candidate),
+                            }
+                          : undefined,
+                    }
+                  }}
+                />
+              </div>
+              <SongTray
+                items={tray.items}
+                failedUrls={tray.failedUrls}
+                isCreating={tray.isCreating}
+                error={tray.error}
+                onMove={tray.move}
+                onReorder={tray.setOrder}
+                onRemove={tray.remove}
+                onCreate={handleCreateFromTray}
+              />
+            </div>
+          )}
 
-        <ImportProgressList
-          statuses={statuses}
-          className="mt-6 border-t border-[var(--ui-border)] pt-4"
-        />
+          <ImportProgressList
+            statuses={statuses}
+            className="mt-6 border-t border-[var(--ui-border)] pt-4"
+          />
         </div>
       </div>
 
       <div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">Recent sessions</h2>
-            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Sessions are saved locally within your browser.</p>
+            <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--ui-text)]">
+              Recent sessions
+            </h2>
+            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+              Sessions are saved locally within your browser.
+            </p>
           </div>
           {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
-            <Button variant="danger" size="sm" icon={<Trash2 size={14} />} onClick={handleClearLibrary}>Clear library</Button>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Trash2 size={14} />}
+              onClick={handleClearLibrary}
+            >
+              Clear library
+            </Button>
           )}
         </div>
 
@@ -382,9 +395,13 @@ export default function HomePage() {
 
         {visibleSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-5 py-10 text-center">
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-ui-accent/10 text-ui-accent-strong"><ListMusic size={19} /></span>
+            <span className="bg-ui-accent/10 text-ui-accent-strong mb-3 flex h-10 w-10 items-center justify-center rounded-full">
+              <ListMusic size={19} />
+            </span>
             <p className="text-sm font-semibold text-[var(--ui-text)]">No saved sessions yet</p>
-            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">Your next setlist will appear here.</p>
+            <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+              Your next setlist will appear here.
+            </p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -401,7 +418,7 @@ export default function HomePage() {
                 }}
                 role="link"
                 tabIndex={0}
-                className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-flat)] p-4 outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
+                className={`group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border bg-[var(--ui-surface-flat)] p-4 transition outline-none hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
                   session.liveSourceId && !session.liveEnded
                     ? 'border-emerald-300 hover:border-emerald-600 dark:border-emerald-400/30 dark:hover:border-emerald-400'
                     : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)]'
@@ -409,11 +426,17 @@ export default function HomePage() {
               >
                 <div>
                   {session.liveSourceId ? (
-                    <span className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${session.liveEnded ? 'bg-[var(--ui-surface-raised)] text-[var(--ui-text-muted)]' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400'}`}><Radio size={16} aria-hidden="true" /></span>
+                    <span
+                      className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${session.liveEnded ? 'bg-[var(--ui-surface-raised)] text-[var(--ui-text-muted)]' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-400'}`}
+                    >
+                      <Radio size={16} aria-hidden="true" />
+                    </span>
                   ) : (
-                    <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-ui-accent/10 text-ui-accent-strong"><ListMusic size={16} /></span>
+                    <span className="bg-ui-accent/10 text-ui-accent-strong mb-3 flex h-8 w-8 items-center justify-center rounded-lg">
+                      <ListMusic size={16} />
+                    </span>
                   )}
-                  <h3 className="truncate text-sm font-bold text-ui-text transition-colors group-hover:text-ui-accent-strong">
+                  <h3 className="text-ui-text group-hover:text-ui-accent-strong truncate text-sm font-bold transition-colors">
                     {session.name}
                   </h3>
                   {session.liveSourceId ? (
@@ -425,7 +448,13 @@ export default function HomePage() {
                     <LiveShareChip sessionId={session.id} className="mt-1" />
                   )}
                   <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                    {songCount(session.songs.length)} · {new Date(session.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {songCount(session.songs.length)} ·{' '}
+                    {new Date(session.createdAt).toLocaleDateString([], {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                 </div>
                 <div className="mt-4 flex items-center justify-end gap-1 border-t border-[var(--ui-border)] pt-2">
@@ -503,11 +532,11 @@ export default function HomePage() {
                   }}
                   role="link"
                   tabIndex={0}
-                  className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-flat)] p-4 outline-none transition hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
+                  className="group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-flat)] p-4 transition outline-none hover:-translate-y-0.5 hover:border-[var(--ui-border-strong)] hover:shadow-md focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)]"
                 >
                   <div>
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ui-accent/10 text-ui-accent-strong">
+                      <span className="bg-ui-accent/10 text-ui-accent-strong flex h-8 w-8 items-center justify-center rounded-lg">
                         <FileText size={16} />
                       </span>
                       {isExpired ? (
@@ -520,7 +549,7 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="truncate text-sm font-bold text-ui-text transition-colors group-hover:text-ui-accent-strong">
+                    <h3 className="text-ui-text group-hover:text-ui-accent-strong truncate text-sm font-bold transition-colors">
                       {item.name}
                     </h3>
                     <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
@@ -551,11 +580,7 @@ export default function HomePage() {
 
       {/* Share Modal */}
       {sharingSession && (
-        <ShareModal
-          session={sharingSession}
-          isOpen
-          onClose={() => setSharingSession(null)}
-        />
+        <ShareModal session={sharingSession} isOpen onClose={() => setSharingSession(null)} />
       )}
 
       <OverlayDialog

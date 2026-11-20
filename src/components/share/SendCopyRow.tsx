@@ -51,8 +51,8 @@ export default function SendCopyRow({ session, canShareLive }: SendCopyRowProps)
     <div className="space-y-2">
       <div className="flex min-h-[44px] items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-ui-text">Send a copy</p>
-          <p className="text-xs leading-5 text-ui-text-muted">
+          <p className="text-ui-text text-sm font-bold">Send a copy</p>
+          <p className="text-ui-text-muted text-xs leading-5">
             Their own copy, without your chord changes.
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function SendCopyRow({ session, canShareLive }: SendCopyRowProps)
         </Button>
       </div>
       {hasUploads && canShareLive && (
-        <p className="text-xs leading-5 text-ui-text-muted">
+        <p className="text-ui-text-muted text-xs leading-5">
           Uploaded sheets aren&rsquo;t included. Use <strong>Share live</strong> to send them.
         </p>
       )}

@@ -8,17 +8,13 @@ import {
 } from '../../src/lib/searchResults'
 import type { SearchCandidate } from '../../src/lib/api'
 
-function candidate(
-  url: string,
-  title = 'Song',
-  site = 'pnwchords'
-): SearchCandidate {
+function candidate(url: string, title = 'Song', site = 'pnwchords'): SearchCandidate {
   return { site, title, artist: 'Artist', url }
 }
 
 function sourceCandidates(site: string, count: number): SearchCandidate[] {
   return Array.from({ length: count }, (_, index) =>
-    candidate(`https://${site}.example/song-${index}`, `${site} ${index}`, site)
+    candidate(`https://${site}.example/song-${index}`, `${site} ${index}`, site),
   )
 }
 
@@ -34,10 +30,7 @@ describe('mergePartialSearchCandidates', () => {
     const third = mergePartialSearchCandidates(second, sourceCandidates('worshiptogether', 8))
     expect(third).toHaveLength(6)
 
-    const fourth = mergePartialSearchCandidates(
-      third,
-      sourceCandidates('worshipchords-net', 8)
-    )
+    const fourth = mergePartialSearchCandidates(third, sourceCandidates('worshipchords-net', 8))
     expect(fourth).toHaveLength(8)
     expect(fourth.filter((item) => item.site === 'pnwchords')).toHaveLength(2)
     expect(fourth.filter((item) => item.site === 'ultimate-guitar')).toHaveLength(2)
@@ -53,7 +46,7 @@ describe('mergePartialSearchCandidates', () => {
       [
         { ...candidate('https://pnwchords.com/a/', 'A'), rating: 4.5, versionLabel: 'Ver 2' },
         second,
-      ]
+      ],
     )
 
     expect(merged.map((item) => item.title)).toEqual(['A', 'B'])
@@ -96,9 +89,7 @@ describe('mergeFinalSearchCandidates', () => {
       candidate('https://pnw.example/b', 'PNW B', 'pnwchords'),
     ]
     const final = [candidate('https://ug.example/c', 'UG C', 'ultimate-guitar')]
-    expect(mergeFinalSearchCandidates(previous, final).map((item) => item.title)).toEqual([
-      'UG C',
-    ])
+    expect(mergeFinalSearchCandidates(previous, final).map((item) => item.title)).toEqual(['UG C'])
   })
 })
 
@@ -123,7 +114,7 @@ describe('source status helpers', () => {
         status: 'ok',
         count: 1,
         durationMs: 2,
-      }).map((source) => `${source.site}:${source.status}`)
+      }).map((source) => `${source.site}:${source.status}`),
     ).toEqual(['ultimate-guitar:ok', 'pnwchords:ok'])
   })
 
@@ -132,10 +123,10 @@ describe('source status helpers', () => {
       allSearchSourcesFailed([
         { site: 'ultimate-guitar', status: 'failed', count: 0, durationMs: 1 },
         { site: 'pnwchords', status: 'failed', count: 0, durationMs: 1 },
-      ])
+      ]),
     ).toBe(true)
     expect(
-      allSearchSourcesFailed([{ site: 'pnwchords', status: 'empty', count: 0, durationMs: 1 }])
+      allSearchSourcesFailed([{ site: 'pnwchords', status: 'empty', count: 0, durationMs: 1 }]),
     ).toBe(false)
   })
 })

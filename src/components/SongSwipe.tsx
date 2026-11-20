@@ -367,7 +367,7 @@ export default function SongSwipe({
             exit={{ opacity: 0, x: 6 }}
             transition={reduceMotion ? reducedMotionTransition : uiSpring}
             style={{ y: '-50%' }}
-            className="pointer-events-none fixed right-14 top-1/2 z-20 max-w-[11rem] truncate rounded-full border border-ui-border bg-ui-surface-raised px-2.5 py-1 text-[11px] font-semibold text-ui-text shadow-sm"
+            className="border-ui-border bg-ui-surface-raised text-ui-text pointer-events-none fixed top-1/2 right-14 z-20 max-w-[11rem] truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm"
           >
             {nextTitle}
           </motion.div>
@@ -375,7 +375,7 @@ export default function SongSwipe({
       </AnimatePresence>
 
       {canPrev && (
-        <div className="fixed left-1 top-1/2 z-20 -mt-[1.375rem]">
+        <div className="fixed top-1/2 left-1 z-20 -mt-[1.375rem]">
           <IconButton
             label={`Previous song: ${prevTitle}`}
             variant="ghost"
@@ -389,7 +389,7 @@ export default function SongSwipe({
       )}
 
       {canNext && (
-        <div className="fixed right-1 top-1/2 z-20 -mt-[1.375rem]">
+        <div className="fixed top-1/2 right-1 z-20 -mt-[1.375rem]">
           <IconButton
             label={`Next song: ${nextTitle}`}
             variant="ghost"

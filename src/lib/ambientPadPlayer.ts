@@ -1,19 +1,6 @@
 import { parseKey } from './transpose'
 
-export const PAD_KEYS = [
-  'C',
-  'Db',
-  'D',
-  'Eb',
-  'E',
-  'F',
-  'Gb',
-  'G',
-  'Ab',
-  'A',
-  'Bb',
-  'B',
-] as const
+export const PAD_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
 
 export type PadKey = (typeof PAD_KEYS)[number]
 
@@ -255,20 +242,23 @@ export class AmbientPadPlayer {
 
     this.fadingVoices.add(voice)
 
-    voice.cleanupTimer = setTimeout(() => {
-      this.fadingVoices.delete(voice)
-      try {
-        voice.source.stop()
-      } catch {
-        // Ignore if already stopped
-      }
-      try {
-        voice.source.disconnect()
-        voice.gainNode.disconnect()
-      } catch {
-        // Ignore disconnect errors
-      }
-    }, Math.max(50, Math.ceil(durationSec * 1000) + 50))
+    voice.cleanupTimer = setTimeout(
+      () => {
+        this.fadingVoices.delete(voice)
+        try {
+          voice.source.stop()
+        } catch {
+          // Ignore if already stopped
+        }
+        try {
+          voice.source.disconnect()
+          voice.gainNode.disconnect()
+        } catch {
+          // Ignore disconnect errors
+        }
+      },
+      Math.max(50, Math.ceil(durationSec * 1000) + 50),
+    )
   }
 
   private startNewVoice(padKey: PadKey, buffer: AudioBuffer, durationSec: number): ActiveVoice {

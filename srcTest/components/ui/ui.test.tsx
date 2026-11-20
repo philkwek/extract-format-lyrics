@@ -127,7 +127,9 @@ describe('UI primitives', () => {
 
     await user.click(trigger)
     expect(screen.getByRole('dialog')).toBeTruthy()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement),
+    )
     await user.keyboard('{Escape}')
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -138,7 +140,9 @@ describe('UI primitives', () => {
     const user = userEvent.setup()
     render(<DialogHarness />)
     await user.click(screen.getByRole('button', { name: 'Open dialog' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement),
+    )
 
     const done = screen.getByRole('button', { name: 'Done' })
     done.focus()

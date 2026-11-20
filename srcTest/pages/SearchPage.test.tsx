@@ -56,7 +56,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search?session=session-1']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Paste links' }))
@@ -68,8 +68,8 @@ describe('SearchPage import wiring', () => {
     await waitFor(() =>
       expect(importSources).toHaveBeenCalledWith(
         [{ url: 'https://pnwchords.com/song' }],
-        expect.objectContaining({ targetSessionId: 'session-1' })
-      )
+        expect.objectContaining({ targetSessionId: 'session-1' }),
+      ),
     )
     expect(navigate).toHaveBeenCalledWith('/session/session-1?song=3')
   })
@@ -100,12 +100,14 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(input, { target: { value: 'song' } })
     fireEvent.submit(input.closest('form')!)
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2),
+    )
     expect(screen.queryByRole('region', { name: 'Songs for your new set' })).toBeNull()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Add multiple songs' })[1])
@@ -135,13 +137,16 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(input, { target: { value: 'song' } })
     fireEvent.submit(input.closest('form')!)
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2))
-    for (const button of screen.getAllByRole('button', { name: 'Add multiple songs' })) fireEvent.click(button)
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Add multiple songs' })).toHaveLength(2),
+    )
+    for (const button of screen.getAllByRole('button', { name: 'Add multiple songs' }))
+      fireEvent.click(button)
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Song 1' }))
     expect(screen.queryByRole('button', { name: 'Remove Song 1' })).toBeNull()
@@ -159,7 +164,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
 
@@ -174,7 +179,9 @@ describe('SearchPage import wiring', () => {
       fireEvent.change(input, { target: { value: `song ${page}` } })
       fireEvent.submit(input.closest('form')!)
       await waitFor(() => expect(screen.getByText(`Song ${page * 8 + 1}`)).toBeTruthy())
-      for (const button of screen.queryAllByRole('button', { name: /^Add (multiple songs|to set)$/ })) {
+      for (const button of screen.queryAllByRole('button', {
+        name: /^Add (multiple songs|to set)$/,
+      })) {
         if (!(button as HTMLButtonElement).disabled) fireEvent.click(button)
       }
     }
@@ -183,7 +190,9 @@ describe('SearchPage import wiring', () => {
     for (const button of screen.getAllByRole('button', { name: 'Limit reached' })) {
       expect((button as HTMLButtonElement).disabled).toBe(true)
     }
-    expect(screen.getByText(/^Sets made here hold up to 30 songs/, { selector: 'p[role=status]' })).toBeTruthy()
+    expect(
+      screen.getByText(/^Sets made here hold up to 30 songs/, { selector: 'p[role=status]' }),
+    ).toBeTruthy()
   })
 
   it('does not show the empty state underneath a search error', async () => {
@@ -192,7 +201,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
@@ -233,7 +242,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
@@ -280,7 +289,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
@@ -328,7 +337,7 @@ describe('SearchPage import wiring', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const input = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(input, { target: { value: 'missing' } })
@@ -345,7 +354,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const nextInput = screen.getByPlaceholderText(/Goodness of God, Hallelujah, Holy Forever/)
     fireEvent.change(nextInput, { target: { value: 'empty' } })
@@ -367,7 +376,7 @@ describe('SearchPage import wiring', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <SearchPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Paste links' }))
@@ -379,8 +388,8 @@ describe('SearchPage import wiring', () => {
     await waitFor(() =>
       expect(importSources).toHaveBeenCalledWith(
         [{ url: 'https://pnwchords.com/song' }],
-        expect.objectContaining({ targetSessionId: undefined })
-      )
+        expect.objectContaining({ targetSessionId: undefined }),
+      ),
     )
     expect(navigate).toHaveBeenCalledWith('/session/new-session')
   })

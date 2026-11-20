@@ -32,14 +32,19 @@ describe('SongCache', () => {
   it('finds a song saved under the legacy key and copies it to the new key', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
     const cache = new SongCache(fakeStore as unknown as StorageStore)
     const url = 'https://tabs.ultimate-guitar.com/x?b=1&a=2'
@@ -55,14 +60,19 @@ describe('SongCache', () => {
   it('persists and retrieves song via fake store', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
 
     const cache = new SongCache(fakeStore as unknown as StorageStore)
@@ -77,14 +87,19 @@ describe('SongCache', () => {
   it('resolves a song saved under a redirect URL through its original URL alias', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
     const cache = new SongCache(fakeStore as unknown as StorageStore)
     const finalSong = { ...sampleSong, sourceUrl: 'https://pnwchords.com/amazing-grace-final' }
@@ -94,22 +109,25 @@ describe('SongCache', () => {
     expect(await cache.getSong('https://pnwchords.com/amazing-grace')).toMatchObject({
       sourceUrl: finalSong.sourceUrl,
     })
-    expect(await cache.getAlias('https://pnwchords.com/amazing-grace')).toBe(
-      finalSong.sourceUrl
-    )
+    expect(await cache.getAlias('https://pnwchords.com/amazing-grace')).toBe(finalSong.sourceUrl)
   })
 
   it('still reads older entries stored only under their final URL', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
     const cache = new SongCache(fakeStore as unknown as StorageStore)
     await cache.saveSong(sampleSong)
@@ -120,14 +138,19 @@ describe('SongCache', () => {
   it('expires local failure markers so the normal retry path resumes', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
     const cache = new SongCache(fakeStore as unknown as StorageStore)
     const now = vi.spyOn(Date, 'now').mockReturnValue(1_000)
@@ -142,14 +165,19 @@ describe('SongCache', () => {
   it('enriches older website songs without simplifiedSections on read and persists to store', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
 
     const cache = new SongCache(fakeStore as unknown as StorageStore)
@@ -169,7 +197,10 @@ describe('SongCache', () => {
             {
               kind: 'lyric',
               text: 'Hello world',
-              chords: [{ chord: 'Gmaj7', pos: 0 }, { chord: 'D/F#', pos: 6 }],
+              chords: [
+                { chord: 'Gmaj7', pos: 0 },
+                { chord: 'D/F#', pos: 6 },
+              ],
             },
           ],
         },
@@ -208,14 +239,19 @@ describe('SongCache', () => {
   it('does not enrich songs when already simple', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
 
     const cache = new SongCache(fakeStore as unknown as StorageStore)
@@ -234,7 +270,10 @@ describe('SongCache', () => {
             {
               kind: 'lyric',
               text: 'Hello world',
-              chords: [{ chord: 'G', pos: 0 }, { chord: 'D', pos: 6 }],
+              chords: [
+                { chord: 'G', pos: 0 },
+                { chord: 'D', pos: 6 },
+              ],
             },
           ],
         },
@@ -254,14 +293,19 @@ describe('SongCache', () => {
   it('does not enrich uploaded songs (upload://)', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
 
     const cache = new SongCache(fakeStore as unknown as StorageStore)
@@ -299,14 +343,19 @@ describe('SongCache', () => {
   it('preserves existing simplified sections and does not overwrite with algorithmic', async () => {
     const memory = new Map<string, unknown>()
     const fakeStore = {
-      get: vi.fn(async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined),
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
       set: vi.fn(async (key: string, val: unknown): Promise<void> => {
         memory.set(key, val)
       }),
       del: vi.fn(async (key: string): Promise<void> => {
         memory.delete(key)
       }),
-      entries: vi.fn(async <T>(): Promise<[IDBValidKey, T][]> => Array.from(memory.entries()) as [IDBValidKey, T][]),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
     }
 
     const cache = new SongCache(fakeStore as unknown as StorageStore)
@@ -354,4 +403,3 @@ describe('SongCache', () => {
     expect(fakeStore.set).not.toHaveBeenCalled()
   })
 })
-

@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FetchError } from '../../src/safeFetch.js'
 import { RateLimiterAndCircuitBreaker } from '../../src/rateLimit.js'
 import { classifySearchError, searchSite, searchSites } from '../../src/search/searchSites.js'
-import { SearchParseError, type SearchAdapter, type SearchCandidate } from '../../src/search/types.js'
+import {
+  SearchParseError,
+  type SearchAdapter,
+  type SearchCandidate,
+} from '../../src/search/types.js'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -24,15 +28,17 @@ describe('searchSites', () => {
   it('starts every adapter before any request settles', async () => {
     const started: string[] = []
     const pending = new Map<string, ReturnType<typeof deferred<SearchCandidate[]>>>()
-    const adapters: SearchAdapter[] = ['ultimate-guitar', 'pnwchords', 'worshiptogether'].map((site) => ({
-      site,
-      search: vi.fn(() => {
-        started.push(site)
-        const request = deferred<SearchCandidate[]>()
-        pending.set(site, request)
-        return request.promise
+    const adapters: SearchAdapter[] = ['ultimate-guitar', 'pnwchords', 'worshiptogether'].map(
+      (site) => ({
+        site,
+        search: vi.fn(() => {
+          started.push(site)
+          const request = deferred<SearchCandidate[]>()
+          pending.set(site, request)
+          return request.promise
+        }),
       }),
-    }))
+    )
 
     const running = searchSites(adapters, 'song')
     await Promise.resolve()
@@ -94,14 +100,29 @@ describe('searchSites', () => {
       {
         site: 'worshiptogether',
         search: async () => [
-          { site: 'worshiptogether', title: 'Fall Like Rain', artist: 'Worship Together Artist', url: 'https://wt.com/1' },
-          { site: 'worshiptogether', title: 'Holy Forever', artist: 'Worship Together Artist', url: 'https://wt.com/2' },
+          {
+            site: 'worshiptogether',
+            title: 'Fall Like Rain',
+            artist: 'Worship Together Artist',
+            url: 'https://wt.com/1',
+          },
+          {
+            site: 'worshiptogether',
+            title: 'Holy Forever',
+            artist: 'Worship Together Artist',
+            url: 'https://wt.com/2',
+          },
         ],
       },
       {
         site: 'ultimate-guitar',
         search: async () => [
-          { site: 'ultimate-guitar', title: 'You Saved Me', artist: 'Artist', url: 'https://ug.com/1' },
+          {
+            site: 'ultimate-guitar',
+            title: 'You Saved Me',
+            artist: 'Artist',
+            url: 'https://ug.com/1',
+          },
         ],
       },
     ]
@@ -109,7 +130,11 @@ describe('searchSites', () => {
     const result = await searchSites(adapters, 'You saved me', {
       limiter: new RateLimiterAndCircuitBreaker(),
     })
-    expect(result.outcomes[0]).toMatchObject({ site: 'worshiptogether', status: 'empty', candidates: [] })
+    expect(result.outcomes[0]).toMatchObject({
+      site: 'worshiptogether',
+      status: 'empty',
+      candidates: [],
+    })
     expect(result.outcomes[1]).toMatchObject({ site: 'ultimate-guitar', status: 'ok' })
     expect(result.candidates).toHaveLength(1)
   })
@@ -123,24 +148,22 @@ describe('searchSites', () => {
     })
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const outcome = await searchSite(
-        { site: 'ultimate-guitar', search: blocked },
-        'song',
-        { limiter }
-      )
+      const outcome = await searchSite({ site: 'ultimate-guitar', search: blocked }, 'song', {
+        limiter,
+      })
       expect(outcome).toMatchObject({ status: 'failed', failure: 'blocked' })
     }
 
     expect(JSON.parse(info.mock.calls[2][0] as string)).toMatchObject({
-      block_reason: 'upstream_rejected', upstream_status: 429, retry_after_seconds: 120,
+      block_reason: 'upstream_rejected',
+      upstream_status: 429,
+      retry_after_seconds: 120,
     })
 
     now = 10_000
-    const paused = await searchSite(
-      { site: 'ultimate-guitar', search: blocked },
-      'song',
-      { limiter }
-    )
+    const paused = await searchSite({ site: 'ultimate-guitar', search: blocked }, 'song', {
+      limiter,
+    })
     expect(paused).toMatchObject({ status: 'failed', failure: 'blocked' })
     expect(paused.message).toMatch(/paused/i)
     expect(blocked).toHaveBeenCalledTimes(3)
@@ -171,9 +194,16 @@ describe('searchSites', () => {
 
   it('logs a 403 without inventing a source retry delay', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
-    await searchSite({ site: 'pnwchords', search: async () => {
-      throw new FetchError('Forbidden', 'HTTP_ERROR', 403)
-    } }, 'private-query', { limiter: new RateLimiterAndCircuitBreaker() })
+    await searchSite(
+      {
+        site: 'pnwchords',
+        search: async () => {
+          throw new FetchError('Forbidden', 'HTTP_ERROR', 403)
+        },
+      },
+      'private-query',
+      { limiter: new RateLimiterAndCircuitBreaker() },
+    )
     const event = JSON.parse(info.mock.calls[0][0] as string)
     expect(event).toMatchObject({ block_reason: 'upstream_rejected', upstream_status: 403 })
     expect(event).not.toHaveProperty('retry_after_seconds')

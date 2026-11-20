@@ -82,7 +82,13 @@ const song: Song = {
   sourceUrl: 'https://tabs.example.com/demo',
   sourceSite: 'example',
   originalKey: 'G',
-  sections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'la la', chords: [{ pos: 0, chord: 'G' }] }] }],
+  sections: [
+    {
+      type: 'Verse',
+      label: 'Verse 1',
+      lines: [{ kind: 'lyric', text: 'la la', chords: [{ pos: 0, chord: 'G' }] }],
+    },
+  ],
 }
 const content: LiveSongContent = { song }
 const hash = hashLiveSongContent(content)
@@ -93,12 +99,23 @@ function makeStore(start = new Date('2026-01-01T12:00:00Z')) {
   const db = new MockFirestore()
   let current = start
   const store = new LiveSetStore(db as unknown as Firestore, () => current)
-  return { db, store, advance: (ms: number) => { current = new Date(current.getTime() + ms) } }
+  return {
+    db,
+    store,
+    advance: (ms: number) => {
+      current = new Date(current.getTime() + ms)
+    },
+  }
 }
 
 describe('live set ids', () => {
   it('uses its own domain separator', () => {
-    const expected = crypto.createHash('sha256').update(`live-set-v1:${secret}`).digest().subarray(0, 16).toString('base64url')
+    const expected = crypto
+      .createHash('sha256')
+      .update(`live-set-v1:${secret}`)
+      .digest()
+      .subarray(0, 16)
+      .toString('base64url')
     expect(id).toBe(expected)
     expect(id).not.toBe(derivePublicId(secret))
     expect(verifyLiveSetSecret(secret, id)).toBe(true)
@@ -109,7 +126,10 @@ describe('live set ids', () => {
 
 describe('hashLiveSongContent', () => {
   it('ignores key order and undefined fields, and changes with content', () => {
-    const reordered = { customFlow: undefined, song: { ...song, sections: song.sections } } as LiveSongContent
+    const reordered = {
+      customFlow: undefined,
+      song: { ...song, sections: song.sections },
+    } as LiveSongContent
     expect(hashLiveSongContent(reordered)).toBe(hash)
     expect(hash).toMatch(/^[0-9a-f]{64}$/)
     expect(hashLiveSongContent({ song, customFlow: [0] })).not.toBe(hash)
@@ -117,8 +137,28 @@ describe('hashLiveSongContent', () => {
   })
 
   it('matches an independent canonical JSON computation', () => {
-    const json = JSON.stringify({ song: { artist: 'A', id: 'i', originalKey: null, sections: [], sourceSite: 's', sourceUrl: 'u', title: 'T' } })
-    const c: LiveSongContent = { song: { id: 'i', title: 'T', artist: 'A', sourceUrl: 'u', sourceSite: 's', originalKey: null, sections: [] } }
+    const json = JSON.stringify({
+      song: {
+        artist: 'A',
+        id: 'i',
+        originalKey: null,
+        sections: [],
+        sourceSite: 's',
+        sourceUrl: 'u',
+        title: 'T',
+      },
+    })
+    const c: LiveSongContent = {
+      song: {
+        id: 'i',
+        title: 'T',
+        artist: 'A',
+        sourceUrl: 'u',
+        sourceSite: 's',
+        originalKey: null,
+        sections: [],
+      },
+    }
     expect(hashLiveSongContent(c)).toBe(crypto.createHash('sha256').update(json).digest('hex'))
   })
 })
@@ -131,16 +171,26 @@ describe('isLiveSetManifestInput', () => {
     expect(isLiveSetManifestInput({ ...manifest, name: 'x'.repeat(201) })).toBe(false)
     expect(isLiveSetManifestInput({ ...manifest, entries: [] })).toBe(false)
     expect(isLiveSetManifestInput({ ...manifest, entries: [entry('nothex')] })).toBe(false)
-    expect(isLiveSetManifestInput({ ...manifest, entries: [{ ...entry(hash), padKeyMode: 'x' }] })).toBe(false)
+    expect(
+      isLiveSetManifestInput({ ...manifest, entries: [{ ...entry(hash), padKeyMode: 'x' }] }),
+    ).toBe(false)
     const many = (n: number) => Array.from({ length: n }, (_, i) => entry(hash, `e${i}`))
     expect(isLiveSetManifestInput({ ...manifest, entries: many(MAX_LIVE_SET_SONGS) })).toBe(true)
-    expect(isLiveSetManifestInput({ ...manifest, entries: many(MAX_LIVE_SET_SONGS + 1) })).toBe(false)
+    expect(isLiveSetManifestInput({ ...manifest, entries: many(MAX_LIVE_SET_SONGS + 1) })).toBe(
+      false,
+    )
   })
 
   it('rejects duplicate entry ids, comparing trimmed', () => {
-    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e2')] })).toBe(true)
-    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e1')] })).toBe(false)
-    expect(isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, ' e1 ')] })).toBe(false)
+    expect(
+      isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e2')] }),
+    ).toBe(true)
+    expect(
+      isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, 'e1')] }),
+    ).toBe(false)
+    expect(
+      isLiveSetManifestInput({ ...manifest, entries: [entry(hash, 'e1'), entry(hash, ' e1 ')] }),
+    ).toBe(false)
   })
 })
 
@@ -152,7 +202,9 @@ describe('LiveSetStore.putSong', () => {
     const doc = db.data.get(`liveSetSongs/${id}_${hash}`)!
     expect(doc.liveId).toBe(id)
     expect(doc.song).toEqual(song)
-    expect((doc.expiresAt as Timestamp).toMillis()).toBe(new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS)
+    expect((doc.expiresAt as Timestamp).toMillis()).toBe(
+      new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS,
+    )
   })
 
   it('rejects a hash mismatch with 400 and writes nothing', async () => {
@@ -181,7 +233,9 @@ describe('LiveSetStore.putSong', () => {
     expect(db.data.get(`liveSets/${id}`)!.writeCount).toBe(countBefore)
     const doc = db.data.get(`liveSetSongs/${id}_${hash}`)!
     expect((doc.createdAt as Timestamp).toMillis()).toBe(new Date('2026-01-01T12:00:00Z').getTime())
-    expect((doc.expiresAt as Timestamp).toMillis()).toBe(new Date('2026-01-01T12:01:00Z').getTime() + SET_LINK_TTL_MS)
+    expect((doc.expiresAt as Timestamp).toMillis()).toBe(
+      new Date('2026-01-01T12:01:00Z').getTime() + SET_LINK_TTL_MS,
+    )
   })
 
   it('counts new docs toward the daily cap and throttles at the limit', async () => {
@@ -211,7 +265,9 @@ describe('LiveSetStore.publish', () => {
     const dirty = { ...manifest, extra: 1, entries: [{ ...entry(hash), secretField: 'x' }] }
     const result = await store.publish(id, dirty as typeof manifest)
     expect(result).toMatchObject({ rev: 1, unchanged: false })
-    expect(result.expiresAt.getTime()).toBe(new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS)
+    expect(result.expiresAt.getTime()).toBe(
+      new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS,
+    )
     const doc = db.data.get(`liveSets/${id}`)!
     expect(doc.name).toBe('Sunday')
     expect(doc.entries).toEqual([entry(hash)])
@@ -223,7 +279,9 @@ describe('LiveSetStore.publish', () => {
     const { db, store } = makeStore()
     await store.putSong(id, hash, content)
     const absent = 'b'.repeat(64)
-    const err = await store.publish(id, { ...manifest, entries: [entry(hash), entry(absent, 'e2')] }).catch((e) => e)
+    const err = await store
+      .publish(id, { ...manifest, entries: [entry(hash), entry(absent, 'e2')] })
+      .catch((e) => e)
     expect(err).toBeInstanceOf(LiveSetError)
     expect(err.status).toBe(409)
     expect(err.code).toBe('MISSING_CONTENT')
@@ -286,7 +344,10 @@ describe('LiveSetStore.publish', () => {
     advance(11 * 60 * 1000)
     await store.putSong(id, newHash, newContent)
     // another share's old orphan must stay
-    db.data.set(`liveSetSongs/other_${oldHash}`, { liveId: 'other', createdAt: Timestamp.fromDate(new Date('2020-01-01')) })
+    db.data.set(`liveSetSongs/other_${oldHash}`, {
+      liveId: 'other',
+      createdAt: Timestamp.fromDate(new Date('2020-01-01')),
+    })
     await store.publish(id, { ...manifest, entries: [entry(keepHash)] })
     expect(db.data.has(`liveSetSongs/${id}_${keepHash}`)).toBe(true)
     expect(db.data.has(`liveSetSongs/${id}_${oldHash}`)).toBe(false)
@@ -333,11 +394,13 @@ describe('LiveSetStore.stop', () => {
       const doc = db.data.get(`liveSetSongs/${id}_${h}`)!
       expect((doc.expiresAt as Timestamp).toMillis()).toBeLessThanOrEqual(now.getTime())
     }
-    expect((db.data.get(`liveSetSongs/elsewhere_${otherHash}`)!.expiresAt as Timestamp).toMillis()).toBe(
-      otherExpiry.toMillis(),
-    )
+    expect(
+      (db.data.get(`liveSetSongs/elsewhere_${otherHash}`)!.expiresAt as Timestamp).toMillis(),
+    ).toBe(otherExpiry.toMillis())
     // The manifest itself stays readable so followers see "stopped".
-    expect((db.data.get(`liveSets/${id}`)!.expiresAt as Timestamp).toMillis()).toBeGreaterThan(now.getTime())
+    expect((db.data.get(`liveSets/${id}`)!.expiresAt as Timestamp).toMillis()).toBeGreaterThan(
+      now.getTime(),
+    )
     // Repeating stop keeps the content expired.
     await store.stop(id)
     for (const h of [hash, otherHash]) {
@@ -367,9 +430,7 @@ describe('LiveSetStore.resume', () => {
     expect((doc.expiresAt as Timestamp).toMillis()).toBe(
       new Date('2026-01-01T12:00:20Z').getTime() + SET_LINK_TTL_MS,
     )
-    expect((doc.createdAt as Timestamp).toMillis()).toBe(
-      new Date('2026-01-01T12:00:00Z').getTime(),
-    )
+    expect((doc.createdAt as Timestamp).toMillis()).toBe(new Date('2026-01-01T12:00:00Z').getTime())
     expect(await store.publish(id, manifest)).toMatchObject({ rev: 4, unchanged: false })
   })
 
@@ -406,7 +467,13 @@ describe('LiveSetStore.get', () => {
     const found = await store.get(id)
     expect(found.kind).toBe('found')
     if (found.kind === 'found') {
-      expect(found.manifest).toEqual({ v: 1, name: 'Sunday', entries: [entry(hash)], status: 'live', rev: 1 })
+      expect(found.manifest).toEqual({
+        v: 1,
+        name: 'Sunday',
+        entries: [entry(hash)],
+        status: 'live',
+        rev: 1,
+      })
       expect(found.contents).toEqual({ [hash]: content })
     }
     advance(SET_LINK_TTL_MS + 1)
@@ -420,7 +487,11 @@ describe('LiveSetStore.get', () => {
     advance(10_000)
     await store.stop(id)
     const found = await store.get(id)
-    expect(found).toMatchObject({ kind: 'found', manifest: { status: 'stopped', entries: [], rev: 2 }, contents: {} })
+    expect(found).toMatchObject({
+      kind: 'found',
+      manifest: { status: 'stopped', entries: [], rev: 2 },
+      contents: {},
+    })
   })
 })
 
@@ -436,12 +507,18 @@ describe('hashLiveSongContent known answer', () => {
         sourceSite: 'test',
         originalKey: 'C',
         sections: [
-          { type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'la la la', chords: [{ pos: 3, chord: 'G' }] }] },
+          {
+            type: 'Verse',
+            label: 'Verse 1',
+            lines: [{ kind: 'lyric', text: 'la la la', chords: [{ pos: 3, chord: 'G' }] }],
+          },
         ],
         flow: [0],
       },
       customFlow: [0, 0],
     } as unknown as Parameters<typeof hashLiveSongContent>[0]
-    expect(hashLiveSongContent(fixture)).toBe('ead3f44b931987e257aa7b2dda593bc2f1c8c7893eee3ab8571958d682598b80')
+    expect(hashLiveSongContent(fixture)).toBe(
+      'ead3f44b931987e257aa7b2dda593bc2f1c8c7893eee3ab8571958d682598b80',
+    )
   })
 })

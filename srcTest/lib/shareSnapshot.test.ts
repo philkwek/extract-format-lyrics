@@ -10,8 +10,19 @@ const snapshotOf = (session: Session, song: Song): SharedSetSnapshot => ({
 })
 
 const sourceSong: Song = {
-  id: 'song-1', title: 'Song', artist: 'Artist', sourceUrl: 'https://example.test/song', sourceSite: 'test', originalKey: 'C',
-  sections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 2, chord: 'G' }] }] }],
+  id: 'song-1',
+  title: 'Song',
+  artist: 'Artist',
+  sourceUrl: 'https://example.test/song',
+  sourceSite: 'test',
+  originalKey: 'C',
+  sections: [
+    {
+      type: 'Verse',
+      label: 'Verse 1',
+      lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 2, chord: 'G' }] }],
+    },
+  ],
   flow: [0],
   simplifiedSections: [{ type: 'Verse', label: 'Simple', lines: [] }],
   simplifiedFlow: [0],
@@ -20,9 +31,25 @@ const sourceSong: Song = {
 describe('shared set snapshots', () => {
   it('preserves ordered duplicate entries and their independent musical state', async () => {
     const session: Session = {
-      id: 'set', createdAt: 1, name: 'Sunday', songs: [
-        { entryId: 'first', url: sourceSong.sourceUrl, targetKey: 'D', padKeyMode: 'custom', customPadKey: 'E', simplified: true },
-        { entryId: 'second', url: sourceSong.sourceUrl, customSections: [], customFlow: [], simplified: false },
+      id: 'set',
+      createdAt: 1,
+      name: 'Sunday',
+      songs: [
+        {
+          entryId: 'first',
+          url: sourceSong.sourceUrl,
+          targetKey: 'D',
+          padKeyMode: 'custom',
+          customPadKey: 'E',
+          simplified: true,
+        },
+        {
+          entryId: 'second',
+          url: sourceSong.sourceUrl,
+          customSections: [],
+          customFlow: [],
+          simplified: false,
+        },
       ],
     }
     const snapshot = snapshotOf(session, sourceSong)
@@ -43,8 +70,20 @@ describe('shared set snapshots', () => {
       sourceUrl: 'https://example.test/algo',
       sourceSite: 'test',
       originalKey: 'G',
-      sections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'Gmaj7' }] }] }],
-      simplifiedSections: [{ type: 'Verse', label: 'Verse 1', lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'G' }] }] }],
+      sections: [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'Gmaj7' }] }],
+        },
+      ],
+      simplifiedSections: [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [{ kind: 'lyric', text: 'words', chords: [{ pos: 0, chord: 'G' }] }],
+        },
+      ],
       simplifiedSource: 'algorithmic',
     }
 
@@ -66,14 +105,17 @@ describe('shared set snapshots', () => {
     const snapshot = snapshotOf(session, algorithmicSong)
     expect(snapshot.songs[0].song.simplifiedSource).toBe('algorithmic')
     expect(snapshot.songs[0].song.simplifiedSections).toEqual(algorithmicSong.simplifiedSections)
-    expect(snapshot.songs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+    expect(snapshot.songs[0].customSimplifiedSections).toEqual(
+      session.songs[0].customSimplifiedSections,
+    )
     expect(snapshot.songs[0].customSimplifiedFlow).toEqual([0])
     expect(snapshot.songs[0].simplified).toBe(true)
 
     const restoredSongs = sessionSongsFromSnapshot(snapshot)
     expect(restoredSongs[0].simplified).toBe(true)
-    expect(restoredSongs[0].customSimplifiedSections).toEqual(session.songs[0].customSimplifiedSections)
+    expect(restoredSongs[0].customSimplifiedSections).toEqual(
+      session.songs[0].customSimplifiedSections,
+    )
     expect(restoredSongs[0].customSimplifiedFlow).toEqual([0])
   })
 })
-

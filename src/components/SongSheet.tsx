@@ -99,15 +99,15 @@ function renderLyricSegments(
 
   return (
     <div
-      className="font-mono whitespace-pre leading-none flex items-end w-max max-w-full"
+      className="flex w-max max-w-full items-end font-mono leading-none whitespace-pre"
       data-lyric-line-key={measurementKey}
     >
       {segments.map((seg, i) => {
         const c = seg.chord
         return (
-          <span key={i} className="inline-flex flex-col shrink-0">
+          <span key={i} className="inline-flex shrink-0 flex-col">
             <span
-              className="text-[#255283] dark:text-amber-400 font-bold select-none min-h-[1em] leading-none pb-[0.1px]"
+              className="min-h-[1em] pb-[0.1px] leading-none font-bold text-[#255283] select-none dark:text-amber-400"
               style={c ? { paddingRight: '1ch' } : undefined}
             >
               {c ? (
@@ -123,9 +123,9 @@ function renderLyricSegments(
                   title={onChordClick ? 'Click to edit or delete chord' : undefined}
                   className={
                     c.originalIndex === selectedIndex
-                      ? 'cursor-pointer inline-block px-1 -mx-1 rounded bg-[#3368A0] text-white dark:bg-amber-400 dark:text-black ring-2 ring-[#3368A0]/40 dark:ring-amber-400/40'
+                      ? '-mx-1 inline-block cursor-pointer rounded bg-[#3368A0] px-1 text-white ring-2 ring-[#3368A0]/40 dark:bg-amber-400 dark:text-black dark:ring-amber-400/40'
                       : onChordClick
-                        ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
+                        ? '-mx-0.5 inline-block cursor-pointer rounded border-b border-dashed border-[#3368A0]/70 px-0.5 transition-colors hover:bg-[#3368A0]/15 hover:underline dark:border-amber-500/70 dark:hover:bg-amber-400/25'
                         : undefined
                   }
                 >
@@ -135,7 +135,7 @@ function renderLyricSegments(
                 ' '
               )}
             </span>
-            <span className="text-neutral-800 dark:text-[#d4d4d4] leading-relaxed select-none">
+            <span className="leading-relaxed text-neutral-800 select-none dark:text-[#d4d4d4]">
               {splitPositions && onSplitAt
                 ? renderInlineSplitMarkers(seg.text, seg.start, splitPositions, onSplitAt)
                 : seg.text || ' '}
@@ -217,7 +217,7 @@ function renderLine(
     return (
       <div
         key={key}
-        className="font-mono text-neutral-600 dark:text-[#999999] text-xs py-px whitespace-pre overflow-x-auto"
+        className="overflow-x-auto py-px font-mono text-xs whitespace-pre text-neutral-600 dark:text-[#999999]"
       >
         {line.raw}
       </div>
@@ -229,7 +229,7 @@ function renderLine(
       <div
         key={key}
         data-sheet-line
-        className="font-mono text-[#255283] dark:text-amber-400 font-bold py-0.5 whitespace-pre"
+        className="py-0.5 font-mono font-bold whitespace-pre text-[#255283] dark:text-amber-400"
       >
         {line.chords.map((chord, cIdx) => (
           <span key={cIdx}>
@@ -246,7 +246,7 @@ function renderLine(
               title={onChordClick ? 'Click to edit or delete chord' : undefined}
               className={
                 onChordClick
-                  ? 'cursor-pointer hover:underline hover:bg-[#3368A0]/15 dark:hover:bg-amber-400/25 px-0.5 -mx-0.5 rounded transition-colors inline-block border-b border-dashed border-[#3368A0]/70 dark:border-amber-500/70'
+                  ? '-mx-0.5 inline-block cursor-pointer rounded border-b border-dashed border-[#3368A0]/70 px-0.5 transition-colors hover:bg-[#3368A0]/15 hover:underline dark:border-amber-500/70 dark:hover:bg-amber-400/25'
                   : undefined
               }
             >
@@ -291,9 +291,7 @@ function renderLine(
                 undefined,
                 splitPositions
                   ?.map((position) => position - row.start)
-                  .filter(
-                    (position) => position > 0 && position <= row.text.length,
-                  ),
+                  .filter((position) => position > 0 && position <= row.text.length),
                 controls?.onSplitAt
                   ? (splitAt) => controls.onSplitAt?.(splitAt + row.start)
                   : undefined,
@@ -316,7 +314,7 @@ function renderLine(
         )
       )}
       {isSplitting && (
-        <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-medium leading-none text-[#1c436b] dark:text-amber-200">
+        <div className="mt-1 flex items-center justify-between gap-2 text-[10px] leading-none font-medium text-[#1c436b] dark:text-amber-200">
           <span>Choose where the next lyric line begins</span>
           <button
             type="button"
@@ -420,9 +418,10 @@ export default function SongSheet({
     if (!wrapLines) return []
     return visibleColumnPartitions.map((_, index) => {
       if (availableWidthCh === undefined) return undefined
-      const allocated = hasAdaptiveColumns && renderedColumnCount !== 1
-        ? allocatedColumnWidths[index]
-        : availableWidthCh
+      const allocated =
+        hasAdaptiveColumns && renderedColumnCount !== 1
+          ? allocatedColumnWidths[index]
+          : availableWidthCh
       if (allocated === undefined || !Number.isFinite(allocated)) return undefined
       // Keep one character of rounding room so a measured row never clips.
       return Math.max(1, Math.floor(allocated) - 1)
@@ -622,12 +621,12 @@ export default function SongSheet({
       <span
         ref={chProbeRef}
         aria-hidden="true"
-        className="font-mono pointer-events-none fixed -left-[9999px] top-0 opacity-0 select-none whitespace-pre"
+        className="pointer-events-none fixed top-0 -left-[9999px] font-mono whitespace-pre opacity-0 select-none"
       >
         0000000000
       </span>
       {isEditingChords && (
-        <div className="mb-4 bg-[#C8DFDB]/40 dark:bg-amber-400/10 border border-[#66A3BF]/40 dark:border-amber-500/30 rounded-lg px-3 py-2 text-md text-[#1c436b] dark:text-amber-300 flex items-center justify-between">
+        <div className="text-md mb-4 flex items-center justify-between rounded-lg border border-[#66A3BF]/40 bg-[#C8DFDB]/40 px-3 py-2 text-[#1c436b] dark:border-amber-500/30 dark:bg-amber-400/10 dark:text-amber-300">
           <span className="flex items-center gap-1.5">
             <span>✎</span>
             <span>
@@ -645,11 +644,11 @@ export default function SongSheet({
 
       <div
         ref={gridRef}
-        className={`${gridClass}${hasAdaptiveColumns ? ' song-sheet-grid--adaptive' : ''}`}
+        className={`${gridClass}${hasAdaptiveColumns ? 'song-sheet-grid--adaptive' : ''}`}
         style={adaptiveGridStyle}
       >
         {visibleColumnPartitions.map((colItems, colIdx) => (
-          <div key={colIdx} className="space-y-6 min-w-0">
+          <div key={colIdx} className="min-w-0 space-y-6">
             {colIdx === 0 && titleBlock}
             {colItems.map(({ section, originalIndex }) => {
               const isDragging = draggedIdx === originalIndex
@@ -666,11 +665,11 @@ export default function SongSheet({
                   onDrop={(e) => handleDrop(e, originalIndex)}
                   onDragEnd={handleDragEnd}
                   title={onReorderSections ? 'Drag section to reorder' : undefined}
-                  className={`section-block relative transition-[background-color,opacity,transform,box-shadow] rounded-xl p-3 -m-3 select-none ${
+                  className={`section-block relative -m-3 rounded-xl p-3 transition-[background-color,opacity,transform,box-shadow] select-none ${
                     onReorderSections
-                      ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-100/60 dark:hover:bg-[#1a1a1a]/60'
+                      ? 'cursor-grab hover:bg-neutral-100/60 active:cursor-grabbing dark:hover:bg-[#1a1a1a]/60'
                       : ''
-                  } ${isDragging ? 'opacity-30 scale-[0.99]' : ''} ${
+                  } ${isDragging ? 'scale-[0.99] opacity-30' : ''} ${
                     isSplitSection
                       ? 'z-40 bg-white shadow-2xl ring-2 ring-[#3368A0]/70 dark:bg-[#1a1a1a] dark:ring-amber-400/70'
                       : ''
@@ -678,16 +677,16 @@ export default function SongSheet({
                 >
                   {/* Top insertion indicator line when dragging over this section */}
                   {isOver && (
-                    <div className="absolute -top-3 left-0 right-0 flex items-center z-10 pointer-events-none">
-                      <div className="w-2 h-2 rounded-full bg-[#3368A0] dark:bg-amber-500 -mr-1" />
-                      <div className="h-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
-                      <div className="w-2 h-2 rounded-full bg-[#3368A0] dark:bg-amber-500 -ml-1" />
+                    <div className="pointer-events-none absolute -top-3 right-0 left-0 z-10 flex items-center">
+                      <div className="-mr-1 h-2 w-2 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                      <div className="h-0.5 flex-1 bg-[#3368A0] shadow-xs dark:bg-amber-500" />
+                      <div className="-ml-1 h-2 w-2 rounded-full bg-[#3368A0] dark:bg-amber-500" />
                     </div>
                   )}
-                  <div className="flex items-center justify-between border-b border-[#C8DFDB] dark:border-[#282828] pb-1 mb-2 select-none group">
+                  <div className="group mb-2 flex items-center justify-between border-b border-[#C8DFDB] pb-1 select-none dark:border-[#282828]">
                     {editingSectionIdx === originalIndex ? (
                       <div
-                        className="flex items-center gap-1.5 flex-1 min-w-0"
+                        className="flex min-w-0 flex-1 items-center gap-1.5"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -706,7 +705,7 @@ export default function SongSheet({
                           }}
                           onBlur={() => handleSaveRenameSection(originalIndex)}
                           autoFocus
-                          className="text-xs font-bold uppercase tracking-wider bg-white dark:bg-[#101010] text-neutral-900 dark:text-[#e5e5e5] border border-[#3368A0] dark:border-amber-500 rounded px-1.5 py-0.5 focus:outline-none w-full max-w-[180px] select-text cursor-text"
+                          className="w-full max-w-[180px] cursor-text rounded border border-[#3368A0] bg-white px-1.5 py-0.5 text-xs font-bold tracking-wider text-neutral-900 uppercase select-text focus:outline-none dark:border-amber-500 dark:bg-[#101010] dark:text-[#e5e5e5]"
                         />
                         <button
                           type="button"
@@ -714,7 +713,7 @@ export default function SongSheet({
                             e.stopPropagation()
                             handleSaveRenameSection(originalIndex)
                           }}
-                          className="text-[11px] bg-[#3368A0] hover:bg-[#255283] text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-black px-2 py-0.5 rounded font-semibold cursor-pointer shrink-0 transition-colors"
+                          className="shrink-0 cursor-pointer rounded bg-[#3368A0] px-2 py-0.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#255283] dark:bg-amber-500 dark:text-black dark:hover:bg-amber-400"
                         >
                           Save
                         </button>
@@ -724,19 +723,19 @@ export default function SongSheet({
                             e.stopPropagation()
                             handleCancelRenameSection()
                           }}
-                          className="text-[11px] text-neutral-500 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] px-1 py-0.5 rounded cursor-pointer shrink-0"
+                          className="shrink-0 cursor-pointer rounded px-1 py-0.5 text-[11px] text-neutral-500 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5]"
                         >
                           ✕
                         </button>
                       </div>
                     ) : (
                       <div
-                        className="flex items-center gap-1.5 min-w-0 flex-1 group/title"
+                        className="group/title flex min-w-0 flex-1 items-center gap-1.5"
                         title={onRenameSection ? 'Click or tap ✎ to edit section title' : undefined}
                       >
                         {onReorderSections && (
                           <span
-                            className="text-neutral-400 hover:text-neutral-700 dark:text-[#999999] dark:hover:text-[#e5e5e5] text-xs select-none px-0.5 shrink-0 cursor-grab active:cursor-grabbing"
+                            className="shrink-0 cursor-grab px-0.5 text-xs text-neutral-400 select-none hover:text-neutral-700 active:cursor-grabbing dark:text-[#999999] dark:hover:text-[#e5e5e5]"
                             title="Drag to reorder"
                           >
                             ⋮⋮
@@ -754,9 +753,9 @@ export default function SongSheet({
                                 }
                               : undefined
                           }
-                          className={`text-neutral-800 dark:text-[#d4d4d4] font-bold uppercase tracking-wider truncate ${
+                          className={`truncate font-bold tracking-wider text-neutral-800 uppercase dark:text-[#d4d4d4] ${
                             onRenameSection
-                              ? 'cursor-pointer hover:text-[#3368A0] dark:hover:text-amber-400 hover:underline'
+                              ? 'cursor-pointer hover:text-[#3368A0] hover:underline dark:hover:text-amber-400'
                               : ''
                           }`}
                           style={{ fontSize: `${fontSizePx}px` }}
@@ -771,7 +770,7 @@ export default function SongSheet({
                               handleStartRenameSection(originalIndex, section.label || 'Section')
                             }}
                             title="Edit section title"
-                            className="text-neutral-400 hover:text-[#3368A0] dark:text-[#777777] dark:hover:text-amber-400 text-xs p-0.5 rounded transition-colors cursor-pointer opacity-70 group-hover/title:opacity-100"
+                            className="cursor-pointer rounded p-0.5 text-xs text-neutral-400 opacity-70 transition-colors group-hover/title:opacity-100 hover:text-[#3368A0] dark:text-[#777777] dark:hover:text-amber-400"
                           >
                             ✎
                           </button>
@@ -786,7 +785,7 @@ export default function SongSheet({
                           onDeleteSection(originalIndex)
                         }}
                         title={`Delete ${section.label || 'this section'}`}
-                        className="text-neutral-400 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400 text-xs px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors cursor-pointer ml-2 shrink-0"
+                        className="ml-2 shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-500 dark:text-[#999999] dark:hover:text-red-400"
                       >
                         ✕
                       </button>
@@ -813,12 +812,9 @@ export default function SongSheet({
                           : undefined,
                         line.kind === 'lyric'
                           ? {
-                              measurementKey: wrapLines
-                                ? undefined
-                                : `${originalIndex}:${lIdx}`,
+                              measurementKey: wrapLines ? undefined : `${originalIndex}:${lIdx}`,
                               isOverflowing:
-                                !wrapLines &&
-                                overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
+                                !wrapLines && overflowingLineKeys.has(`${originalIndex}:${lIdx}`),
                               wrapWidthCh: columnWrapWidthCh,
                               isSplitting:
                                 splittingLine?.sectionIndex === originalIndex &&

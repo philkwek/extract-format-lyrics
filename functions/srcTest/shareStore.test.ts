@@ -94,13 +94,13 @@ describe('shared set validation', () => {
   })
 
   it('rejects invalid custom section arrays', () => {
-    expect(
-      isSharedSetSnapshot(snapshotWithEntry({ customSections: [{ type: 'Verse' }] }))
-    ).toBe(false)
+    expect(isSharedSetSnapshot(snapshotWithEntry({ customSections: [{ type: 'Verse' }] }))).toBe(
+      false,
+    )
     expect(
       isSharedSetSnapshot(
-        snapshotWithEntry({ customSimplifiedSections: [{ type: 'Chorus', label: 'x' }] })
-      )
+        snapshotWithEntry({ customSimplifiedSections: [{ type: 'Chorus', label: 'x' }] }),
+      ),
     ).toBe(false)
   })
 
@@ -113,14 +113,16 @@ describe('shared set validation', () => {
   })
 
   it('rejects custom flow without custom sections', () => {
-    expect(isSharedSetSnapshot(snapshotWithEntry({ customSections: undefined, customFlow: [0] }))).toBe(false)
+    expect(
+      isSharedSetSnapshot(snapshotWithEntry({ customSections: undefined, customFlow: [0] })),
+    ).toBe(false)
     expect(
       isSharedSetSnapshot(
         snapshotWithEntry({
           customSimplifiedSections: undefined,
           customSimplifiedFlow: [0],
-        })
-      )
+        }),
+      ),
     ).toBe(false)
   })
 
@@ -137,7 +139,7 @@ describe('shared set validation', () => {
       isSharedSetSnapshot({
         ...snapshot,
         songs: Array.from({ length: MAX_SHARED_SET_SONGS + 1 }, () => snapshot.songs[0]),
-      })
+      }),
     ).toBe(false)
   })
 

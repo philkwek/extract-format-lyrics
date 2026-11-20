@@ -149,7 +149,7 @@ describe('simulated search and import scheduling', () => {
         mode: 'SIMULATED (controlled timers, fixture parsers)',
         sequential: summary(sequential),
         concurrent: summary(concurrent),
-      })
+      }),
     )
   })
 
@@ -173,7 +173,7 @@ describe('simulated search and import scheduling', () => {
         concurrency: 2,
         fixed_batches: summary(fixed),
         worker_pool: summary(pooled),
-      })
+      }),
     )
   })
 })

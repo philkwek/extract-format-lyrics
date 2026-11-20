@@ -57,7 +57,7 @@ describe('ArrangeDrawer', () => {
         ]}
         onMove={vi.fn()}
         onClose={onClose}
-      />
+      />,
     )
 
     expect(screen.getByRole('button', { name: 'Move First song down' })).toBeTruthy()

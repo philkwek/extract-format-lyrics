@@ -52,17 +52,11 @@ export default function EditSetModal({
         </div>
 
         <div className={mode === 'search' ? '' : 'hidden'}>
-          <AddSongSearchPanel
-            sessionId={session.id}
-            onSessionUpdated={onSessionUpdated}
-          />
+          <AddSongSearchPanel sessionId={session.id} onSessionUpdated={onSessionUpdated} />
         </div>
 
         <div className={mode === 'paste' ? '' : 'hidden'}>
-          <AddSongPastePanel
-            sessionId={session.id}
-            onSessionUpdated={onSessionUpdated}
-          />
+          <AddSongPastePanel sessionId={session.id} onSessionUpdated={onSessionUpdated} />
         </div>
       </div>
     </OverlayDialog>

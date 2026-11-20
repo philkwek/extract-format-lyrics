@@ -133,14 +133,14 @@ describe('loadSourceChart', () => {
     const cache = new ChartCache({ store, now: () => 1_000 })
     const html = readFileSync(
       new URL('./adapters/__fixtures__/pnwchords.html', import.meta.url),
-      'utf8'
+      'utf8',
     )
     let resolveFetch!: (value: { text: string; finalUrl: string }) => void
     const fetchFn = vi.fn(
       () =>
         new Promise<{ text: string; finalUrl: string }>((resolve) => {
           resolveFetch = resolve
-        })
+        }),
     )
     const url = 'https://pnwchords.com/good-grace'
 

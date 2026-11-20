@@ -17,11 +17,7 @@ export const IPAD_BREAKPOINT_PX = 768
 
 export function getDefaultColumns(width?: number): 1 | 3 {
   const currentWidth =
-    typeof width === 'number'
-      ? width
-      : typeof window !== 'undefined'
-        ? window.innerWidth
-        : 0
+    typeof width === 'number' ? width : typeof window !== 'undefined' ? window.innerWidth : 0
   return currentWidth >= IPAD_BREAKPOINT_PX ? 3 : 1
 }
 
@@ -52,10 +48,7 @@ export function getSongPrefs(songId: string, width?: number): SongDisplayPrefs {
       }
       const legacyFit = stored.columns === 'fit'
       const columns =
-        stored.columns === 1 ||
-        stored.columns === 2 ||
-        stored.columns === 3 ||
-        stored.columns === 4
+        stored.columns === 1 || stored.columns === 2 || stored.columns === 3 || stored.columns === 4
           ? stored.columns
           : defaultPrefs.columns
       const fitToScreen =

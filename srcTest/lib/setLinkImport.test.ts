@@ -39,7 +39,7 @@ function setup(
     fail?: string[]
     fetchError?: unknown
     payload?: SetLinkPayload
-  } = {}
+  } = {},
 ) {
   const linkPayload = opts.payload ?? payload
   const fetchLink = vi.fn(async () => {
@@ -58,11 +58,11 @@ function setup(
     const outcomes: MockOutcome[] = sources.map((source) =>
       opts.fail?.includes(source.url)
         ? { url: source.url, reason: 'nope' }
-        : { url: source.url, item: { url: source.url, title: source.title } }
+        : { url: source.url, item: { url: source.url, title: source.title } },
     )
     const items = outcomes.flatMap((outcome) => (outcome.item ? [outcome.item] : []))
     const failures = outcomes.flatMap((outcome) =>
-      outcome.item ? [] : [{ url: outcome.url, reason: outcome.reason ?? 'Import failed' }]
+      outcome.item ? [] : [{ url: outcome.url, reason: outcome.reason ?? 'Import failed' }],
     )
     return { outcomes, items, failures, imported: items.length, attempted: sources.length }
   })
@@ -103,10 +103,7 @@ describe('loadSetLinkPreview', () => {
           { url: 'https://a.test/2', title: 'Two', entryId: 'e2' },
         ],
         failures: [],
-        snapshot: [
-          { entryId: 'e1', targetKey: 'A' },
-          { entryId: 'e2' },
-        ],
+        snapshot: [{ entryId: 'e1', targetKey: 'A' }, { entryId: 'e2' }],
       },
     })
     expect(t.sessions.createSession).not.toHaveBeenCalled()
@@ -195,10 +192,7 @@ const preview: SetLinkPreview = {
   name: 'Sunday',
   items: [{ entryId: 'e1', url: 'https://a.test/1', title: 'One', targetKey: 'A' }],
   failures: [{ url: 'https://a.test/2', reason: 'nope' }],
-  snapshot: [
-    { entryId: 'e1', targetKey: 'A' },
-    { entryId: 'e2' },
-  ],
+  snapshot: [{ entryId: 'e1', targetKey: 'A' }, { entryId: 'e2' }],
 }
 
 describe('savePreviewAsNew', () => {
@@ -244,11 +238,7 @@ describe('savePreviewAsNew unlinked', () => {
 
 describe('diffLinkSnapshot', () => {
   it('counts added, removed and key changes by entryId', () => {
-    const saved = [
-      { entryId: 'a', targetKey: 'G' },
-      { entryId: 'b' },
-      { entryId: 'c' },
-    ]
+    const saved = [{ entryId: 'a', targetKey: 'G' }, { entryId: 'b' }, { entryId: 'c' }]
     const latest = [
       { entryId: 'a', targetKey: 'A' },
       { entryId: 'b', targetKey: 'C' },

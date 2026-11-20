@@ -148,7 +148,12 @@ export function selectFitLayout({
     )
     const height = Math.max(
       ...visiblePartitions.map((column) =>
-        estimateColumnHeightPx(column, fontSizePx, sectionGapPx, leadingPxFor(column, leadingBlock)),
+        estimateColumnHeightPx(
+          column,
+          fontSizePx,
+          sectionGapPx,
+          leadingPxFor(column, leadingBlock),
+        ),
       ),
       0,
     )
@@ -226,12 +231,8 @@ function measureWrappedColumns(
 
     height = Math.max(
       height,
-      estimateColumnHeightPx(
-        column,
-        fontSizePx,
-        sectionGapPx,
-        leadingPxFor(column, leadingBlock),
-      ) + extraHeightPx,
+      estimateColumnHeightPx(column, fontSizePx, sectionGapPx, leadingPxFor(column, leadingBlock)) +
+        extraHeightPx,
     )
   })
 

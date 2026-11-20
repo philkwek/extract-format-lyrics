@@ -224,7 +224,7 @@ export class SessionStore {
   async createSession(
     songs: SessionSongItem[],
     name?: string,
-    options: CreateSessionOptions = {}
+    options: CreateSessionOptions = {},
   ): Promise<Session> {
     const list = await this.getAllSessions()
     const now = Date.now()
@@ -329,7 +329,9 @@ export class SessionStore {
     if (!session) return null
     const firstNewIndex = session.songs.length
     if (songs.length === 0) return { session, firstNewIndex }
-    session.songs.push(...songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })))
+    session.songs.push(
+      ...songs.map((song) => ({ ...song, entryId: song.entryId || makeEntryId() })),
+    )
     session.importFailures = mergeImportFailures(session.importFailures, failures)
     await this.updateSession(session)
     return { session, firstNewIndex }
@@ -344,7 +346,11 @@ export class SessionStore {
     return session
   }
 
-  async reorderSongsInSession(sessionId: string, fromIndex: number, toIndex: number): Promise<Session | null> {
+  async reorderSongsInSession(
+    sessionId: string,
+    fromIndex: number,
+    toIndex: number,
+  ): Promise<Session | null> {
     const session = await this.getSession(sessionId)
     if (!session) return null
     if (

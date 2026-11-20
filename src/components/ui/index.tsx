@@ -213,8 +213,18 @@ interface SurfaceProps extends HTMLAttributes<HTMLElement> {
   elevated?: boolean
 }
 
-export function Surface({ as: Component = 'section', elevated = false, className, ...props }: SurfaceProps) {
-  return <Component className={classes('ui-surface', elevated && 'ui-surface--elevated', className)} {...props} />
+export function Surface({
+  as: Component = 'section',
+  elevated = false,
+  className,
+  ...props
+}: SurfaceProps) {
+  return (
+    <Component
+      className={classes('ui-surface', elevated && 'ui-surface--elevated', className)}
+      {...props}
+    />
+  )
 }
 
 export type StatusTone = 'info' | 'success' | 'warning' | 'error'
@@ -241,7 +251,11 @@ export function StatusBanner({
   return (
     <div className={classes('ui-status', tone && `ui-status--${tone}`, className)} {...props}>
       <div role={tone === 'error' ? 'alert' : 'status'} className="ui-status__message">
-        {icon && <span className="ui-status__icon" aria-hidden="true">{icon}</span>}
+        {icon && (
+          <span className="ui-status__icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           {title && <p className="font-semibold">{title}</p>}
           {children}
@@ -319,7 +333,7 @@ export function Toast({
             onMouseLeave={onResume}
             onFocus={onPause}
             onBlur={onResume}
-            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] py-1 pl-3 pr-1 text-sm text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)]"
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-raised)] py-1 pr-1 pl-3 text-sm text-[var(--ui-text)] shadow-[var(--ui-shadow-lg)]"
           >
             {progressMs !== undefined && progressMs > 0 && (
               <svg

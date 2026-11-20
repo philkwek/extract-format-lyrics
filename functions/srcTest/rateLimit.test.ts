@@ -6,7 +6,7 @@ describe('RateLimiterAndCircuitBreaker', () => {
     let mockTime = 1000
     const limiter = new RateLimiterAndCircuitBreaker(
       { perMinute: 2, perDay: 10, consecutiveFailuresToPause: 3, pauseDurationSeconds: 60 },
-      () => mockTime
+      () => mockTime,
     )
 
     expect(limiter.checkIp('1.2.3.4').allowed).toBe(true)
@@ -37,7 +37,7 @@ describe('RateLimiterAndCircuitBreaker', () => {
     let mockTime = 1000
     const limiter = new RateLimiterAndCircuitBreaker(
       { perMinute: 30, perDay: 300, consecutiveFailuresToPause: 3, pauseDurationSeconds: 60 },
-      () => mockTime
+      () => mockTime,
     )
 
     limiter.checkIp('1.2.3.4')
@@ -52,7 +52,7 @@ describe('RateLimiterAndCircuitBreaker', () => {
     let mockTime = 0
     const limiter = new RateLimiterAndCircuitBreaker(
       { perMinute: 1, perDay: 1000, consecutiveFailuresToPause: 3, pauseDurationSeconds: 60 },
-      () => mockTime
+      () => mockTime,
     )
 
     expect(limiter.checkIp('victim').allowed).toBe(true)
@@ -82,7 +82,7 @@ describe('RateLimiterAndCircuitBreaker', () => {
     let mockTime = 1000
     const limiter = new RateLimiterAndCircuitBreaker(
       { perMinute: 10, perDay: 50, consecutiveFailuresToPause: 3, pauseDurationSeconds: 600 },
-      () => mockTime
+      () => mockTime,
     )
 
     expect(limiter.isHostPaused('tabs.ultimate-guitar.com').paused).toBe(false)

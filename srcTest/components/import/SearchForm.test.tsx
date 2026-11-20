@@ -43,7 +43,9 @@ describe('SearchForm', () => {
 
   it('disables search for empty input or while searching', () => {
     renderForm()
-    expect((screen.getByRole('button', { name: 'Search' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Search' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 
   it('shows an error banner', () => {

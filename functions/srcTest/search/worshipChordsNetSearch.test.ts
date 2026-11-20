@@ -23,7 +23,9 @@ describe('parseWorshipChordsNetSearchHtml', () => {
   })
 
   it('returns an empty list for a valid zero-result page', () => {
-    expect(parseWorshipChordsNetSearchHtml(fixture('worshipchordsnet-search-empty.html'))).toEqual([])
+    expect(parseWorshipChordsNetSearchHtml(fixture('worshipchordsnet-search-empty.html'))).toEqual(
+      [],
+    )
   })
 
   it('throws for a challenge page instead of treating it as no matches', () => {
@@ -32,9 +34,9 @@ describe('parseWorshipChordsNetSearchHtml', () => {
   })
 
   it('throws when the page shape changes', () => {
-    expect(() => parseWorshipChordsNetSearchHtml('<html><body>Not a search page</body></html>')).toThrow(
-      SearchParseError
-    )
+    expect(() =>
+      parseWorshipChordsNetSearchHtml('<html><body>Not a search page</body></html>'),
+    ).toThrow(SearchParseError)
   })
 
   it('deduplicates URLs and caps at ten results', () => {

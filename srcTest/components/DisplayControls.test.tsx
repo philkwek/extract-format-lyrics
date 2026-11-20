@@ -26,7 +26,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         currentKey="G"
         isPadPlaying={false}
         onTogglePad={onTogglePad}
-      />
+      />,
     )
 
     const padButton = screen.getByRole('button', { name: 'Play ambient pad' })
@@ -52,7 +52,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         currentKey="Eb"
         isPadPlaying={true}
         onTogglePad={vi.fn()}
-      />
+      />,
     )
 
     const padButton = screen.getByRole('button', { name: 'Pads playing (Eb)' })
@@ -72,7 +72,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         padKeyMode="match"
         isPadPlaying={true}
         onTogglePad={vi.fn()}
-      />
+      />,
     )
 
     const select = screen.getByLabelText('Transpose song') as HTMLSelectElement
@@ -105,7 +105,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         onChangePadKeyMode={onChangePadKeyMode}
         onSelectCustomPadKey={vi.fn()}
         onTogglePad={vi.fn()}
-      />
+      />,
     )
 
     expect(screen.queryByRole('tablist', { name: 'Pads Key' })).toBeNull()
@@ -141,7 +141,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         onChangePadKeyMode={vi.fn()}
         onSelectCustomPadKey={onSelectCustomPadKey}
         onTogglePad={vi.fn()}
-      />
+      />,
     )
 
     // Ensure Playing Pad button shows the custom key (A) rather than the song key (G)
@@ -169,7 +169,7 @@ describe('DisplayControls — Play Ambient Pad button', () => {
         onChangePadKeyMode={vi.fn()}
         onSelectCustomPadKey={vi.fn()}
         onTogglePad={vi.fn()}
-      />
+      />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Change pad key' }))
@@ -190,9 +190,7 @@ describe('DisplayControls — columns and fit', () => {
     expect(fourthColumn.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(fourthColumn)
-    expect(onChangePrefs).toHaveBeenCalledWith(
-      expect.objectContaining({ columns: 4 })
-    )
+    expect(onChangePrefs).toHaveBeenCalledWith(expect.objectContaining({ columns: 4 }))
   })
 
   it('marks the manual column active and leaves Fit screen available', () => {
@@ -206,7 +204,7 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={false}
         fitLayout={{ columns: 3, fontSizePx: 14, fitsOnScreen: true }}
         onToggleFit={onToggleFit}
-      />
+      />,
     )
 
     expect(screen.getByRole('button', { name: '3' }).getAttribute('aria-pressed')).toBe('true')
@@ -227,7 +225,7 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={true}
         fitLayout={{ columns: 4, fontSizePx: 12, fitsOnScreen: true }}
         onToggleFit={vi.fn()}
-      />
+      />,
     )
 
     const fitButton = screen.getByRole('button', { name: 'Fit screen' })
@@ -238,7 +236,7 @@ describe('DisplayControls — columns and fit', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
     expect(onChangePrefs).toHaveBeenCalledWith(
-      expect.objectContaining({ columns: 2, fitToScreen: false })
+      expect.objectContaining({ columns: 2, fitToScreen: false }),
     )
   })
 
@@ -252,7 +250,7 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={true}
         fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
         onToggleFit={vi.fn()}
-      />
+      />,
     )
 
     const wrapButton = screen.getByRole('button', { name: 'Wrapped' })
@@ -262,7 +260,7 @@ describe('DisplayControls — columns and fit', () => {
 
     fireEvent.click(wrapButton)
     expect(onChangePrefs).toHaveBeenCalledWith(
-      expect.objectContaining({ wrapLines: false, fitToScreen: false })
+      expect.objectContaining({ wrapLines: false, fitToScreen: false }),
     )
   })
 
@@ -273,16 +271,14 @@ describe('DisplayControls — columns and fit', () => {
         prefs={{ ...defaultPrefs, wrapLines: false }}
         onChangePrefs={onChangePrefs}
         variant="fullscreen"
-      />
+      />,
     )
 
     const wrapButton = screen.getByRole('button', { name: 'Wrap' })
     expect(wrapButton.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(wrapButton)
-    expect(onChangePrefs).toHaveBeenCalledWith(
-      expect.objectContaining({ wrapLines: true })
-    )
+    expect(onChangePrefs).toHaveBeenCalledWith(expect.objectContaining({ wrapLines: true }))
   })
 
   it('uses the fitted font size for manual size changes and turns Fit screen off', () => {
@@ -295,13 +291,13 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={true}
         fitLayout={{ columns: 3, fontSizePx: 12, fitsOnScreen: true }}
         onToggleFit={vi.fn()}
-      />
+      />,
     )
 
     expect(screen.getByText('12')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Increase song font size' }))
     expect(onChangePrefs).toHaveBeenCalledWith(
-      expect.objectContaining({ fontSizePx: 13, fitToScreen: false })
+      expect.objectContaining({ fontSizePx: 13, fitToScreen: false }),
     )
   })
 
@@ -317,7 +313,7 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={true}
         fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
         onToggleFit={vi.fn()}
-      />
+      />,
     )
 
     expect(screen.queryByRole('button', { name: 'Simplify' })).toBeNull()
@@ -339,7 +335,7 @@ describe('DisplayControls — columns and fit', () => {
         fitActive={true}
         fitLayout={{ columns: 2, fontSizePx: 14, fitsOnScreen: true }}
         onToggleFit={vi.fn()}
-      />
+      />,
     )
 
     expect(screen.getByRole('button', { name: 'Fit screen' })).toBeTruthy()

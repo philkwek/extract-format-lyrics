@@ -19,7 +19,7 @@ describe('AppErrorBoundary', () => {
     render(
       <AppErrorBoundary>
         <ThrowingChild />
-      </AppErrorBoundary>
+      </AppErrorBoundary>,
     )
 
     expect(screen.getByText('This page could not be displayed')).toBeTruthy()

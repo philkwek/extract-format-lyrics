@@ -10,11 +10,7 @@ export interface LyricsPreviewModalProps {
   payload: SharedLyricsPayload | null
 }
 
-export default function LyricsPreviewModal({
-  isOpen,
-  onClose,
-  payload,
-}: LyricsPreviewModalProps) {
+export default function LyricsPreviewModal({ isOpen, onClose, payload }: LyricsPreviewModalProps) {
   if (!isOpen || !payload || typeof document === 'undefined') return null
 
   return createPortal(
@@ -34,6 +30,6 @@ export default function LyricsPreviewModal({
     >
       <LyricsViewerContent songs={payload.songs} isModal />
     </OverlayDialog>,
-    document.body
+    document.body,
   )
 }

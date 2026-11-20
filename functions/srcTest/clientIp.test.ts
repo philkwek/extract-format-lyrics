@@ -30,7 +30,7 @@ describe('clientIpFromRequest', () => {
 
   it('uses a single header value as-is', () => {
     expect(clientIpFromRequest({ headers: { 'x-forwarded-for': '198.51.100.7' } })).toBe(
-      '198.51.100.7'
+      '198.51.100.7',
     )
   })
 

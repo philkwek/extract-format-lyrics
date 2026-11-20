@@ -114,13 +114,16 @@ describe('loadOfficialSimplification', () => {
       () =>
         new Promise<{ text: string; finalUrl: string }>((resolve) => {
           resolveFetch = resolve
-        })
+        }),
     )
 
     const first = loadOfficialSimplification(url, { cache, sourceCache, fetchFn })
     const second = loadOfficialSimplification(url, { cache, sourceCache, fetchFn })
     await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1))
-    resolveFetch({ text: ugHtml('[Verse]\nG  C\nSimplified line'), finalUrl: `${url}?simplified=1` })
+    resolveFetch({
+      text: ugHtml('[Verse]\nG  C\nSimplified line'),
+      finalUrl: `${url}?simplified=1`,
+    })
 
     const [a, b] = await Promise.all([first, second])
     expect(a).toMatchObject({ status: 'ok', simplifiedSource: 'official' })

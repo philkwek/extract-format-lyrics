@@ -1,7 +1,7 @@
 export function getNextTabIndex(
   key: string,
   currentIndex: number,
-  tabCount: number
+  tabCount: number,
 ): number | null {
   if (tabCount <= 0) return null
   if (key === 'ArrowRight') return (currentIndex + 1) % tabCount

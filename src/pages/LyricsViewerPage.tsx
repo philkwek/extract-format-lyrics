@@ -20,7 +20,9 @@ export default function LyricsViewerPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusKind, setStatusKind] = useState<'loading' | 'ok' | 'expired' | 'missing' | 'error'>('loading')
+  const [statusKind, setStatusKind] = useState<'loading' | 'ok' | 'expired' | 'missing' | 'error'>(
+    'loading',
+  )
   const [lyricsData, setLyricsData] = useState<GetSharedLyricsResult | null>(null)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [changeNotice, setChangeNotice] = useState<{
@@ -118,7 +120,7 @@ export default function LyricsViewerPage() {
         }
       }
     },
-    [shortId, applyLyrics]
+    [shortId, applyLyrics],
   )
 
   // Initial load
@@ -216,7 +218,7 @@ export default function LyricsViewerPage() {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-accent/10 text-ui-accent-strong">
+          <span className="bg-ui-accent/10 text-ui-accent-strong mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
             <FileText className="animate-pulse" size={23} />
           </span>
           <div>
@@ -227,8 +229,8 @@ export default function LyricsViewerPage() {
               Retrieving setlist lyrics
             </p>
           </div>
-          <div className="mx-auto h-1.5 max-w-48 overflow-hidden rounded-full bg-ui-accent/10">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-ui-accent" />
+          <div className="bg-ui-accent/10 mx-auto h-1.5 max-w-48 overflow-hidden rounded-full">
+            <div className="bg-ui-accent h-full w-1/2 animate-pulse rounded-full" />
           </div>
         </Surface>
       </div>
@@ -270,7 +272,8 @@ export default function LyricsViewerPage() {
               This lyrics link has expired
             </h1>
             <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">
-              Links expire after seven days. Ask the musician to update or republish this setlist to renew it.
+              Links expire after seven days. Ask the musician to update or republish this setlist to
+              renew it.
             </p>
           </div>
           <Button variant="primary" onClick={() => navigate('/')}>
@@ -298,7 +301,11 @@ export default function LyricsViewerPage() {
             <Button variant="secondary" onClick={() => navigate('/')}>
               Return home
             </Button>
-            <Button variant="primary" icon={<RefreshCw size={15} />} onClick={() => refreshLyrics(true)}>
+            <Button
+              variant="primary"
+              icon={<RefreshCw size={15} />}
+              onClick={() => refreshLyrics(true)}
+            >
               Try again
             </Button>
           </div>

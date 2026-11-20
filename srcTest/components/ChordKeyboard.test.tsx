@@ -13,14 +13,7 @@ describe('ChordKeyboard', () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
 
-    render(
-      <ChordKeyboard
-        initialChord="G"
-        onSave={onSave}
-        onDelete={vi.fn()}
-        onCancel={vi.fn()}
-      />
-    )
+    render(<ChordKeyboard initialChord="G" onSave={onSave} onDelete={vi.fn()} onCancel={vi.fn()} />)
 
     await user.click(screen.getByTitle('Clear chord'))
 

@@ -43,7 +43,10 @@ export default function ShareImportPage() {
         const newSession = await sessionStore.createSession(sessionSongs, snapshot.name)
 
         if (isCancelled) return
-        trackEvent('shared_set_imported', { outcome: 'success', imported_count: sessionSongs.length })
+        trackEvent('shared_set_imported', {
+          outcome: 'success',
+          imported_count: sessionSongs.length,
+        })
 
         // Navigate to imported session
         navigate(sessionPath(newSession), { replace: true })
@@ -68,34 +71,52 @@ export default function ShareImportPage() {
     <div className="mx-auto max-w-lg py-16 text-center">
       {loading ? (
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ui-accent/10 text-ui-accent-strong">
+          <span className="bg-ui-accent/10 text-ui-accent-strong mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
             <DownloadCloud className="animate-pulse" size={23} />
           </span>
           <div>
-            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">Bringing in the shared setlist</h1>
-            <p className="mt-2 text-sm text-[var(--ui-text-muted)]" role="status">{progressMsg}</p>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">
+              Bringing in the shared setlist
+            </h1>
+            <p className="mt-2 text-sm text-[var(--ui-text-muted)]" role="status">
+              {progressMsg}
+            </p>
           </div>
-          <div className="mx-auto h-1.5 max-w-48 overflow-hidden rounded-full bg-ui-accent/10">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-ui-accent" />
+          <div className="bg-ui-accent/10 mx-auto h-1.5 max-w-48 overflow-hidden rounded-full">
+            <div className="bg-ui-accent h-full w-1/2 animate-pulse rounded-full" />
           </div>
         </Surface>
       ) : expired ? (
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400"><Clock3 size={23} /></span>
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <Clock3 size={23} />
+          </span>
           <div>
-            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">This sharing link has expired</h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">Ask the sender to create a fresh link, then open it here again.</p>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">
+              This sharing link has expired
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">
+              Ask the sender to create a fresh link, then open it here again.
+            </p>
           </div>
-          <Button variant="primary" onClick={() => navigate('/')}>Return home</Button>
+          <Button variant="primary" onClick={() => navigate('/')}>
+            Return home
+          </Button>
         </Surface>
       ) : (
         <Surface elevated className="space-y-4 p-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400"><AlertTriangle size={23} /></span>
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400">
+            <AlertTriangle size={23} />
+          </span>
           <div>
-            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">Could not import the setlist</h1>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-[var(--ui-text)]">
+              Could not import the setlist
+            </h1>
             <p className="mt-2 text-sm leading-6 text-[var(--ui-text-muted)]">{error}</p>
           </div>
-          <Button variant="primary" onClick={() => navigate('/')}>Return home</Button>
+          <Button variant="primary" onClick={() => navigate('/')}>
+            Return home
+          </Button>
         </Surface>
       )}
     </div>

@@ -6,7 +6,9 @@ import { normalizeSongText } from '../../src/normalizer.js'
 
 describe('pnwChordsAdapter', () => {
   it('matches pnwchords URLs', () => {
-    expect(pnwChordsAdapter.matches('https://pnwchords.com/good-grace-hillsong-worship/')).toBe(true)
+    expect(pnwChordsAdapter.matches('https://pnwchords.com/good-grace-hillsong-worship/')).toBe(
+      true,
+    )
     expect(pnwChordsAdapter.matches('https://tabs.ultimate-guitar.com/tab/123')).toBe(false)
   })
 

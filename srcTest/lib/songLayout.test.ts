@@ -30,7 +30,7 @@ describe('songLayout - partitionSections', () => {
         kind: 'lyric',
         text: 'go now',
         chords: [{ chord: 'Cmaj7', pos: 3 }],
-      })
+      }),
     ).toBe(9)
   })
 
@@ -54,7 +54,7 @@ describe('songLayout - partitionSections', () => {
         [{ section: shortSection, originalIndex: 0 }],
         [{ section: longSection, originalIndex: 1 }],
         [],
-      ])
+      ]),
     ).toEqual(['Line text 1'.length, 'A much longer lyric line'.length])
   })
 
@@ -212,11 +212,11 @@ describe('songLayout - partitionSections', () => {
 
   it('balances four columns by section weight', () => {
     const sections = Array.from({ length: 8 }, (_, index) =>
-      makeMockSection(`Section ${index + 1}`, 6)
+      makeMockSection(`Section ${index + 1}`, 6),
     )
     const result = partitionSections(sections, 4)
     const weights = result.map((column) =>
-      column.reduce((total, item) => total + getSectionWeight(item.section), 0)
+      column.reduce((total, item) => total + getSectionWeight(item.section), 0),
     )
     expect(Math.max(...weights) - Math.min(...weights)).toBeLessThanOrEqual(0.01)
     expect(result.flat().map((item) => item.originalIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
@@ -228,7 +228,7 @@ describe('songLayout - partitionSections', () => {
 
     expect(estimateSectionHeightPx(short, 14)).toBeGreaterThan(estimateSectionHeightPx(short, 12))
     expect(estimateColumnHeightPx([{ section: short, originalIndex: 0 }], 14)).toBe(
-      estimateSectionHeightPx(short, 14)
+      estimateSectionHeightPx(short, 14),
     )
     expect(
       estimateColumnHeightPx(
@@ -236,11 +236,9 @@ describe('songLayout - partitionSections', () => {
           { section: short, originalIndex: 0 },
           { section: long, originalIndex: 1 },
         ],
-        14
-      )
-    ).toBe(
-      estimateSectionHeightPx(short, 14) + estimateSectionHeightPx(long, 14) + 24
-    )
+        14,
+      ),
+    ).toBe(estimateSectionHeightPx(short, 14) + estimateSectionHeightPx(long, 14) + 24)
   })
 })
 

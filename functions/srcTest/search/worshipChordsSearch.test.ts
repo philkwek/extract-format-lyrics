@@ -80,9 +80,9 @@ describe('parseWorshipChordsSearchHtml', () => {
   })
 
   it('throws SearchParseError when the page shape changes', () => {
-    expect(() => parseWorshipChordsSearchHtml('<html><body>Not a search page</body></html>')).toThrow(
-      SearchParseError
-    )
+    expect(() =>
+      parseWorshipChordsSearchHtml('<html><body>Not a search page</body></html>'),
+    ).toThrow(SearchParseError)
   })
 
   it('deduplicates URLs and caps at ten results', () => {

@@ -89,7 +89,9 @@ describe('exportLyrics', () => {
     const output = formatSetlistLyrics(setlist, songsData)
 
     expect(output).toContain('Way Maker')
-    expect(output).toContain('[Verse 1]\nYou are here moving in our midst\nI worship You I worship You')
+    expect(output).toContain(
+      '[Verse 1]\nYou are here moving in our midst\nI worship You I worship You',
+    )
     expect(output).toContain('[Chorus]\nWay maker miracle worker')
     expect(output).toContain('Goodness of God')
     expect(output).toContain('[Verse 1]\nI love You Lord\nFor Your mercy never fails me')
@@ -177,9 +179,7 @@ describe('exportLyrics', () => {
 
     const song = createMockSong('song-1', 'Intro Song', 'Artist', sections)
     const songsData = new Map<string, Song>([[song.sourceUrl, song]])
-    const setlist: SessionSongItem[] = [
-      { url: song.sourceUrl, title: song.title },
-    ]
+    const setlist: SessionSongItem[] = [{ url: song.sourceUrl, title: song.title }]
 
     const output = formatSetlistLyrics(setlist, songsData)
     expect(output).not.toContain('[Intro]')
@@ -231,9 +231,7 @@ describe('exportLyrics', () => {
 
     const song = createMockSong('song-dup', 'Duplicate Test Song', 'Artist', sections)
     const songsData = new Map<string, Song>([[song.sourceUrl, song]])
-    const setlist: SessionSongItem[] = [
-      { url: song.sourceUrl, title: song.title },
-    ]
+    const setlist: SessionSongItem[] = [{ url: song.sourceUrl, title: song.title }]
 
     const output = formatSetlistLyrics(setlist, songsData)
 
@@ -264,9 +262,7 @@ describe('exportLyrics', () => {
 
     const song = createMockSong('song-distinct', 'Distinct Song', 'Artist', sections)
     const songsData = new Map<string, Song>([[song.sourceUrl, song]])
-    const setlist: SessionSongItem[] = [
-      { url: song.sourceUrl, title: song.title },
-    ]
+    const setlist: SessionSongItem[] = [{ url: song.sourceUrl, title: song.title }]
 
     const output = formatSetlistLyrics(setlist, songsData)
 
@@ -282,7 +278,11 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
         type: 'Verse',
         label: 'Verse 1',
         lines: [
-          { kind: 'lyric', text: 'Amazing grace how sweet the sound', chords: [{ chord: 'G', pos: 0 }] },
+          {
+            kind: 'lyric',
+            text: 'Amazing grace how sweet the sound',
+            chords: [{ chord: 'G', pos: 0 }],
+          },
           { kind: 'chords-only', chords: ['G', 'C'] },
           { kind: 'lyric', text: 'That saved a wretch like me', chords: [{ chord: 'D', pos: 5 }] },
           { kind: 'tab', raw: 'e|---0---|' },
@@ -332,14 +332,18 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
       {
         type: 'Verse',
         label: 'Verse',
-        lines: [{ kind: 'lyric', text: 'Standard verse lyrics', chords: [{ chord: 'F#m7b5', pos: 0 }] }],
+        lines: [
+          { kind: 'lyric', text: 'Standard verse lyrics', chords: [{ chord: 'F#m7b5', pos: 0 }] },
+        ],
       },
     ]
     const simplifiedSections: Section[] = [
       {
         type: 'Verse',
         label: 'Verse (Simple)',
-        lines: [{ kind: 'lyric', text: 'Simplified verse lyrics', chords: [{ chord: 'Am', pos: 0 }] }],
+        lines: [
+          { kind: 'lyric', text: 'Simplified verse lyrics', chords: [{ chord: 'Am', pos: 0 }] },
+        ],
       },
     ]
 
@@ -348,8 +352,16 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
       simplifiedSections,
     }
 
-    const normalItem: SessionSongItem = { entryId: 'normal-1', url: song.sourceUrl, simplified: false }
-    const simpleItem: SessionSongItem = { entryId: 'simple-1', url: song.sourceUrl, simplified: true }
+    const normalItem: SessionSongItem = {
+      entryId: 'normal-1',
+      url: song.sourceUrl,
+      simplified: false,
+    }
+    const simpleItem: SessionSongItem = {
+      entryId: 'simple-1',
+      url: song.sourceUrl,
+      simplified: true,
+    }
 
     const normalResult = extractSongLyrics(normalItem, song, false)
     expect(normalResult.sections[0].label).toBe('Verse')
@@ -451,20 +463,24 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
     const songsData = new Map<string, Song>([[song.sourceUrl, song]])
 
     // Empty set
-    expect(() => buildSharedLyricsPayload({ name: 'Empty', songs: [] }, songsData)).toThrow(ShareLyricsError)
+    expect(() => buildSharedLyricsPayload({ name: 'Empty', songs: [] }, songsData)).toThrow(
+      ShareLyricsError,
+    )
 
     // Over 15 songs
     const tooMany = Array.from({ length: 16 }, (_, i) => ({
       entryId: `e-${i}`,
       url: song.sourceUrl,
     }))
-    expect(() => buildSharedLyricsPayload({ name: 'Too Many', songs: tooMany }, songsData)).toThrow(ShareLyricsError)
+    expect(() => buildSharedLyricsPayload({ name: 'Too Many', songs: tooMany }, songsData)).toThrow(
+      ShareLyricsError,
+    )
 
     // Missing local song data
-    const missingSong: SessionSongItem[] = [
-      { entryId: 'e-1', url: 'https://notfound.test' },
-    ]
-    expect(() => buildSharedLyricsPayload({ name: 'Missing', songs: missingSong }, songsData)).toThrow(ShareLyricsError)
+    const missingSong: SessionSongItem[] = [{ entryId: 'e-1', url: 'https://notfound.test' }]
+    expect(() =>
+      buildSharedLyricsPayload({ name: 'Missing', songs: missingSong }, songsData),
+    ).toThrow(ShareLyricsError)
   })
 
   describe('cleanLyricLine', () => {
@@ -475,7 +491,9 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
     })
 
     it('collapses multiple consecutive internal spaces and tabs into a single space', () => {
-      expect(cleanLyricLine('No exceptions,   undeniably free')).toBe('No exceptions, undeniably free')
+      expect(cleanLyricLine('No exceptions,   undeniably free')).toBe(
+        'No exceptions, undeniably free',
+      )
       expect(cleanLyricLine('Word1    Word2\t\tWord3')).toBe('Word1 Word2 Word3')
     })
 
@@ -591,11 +609,7 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
       const item: SessionSongItem = { entryId: 'e-1', url: song.sourceUrl }
 
       const structured = extractSongLyrics(item, song)
-      expect(structured.sections[0].lines).toEqual([
-        'Stanza 1 line 1',
-        '',
-        'Stanza 2 line 1',
-      ])
+      expect(structured.sections[0].lines).toEqual(['Stanza 1 line 1', '', 'Stanza 2 line 1'])
     })
 
     it('does NOT mutate the original Song or Section objects', () => {
@@ -628,4 +642,3 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
     })
   })
 })
-

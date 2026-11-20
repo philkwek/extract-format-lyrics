@@ -39,11 +39,11 @@ function makeDeps() {
       async (
         songs: SessionSongItem[],
         _name?: string,
-        options?: { importFailures?: ImportFailure[] }
+        options?: { importFailures?: ImportFailure[] },
       ) => ({
         ...makeSession(songs),
         ...(options?.importFailures?.length ? { importFailures: options.importFailures } : {}),
-      })
+      }),
     ),
     addSongsToSession: vi.fn(async (_id: string, songs: SessionSongItem[]) => ({
       session: makeSession([...songs]),
@@ -64,7 +64,7 @@ function asDeps(deps: ReturnType<typeof makeDeps>): ImportSourceDeps {
 describe('parsePastedSources', () => {
   it('splits, validates, de-duplicates, and counts raw tokens', () => {
     const parsed = parsePastedSources(
-      'https://pnwchords.com/song https://example.com/nope https://pnwchords.com/song'
+      'https://pnwchords.com/song https://example.com/nope https://pnwchords.com/song',
     )
 
     expect(parsed.sources).toEqual([{ url: 'https://pnwchords.com/song' }])
@@ -83,7 +83,7 @@ describe('sourceFromCandidate', () => {
         title: 'Song',
         artist: 'Artist',
         site: 'pnwchords',
-      })
+      }),
     ).toEqual({
       url: 'https://pnwchords.com/song',
       title: 'Song',
@@ -104,7 +104,7 @@ describe('loadSources', () => {
 
     const result = await loadSources(
       [{ url: 'https://pnwchords.com/a' }, { url: 'https://pnwchords.com/b' }],
-      { deps: asDeps(deps) }
+      { deps: asDeps(deps) },
     )
 
     expect(result.outcomes).toHaveLength(2)
@@ -116,9 +116,7 @@ describe('loadSources', () => {
     expect(result.outcomes[1].item).toMatchObject({
       url: song.sourceUrl,
     })
-    expect(result.items).toEqual([
-      { url: song.sourceUrl, title: 'Song', artist: 'Artist' },
-    ])
+    expect(result.items).toEqual([{ url: song.sourceUrl, title: 'Song', artist: 'Artist' }])
     expect(result.imported).toBe(1)
     expect(result.attempted).toBe(2)
     expect(deps.sessions.createSession).not.toHaveBeenCalled()
@@ -135,9 +133,7 @@ describe('loadSources', () => {
       invalidInputs: [{ input: 'not-a-url', reason: 'Not a valid URL' }],
     })
 
-    expect(result.items).toEqual([
-      { url: song.sourceUrl, title: 'Song', artist: 'Artist' },
-    ])
+    expect(result.items).toEqual([{ url: song.sourceUrl, title: 'Song', artist: 'Artist' }])
     expect(result.failures).toEqual([{ url: 'not-a-url', reason: 'Not a valid URL' }])
     expect(result.imported).toBe(1)
     expect(result.attempted).toBe(2)
@@ -177,7 +173,7 @@ describe('importSources', () => {
     const cachedSong = makeSong('https://pnwchords.com/cached/', 'Cached')
     const scrapedSong = makeSong('https://pnwchords.com/scraped/', 'Scraped')
     deps.cache.getSong.mockImplementation(async (url: string) =>
-      url === 'https://pnwchords.com/cached' ? cachedSong : null
+      url === 'https://pnwchords.com/cached' ? cachedSong : null,
     )
     deps.scrape.mockResolvedValue({
       results: [
@@ -192,11 +188,8 @@ describe('importSources', () => {
     const progress: ImportProgress[][] = []
 
     const result = await importSources(
-      [
-        { url: 'https://pnwchords.com/scraped' },
-        { url: 'https://pnwchords.com/cached' },
-      ],
-      { deps: asDeps(deps), onProgress: (statuses) => progress.push(statuses) }
+      [{ url: 'https://pnwchords.com/scraped' }, { url: 'https://pnwchords.com/cached' }],
+      { deps: asDeps(deps), onProgress: (statuses) => progress.push(statuses) },
     )
 
     expect(result.items.map((item) => item.url)).toEqual([
@@ -227,12 +220,10 @@ describe('importSources', () => {
 
     const result = await importSources(
       [{ url: 'https://pnwchords.com/ok' }, { url: 'https://pnwchords.com/bad' }],
-      { deps: asDeps(deps) }
+      { deps: asDeps(deps) },
     )
 
-    expect(result.items).toEqual([
-      { url: song.sourceUrl, title: 'Song', artist: 'Artist' },
-    ])
+    expect(result.items).toEqual([{ url: song.sourceUrl, title: 'Song', artist: 'Artist' }])
     expect(result.failures).toEqual([
       { url: 'https://pnwchords.com/bad', reason: 'No chords here' },
     ])
@@ -265,12 +256,10 @@ describe('importSources', () => {
 
     const result = await importSources(
       [{ url: 'https://pnwchords.com/a' }, { url: 'https://pnwchords.com/b' }],
-      { deps: asDeps(deps) }
+      { deps: asDeps(deps) },
     )
 
-    expect(result.items).toEqual([
-      { url: songB.sourceUrl, title: 'B', artist: 'Artist' },
-    ])
+    expect(result.items).toEqual([{ url: songB.sourceUrl, title: 'B', artist: 'Artist' }])
     expect(result.failures).toEqual([{ url: 'https://pnwchords.com/a', reason: 'quota exceeded' }])
     expect(result.imported).toBe(1)
   })
@@ -281,7 +270,7 @@ describe('importSources', () => {
 
     const result = await importSources(
       [{ url: 'https://pnwchords.com/a' }, { url: 'https://pnwchords.com/b' }],
-      { deps: asDeps(deps) }
+      { deps: asDeps(deps) },
     )
 
     expect(result.items).toEqual([])
@@ -304,9 +293,7 @@ describe('importSources', () => {
       invalidInputs: [{ input: 'not-a-url', reason: 'Not a valid URL' }],
     })
 
-    expect(result.items).toEqual([
-      { url: song.sourceUrl, title: 'Song', artist: 'Artist' },
-    ])
+    expect(result.items).toEqual([{ url: song.sourceUrl, title: 'Song', artist: 'Artist' }])
     expect(result.items.some((item) => item.url === 'not-a-url')).toBe(false)
     expect(result.failures).toEqual([{ url: 'not-a-url', reason: 'Not a valid URL' }])
     expect(result.imported).toBe(1)
@@ -332,7 +319,7 @@ describe('importSources', () => {
       importSources([{ url: 'https://pnwchords.com/song' }], {
         deps: asDeps(deps),
         requireAll: true,
-      })
+      }),
     ).rejects.toThrow('Could not extract chords')
     expect(deps.sessions.createSession).not.toHaveBeenCalled()
     expect(deps.sessions.addSongsToSession).not.toHaveBeenCalled()
@@ -347,7 +334,7 @@ describe('importSources', () => {
         deps: asDeps(deps),
         invalidInputs: [{ input: 'not-a-url', reason: 'Not a valid URL' }],
         requireAll: true,
-      })
+      }),
     ).rejects.toThrow('Not a valid URL')
     expect(deps.sessions.createSession).not.toHaveBeenCalled()
   })
@@ -371,7 +358,7 @@ describe('importSources', () => {
     expect(deps.sessions.addSongsToSession).toHaveBeenCalledWith(
       'session-1',
       [expect.objectContaining({ url: song.sourceUrl })],
-      []
+      [],
     )
   })
 
@@ -383,7 +370,7 @@ describe('importSources', () => {
 
     const result = await importSources(
       [{ url: 'https://pnwchords.com/a' }, { url: 'https://pnwchords.com/b' }],
-      { deps: asDeps(deps), targetSessionId: 'session-1' }
+      { deps: asDeps(deps), targetSessionId: 'session-1' },
     )
 
     const failures = [

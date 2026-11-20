@@ -77,14 +77,22 @@ export default function OverlayDialog({
             </div>
             <header className="ui-dialog__header touch-none" onPointerDown={onPointerDown}>
               <div className="min-w-0">
-                <h2 id={titleId} className="ui-dialog__title">{title}</h2>
-                {description && <p id={descriptionId} className="ui-dialog__description">{description}</p>}
+                <h2 id={titleId} className="ui-dialog__title">
+                  {title}
+                </h2>
+                {description && (
+                  <p id={descriptionId} className="ui-dialog__description">
+                    {description}
+                  </p>
+                )}
               </div>
               <IconButton label="Close" variant="ghost" onClick={onClose}>
                 <X size={18} strokeWidth={2} />
               </IconButton>
             </header>
-            <div className={classes('ui-dialog__content overscroll-contain', contentClassName)}>{children}</div>
+            <div className={classes('ui-dialog__content overscroll-contain', contentClassName)}>
+              {children}
+            </div>
             {footer && <footer className="ui-dialog__footer">{footer}</footer>}
           </motion.div>
         </motion.div>

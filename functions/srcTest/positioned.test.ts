@@ -6,15 +6,23 @@ const w = (text: string, x0: number, x1: number) => ({ text, x0, x1 })
 describe('positionedLineToModelLine', () => {
   it('puts A2 over "Presence" and E/G# over "-" in the chorus line', () => {
     const words = [
-      w('Here', 55, 90), w('in', 95, 110), w('Your', 115, 150), w('Presence', 155, 235),
-      w('we', 240, 262), w('are', 267, 295), w('un', 300, 322), w('-', 327, 335), w('done', 450, 495),
+      w('Here', 55, 90),
+      w('in', 95, 110),
+      w('Your', 115, 150),
+      w('Presence', 155, 235),
+      w('we', 240, 262),
+      w('are', 267, 295),
+      w('un', 300, 322),
+      w('-', 327, 335),
+      w('done', 450, 495),
     ]
     const line = positionedLineToModelLine(words, [
       { chord: 'A2', x0: 185, x1: 205 },
       { chord: 'E/G#', x0: 395, x1: 430 },
     ])
     if (line.kind !== 'lyric') throw new Error('expected lyric')
-    const at = (c: string) => line.text.slice(line.chords.find((x) => x.chord === c)!.pos).split(' ')[0]
+    const at = (c: string) =>
+      line.text.slice(line.chords.find((x) => x.chord === c)!.pos).split(' ')[0]
     expect(at('A2')).toBe('Presence')
     expect(at('E/G#')).toBe('done')
   })
@@ -34,10 +42,13 @@ describe('positionedLineToModelLine', () => {
   })
 
   it('assigns distinct positions when words is empty and multiple chords are present', () => {
-    const line = positionedLineToModelLine([], [
-      { chord: 'G', x0: 10, x1: 20 },
-      { chord: 'C', x0: 50, x1: 60 },
-    ])
+    const line = positionedLineToModelLine(
+      [],
+      [
+        { chord: 'G', x0: 10, x1: 20 },
+        { chord: 'C', x0: 50, x1: 60 },
+      ],
+    )
     if (line.kind !== 'lyric') throw new Error('expected lyric')
     expect(line.chords).toHaveLength(2)
     expect(new Set(line.chords.map((c) => c.pos)).size).toBe(2)

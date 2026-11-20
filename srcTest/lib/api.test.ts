@@ -18,7 +18,7 @@ describe('searchApiStream', () => {
       (url: string) =>
         new Promise<Response>((resolve) => {
           pending.set(new URL(url, 'https://app.example').searchParams.get('site')!, resolve)
-        })
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const answer = (site: string, count: number) => {
@@ -29,7 +29,7 @@ describe('searchApiStream', () => {
           results,
           sources: [{ site, status: count ? 'ok' : 'empty', count, durationMs: 5 }],
           partial: false,
-        })
+        }),
       )
     }
     const onSource = vi.fn()
@@ -55,7 +55,7 @@ describe('searchApiStream', () => {
     answer('worshipchords-net', 0)
     answer('worshipchords', 0)
     pending.get('worshiptogether')!(
-      Response.json({ error: { message: 'Source failed' } }, { status: 500 })
+      Response.json({ error: { message: 'Source failed' } }, { status: 500 }),
     )
 
     const response = await running
@@ -79,8 +79,11 @@ describe('searchApiStream', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
-        Response.json({ error: { message: 'Rate limit exceeded. Try again in 30s' } }, { status: 429 })
-      )
+        Response.json(
+          { error: { message: 'Rate limit exceeded. Try again in 30s' } },
+          { status: 429 },
+        ),
+      ),
     )
 
     await expect(searchApiStream('song')).rejects.toThrow(/Rate limit exceeded/)
@@ -107,7 +110,7 @@ describe('resumeLiveSetApi', () => {
         new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Not yours' } }), {
           status: 403,
         }),
-      )
+      ),
     )
 
     await expect(resumeLiveSetApi('abc', 'secret')).rejects.toThrow('Not yours')

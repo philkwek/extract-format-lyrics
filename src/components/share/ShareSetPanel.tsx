@@ -107,15 +107,15 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
 
   if (liveSourceUrl) {
     return (
-      <div className="rounded-xl border border-ui-border bg-ui-surface-raised">
+      <div className="border-ui-border bg-ui-surface-raised rounded-xl border">
         <div className="space-y-3 p-3">
-          <p className="text-xs leading-5 text-ui-text-muted">
+          <p className="text-ui-text-muted text-xs leading-5">
             This set follows someone else&rsquo;s live share.
           </p>
           <div className="space-y-2">
             <label
               htmlFor="share-source-live-url"
-              className="text-[11px] font-bold uppercase tracking-[0.12em] text-ui-text-muted"
+              className="text-ui-text-muted text-[11px] font-bold tracking-[0.12em] uppercase"
             >
               Live link
             </label>
@@ -124,7 +124,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
               type="text"
               readOnly
               value={liveSourceUrl}
-              className="ui-field select-all px-3 py-2.5 font-mono text-xs"
+              className="ui-field px-3 py-2.5 font-mono text-xs select-all"
             />
             <div className="flex flex-wrap justify-end gap-2 pt-1">
               <Button
@@ -155,17 +155,17 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   }
 
   return (
-    <div className="rounded-xl border border-ui-border bg-ui-surface-raised">
+    <div className="border-ui-border bg-ui-surface-raised rounded-xl border">
       <div className="px-3 py-3">
         <SendCopyRow session={session} canShareLive={canShareLive} />
       </div>
 
       {canShareLive && (
-        <div className="border-t border-ui-border px-3 py-3">
+        <div className="border-ui-border border-t px-3 py-3">
           <div className="flex min-h-[44px] items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-ui-text">Share live</p>
-              <p className="text-xs leading-5 text-ui-text-muted">
+              <p className="text-ui-text text-sm font-bold">Share live</p>
+              <p className="text-ui-text-muted text-xs leading-5">
                 {liveUrl
                   ? 'On. People with the link see your changes as you make them.'
                   : 'They see your changes as you make them.'}
@@ -183,7 +183,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
             <div className="mt-3">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 {expiresAt && (
-                  <span className="text-[11px] text-ui-text-muted">
+                  <span className="text-ui-text-muted text-[11px]">
                     Link works until {new Date(expiresAt).toLocaleDateString()}
                   </span>
                 )}

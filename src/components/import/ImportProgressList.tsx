@@ -31,7 +31,7 @@ export default function ImportProgressList({
 
   return (
     <div className={classes('space-y-2', className)}>
-      <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
+      <h3 className="text-[11px] font-bold tracking-[0.12em] text-[var(--ui-text-muted)] uppercase">
         {heading}
       </h3>
       {statuses.map((status, index) => (
@@ -43,9 +43,9 @@ export default function ImportProgressList({
           <span
             className={
               status.status === 'done' || status.status === 'cached'
-                ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                ? 'font-medium text-emerald-600 dark:text-emerald-400'
                 : status.status === 'error'
-                  ? 'text-red-600 dark:text-red-400 font-medium'
+                  ? 'font-medium text-red-600 dark:text-red-400'
                   : 'text-ui-accent-strong animate-pulse font-medium'
             }
           >

@@ -125,7 +125,13 @@ export default function ChordKeyboard({
   }
 
   return (
-    <OverlayDialog isOpen onClose={onCancel} title="Edit chord" description="Choose a root and quality, or type the chord directly." size="sm">
+    <OverlayDialog
+      isOpen
+      onClose={onCancel}
+      title="Edit chord"
+      description="Choose a root and quality, or type the chord directly."
+      size="sm"
+    >
       <div className="space-y-4 select-none">
         <SegmentedControl
           label="Chord editor detail"
@@ -139,11 +145,11 @@ export default function ChordKeyboard({
 
         {/* Lyric Context (if available) */}
         {lyricContext && (
-          <div className="text-xs text-neutral-600 dark:text-ui-text-muted font-mono bg-neutral-100 dark:bg-ui-surface-muted p-2 rounded-lg">
-            <span className="text-neutral-400 dark:text-ui-text-muted block text-[10px] uppercase font-sans font-semibold mb-0.5">
+          <div className="dark:text-ui-text-muted dark:bg-ui-surface-muted rounded-lg bg-neutral-100 p-2 font-mono text-xs text-neutral-600">
+            <span className="dark:text-ui-text-muted mb-0.5 block font-sans text-[10px] font-semibold text-neutral-400 uppercase">
               Above Lyric
             </span>
-            <span className="break-words font-medium">&ldquo;{lyricContext}&rdquo;</span>
+            <span className="font-medium break-words">&ldquo;{lyricContext}&rdquo;</span>
           </div>
         )}
 
@@ -159,14 +165,14 @@ export default function ChordKeyboard({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full font-mono text-xl font-bold text-[#255283] dark:text-amber-400 bg-neutral-50 dark:bg-ui-surface-muted border-2 border-neutral-300 dark:border-ui-border focus:border-[#3368A0] dark:focus:border-amber-500 focus:outline-none rounded-xl px-3 py-2.5 pr-10 text-center tracking-wider"
+            className="dark:bg-ui-surface-muted dark:border-ui-border w-full rounded-xl border-2 border-neutral-300 bg-neutral-50 px-3 py-2.5 pr-10 text-center font-mono text-xl font-bold tracking-wider text-[#255283] focus:border-[#3368A0] focus:outline-none dark:text-amber-400 dark:focus:border-amber-500"
           />
           {chord && (
             <button
               type="button"
               onClick={handleClear}
               title="Clear chord"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:text-ui-text-muted dark:hover:text-ui-text p-1 text-xs cursor-pointer"
+              className="dark:text-ui-text-muted dark:hover:text-ui-text absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer p-1 text-xs text-neutral-400 hover:text-neutral-700"
             >
               ✕
             </button>
@@ -177,7 +183,7 @@ export default function ChordKeyboard({
         <div className="space-y-3 pt-1">
           {/* Row 1: Root Notes */}
           <div>
-            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted mb-1">
+            <div className="dark:text-ui-text-muted mb-1 text-[10px] font-semibold text-neutral-400 uppercase">
               Root Note
             </div>
             <div className="grid grid-cols-7 gap-1">
@@ -188,10 +194,10 @@ export default function ChordKeyboard({
                     key={note}
                     type="button"
                     onClick={() => handleRootClick(note)}
-                    className={`py-2 text-sm font-bold rounded-lg transition-all active:scale-95 cursor-pointer border ${
+                    className={`cursor-pointer rounded-lg border py-2 text-sm font-bold transition-all active:scale-95 ${
                       isActive
-                        ? 'bg-[#3368A0] text-white border-[#3368A0] shadow-xs dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                        : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                        ? 'border-[#3368A0] bg-[#3368A0] text-white shadow-xs dark:border-amber-500 dark:bg-amber-500 dark:text-black'
+                        : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                     }`}
                   >
                     {note}
@@ -203,17 +209,17 @@ export default function ChordKeyboard({
 
           {/* Row 2: Accidentals, Bass Slash, Backspace */}
           <div>
-            <div className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted mb-1">
+            <div className="dark:text-ui-text-muted mb-1 text-[10px] font-semibold text-neutral-400 uppercase">
               Accidentals & Modifiers
             </div>
             <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => handleAccidentalClick('#')}
-                className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
+                className={`flex cursor-pointer items-center justify-center gap-1 rounded-lg border py-2 transition-all active:scale-95 ${
                   activeAccidental === '#'
-                    ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                    ? 'border-[#3368A0] bg-[#3368A0] text-white dark:border-amber-500 dark:bg-amber-500 dark:text-black'
+                    : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                 }`}
               >
                 <span>♯</span>
@@ -223,10 +229,10 @@ export default function ChordKeyboard({
               <button
                 type="button"
                 onClick={() => handleAccidentalClick('b')}
-                className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
+                className={`flex cursor-pointer items-center justify-center gap-1 rounded-lg border py-2 transition-all active:scale-95 ${
                   activeAccidental === 'b'
-                    ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                    ? 'border-[#3368A0] bg-[#3368A0] text-white dark:border-amber-500 dark:bg-amber-500 dark:text-black'
+                    : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                 }`}
               >
                 <span>♭</span>
@@ -236,10 +242,10 @@ export default function ChordKeyboard({
               <button
                 type="button"
                 onClick={handleSlashClick}
-                className={`py-2 rounded-lg transition-all active:scale-95 cursor-pointer border flex items-center justify-center gap-1 ${
+                className={`flex cursor-pointer items-center justify-center gap-1 rounded-lg border py-2 transition-all active:scale-95 ${
                   chord.includes('/')
-                    ? 'bg-[#C8DFDB]/60 text-[#1c436b] border-[#66A3BF]/50 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/50'
-                    : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                    ? 'border-[#66A3BF]/50 bg-[#C8DFDB]/60 text-[#1c436b] dark:border-amber-500/50 dark:bg-amber-500/20 dark:text-amber-400'
+                    : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                 }`}
                 aria-label="Add bass note"
                 title="Add bass note"
@@ -251,7 +257,7 @@ export default function ChordKeyboard({
               <button
                 type="button"
                 onClick={handleBackspace}
-                className="py-2 bg-neutral-100 dark:bg-ui-surface-raised text-neutral-700 dark:text-ui-text border border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                className="dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 flex cursor-pointer items-center justify-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 py-2 text-neutral-700 transition-all hover:bg-neutral-200 active:scale-95"
                 aria-label="Delete last character"
                 title="Delete last character"
               >
@@ -263,17 +269,17 @@ export default function ChordKeyboard({
 
           {/* Row 3: Chord Qualities */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-ui-text-muted">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="dark:text-ui-text-muted text-[10px] font-semibold text-neutral-400 uppercase">
                 {mode === 'simple' ? 'Simple Qualities' : 'Advanced Qualities & Extensions'}
               </span>
-              <span className="text-[10px] text-neutral-400 dark:text-ui-text-muted">
+              <span className="dark:text-ui-text-muted text-[10px] text-neutral-400">
                 {mode === 'simple' ? 'Common types' : 'All extensions'}
               </span>
             </div>
 
             {mode === 'simple' ? (
-              <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-4">
                 {SIMPLE_QUALITIES.map((q) => {
                   const isCurrent =
                     q.value === 'maj' ? activeQuality === '' : activeQuality === q.value
@@ -282,10 +288,10 @@ export default function ChordKeyboard({
                       key={q.value}
                       type="button"
                       onClick={() => handleQualityClick(q.value)}
-                      className={`py-2 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border ${
+                      className={`cursor-pointer rounded-lg border px-1 py-2 text-xs font-semibold transition-all active:scale-95 ${
                         isCurrent
-                          ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                          : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                          ? 'border-[#3368A0] bg-[#3368A0] text-white dark:border-amber-500 dark:bg-amber-500 dark:text-black'
+                          : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                       }`}
                       title={q.desc}
                     >
@@ -295,7 +301,7 @@ export default function ChordKeyboard({
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto overscroll-contain pr-0.5 no-scrollbar">
+              <div className="no-scrollbar grid max-h-40 grid-cols-4 gap-1.5 overflow-y-auto overscroll-contain pr-0.5 sm:grid-cols-5">
                 {ADVANCED_QUALITIES.map((q) => {
                   const isCurrent =
                     q.value === 'maj' ? activeQuality === '' : activeQuality === q.value
@@ -304,10 +310,10 @@ export default function ChordKeyboard({
                       key={q.value}
                       type="button"
                       onClick={() => handleQualityClick(q.value)}
-                      className={`py-1.5 px-1 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer border truncate ${
+                      className={`cursor-pointer truncate rounded-lg border px-1 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
                         isCurrent
-                          ? 'bg-[#3368A0] text-white border-[#3368A0] dark:bg-amber-500 dark:text-black dark:border-amber-500'
-                          : 'bg-neutral-100 dark:bg-ui-surface-raised text-neutral-800 dark:text-ui-text border-neutral-200 dark:border-ui-border hover:bg-neutral-200 dark:hover:bg-ui-text/10'
+                          ? 'border-[#3368A0] bg-[#3368A0] text-white dark:border-amber-500 dark:bg-amber-500 dark:text-black'
+                          : 'dark:bg-ui-surface-raised dark:text-ui-text dark:border-ui-border dark:hover:bg-ui-text/10 border-neutral-200 bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
                       }`}
                     >
                       {q.label}
@@ -320,7 +326,7 @@ export default function ChordKeyboard({
         </div>
 
         {/* Modal Action Buttons: Delete Chord, Edit Position, Cancel, Save */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-ui-border gap-2 flex-wrap">
+        <div className="dark:border-ui-border flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-3">
           <div className="flex items-center gap-2">
             <Button
               variant="danger"
@@ -345,8 +351,17 @@ export default function ChordKeyboard({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-            <Button variant="primary" size="sm" disabled={!chord.trim()} onClick={() => onSave(chord.trim())}>Save</Button>
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!chord.trim()}
+              onClick={() => onSave(chord.trim())}
+            >
+              Save
+            </Button>
           </div>
         </div>
       </div>

@@ -83,7 +83,7 @@ function toBase64Url(bytes: Uint8Array): string {
 /** First 16 bytes of SHA-256(domain + secret), base64url without padding. */
 export async function deriveSetLinkId(
   secret: string,
-  domain: string = SET_LINK_DOMAIN_SEPARATOR
+  domain: string = SET_LINK_DOMAIN_SEPARATOR,
 ): Promise<string> {
   const data = new TextEncoder().encode(`${domain}${secret}`)
   const digest = await crypto.subtle.digest('SHA-256', data)
@@ -92,28 +92,28 @@ export async function deriveSetLinkId(
 
 export async function getSetLinkIdentity(
   sessionId: string,
-  store: SetLinkIdentityStore = activeStore
+  store: SetLinkIdentityStore = activeStore,
 ): Promise<SetLinkIdentityRecord | null> {
   return (await store.get<SetLinkIdentityRecord>(sessionId)) ?? null
 }
 
 export async function saveSetLinkIdentity(
   record: SetLinkIdentityRecord,
-  store: SetLinkIdentityStore = activeStore
+  store: SetLinkIdentityStore = activeStore,
 ): Promise<void> {
   await store.set(record.sessionId, record)
 }
 
 export async function deleteSetLinkIdentity(
   sessionId: string,
-  store: SetLinkIdentityStore = activeStore
+  store: SetLinkIdentityStore = activeStore,
 ): Promise<void> {
   await store.del(sessionId)
 }
 
 export async function getOrCreateSetLinkIdentity(
   sessionId: string,
-  store: SetLinkIdentityStore = activeStore
+  store: SetLinkIdentityStore = activeStore,
 ): Promise<SetLinkIdentityRecord> {
   const existing = await getSetLinkIdentity(sessionId, store)
   if (existing) return existing

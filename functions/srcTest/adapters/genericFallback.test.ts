@@ -32,6 +32,8 @@ They call the Rising Sun
 
   it('throws error when no chord sheet is present', () => {
     const html = `<html><body><h1>Hello World</h1><p>No chords here</p></body></html>`
-    expect(() => genericFallbackAdapter.extract(html, 'https://test.com')).toThrow(/No chord content found/)
+    expect(() => genericFallbackAdapter.extract(html, 'https://test.com')).toThrow(
+      /No chord content found/,
+    )
   })
 })

@@ -77,7 +77,7 @@ describe('mergeOfficialSimplification', () => {
       mergeOfficialSimplification(existing, {
         status: 'unavailable',
         message: 'timed out',
-      })
+      }),
     ).toBe(existing)
   })
 })

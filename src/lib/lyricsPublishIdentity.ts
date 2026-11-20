@@ -43,7 +43,6 @@ function createDefaultStorageStore(): LyricsStorageStore {
   }
 }
 
-
 let activeStorageStore: LyricsStorageStore = createDefaultStorageStore()
 
 export function setLyricsStorageStoreForTesting(store: LyricsStorageStore): void {
@@ -87,14 +86,14 @@ export async function hashSharedLyricsPayload(payload: SharedLyricsPayload): Pro
 }
 
 export async function getLyricsPublicationIdentity(
-  sessionId: string
+  sessionId: string,
 ): Promise<LyricsPublicationRecord | null> {
   const record = await activeStorageStore.get<LyricsPublicationRecord>(sessionId)
   return record || null
 }
 
 export async function saveLyricsPublicationIdentity(
-  record: LyricsPublicationRecord
+  record: LyricsPublicationRecord,
 ): Promise<void> {
   await activeStorageStore.set(record.sessionId, record)
 }
@@ -108,7 +107,7 @@ export async function deleteLyricsPublicationIdentity(sessionId: string): Promis
  * or generates and persists a new one before any publication attempt.
  */
 export async function getOrCreateLyricsPublicationIdentity(
-  sessionId: string
+  sessionId: string,
 ): Promise<LyricsPublicationRecord> {
   const existing = await getLyricsPublicationIdentity(sessionId)
   if (existing) return existing
@@ -131,7 +130,7 @@ export async function getOrCreateLyricsPublicationIdentity(
 export async function recordLyricsPublicationSuccess(
   sessionId: string,
   expiresAt: string,
-  lastPublishedHash?: string
+  lastPublishedHash?: string,
 ): Promise<LyricsPublicationRecord> {
   const record = await getLyricsPublicationIdentity(sessionId)
   if (!record) {
@@ -154,7 +153,7 @@ const memoryLocks = new Map<string, Promise<unknown>>()
  */
 export async function withLyricsPublicationLock<T>(
   sessionId: string,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<T> {
   return withNamedLock(`lyrics-publish:${sessionId}`, fn)
 }
@@ -202,8 +201,8 @@ export async function publishLyricsForSession(
   apiPublisher: (
     id: string,
     secret: string,
-    data: SharedLyricsPayload
-  ) => Promise<{ id: string; expiresAt: string }> = putSharedLyricsApi
+    data: SharedLyricsPayload,
+  ) => Promise<{ id: string; expiresAt: string }> = putSharedLyricsApi,
 ): Promise<PublishLyricsResult> {
   return withLyricsPublicationLock(sessionId, async () => {
     const identity = await getOrCreateLyricsPublicationIdentity(sessionId)

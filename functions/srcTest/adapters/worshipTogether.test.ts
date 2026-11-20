@@ -7,7 +7,9 @@ import { normalizeSongText } from '../../src/normalizer.js'
 describe('worshipTogetherAdapter', () => {
   it('matches worshiptogether URLs', () => {
     expect(
-      worshipTogetherAdapter.matches('https://www.worshiptogether.com/songs/holy-forever-chris-tomlin/')
+      worshipTogetherAdapter.matches(
+        'https://www.worshiptogether.com/songs/holy-forever-chris-tomlin/',
+      ),
     ).toBe(true)
     expect(worshipTogetherAdapter.matches('https://pnwchords.com/song')).toBe(false)
   })
@@ -16,7 +18,10 @@ describe('worshipTogetherAdapter', () => {
     const fixturePath = path.join(__dirname, '__fixtures__', 'worshiptogether.html')
     const html = fs.readFileSync(fixturePath, 'utf-8')
 
-    const raw = worshipTogetherAdapter.extract(html, 'https://www.worshiptogether.com/songs/holy-forever-chris-tomlin/')
+    const raw = worshipTogetherAdapter.extract(
+      html,
+      'https://www.worshiptogether.com/songs/holy-forever-chris-tomlin/',
+    )
     expect(raw.title).toBe('Holy Forever')
     expect(raw.artist).toBe('Chris Tomlin')
     expect(raw.originalKey).toBe('Db')

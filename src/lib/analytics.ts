@@ -4,7 +4,12 @@ type Outcome = 'success' | 'partial' | 'error'
 type ImportMethod = 'search' | 'pasted_link' | 'upload'
 interface Events {
   song_search: { entry_page: 'home' | 'search'; outcome: 'success' | 'error'; result_count: number }
-  search_timing: { entry_page: 'home' | 'search'; outcome: 'success' | 'error'; result_count: number; duration_ms: number }
+  search_timing: {
+    entry_page: 'home' | 'search'
+    outcome: 'success' | 'error'
+    result_count: number
+    duration_ms: number
+  }
   song_import: { method: ImportMethod; outcome: Outcome; imported_count: number }
   shared_set_imported: { outcome: 'success' | 'error'; imported_count: number }
   set_link_published: {
@@ -181,7 +186,17 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
   const clean: Record<string, string | number> = {}
   const enumerations: Record<string, readonly string[]> = {
     entry_page: ['home', 'search'],
-    outcome: ['success', 'partial', 'error', 'imported', 'opened', 'reused', 'expired', 'missing', 'stopped'],
+    outcome: [
+      'success',
+      'partial',
+      'error',
+      'imported',
+      'opened',
+      'reused',
+      'expired',
+      'missing',
+      'stopped',
+    ],
     method: ['search', 'pasted_link', 'upload'],
     operation: ['create', 'update'],
     trigger: ['create', 'update', 'refresh'],
@@ -276,7 +291,7 @@ export function trackSearchTiming(
   entryPage: 'home' | 'search',
   durationMs: number,
   outcome: 'success' | 'error',
-  resultCount: number
+  resultCount: number,
 ): void {
   trackEvent('search_timing', {
     entry_page: entryPage,

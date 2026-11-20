@@ -64,10 +64,10 @@ describe('lyrics publication identity and persistence', () => {
   it('handles concurrent initial generation safely without race conditions', async () => {
     const [result1, result2] = await Promise.all([
       withLyricsPublicationLock('test-session-concurrent', () =>
-        getOrCreateLyricsPublicationIdentity('test-session-concurrent')
+        getOrCreateLyricsPublicationIdentity('test-session-concurrent'),
       ),
       withLyricsPublicationLock('test-session-concurrent', () =>
-        getOrCreateLyricsPublicationIdentity('test-session-concurrent')
+        getOrCreateLyricsPublicationIdentity('test-session-concurrent'),
       ),
     ])
 
@@ -83,7 +83,7 @@ describe('lyrics publication identity and persistence', () => {
     }
 
     await expect(
-      publishLyricsForSession('test-session-fail', mockPayload, failingPublisher)
+      publishLyricsForSession('test-session-fail', mockPayload, failingPublisher),
     ).rejects.toThrow('Network timeout during publication')
 
     expect(callCount).toBe(1)
@@ -124,7 +124,11 @@ describe('lyrics publication identity and persistence', () => {
       return { id, expiresAt: futureExpiry }
     }
 
-    const result2 = await publishLyricsForSession('test-session-renew', mockPayload, renewingPublisher)
+    const result2 = await publishLyricsForSession(
+      'test-session-renew',
+      mockPayload,
+      renewingPublisher,
+    )
     // URL and publication ID are preserved
     expect(result2.id).toBe(result1.id)
     expect(result2.shareUrl).toBe(result1.shareUrl)

@@ -12,7 +12,7 @@ export default function FullScreenTitleBlock({ song, warning }: FullScreenTitleB
 
   return (
     <div className="min-w-0 select-text">
-      <h2 className="line-clamp-2 text-xl sm:text-2xl font-bold leading-7 tracking-[-0.025em] text-ui-text">
+      <h2 className="text-ui-text line-clamp-2 text-xl leading-7 font-bold tracking-[-0.025em] sm:text-2xl">
         {song.title}
       </h2>
       {details.length > 0 && (

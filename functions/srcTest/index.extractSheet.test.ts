@@ -27,7 +27,7 @@ describe('POST /extractSheet validation', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({ code: 'INVALID_FILE_PAYLOAD' }),
-      })
+      }),
     )
   })
 })

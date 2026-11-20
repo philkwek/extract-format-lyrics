@@ -19,7 +19,7 @@ const candidate: SearchCandidate = {
 describe('SearchResultCard', () => {
   it('renders the candidate metadata and source link', () => {
     render(
-      <SearchResultCard candidate={candidate} actionLabel="Start setlist" onAction={vi.fn()} />
+      <SearchResultCard candidate={candidate} actionLabel="Start setlist" onAction={vi.fn()} />,
     )
 
     expect(screen.getByText('Good Grace')).toBeTruthy()
@@ -30,7 +30,7 @@ describe('SearchResultCard', () => {
     expect(screen.getByText('• Chords')).toBeTruthy()
     expect(screen.getByRole('link', { name: /Source/ })).toHaveProperty(
       'href',
-      'https://pnwchords.com/good-grace'
+      'https://pnwchords.com/good-grace',
     )
   })
 
@@ -44,7 +44,7 @@ describe('SearchResultCard', () => {
         }}
         actionLabel="Start setlist"
         onAction={vi.fn()}
-      />
+      />,
     )
 
     expect(screen.getByText('Worship Chords (.net)')).toBeTruthy()
@@ -52,7 +52,9 @@ describe('SearchResultCard', () => {
 
   it('renders the supplied action label and fires the callback', () => {
     const onAction = vi.fn()
-    render(<SearchResultCard candidate={candidate} actionLabel="Add to setlist" onAction={onAction} />)
+    render(
+      <SearchResultCard candidate={candidate} actionLabel="Add to setlist" onAction={onAction} />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Add to setlist' }))
     expect(onAction).toHaveBeenCalledTimes(1)
@@ -65,16 +67,18 @@ describe('SearchResultCard', () => {
         actionLabel="Added ✓"
         actionDisabled
         onAction={vi.fn()}
-      />
+      />,
     )
 
-    expect((screen.getByRole('button', { name: 'Added ✓' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Added ✓' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 
   it('shows a second button only when a secondary action is given', () => {
     const onClick = vi.fn()
     const { rerender } = render(
-      <SearchResultCard candidate={candidate} actionLabel="Add to set" onAction={vi.fn()} />
+      <SearchResultCard candidate={candidate} actionLabel="Add to set" onAction={vi.fn()} />,
     )
     expect(screen.queryByRole('button', { name: 'Start now' })).toBeNull()
 
@@ -84,12 +88,12 @@ describe('SearchResultCard', () => {
         actionLabel="Add to set"
         onAction={vi.fn()}
         quickAction={{ label: 'Start now', onClick }}
-      />
+      />,
     )
     const start = screen.getByRole('button', { name: 'Start now' })
     expect(start.className).toContain('ui-button--primary')
     expect(screen.getByRole('button', { name: 'Add to set' }).className).toContain(
-      'ui-button--secondary'
+      'ui-button--secondary',
     )
     fireEvent.click(start)
     expect(onClick).toHaveBeenCalledTimes(1)

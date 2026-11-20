@@ -27,7 +27,12 @@ function makeSession(over: Partial<Session> = {}): Session {
 
 const fakeHash = async (p: unknown) => JSON.stringify(p)
 
-function setup(opts: { identities?: Map<string, SetLinkIdentityRecord>; seed?: Partial<SetLinkIdentityRecord> } = {}) {
+function setup(
+  opts: {
+    identities?: Map<string, SetLinkIdentityRecord>
+    seed?: Partial<SetLinkIdentityRecord>
+  } = {},
+) {
   const identities = opts.identities ?? new Map<string, SetLinkIdentityRecord>()
   if (!identities.has('s1')) {
     identities.set('s1', { sessionId: 's1', publicId: 'p'.repeat(22), secret: 'k', ...opts.seed })
@@ -36,7 +41,11 @@ function setup(opts: { identities?: Map<string, SetLinkIdentityRecord>; seed?: P
   const callTimes: number[] = []
   const api = vi.fn(async (): Promise<{ id: string; expiresAt: string; unchanged: boolean }> => {
     callTimes.push(Date.now())
-    return { id: 'x', expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(), unchanged: false }
+    return {
+      id: 'x',
+      expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
+      unchanged: false,
+    }
   })
   const deps: SetLinkSyncDeps = {
     store: { subscribe: (l) => (listeners.add(l), () => listeners.delete(l)) },
@@ -65,8 +74,13 @@ function setup(opts: { identities?: Map<string, SetLinkIdentityRecord>; seed?: P
   return { sync, deps, api, identities, emit, callTimes }
 }
 
-const ev = (type: 'created' | 'updated', session: Session) => ({ type, sessionId: session.id, session })
-const withKey = (key: string): Session => makeSession({ songs: [{ ...makeSession().songs[0], targetKey: key }] })
+const ev = (type: 'created' | 'updated', session: Session) => ({
+  type,
+  sessionId: session.id,
+  session,
+})
+const withKey = (key: string): Session =>
+  makeSession({ songs: [{ ...makeSession().songs[0], targetKey: key }] })
 
 describe('buildSetLinkPayload', () => {
   it('excludes uploads and non-http urls, keeps everything else', () => {
@@ -74,9 +88,16 @@ describe('buildSetLinkPayload', () => {
       name: '  Sunday  ',
       songs: [
         {
-          entryId: 'e1', url: 'https://x.test/a', title: 'T', artist: 'A', targetKey: 'D',
-          simplified: true, padKeyMode: 'custom', customPadKey: 'E',
-          customSections: [{ label: 'x' } as never], customFlow: [1],
+          entryId: 'e1',
+          url: 'https://x.test/a',
+          title: 'T',
+          artist: 'A',
+          targetKey: 'D',
+          simplified: true,
+          padKeyMode: 'custom',
+          customPadKey: 'E',
+          customSections: [{ label: 'x' } as never],
+          customFlow: [1],
         },
         { entryId: 'e2', url: 'upload://abc' },
         { entryId: 'e3', url: 'https://x.test/b' },
@@ -89,7 +110,16 @@ describe('buildSetLinkPayload', () => {
       v: 1,
       name: 'Sunday',
       songs: [
-        { entryId: 'e1', url: 'https://x.test/a', title: 'T', artist: 'A', targetKey: 'D', simplified: true, padKeyMode: 'custom', customPadKey: 'E' },
+        {
+          entryId: 'e1',
+          url: 'https://x.test/a',
+          title: 'T',
+          artist: 'A',
+          targetKey: 'D',
+          simplified: true,
+          padKeyMode: 'custom',
+          customPadKey: 'E',
+        },
         { entryId: 'e3', url: 'https://x.test/b' },
       ],
     })
@@ -97,7 +127,10 @@ describe('buildSetLinkPayload', () => {
 
   it('returns null for empty and too many songs', () => {
     expect(buildSetLinkPayload(makeSession({ songs: [] })).reason).toBe('empty')
-    const many = Array.from({ length: 31 }, (_, i) => ({ entryId: `e${i}`, url: 'https://x.test/a' }))
+    const many = Array.from({ length: 31 }, (_, i) => ({
+      entryId: `e${i}`,
+      url: 'https://x.test/a',
+    }))
     const r = buildSetLinkPayload(makeSession({ songs: many }))
     expect(r.payload).toBeNull()
     expect(r.reason).toBe('too_many')
@@ -132,7 +165,11 @@ describe('setLinkSync', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(env.api).toHaveBeenCalledTimes(1)
     expect(env.identities.get('s1')?.lastPublishedHash).toBeTruthy()
-    expect(env.deps.track).toHaveBeenCalledWith('set_link_published', { song_count: 1, skipped_uploads: 0, trigger: 'create' })
+    expect(env.deps.track).toHaveBeenCalledWith('set_link_published', {
+      song_count: 1,
+      skipped_uploads: 0,
+      trigger: 'create',
+    })
   })
 
   it('does not publish a set opened from a live link', async () => {
@@ -165,7 +202,9 @@ describe('setLinkSync', () => {
     }
     await vi.advanceTimersByTimeAsync(3000)
     expect(env.api).toHaveBeenCalledTimes(1)
-    const payload = (env.api.mock.calls[0] as unknown as [string, string, { songs: { targetKey: string }[] }])[2]
+    const payload = (
+      env.api.mock.calls[0] as unknown as [string, string, { songs: { targetKey: string }[] }]
+    )[2]
     expect(payload.songs[0].targetKey).toBe('K9')
   })
 
@@ -186,7 +225,11 @@ describe('setLinkSync', () => {
     let release!: () => void
     env.api.mockImplementationOnce(async () => {
       await new Promise<void>((r) => (release = r))
-      return { id: 'x', expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(), unchanged: false }
+      return {
+        id: 'x',
+        expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(),
+        unchanged: false,
+      }
     })
     env.emit(ev('created', withKey('A')))
     await vi.advanceTimersByTimeAsync(0)
@@ -197,7 +240,9 @@ describe('setLinkSync', () => {
     release()
     await vi.advanceTimersByTimeAsync(20_000)
     expect(env.api).toHaveBeenCalledTimes(2)
-    const p = (env.api.mock.calls[1] as unknown as [string, string, { songs: { targetKey: string }[] }])[2]
+    const p = (
+      env.api.mock.calls[1] as unknown as [string, string, { songs: { targetKey: string }[] }]
+    )[2]
     expect(p.songs[0].targetKey).toBe('C')
   })
 
@@ -312,10 +357,16 @@ describe('setLinkSync', () => {
     const session = makeSession()
     const near = setup()
     await seedHash(near, session)
-    near.identities.set('s1', { ...near.identities.get('s1')!, expiresAt: new Date(Date.now() + 86400_000).toISOString() })
+    near.identities.set('s1', {
+      ...near.identities.get('s1')!,
+      expiresAt: new Date(Date.now() + 86400_000).toISOString(),
+    })
     expect(await near.sync.ensureFresh(session)).toEqual({ ok: true })
     expect(near.api).toHaveBeenCalledTimes(1)
-    expect(near.deps.track).toHaveBeenCalledWith('set_link_published', expect.objectContaining({ trigger: 'refresh' }))
+    expect(near.deps.track).toHaveBeenCalledWith(
+      'set_link_published',
+      expect.objectContaining({ trigger: 'refresh' }),
+    )
 
     const fresh = setup()
     await seedHash(fresh, session)
@@ -353,7 +404,6 @@ describe('setLinkSync', () => {
     broken.api.mockRejectedValue(new ShareApiError('no', 'FORBIDDEN', 403))
     expect(await broken.sync.ensureFresh(session)).toEqual({ ok: false, reason: 'failed' })
   })
-
 
   it('saving bookkeeping triggers no session events', async () => {
     const data = new Map<string, unknown>()
@@ -413,9 +463,10 @@ describe('ensureSetLinkFresh', () => {
       entryId: `e${i}`,
       url: 'https://x.test/a',
     }))
-    expect(
-      await ensureSetLinkFresh(makeSession({ id: 'fresh-many', songs })),
-    ).toEqual({ ok: false, reason: 'too_many' })
+    expect(await ensureSetLinkFresh(makeSession({ id: 'fresh-many', songs }))).toEqual({
+      ok: false,
+      reason: 'too_many',
+    })
   })
 })
 
@@ -445,14 +496,16 @@ describe('createSyncChannel', () => {
       },
       hash: fakeHash,
       random: () => 0,
-      withLock: async <T,>(name: string, fn: () => Promise<T>) => (locks.push(name), fn()),
+      withLock: async <T>(name: string, fn: () => Promise<T>) => (locks.push(name), fn()),
     }
     const expiresAt = new Date(Date.now() + 30 * 86400_000).toISOString()
     const failing = vi.fn(async () => {
       throw new ShareApiError('boom', undefined, 500)
     })
     let release!: () => void
-    const slow = vi.fn(() => new Promise<{ expiresAt: string }>((r) => (release = () => r({ expiresAt }))))
+    const slow = vi.fn(
+      () => new Promise<{ expiresAt: string }>((r) => (release = () => r({ expiresAt }))),
+    )
     createSyncChannel({ ...base, name: 'a', publish: failing }).start()
     createSyncChannel({ ...base, name: 'b', publish: slow }).start()
 
@@ -481,7 +534,10 @@ describe('createSyncChannel', () => {
       buildPayload: buildSetLinkPayload,
       publish,
       now: () => Date.now(),
-      timers: { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>) },
+      timers: {
+        setTimeout: (fn, ms) => setTimeout(fn, ms),
+        clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      },
       hash: fakeHash,
       withLock: async (_n, fn) => fn(),
     }).start()

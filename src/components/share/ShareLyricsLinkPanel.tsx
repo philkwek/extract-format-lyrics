@@ -136,12 +136,12 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
 
   return (
     <>
-      <div className="rounded-xl border border-ui-border bg-ui-surface-raised">
+      <div className="border-ui-border bg-ui-surface-raised rounded-xl border">
         <div className="px-3 py-3">
           <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2">
             <div className="min-w-[12rem] flex-1">
-              <p className="text-sm font-bold text-ui-text">Lyrics link</p>
-              <p className="text-xs leading-5 text-ui-text-muted">
+              <p className="text-ui-text text-sm font-bold">Lyrics link</p>
+              <p className="text-ui-text-muted text-xs leading-5">
                 {isPublished && expiresAt
                   ? `Link works until ${new Date(expiresAt).toLocaleDateString()}. Updates when you change the set.`
                   : 'Updates when you change the set.'}

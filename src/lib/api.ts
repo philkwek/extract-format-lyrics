@@ -102,7 +102,7 @@ async function searchError(res: Response): Promise<Error> {
  */
 export async function searchApiStream(
   query: string,
-  options: SearchStreamOptions = {}
+  options: SearchStreamOptions = {},
 ): Promise<ApiSearchResponse> {
   const errors: Error[] = []
   const settled = await Promise.all(
@@ -110,10 +110,9 @@ export async function searchApiStream(
       let source: SearchSourceStatus
       let candidates: SearchCandidate[] = []
       try {
-        const res = await fetch(
-          `/api/search?q=${encodeURIComponent(query)}&site=${site}`,
-          { signal: options.signal }
-        )
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&site=${site}`, {
+          signal: options.signal,
+        })
         if (!res.ok) throw await searchError(res)
         const data = (await res.json()) as ApiSearchResponse
         candidates = data.results ?? []
@@ -143,14 +142,17 @@ export async function searchApiStream(
             : selectSearchResults(candidates, query, PARTIAL_SOURCE_RESULT_LIMIT),
       })
       return { source, candidates }
-    })
+    }),
   )
   // Nothing reached the server (offline, rate limited): report that, not four dead sources.
   if (errors.length === settled.length) throw errors[0]
 
   return {
     query,
-    results: selectCombinedSearchResults(settled.flatMap((item) => item.candidates), query),
+    results: selectCombinedSearchResults(
+      settled.flatMap((item) => item.candidates),
+      query,
+    ),
     sources: settled.map((item) => item.source),
     partial: settled.some((item) => item.source.status === 'failed'),
   }
@@ -244,7 +246,7 @@ export async function putSharedLyricsApi(
   id: string,
   secret: string,
   payload: import('../types/song').SharedLyricsPayload,
-  options: { keepalive?: boolean } = {}
+  options: { keepalive?: boolean } = {},
 ): Promise<PutSharedLyricsResult> {
   const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -289,7 +291,7 @@ export async function putSetLinkApi(
   id: string,
   secret: string,
   payload: import('../types/song').SetLinkPayload,
-  options: { keepalive?: boolean } = {}
+  options: { keepalive?: boolean } = {},
 ): Promise<PutSetLinkResult> {
   const res = await fetch(`/api/set-link/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -355,11 +357,11 @@ export async function putLiveSetSongApi(
   id: string,
   secret: string,
   hash: string,
-  content: import('../types/song').LiveSongContent
+  content: import('../types/song').LiveSongContent,
 ): Promise<PutLiveSetSongResult> {
   const res = await fetch(
     `/api/live-set/${encodeURIComponent(id)}/song/${encodeURIComponent(hash)}`,
-    { method: 'PUT', headers: liveSetHeaders(secret), body: JSON.stringify({ content }) }
+    { method: 'PUT', headers: liveSetHeaders(secret), body: JSON.stringify({ content }) },
   )
   if (!res.ok) {
     throw await readShareError(res)
@@ -371,7 +373,7 @@ export async function putLiveSetManifestApi(
   id: string,
   secret: string,
   manifest: import('../types/song').LiveSetManifestInput,
-  options: { keepalive?: boolean } = {}
+  options: { keepalive?: boolean } = {},
 ): Promise<PutLiveSetResult> {
   const res = await fetch(`/api/live-set/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -420,4 +422,3 @@ export async function getLiveSetApi(id: string): Promise<GetLiveSetResult> {
   }
   return (await res.json()) as GetLiveSetResult
 }
-

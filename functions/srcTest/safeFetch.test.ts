@@ -46,14 +46,16 @@ describe('isPrivateOrReservedIp', () => {
 describe('assertSafeDns', () => {
   it('blocks DNS resolving to private IP', async () => {
     const mockLookup = vi.fn().mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
-    await expect(assertSafeDns('tabs.ultimate-guitar.com', mockLookup as unknown as DnsLookupFn)).rejects.toThrow(
-      /blocked \(SSRF guard\)/
-    )
+    await expect(
+      assertSafeDns('tabs.ultimate-guitar.com', mockLookup as unknown as DnsLookupFn),
+    ).rejects.toThrow(/blocked \(SSRF guard\)/)
   })
 
   it('passes DNS resolving to public IP', async () => {
     const mockLookup = vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
-    await expect(assertSafeDns('tabs.ultimate-guitar.com', mockLookup as unknown as DnsLookupFn)).resolves.toBeUndefined()
+    await expect(
+      assertSafeDns('tabs.ultimate-guitar.com', mockLookup as unknown as DnsLookupFn),
+    ).resolves.toBeUndefined()
   })
 })
 
@@ -74,15 +76,12 @@ describe('safeFetchHtml', () => {
       new Response('<html><body>Song</body></html>', {
         status: 200,
         headers: { 'content-type': 'text/html' },
-      })
+      }),
     )
-    const result = await safeFetchHtml(
-      'https://www.worshipchords.net/guitar/artist/song',
-      {
-        lookupFn: publicLookup as unknown as DnsLookupFn,
-        fetchFn: mockFetch as unknown as typeof fetch,
-      }
-    )
+    const result = await safeFetchHtml('https://www.worshipchords.net/guitar/artist/song', {
+      lookupFn: publicLookup as unknown as DnsLookupFn,
+      fetchFn: mockFetch as unknown as typeof fetch,
+    })
     expect(result.text).toContain('Song')
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
@@ -96,28 +95,36 @@ describe('safeFetchHtml', () => {
     ['1.5', undefined],
     ['Infinity', undefined],
   ])('preserves status and parses Retry-After %s without retrying', async (header, expected) => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('private upstream content', {
-      status: 429,
-      headers: header === null ? {} : { 'Retry-After': header },
-    }))
-    await expect(safeFetchHtml('https://pnwchords.com/?s=private-query', {
-      lookupFn: publicLookup as unknown as DnsLookupFn,
-      fetchFn: mockFetch as unknown as typeof fetch,
-    })).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 429, retryAfterSeconds: expected })
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('private upstream content', {
+        status: 429,
+        headers: header === null ? {} : { 'Retry-After': header },
+      }),
+    )
+    await expect(
+      safeFetchHtml('https://pnwchords.com/?s=private-query', {
+        lookupFn: publicLookup as unknown as DnsLookupFn,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      }),
+    ).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 429, retryAfterSeconds: expected })
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
   it.each([60, -60])('parses a Retry-After HTTP date %s seconds from now', async (offset) => {
     const now = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 20, 4, 0, 0))
     try {
-      const mockFetch = vi.fn().mockResolvedValue(new Response('Forbidden', {
-        status: 403,
-        headers: { 'Retry-After': new Date(Date.now() + offset * 1000).toUTCString() },
-      }))
-      await expect(safeFetchHtml('https://pnwchords.com/', {
-        lookupFn: publicLookup as unknown as DnsLookupFn,
-        fetchFn: mockFetch as unknown as typeof fetch,
-      })).rejects.toMatchObject({ status: 403, retryAfterSeconds: Math.max(0, offset) })
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response('Forbidden', {
+          status: 403,
+          headers: { 'Retry-After': new Date(Date.now() + offset * 1000).toUTCString() },
+        }),
+      )
+      await expect(
+        safeFetchHtml('https://pnwchords.com/', {
+          lookupFn: publicLookup as unknown as DnsLookupFn,
+          fetchFn: mockFetch as unknown as typeof fetch,
+        }),
+      ).rejects.toMatchObject({ status: 403, retryAfterSeconds: Math.max(0, offset) })
     } finally {
       now.mockRestore()
     }
@@ -133,7 +140,7 @@ describe('safeFetchHtml', () => {
       new Response(largeBody, {
         status: 200,
         headers: { 'content-type': 'text/html; charset=utf-8' },
-      })
+      }),
     )
 
     await expect(
@@ -141,7 +148,7 @@ describe('safeFetchHtml', () => {
         maxBytes: 100,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toThrow(/exceeded limit/)
   })
 
@@ -150,14 +157,14 @@ describe('safeFetchHtml', () => {
       new Response('{"data": 123}', {
         status: 200,
         headers: { 'content-type': 'application/json' },
-      })
+      }),
     )
 
     await expect(
       safeFetchHtml('https://pnwchords.com/song', {
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toThrow(/expected HTML/)
   })
 
@@ -166,14 +173,14 @@ describe('safeFetchHtml', () => {
       new Response('Forbidden', {
         status: 403,
         statusText: 'Forbidden',
-      })
+      }),
     )
 
     await expect(
       safeFetchHtml('https://pnwchords.com/song', {
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toThrow(/HTTP error 403/)
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -218,7 +225,7 @@ describe('safeFetchHtml', () => {
       safeFetchHtml('https://pnwchords.com/song', {
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toThrow(/not supported/)
   })
 
@@ -231,7 +238,7 @@ describe('safeFetchHtml', () => {
         timeoutMs: 40,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'TIMEOUT' })
 
     expect(Date.now() - startedAt).toBeLessThan(500)
@@ -249,7 +256,7 @@ describe('safeFetchHtml', () => {
       new Response(body, {
         status: 200,
         headers: { 'content-type': 'text/html' },
-      })
+      }),
     )
 
     await expect(
@@ -257,7 +264,7 @@ describe('safeFetchHtml', () => {
         timeoutMs: 40,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'TIMEOUT' })
     expect(cancel).toHaveBeenCalled()
   })
@@ -268,7 +275,7 @@ describe('safeFetchHtml', () => {
       () =>
         new Promise<Array<{ address: string; family: number }>>((resolve) => {
           resolveDns = resolve
-        })
+        }),
     )
 
     await expect(
@@ -276,7 +283,7 @@ describe('safeFetchHtml', () => {
         timeoutMs: 30,
         lookupFn: slowLookup as unknown as DnsLookupFn,
         fetchFn: vi.fn() as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'TIMEOUT' })
 
     // Late DNS settlement is handled safely.
@@ -304,7 +311,7 @@ describe('safeFetchHtml', () => {
         timeoutMs: 200,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'TIMEOUT' })
 
     expect(calls).toBe(2)
@@ -313,24 +320,28 @@ describe('safeFetchHtml', () => {
   })
 
   it('retries a 5xx once and reports retry exhaustion', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' })
-    )
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' }),
+      )
 
     await expect(
       safeFetchHtml('https://pnwchords.com/song', {
         timeoutMs: 2_000,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'HTTP_ERROR', status: 503 })
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
   it('does not start a retry that cannot fit in the remaining budget', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' })
-    )
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('Unavailable', { status: 503, statusText: 'Service Unavailable' }),
+      )
     const startedAt = Date.now()
 
     await expect(
@@ -338,7 +349,7 @@ describe('safeFetchHtml', () => {
         timeoutMs: 80,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: mockFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'HTTP_ERROR' })
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(Date.now() - startedAt).toBeLessThan(250)
@@ -349,13 +360,13 @@ describe('safeFetchHtml', () => {
       new Response('{"data":1}', {
         status: 200,
         headers: { 'content-type': 'application/json' },
-      })
+      }),
     )
     await expect(
       safeFetchHtml('https://pnwchords.com/song', {
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: invalidTypeFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'INVALID_CONTENT_TYPE' })
     expect(invalidTypeFetch).toHaveBeenCalledTimes(1)
 
@@ -363,14 +374,14 @@ describe('safeFetchHtml', () => {
       new Response('a'.repeat(200), {
         status: 200,
         headers: { 'content-type': 'text/html' },
-      })
+      }),
     )
     await expect(
       safeFetchHtml('https://pnwchords.com/song', {
         maxBytes: 100,
         lookupFn: publicLookup as unknown as DnsLookupFn,
         fetchFn: oversizedFetch as unknown as typeof fetch,
-      })
+      }),
     ).rejects.toMatchObject({ code: 'PAYLOAD_TOO_LARGE' })
     expect(oversizedFetch).toHaveBeenCalledTimes(1)
   })

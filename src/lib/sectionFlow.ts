@@ -10,19 +10,19 @@ export function resolveSessionFlow(
   item: SessionSongItem,
   song: Song,
   isSimplified: boolean,
-  sectionCount: number
+  sectionCount: number,
 ): number[] {
   if (isSimplified) {
     return (
       item.customSimplifiedFlow ??
       (item.customSimplifiedSections
         ? identityFlow(sectionCount)
-        : song.simplifiedFlow ?? identityFlow(sectionCount))
+        : (song.simplifiedFlow ?? identityFlow(sectionCount)))
     )
   }
   return (
     item.customFlow ??
-    (item.customSections ? identityFlow(sectionCount) : song.flow ?? identityFlow(sectionCount))
+    (item.customSections ? identityFlow(sectionCount) : (song.flow ?? identityFlow(sectionCount)))
   )
 }
 

@@ -23,7 +23,7 @@ describe('SearchResults', () => {
         emptyMessage="Nothing here"
         onSelect={vi.fn()}
         getActionState={() => ({ label: 'Start setlist' })}
-      />
+      />,
     )
 
     expect(screen.getByRole('status').textContent).toContain('Searching supported chord sites')
@@ -39,7 +39,7 @@ describe('SearchResults', () => {
         emptyMessage="Nothing here"
         onSelect={onSelect}
         getActionState={() => ({ label: 'Add to setlist', disabled: true })}
-      />
+      />,
     )
 
     expect(screen.getByText('Search results · 1')).toBeTruthy()
@@ -71,7 +71,7 @@ describe('SearchResults', () => {
         emptyMessage="Nothing here"
         onSelect={vi.fn()}
         getActionState={() => ({ label: 'Add to setlist' })}
-      />
+      />,
     )
 
     expect(screen.getByText('Search results · 2')).toBeTruthy()
@@ -90,7 +90,7 @@ describe('SearchResults', () => {
         emptyMessage="No matches"
         onSelect={vi.fn()}
         getActionState={() => ({ label: 'Start setlist' })}
-      />
+      />,
     )
 
     expect(screen.getByText('No matches')).toBeTruthy()
@@ -106,7 +106,7 @@ describe('SearchResults', () => {
         emptyMessage="No matches"
         onSelect={vi.fn()}
         getActionState={() => ({ label: 'Start setlist' })}
-      />
+      />,
     )
 
     expect(container.firstChild).toBeNull()
@@ -121,7 +121,7 @@ describe('SearchResults', () => {
         emptyMessage="No matches"
         onSelect={vi.fn()}
         getActionState={() => ({ label: 'Start setlist' })}
-      />
+      />,
     )
 
     expect(container.firstChild).toBeNull()

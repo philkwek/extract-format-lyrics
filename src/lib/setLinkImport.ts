@@ -75,7 +75,9 @@ export async function loadSetLinkPreview(
 
   const total = payload.songs.length
   const onProgress = (statuses: ImportProgress[]) => {
-    const done = statuses.filter((s) => s.status === 'done' || s.status === 'cached' || s.status === 'error').length
+    const done = statuses.filter(
+      (s) => s.status === 'done' || s.status === 'cached' || s.status === 'error',
+    ).length
     options.onProgress?.(`Loading songs (${done} of ${total})...`)
   }
 
@@ -110,7 +112,10 @@ export async function savePreviewAsNew(
   const sessions = await deps.sessions.getAllSessions()
   return deps.sessions.createSession(
     preview.items,
-    uniqueSetName(preview.name, sessions.map((session) => session.name)),
+    uniqueSetName(
+      preview.name,
+      sessions.map((session) => session.name),
+    ),
     linked
       ? {
           importedFromLinkId: preview.linkId,

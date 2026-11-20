@@ -457,11 +457,9 @@ describe('SessionStore', () => {
 
     it('does not carry failures onto a copy', async () => {
       const { store } = makeStores()
-      const session = await store.createSession(
-        [{ url: 'https://x.test/a' }],
-        'Sunday',
-        { importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }] },
-      )
+      const session = await store.createSession([{ url: 'https://x.test/a' }], 'Sunday', {
+        importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+      })
 
       const copy = await store.createSetCopy(session)
 

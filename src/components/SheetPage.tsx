@@ -108,7 +108,7 @@ function SheetPage({
       inert={!active || undefined}
       tabIndex={active ? -1 : undefined}
       style={{ left: `${offset * 100}%` }}
-      className={`absolute inset-y-0 w-full min-h-0 px-3 pb-2 pt-2 outline-none [scrollbar-gutter:stable] ${
+      className={`absolute inset-y-0 min-h-0 w-full [scrollbar-gutter:stable] px-3 pt-2 pb-2 outline-none ${
         fitToScreen && layout.fitsOnScreen ? 'overflow-hidden' : 'overflow-auto'
       } ${wrapLines && !isEditingChords ? 'touch-pan-y' : ''}`}
     >

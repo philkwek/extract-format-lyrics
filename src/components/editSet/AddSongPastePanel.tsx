@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { splitUrls } from '../../../functions/src/urls'
 import { trackSongImport } from '../../lib/analytics'
-import {
-  importSources,
-  parsePastedSources,
-  type ImportProgress,
-} from '../../lib/setlistImport'
+import { importSources, parsePastedSources, type ImportProgress } from '../../lib/setlistImport'
 import type { Session } from '../../lib/sessionStore'
 import ImportProgressList from '../import/ImportProgressList'
 import PasteUrlForm from '../import/PasteUrlForm'
@@ -16,10 +12,7 @@ interface AddSongPastePanelProps {
   onSessionUpdated: (session: Session, firstNewIndex: number) => void | Promise<void>
 }
 
-export default function AddSongPastePanel({
-  sessionId,
-  onSessionUpdated,
-}: AddSongPastePanelProps) {
+export default function AddSongPastePanel({ sessionId, onSessionUpdated }: AddSongPastePanelProps) {
   const [pasteText, setPasteText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [statuses, setStatuses] = useState<ImportProgress[]>([])
@@ -37,7 +30,7 @@ export default function AddSongPastePanel({
 
     if (sources.length === 0 && invalid.length > 0) {
       setError(
-        `No valid URLs found: ${invalid.map((item) => `${item.input} (${item.reason})`).join(', ')}`
+        `No valid URLs found: ${invalid.map((item) => `${item.input} (${item.reason})`).join(', ')}`,
       )
       return
     }
@@ -55,7 +48,7 @@ export default function AddSongPastePanel({
         setSuccessMessage(
           result.imported === 1
             ? 'Song added to the set.'
-            : `${result.imported} songs added to the set.`
+            : `${result.imported} songs added to the set.`,
         )
         await onSessionUpdated(result.session, result.firstNewIndex)
       } else {
@@ -82,10 +75,7 @@ export default function AddSongPastePanel({
         linkCount={splitUrls(pasteText).length}
       />
       {successMessage && <StatusBanner tone="success">{successMessage}</StatusBanner>}
-      <ImportProgressList
-        statuses={statuses}
-        className="border-t border-[var(--ui-border)] pt-3"
-      />
+      <ImportProgressList statuses={statuses} className="border-t border-[var(--ui-border)] pt-3" />
     </div>
   )
 }

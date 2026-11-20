@@ -20,7 +20,7 @@ class MockDocRef {
   constructor(
     public readonly id: string,
     private readonly store: Map<string, Record<string, unknown>>,
-    public readonly path: string
+    public readonly path: string,
   ) {}
 
   collection(name: string): MockCollectionRef {
@@ -39,7 +39,7 @@ class MockDocRef {
 class MockCollectionRef {
   constructor(
     private readonly store: Map<string, Record<string, unknown>>,
-    public readonly path: string
+    public readonly path: string,
   ) {}
 
   doc(id?: string): MockDocRef {
@@ -83,7 +83,9 @@ class MockFirestore {
     return new MockCollectionRef(this.data, name)
   }
 
-  async runTransaction<T>(updateFunction: (transaction: MockTransaction) => Promise<T>): Promise<T> {
+  async runTransaction<T>(
+    updateFunction: (transaction: MockTransaction) => Promise<T>,
+  ): Promise<T> {
     const staging = new Map<string, Record<string, unknown>>()
     const deletions = new Set<string>()
 
@@ -150,7 +152,7 @@ describe('shared lyrics store and validation', () => {
       isSharedLyricsPayload({
         ...validPayload,
         songs: Array.from({ length: MAX_SHARED_LYRICS_SONGS + 1 }, () => validPayload.songs[0]),
-      })
+      }),
     ).toBe(false)
   })
 
@@ -201,7 +203,7 @@ describe('shared lyrics store and validation', () => {
 
     const { id: pubId, expiresAt } = await store.publish(
       id,
-      payloadWithJunk as unknown as SharedLyricsPayload
+      payloadWithJunk as unknown as SharedLyricsPayload,
     )
     expect(pubId).toBe(id)
     expect(expiresAt.getTime()).toBe(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -290,7 +292,9 @@ describe('shared lyrics store and validation', () => {
     }
     const failingStore = new SharedLyricsStore(failingDb as unknown as Firestore)
 
-    await expect(failingStore.publish(id, validPayload)).rejects.toThrow('Database transaction abort')
+    await expect(failingStore.publish(id, validPayload)).rejects.toThrow(
+      'Database transaction abort',
+    )
   })
 
   it('returns missing for non-existent IDs and expired for past expiry', async () => {

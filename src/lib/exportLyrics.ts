@@ -1,5 +1,11 @@
 import type { SessionSongItem } from './sessionStore'
-import type { Song, Section, SharedLyricsPayload, SharedLyricsSong, SharedLyricsSection } from '../types/song'
+import type {
+  Song,
+  Section,
+  SharedLyricsPayload,
+  SharedLyricsSong,
+  SharedLyricsSection,
+} from '../types/song'
 
 export const MAX_SHARED_LYRICS_SONGS = 15
 
@@ -31,11 +37,10 @@ export function cleanLyricLine(line: string): string {
 export function extractSongLyrics(
   item: SessionSongItem,
   song: Song,
-  isSimplified = false
+  isSimplified = false,
 ): SharedLyricsSong {
   const entryId = item.entryId || song.id
   const title = item.title?.trim() || song.title || 'Untitled Song'
-
 
   // Determine active sections as seen by the musician (respecting custom arrangements)
   const activeSections: Section[] =
@@ -107,19 +112,23 @@ export function extractSongLyrics(
 export function createSharedLyricsPayload(
   session: { name: string; songs: SessionSongItem[] },
   getSong: (item: SessionSongItem) => Song | null | undefined,
-  getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean
+  getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean,
 ): SharedLyricsPayload {
   if (session.songs.length === 0) {
     throw new ShareLyricsError('This set has no songs that can be shared.')
   }
   if (session.songs.length > MAX_SHARED_LYRICS_SONGS) {
-    throw new ShareLyricsError(`Shared sets have a limit of ${MAX_SHARED_LYRICS_SONGS} songs. Remove songs before sharing.`)
+    throw new ShareLyricsError(
+      `Shared sets have a limit of ${MAX_SHARED_LYRICS_SONGS} songs. Remove songs before sharing.`,
+    )
   }
 
   const songs: SharedLyricsSong[] = session.songs.map((item) => {
     const song = getSong(item)
     if (!song) {
-      throw new ShareLyricsError(`"${item.title || item.url}" is not available locally and cannot be shared.`)
+      throw new ShareLyricsError(
+        `"${item.title || item.url}" is not available locally and cannot be shared.`,
+      )
     }
     const isSimplified = getSongSimplifiedPreference
       ? getSongSimplifiedPreference(item, song)
@@ -140,12 +149,13 @@ export function createSharedLyricsPayload(
  */
 export function buildSharedLyricsPayload(
   session: { name: string; songs: SessionSongItem[] },
-  songsData: Map<string, Song>
+  songsData: Map<string, Song>,
 ): SharedLyricsPayload {
   return createSharedLyricsPayload(
     session,
-    (item) => (item.entryId ? songsData.get(item.entryId) : undefined) ?? songsData.get(item.url) ?? null,
-    (item) => item.simplified ?? false
+    (item) =>
+      (item.entryId ? songsData.get(item.entryId) : undefined) ?? songsData.get(item.url) ?? null,
+    (item) => item.simplified ?? false,
   )
 }
 
@@ -182,12 +192,13 @@ export function formatLyricsPayloadAsText(payload: SharedLyricsPayload): string 
 export function formatSetlistLyrics(
   songs: SessionSongItem[],
   songsData: Map<string, Song>,
-  getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean
+  getSongSimplifiedPreference?: (item: SessionSongItem, song: Song) => boolean,
 ): string {
   const payloadSongs: SharedLyricsSong[] = []
 
   for (const item of songs) {
-    const loadedSong = (item.entryId ? songsData.get(item.entryId) : undefined) ?? songsData.get(item.url)
+    const loadedSong =
+      (item.entryId ? songsData.get(item.entryId) : undefined) ?? songsData.get(item.url)
     if (!loadedSong) continue
 
     const isSimplified = getSongSimplifiedPreference

@@ -26,13 +26,25 @@ describe('getDefaultColumns', () => {
   it('inspects window.innerWidth when width argument is not provided', () => {
     const originalWidth = window.innerWidth
     try {
-      Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true, writable: true })
+      Object.defineProperty(window, 'innerWidth', {
+        value: 390,
+        configurable: true,
+        writable: true,
+      })
       expect(getDefaultColumns()).toBe(1)
 
-      Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true, writable: true })
+      Object.defineProperty(window, 'innerWidth', {
+        value: 1024,
+        configurable: true,
+        writable: true,
+      })
       expect(getDefaultColumns()).toBe(3)
     } finally {
-      Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true, writable: true })
+      Object.defineProperty(window, 'innerWidth', {
+        value: originalWidth,
+        configurable: true,
+        writable: true,
+      })
     }
   })
 })
@@ -85,7 +97,7 @@ describe('getSongPrefs', () => {
   it('round-trips the full-screen fit preference', () => {
     localStorage.setItem(
       'song_pref:fit-off',
-      JSON.stringify({ columns: 2, fontSizePx: 15, fitToScreen: false })
+      JSON.stringify({ columns: 2, fontSizePx: 15, fitToScreen: false }),
     )
 
     expect(getSongPrefs('fit-off', 1024)).toMatchObject({
@@ -98,16 +110,13 @@ describe('getSongPrefs', () => {
   it('round-trips the line-wrap preference and defaults it on', () => {
     localStorage.setItem(
       'song_pref:wrap-on',
-      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: true })
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: true }),
     )
     localStorage.setItem(
       'song_pref:wrap-off',
-      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: false })
+      JSON.stringify({ columns: 2, fontSizePx: 15, wrapLines: false }),
     )
-    localStorage.setItem(
-      'song_pref:wrap-missing',
-      JSON.stringify({ columns: 2, fontSizePx: 15 })
-    )
+    localStorage.setItem('song_pref:wrap-missing', JSON.stringify({ columns: 2, fontSizePx: 15 }))
 
     expect(getSongPrefs('wrap-on', 1024)).toMatchObject({ wrapLines: true })
     expect(getSongPrefs('wrap-off', 1024)).toMatchObject({ wrapLines: false })

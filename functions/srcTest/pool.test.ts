@@ -24,7 +24,7 @@ describe('runWorkerPool', () => {
         completed.push(item)
         return item.toUpperCase()
       },
-      2
+      2,
     )
 
     await vi.waitFor(() => expect(started).toContain('third'))
@@ -50,7 +50,7 @@ describe('runWorkerPool', () => {
         active -= 1
         return active
       },
-      2
+      2,
     )
     expect(maximum).toBe(2)
   })
@@ -62,7 +62,7 @@ describe('runWorkerPool', () => {
         if (item === 'fail') throw new Error('broken')
         return item
       },
-      2
+      2,
     )
     expect(outcomes[0]).toEqual({ ok: true, value: 'a' })
     expect(outcomes[1]).toMatchObject({ ok: false })

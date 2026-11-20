@@ -29,9 +29,7 @@ export function splitLyricLine(line: Line, splitAt: number): [LyricLine, LyricLi
       kind: 'lyric',
       text: line.text.slice(0, splitAt),
       ...(line.splitFromPrevious ? { splitFromPrevious: true } : {}),
-      chords: line.chords
-        .filter((chord) => chord.pos < splitAt)
-        .map((chord) => ({ ...chord })),
+      chords: line.chords.filter((chord) => chord.pos < splitAt).map((chord) => ({ ...chord })),
     },
     {
       kind: 'lyric',
@@ -63,7 +61,7 @@ export function splitSectionLyricLine(
   sections: Section[],
   sectionIndex: number,
   lineIndex: number,
-  splitAt: number
+  splitAt: number,
 ): Section[] | null {
   const line = sections[sectionIndex]?.lines[lineIndex]
   if (!line) return null
@@ -74,7 +72,11 @@ export function splitSectionLyricLine(
     if (currentSectionIndex !== sectionIndex) return section
     return {
       ...section,
-      lines: [...section.lines.slice(0, lineIndex), ...splitLines, ...section.lines.slice(lineIndex + 1)],
+      lines: [
+        ...section.lines.slice(0, lineIndex),
+        ...splitLines,
+        ...section.lines.slice(lineIndex + 1),
+      ],
     }
   })
 }
@@ -83,11 +85,12 @@ export function splitSectionLyricLine(
 export function mergeSectionLyricLineWithPrevious(
   sections: Section[],
   sectionIndex: number,
-  lineIndex: number
+  lineIndex: number,
 ): Section[] | null {
   if (lineIndex <= 0) return null
   const section = sections[sectionIndex]
-  const mergedLine = section && mergeLyricLines(section.lines[lineIndex - 1], section.lines[lineIndex])
+  const mergedLine =
+    section && mergeLyricLines(section.lines[lineIndex - 1], section.lines[lineIndex])
   if (!mergedLine) return null
 
   return sections.map((currentSection, currentSectionIndex) => {

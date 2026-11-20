@@ -24,9 +24,7 @@ const mockPayload: SharedLyricsPayload = {
     {
       entryId: 'entry-2',
       title: 'Way Maker',
-      sections: [
-        { label: 'VERSE 1', lines: ['You are here moving in our midst'] },
-      ],
+      sections: [{ label: 'VERSE 1', lines: ['You are here moving in our midst'] }],
     },
   ],
 }
@@ -34,19 +32,19 @@ const mockPayload: SharedLyricsPayload = {
 describe('LyricsPreviewModal', () => {
   it('does not render when isOpen is false', () => {
     const { container } = render(
-      <LyricsPreviewModal isOpen={false} onClose={vi.fn()} payload={mockPayload} />
+      <LyricsPreviewModal isOpen={false} onClose={vi.fn()} payload={mockPayload} />,
     )
     expect(container.firstChild).toBeNull()
   })
 
   it('renders preview title, sticky tabs at top-0 with opaque surface, and song lyrics', () => {
-    render(
-      <LyricsPreviewModal isOpen={true} onClose={vi.fn()} payload={mockPayload} />
-    )
+    render(<LyricsPreviewModal isOpen={true} onClose={vi.fn()} payload={mockPayload} />)
 
     // Modal title & description
     expect(screen.getByText('(Preview) Sunday Service Set')).toBeTruthy()
-    expect(screen.getByText(/Preview of how vocalists and musicians will see these lyrics/i)).toBeTruthy()
+    expect(
+      screen.getByText(/Preview of how vocalists and musicians will see these lyrics/i),
+    ).toBeTruthy()
 
     // Tablist exists and has sticky top-0 and opaque raised surface
     const tablist = screen.getByRole('tablist', { name: /songs in setlist/i })
@@ -70,9 +68,7 @@ describe('LyricsPreviewModal', () => {
   })
 
   it('switches songs when clicking another tab and resets scroll', () => {
-    render(
-      <LyricsPreviewModal isOpen={true} onClose={vi.fn()} payload={mockPayload} />
-    )
+    render(<LyricsPreviewModal isOpen={true} onClose={vi.fn()} payload={mockPayload} />)
 
     const tabs = screen.getAllByRole('tab')
     fireEvent.click(tabs[1])
@@ -84,9 +80,7 @@ describe('LyricsPreviewModal', () => {
 
   it('calls onClose when clicking close button or close preview button', () => {
     const onClose = vi.fn()
-    render(
-      <LyricsPreviewModal isOpen={true} onClose={onClose} payload={mockPayload} />
-    )
+    render(<LyricsPreviewModal isOpen={true} onClose={onClose} payload={mockPayload} />)
 
     const closeBtn = screen.getByRole('button', { name: /Close Preview/i })
     fireEvent.click(closeBtn)

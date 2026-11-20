@@ -6,7 +6,16 @@ const sections = (): Section[] => [
   {
     type: 'Verse',
     label: 'Verse',
-    lines: [{ kind: 'lyric', text: 'Hello world', chords: [{ pos: 0, chord: 'A' }, { pos: 6, chord: 'D' }] }],
+    lines: [
+      {
+        kind: 'lyric',
+        text: 'Hello world',
+        chords: [
+          { pos: 0, chord: 'A' },
+          { pos: 6, chord: 'D' },
+        ],
+      },
+    ],
   },
 ]
 

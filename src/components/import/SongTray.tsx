@@ -76,16 +76,16 @@ function TrayRow({ item, index, count, failed, moved, onMove, onRemove }: TrayRo
       <span
         aria-hidden="true"
         onPointerDown={(event) => controls.start(event)}
-        className="flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-ui-text-muted active:cursor-grabbing"
+        className="text-ui-text-muted flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
       >
         <GripVertical size={14} />
       </span>
-      <span className="w-4 shrink-0 text-center text-xs font-bold text-ui-text-muted">
+      <span className="text-ui-text-muted w-4 shrink-0 text-center text-xs font-bold">
         {index + 1}
       </span>
       <div className="min-w-0 flex-1 px-1">
-        <p className="truncate text-sm font-semibold text-ui-text">{item.title}</p>
-        <p className="truncate text-xs text-ui-text-muted">
+        <p className="text-ui-text truncate text-sm font-semibold">{item.title}</p>
+        <p className="text-ui-text-muted truncate text-xs">
           {failed ? 'Could not load this song' : item.artist}
         </p>
       </div>
@@ -199,7 +199,7 @@ export default function SongTray({
               type="button"
               aria-expanded={expanded}
               onClick={() => setExpanded((open) => !open)}
-              className="flex items-center gap-1.5 text-sm font-semibold text-ui-text"
+              className="text-ui-text flex items-center gap-1.5 text-sm font-semibold"
             >
               {countLabel}
               {expanded ? (
@@ -209,7 +209,7 @@ export default function SongTray({
               )}
             </button>
           ) : (
-            <h3 className="text-sm font-semibold text-ui-text">{countLabel}</h3>
+            <h3 className="text-ui-text text-sm font-semibold">{countLabel}</h3>
           )}
           {isNarrow && (
             <Button variant="primary" size="sm" loading={isCreating} onClick={onCreate}>
@@ -227,7 +227,7 @@ export default function SongTray({
         )}
 
         {limitNote && (
-          <p className="text-xs text-ui-text-muted" aria-hidden={isFull || undefined}>
+          <p className="text-ui-text-muted text-xs" aria-hidden={isFull || undefined}>
             {limitNote}
           </p>
         )}

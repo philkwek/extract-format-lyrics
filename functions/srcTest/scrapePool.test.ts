@@ -18,11 +18,7 @@ function song(url: string): Song {
 describe('scrapeUrls', () => {
   it('keeps input order when a slow first song blocks the queue head', async () => {
     const results = await scrapeUrls(
-      [
-        'https://pnwchords.com/slow',
-        'https://pnwchords.com/fast',
-        'https://pnwchords.com/third',
-      ],
+      ['https://pnwchords.com/slow', 'https://pnwchords.com/fast', 'https://pnwchords.com/third'],
       {
         concurrency: 2,
         gate: new HostConcurrencyGate(),
@@ -31,7 +27,7 @@ describe('scrapeUrls', () => {
           if (url.endsWith('/slow')) await new Promise((resolve) => setTimeout(resolve, 30))
           return song(url)
         },
-      }
+      },
     )
 
     expect(results.map((result) => result.url)).toEqual([
@@ -62,17 +58,14 @@ describe('scrapeUrls', () => {
   })
 
   it('isolates individual scrape failures', async () => {
-    const results = await scrapeUrls(
-      ['https://pnwchords.com/a', 'https://pnwchords.com/b'],
-      {
-        limiter: new RateLimiterAndCircuitBreaker(),
-        gate: new HostConcurrencyGate(),
-        scrape: async (url) => {
-          if (url.endsWith('/b')) throw new Error('parser failed')
-          return song(url)
-        },
-      }
-    )
+    const results = await scrapeUrls(['https://pnwchords.com/a', 'https://pnwchords.com/b'], {
+      limiter: new RateLimiterAndCircuitBreaker(),
+      gate: new HostConcurrencyGate(),
+      scrape: async (url) => {
+        if (url.endsWith('/b')) throw new Error('parser failed')
+        return song(url)
+      },
+    })
     expect(results[0].status).toBe('ok')
     expect(results[1]).toMatchObject({ status: 'error', message: 'parser failed' })
   })

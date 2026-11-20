@@ -15,16 +15,16 @@ function result(
   title: string,
   url: string,
   rating?: number,
-  versionLabel?: string
+  versionLabel?: string,
 ): SearchCandidate {
   return { site, title, artist: 'Artist', url, rating, versionLabel }
 }
 
 describe('canonicalCandidateUrl', () => {
   it('normalises tracking, fragments and trailing slashes while preserving versions', () => {
-    expect(
-      canonicalCandidateUrl('https://EXAMPLE.com/song/?utm_source=x&version=2#lyrics')
-    ).toBe('https://example.com/song?version=2')
+    expect(canonicalCandidateUrl('https://EXAMPLE.com/song/?utm_source=x&version=2#lyrics')).toBe(
+      'https://example.com/song?version=2',
+    )
   })
 })
 
@@ -39,7 +39,7 @@ describe('selectSearchResults', () => {
         result('worshiptogether', 'Good Grace', 'https://wt.com/1'),
         result('worshipchords-net', 'Good Grace', 'https://wcn.com/1'),
       ],
-      'good grace'
+      'good grace',
     )
 
     expect(results.map((item) => item.site)).toEqual([
@@ -58,7 +58,7 @@ describe('selectSearchResults', () => {
         result('ultimate-guitar', 'Good Grace', 'https://ug.com/song?utm_source=a', 3, 'Ver 1'),
         result('ultimate-guitar', 'Good Grace', 'https://ug.com/song/', 4.5, 'Ver 2'),
       ],
-      'good grace'
+      'good grace',
     )
 
     expect(results).toHaveLength(1)
@@ -71,7 +71,7 @@ describe('selectSearchResults', () => {
         result('ultimate-guitar', 'Good Grace', 'https://ug.com/song?version=1', 4, 'Ver 1'),
         result('ultimate-guitar', 'Good Grace', 'https://ug.com/song?version=2', 3, 'Ver 2'),
       ],
-      'good grace'
+      'good grace',
     )
     expect(results).toHaveLength(2)
     expect(results.map((item) => item.versionLabel)).toEqual(['Ver 1', 'Ver 2'])
@@ -83,13 +83,13 @@ describe('selectSearchResults', () => {
         result('ultimate-guitar', 'Unrelated Song', 'https://ug.com/unrelated', 5),
         result('pnwchords', 'Good Grace', 'https://pnw.com/good-grace'),
       ],
-      'good grace'
+      'good grace',
     )
     expect(mixed.map((item) => item.title)).toEqual(['Good Grace'])
 
     const none = selectSearchResults(
       [result('ultimate-guitar', 'Unrelated Song', 'https://ug.com/unrelated', 5)],
-      'good grace'
+      'good grace',
     )
     expect(none).toEqual([])
   })
@@ -97,10 +97,10 @@ describe('selectSearchResults', () => {
   it('caps a single streamed source so other sources still have room', () => {
     const results = selectSearchResults(
       Array.from({ length: 10 }, (_, index) =>
-        result('ultimate-guitar', 'Song', `https://ug.com/${index}`, 5 - index / 100)
+        result('ultimate-guitar', 'Song', `https://ug.com/${index}`, 5 - index / 100),
       ),
       'song',
-      PARTIAL_SOURCE_RESULT_LIMIT
+      PARTIAL_SOURCE_RESULT_LIMIT,
     )
     expect(PARTIAL_SOURCE_RESULT_LIMIT).toBe(2)
     expect(results).toHaveLength(2)
@@ -109,9 +109,9 @@ describe('selectSearchResults', () => {
   it('fills all capacity from one available source', () => {
     const results = selectSearchResults(
       Array.from({ length: 10 }, (_, index) =>
-        result('pnwchords', 'Song', `https://pnw.com/${index}`)
+        result('pnwchords', 'Song', `https://pnw.com/${index}`),
       ),
-      'song'
+      'song',
     )
     expect(results).toHaveLength(8)
     expect(results.every((item) => item.site === 'pnwchords')).toBe(true)
@@ -135,8 +135,8 @@ describe('combined Ultimate Guitar selection', () => {
         'Song',
         `https://ug.com/song-${index}`,
         5 - index / 10,
-        `Ver ${index + 1}`
-      )
+        `Ver ${index + 1}`,
+      ),
     )
 
     const selected = selectNativeSourceResults(input)
@@ -191,7 +191,7 @@ describe('combined Ultimate Guitar selection', () => {
       result('worshiptogether', 'Song', 'https://wt.com/a'),
     ]
     expect(selectCombinedSearchResults(input, 'song', 8)).toEqual(
-      selectSearchResults(input, 'song', 8)
+      selectSearchResults(input, 'song', 8),
     )
   })
 
@@ -272,6 +272,8 @@ describe('filterRelevantCandidates', () => {
   it('ignores stop words unless the entire query consists of stop words', () => {
     const candidates = [result('pnwchords', 'How Great Is Our God', 'https://pnw.com/1')]
     expect(filterRelevantCandidates(candidates, 'how great is the god')).toHaveLength(1)
-    expect(filterRelevantCandidates([result('pnwchords', 'The Stand', 'https://pnw.com/2')], 'the')).toHaveLength(1)
+    expect(
+      filterRelevantCandidates([result('pnwchords', 'The Stand', 'https://pnw.com/2')], 'the'),
+    ).toHaveLength(1)
   })
 })

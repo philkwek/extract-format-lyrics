@@ -9,12 +9,8 @@ import {
   withNamedLock,
 } from '../../src/lib/lyricsPublishIdentity'
 import { createLyricsIdentityAccess, createLyricsSync } from '../../src/lib/lyricsSync'
-import {
-  SharedLyricsStore,
-  verifyPublicationSecret,
-} from '../../functions/src/sharedLyricsStore'
+import { SharedLyricsStore, verifyPublicationSecret } from '../../functions/src/sharedLyricsStore'
 import { sessionSongsFromSnapshot, snapshotEntry } from '../../src/lib/shareSnapshot'
-
 
 interface MockDocSnap {
   exists: boolean
@@ -137,7 +133,11 @@ describe('lyrics sharing integration suite', () => {
       type: 'Verse',
       label: 'Verse 2',
       lines: [
-        { kind: 'lyric', text: 'Did we in our own strength confide', chords: [{ chord: 'Am', pos: 0 }] },
+        {
+          kind: 'lyric',
+          text: 'Did we in our own strength confide',
+          chords: [{ chord: 'Am', pos: 0 }],
+        },
       ],
     },
     {
@@ -169,7 +169,9 @@ describe('lyrics sharing integration suite', () => {
     {
       type: 'Verse',
       label: 'Verse 1',
-      lines: [{ kind: 'lyric', text: 'Amazing grace normal', chords: [{ chord: 'Cmaj7', pos: 0 }] }],
+      lines: [
+        { kind: 'lyric', text: 'Amazing grace normal', chords: [{ chord: 'Cmaj7', pos: 0 }] },
+      ],
     },
   ]
   const song2SimplifiedSections: Section[] = [
@@ -181,7 +183,9 @@ describe('lyrics sharing integration suite', () => {
     {
       type: 'Verse',
       label: 'Verse 1',
-      lines: [{ kind: 'lyric', text: 'Amazing grace simplified', chords: [{ chord: 'C', pos: 0 }] }],
+      lines: [
+        { kind: 'lyric', text: 'Amazing grace simplified', chords: [{ chord: 'C', pos: 0 }] },
+      ],
     },
   ]
 
@@ -214,7 +218,6 @@ describe('lyrics sharing integration suite', () => {
     return { id: res.id, expiresAt: res.expiresAt.toISOString() }
   }
 
-
   it('runs complete lifecycle: publish, identity reuse, updates, expiry renewal, chord-free check, and auth enforcement', async () => {
     // 1. Setup session fixture:
     // Item 1: Song 1 with custom sections: Deleted Outro, moved Chorus to top
@@ -232,7 +235,11 @@ describe('lyrics sharing integration suite', () => {
         type: 'Verse',
         label: 'Acoustic Verse',
         lines: [
-          { kind: 'lyric', text: 'Custom acoustic lyrics for reprise', chords: [{ chord: 'G', pos: 0 }] },
+          {
+            kind: 'lyric',
+            text: 'Custom acoustic lyrics for reprise',
+            chords: [{ chord: 'G', pos: 0 }],
+          },
         ],
       },
     ]
@@ -292,7 +299,9 @@ describe('lyrics sharing integration suite', () => {
 
     // Separate occurrences check: Reprise is kept as distinct occurrence with its own edits
     expect(initialPayload.songs[2].title).toBe('A Mighty Fortress (Reprise)')
-    expect(initialPayload.songs[2].sections[0].lines).toEqual(['Custom acoustic lyrics for reprise'])
+    expect(initialPayload.songs[2].sections[0].lines).toEqual([
+      'Custom acoustic lyrics for reprise',
+    ])
 
     // Publish to backend
     const publish1 = await publishLyricsForSession(session.id, initialPayload, simulateBackendPut)
@@ -334,9 +343,7 @@ describe('lyrics sharing integration suite', () => {
       {
         type: 'Verse',
         label: 'Acoustic Verse',
-        lines: [
-          { kind: 'lyric', text: 'Brand new unpublished local edit line', chords: [] },
-        ],
+        lines: [{ kind: 'lyric', text: 'Brand new unpublished local edit line', chords: [] }],
       },
     ]
     session.songs[2].customSections = updatedCustomSections
@@ -348,7 +355,7 @@ describe('lyrics sharing integration suite', () => {
         'Custom acoustic lyrics for reprise',
       ])
       expect(lookupBeforeUpdate.lyrics.songs[2].sections[0].lines).not.toContain(
-        'Brand new unpublished local edit line'
+        'Brand new unpublished local edit line',
       )
     }
 
@@ -364,7 +371,7 @@ describe('lyrics sharing integration suite', () => {
     expect(publish2.shareUrl).toBe(publish1.shareUrl)
     // Expiry was reset to 7 days from new time
     expect(new Date(publish2.expiresAt).getTime()).toBe(
-      currentTime.getTime() + 7 * 24 * 3600 * 1000
+      currentTime.getTime() + 7 * 24 * 3600 * 1000,
     )
 
     // Public link now serves new lyrics!
@@ -393,7 +400,7 @@ describe('lyrics sharing integration suite', () => {
     // --- VERIFY: UNAUTHORIZED WRITES ARE REJECTED ---
     // Attacker trying to PUT with arbitrary secret or no secret
     await expect(simulateBackendPut(pubId, 'attacker-fake-secret', updatedPayload)).rejects.toThrow(
-      '403 Forbidden'
+      '403 Forbidden',
     )
     await expect(simulateBackendPut(pubId, '', updatedPayload)).rejects.toThrow('403 Forbidden')
 

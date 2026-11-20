@@ -38,7 +38,7 @@ describe('ImportProgressList', () => {
       <ImportProgressList
         statuses={[{ url: 'https://example.com/song', status: 'done' }]}
         heading="Importing songs"
-      />
+      />,
     )
     expect(screen.getByText('Importing songs')).toBeTruthy()
   })

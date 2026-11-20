@@ -7,7 +7,9 @@ import { normalizeSongText } from '../../src/normalizer.js'
 describe('ultimateGuitarAdapter', () => {
   it('matches ultimate guitar URLs', () => {
     expect(
-      ultimateGuitarAdapter.matches('https://tabs.ultimate-guitar.com/tab/leonard-cohen/hallelujah-chords-198')
+      ultimateGuitarAdapter.matches(
+        'https://tabs.ultimate-guitar.com/tab/leonard-cohen/hallelujah-chords-198',
+      ),
     ).toBe(true)
     expect(ultimateGuitarAdapter.matches('https://pnwchords.com/song')).toBe(false)
   })
@@ -16,7 +18,10 @@ describe('ultimateGuitarAdapter', () => {
     const fixturePath = path.join(__dirname, '__fixtures__', 'ultimate-guitar.html')
     const html = fs.readFileSync(fixturePath, 'utf-8')
 
-    const rawSong = ultimateGuitarAdapter.extract(html, 'https://tabs.ultimate-guitar.com/tab/leonard-cohen/hallelujah-chords-198')
+    const rawSong = ultimateGuitarAdapter.extract(
+      html,
+      'https://tabs.ultimate-guitar.com/tab/leonard-cohen/hallelujah-chords-198',
+    )
     expect(rawSong.title).toBe('Hallelujah')
     expect(rawSong.artist).toBe('Leonard Cohen')
     expect(rawSong.originalKey).toBe('C')

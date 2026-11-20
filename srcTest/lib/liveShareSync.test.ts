@@ -273,7 +273,7 @@ describe('stopLiveShare', () => {
     memory.clear()
     memory.set('live:s1', { sessionId: 's1', publicId: 'p'.repeat(22), secret: 'k' })
     setSetLinkIdentityStoreForTesting({
-      get: async <T,>(k: string) => memory.get(k) as T | undefined,
+      get: async <T>(k: string) => memory.get(k) as T | undefined,
       set: async (k, v) => void memory.set(k, v),
       del: async (k) => void memory.delete(k),
     })
@@ -338,7 +338,7 @@ describe('startLiveShare', () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
     memory.clear()
     setSetLinkIdentityStoreForTesting({
-      get: async <T,>(k: string) => memory.get(k) as T | undefined,
+      get: async <T>(k: string) => memory.get(k) as T | undefined,
       set: async (k, v) => void memory.set(k, v),
       del: async (k) => void memory.delete(k),
     })
@@ -373,9 +373,7 @@ describe('startLiveShare', () => {
       name: 'Big set',
       songs,
     })
-    await expect(startLiveShare('too-many')).rejects.toThrow(
-      'A live share holds up to 30 songs.',
-    )
+    await expect(startLiveShare('too-many')).rejects.toThrow('A live share holds up to 30 songs.')
     expect(memory.has('live:too-many')).toBe(false)
   })
 
@@ -440,9 +438,7 @@ describe('startLiveShare', () => {
       publicId: 'k'.repeat(22),
       secret: 'keep-secret',
     })
-    vi.mocked(putLiveSetManifestApi).mockRejectedValue(
-      new ShareApiError('no', 'FORBIDDEN', 403),
-    )
+    vi.mocked(putLiveSetManifestApi).mockRejectedValue(new ShareApiError('no', 'FORBIDDEN', 403))
 
     await expect(startLiveShare('keep-fail')).rejects.toThrow('Could not start the live share')
     expect(memory.get('live:keep-fail')).toMatchObject({
@@ -473,7 +469,7 @@ describe('content hash', () => {
       flow: [0],
     }
     expect(await hashLiveSongContent({ song: demo, customFlow: [0, 0] })).toBe(
-      'ead3f44b931987e257aa7b2dda593bc2f1c8c7893eee3ab8571958d682598b80'
+      'ead3f44b931987e257aa7b2dda593bc2f1c8c7893eee3ab8571958d682598b80',
     )
   })
 })

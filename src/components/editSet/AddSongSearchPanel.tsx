@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { trackEvent, trackSearchTiming, trackSongImport } from '../../lib/analytics'
-import {
-  searchApiStream,
-  type SearchCandidate,
-  type SearchSourceStatus,
-} from '../../lib/api'
+import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../../lib/api'
 import {
   mergeFinalSearchCandidates,
   mergePartialSearchCandidates,
@@ -64,9 +60,7 @@ export default function AddSongSearchPanel({
         onSource: (source) => {
           if (generation !== searchGenerationRef.current) return
           setSources((previous) => upsertSearchSource(previous, source))
-          setResults((previous) =>
-            mergePartialSearchCandidates(previous, source.candidates)
-          )
+          setResults((previous) => mergePartialSearchCandidates(previous, source.candidates))
         },
       })
       if (generation !== searchGenerationRef.current) return

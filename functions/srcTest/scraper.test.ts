@@ -37,7 +37,10 @@ Second line
       finalUrl: 'https://pnwchords.com/test-song',
     })
 
-    const song = await scrapeSingleUrl('https://pnwchords.com/test-song', mockFetch as unknown as typeof safeFetchHtml)
+    const song = await scrapeSingleUrl(
+      'https://pnwchords.com/test-song',
+      mockFetch as unknown as typeof safeFetchHtml,
+    )
 
     expect(song.title).toBe('Test Song')
     expect(song.artist).toBe('Test Artist')
@@ -78,7 +81,10 @@ Same chorus
       finalUrl: 'https://pnwchords.com/repeated-song',
     })
 
-    const song = await scrapeSingleUrl('https://pnwchords.com/repeated-song', mockFetch as unknown as typeof safeFetchHtml)
+    const song = await scrapeSingleUrl(
+      'https://pnwchords.com/repeated-song',
+      mockFetch as unknown as typeof safeFetchHtml,
+    )
 
     expect(song.sections.map((section) => section.label)).toEqual(['Verse 1', 'Chorus', 'Verse 2'])
     expect(song.flow).toEqual([0, 1, 2, 1])
@@ -107,7 +113,10 @@ Same chorus
       finalUrl: 'https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123',
     })
 
-    const song = await scrapeSingleUrl('https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123', mockFetch as unknown as typeof safeFetchHtml)
+    const song = await scrapeSingleUrl(
+      'https://tabs.ultimate-guitar.com/tab/ug-artist/ug-song-123',
+      mockFetch as unknown as typeof safeFetchHtml,
+    )
 
     expect(song.title).toBe('UG Song')
     expect(song.artist).toBe('UG Artist')
@@ -143,7 +152,10 @@ To the heavens
       finalUrl: 'https://pnwchords.com/complex-song',
     })
 
-    const song = await scrapeSingleUrl('https://pnwchords.com/complex-song', mockFetch as unknown as typeof safeFetchHtml)
+    const song = await scrapeSingleUrl(
+      'https://pnwchords.com/complex-song',
+      mockFetch as unknown as typeof safeFetchHtml,
+    )
 
     expect(song.simplifiedSource).toBe('algorithmic')
     expect(song.simplifiedSections).toBeDefined()
@@ -190,48 +202,71 @@ Second line
       finalUrl: 'https://pnwchords.com/wrong-key-song',
     })
 
-    const song = await scrapeSingleUrl('https://pnwchords.com/wrong-key-song', mockFetch as unknown as typeof safeFetchHtml)
+    const song = await scrapeSingleUrl(
+      'https://pnwchords.com/wrong-key-song',
+      mockFetch as unknown as typeof safeFetchHtml,
+    )
 
     // Even though data-key was "C", chord detection correctly infers "D"
     expect(song.originalKey).toBe('D')
   })
 })
 
-
-
 it('infers G for Heart of a Servant chart 1905600 despite C metadata', async () => {
   // Actual chord sequence from the linked chart, including its final IV chord.
   // Neutral lyric placeholders preserve the per-line annotations without copying lyrics.
   const verse = 'C D Am G D G C D Am G D G'.split(' ')
   const chorus = 'C C Am D D G C C Am Am D D G G C'.split(' ')
-  const annotate = (chords: string[]) => chords.map((chord, i) => `[ch]${chord}[/ch]\nLyric line ${i}`).join('\n')
-  const data = { store: { page: { data: {
-    tab: { song_name: 'Heart of a Servant', artist_name: 'City Harvest Church' },
-    tab_view: { meta: { tonality: 'C' }, wiki_tab: {
-      content: 'Verse\n' + annotate(verse) + '\n[Chorus]\n' + annotate(chorus),
-    } },
-  } } } }
+  const annotate = (chords: string[]) =>
+    chords.map((chord, i) => `[ch]${chord}[/ch]\nLyric line ${i}`).join('\n')
+  const data = {
+    store: {
+      page: {
+        data: {
+          tab: { song_name: 'Heart of a Servant', artist_name: 'City Harvest Church' },
+          tab_view: {
+            meta: { tonality: 'C' },
+            wiki_tab: {
+              content: 'Verse\n' + annotate(verse) + '\n[Chorus]\n' + annotate(chorus),
+            },
+          },
+        },
+      },
+    },
+  }
   const html = `<div class="js-store" data-content="${JSON.stringify(data).replace(/"/g, '&quot;')}"></div>`
-  const url = 'https://tabs.ultimate-guitar.com/tab/city-harvest-church/heart-of-a-servant-chords-1905600'
+  const url =
+    'https://tabs.ultimate-guitar.com/tab/city-harvest-church/heart-of-a-servant-chords-1905600'
   const fetcher = vi.fn().mockResolvedValue({ text: html, finalUrl: url })
   const song = await scrapeSingleUrl(url, fetcher)
   expect(song.originalKey).toBe('G')
-  expect(song.sections.map(section => section.type)).toEqual(['Verse', 'Chorus'])
+  expect(song.sections.map((section) => section.type)).toEqual(['Verse', 'Chorus'])
 })
-
 
 it('infers C for Fresh Fire chart 5088748 rather than its first Am chord', async () => {
   const chart: Array<{ label: string; chords: string[] }> = JSON.parse(
     readFileSync(new URL('./__fixtures__/fresh-fire-5088748.json', import.meta.url), 'utf8'),
   )
   // Neutral placeholders keep the source's line structure without storing lyrics.
-  const content = chart.map(({ label, chords }, sectionIndex) => `[${label}]\n` +
-    chords.map((chord, chordIndex) => `[ch]${chord}[/ch]\nLyric line ${sectionIndex} ${chordIndex}`).join('\n'),
-  ).join('\n')
-  const data = { store: { page: { data: {
-    tab: { song_name: 'Fresh Fire', artist_name: 'The Belonging Co' },
-    tab_view: { meta: { tonality: 'Am' }, wiki_tab: { content } },
-  } } } }
+  const content = chart
+    .map(
+      ({ label, chords }, sectionIndex) =>
+        `[${label}]\n` +
+        chords
+          .map((chord, chordIndex) => `[ch]${chord}[/ch]\nLyric line ${sectionIndex} ${chordIndex}`)
+          .join('\n'),
+    )
+    .join('\n')
+  const data = {
+    store: {
+      page: {
+        data: {
+          tab: { song_name: 'Fresh Fire', artist_name: 'The Belonging Co' },
+          tab_view: { meta: { tonality: 'Am' }, wiki_tab: { content } },
+        },
+      },
+    },
+  }
   const html = `<div class="js-store" data-content="${JSON.stringify(data).replace(/"/g, '&quot;')}"></div>`
   const url = 'https://tabs.ultimate-guitar.com/tab/the-belonging-co/fresh-fire-chords-5088748'
   const fetcher = vi.fn().mockResolvedValue({ text: html, finalUrl: url })
@@ -249,24 +284,42 @@ describe('scraping major-family output policy', () => {
   }
 
   it.each([
-    ['Am', 'C'], ['C#m', 'E'], ['Dm', 'F'], ['F#m', 'A'], ['Bbm', 'Db'], ['G#m', 'B'],
-    ['Eb minor', 'Gb'], ['F#', 'F#'], ['Gb', 'Gb'], ['A#', 'A#'],
+    ['Am', 'C'],
+    ['C#m', 'E'],
+    ['Dm', 'F'],
+    ['F#m', 'A'],
+    ['Bbm', 'Db'],
+    ['G#m', 'B'],
+    ['Eb minor', 'Gb'],
+    ['F#', 'F#'],
+    ['Gb', 'Gb'],
+    ['A#', 'A#'],
   ])('normalizes metadata fallback %s to %s for a chordless chart', async (metadata, expected) => {
     expect((await fetchSong(metadata, 'Only lyrics here')).originalKey).toBe(expected)
   })
 
   it.each([
-    ['Am Dm E7 Am', 'C'], ['C#m F#m G#7 C#m', 'E'], ['Dm Gm A7 Dm', 'F'],
-    ['F#m Bm C#7 F#m', 'A'], ['Bbm Ebm F7 Bbm', 'Db'], ['G#m C#m D#7 G#m', 'B'],
-  ])('normalizes detected minor chart %s before falling back to metadata', async (chords, expected) => {
-    expect((await fetchSong('D', `[Verse]\n${chords}`)).originalKey).toBe(expected)
-  })
+    ['Am Dm E7 Am', 'C'],
+    ['C#m F#m G#7 C#m', 'E'],
+    ['Dm Gm A7 Dm', 'F'],
+    ['F#m Bm C#7 F#m', 'A'],
+    ['Bbm Ebm F7 Bbm', 'Db'],
+    ['G#m C#m D#7 G#m', 'B'],
+  ])(
+    'normalizes detected minor chart %s before falling back to metadata',
+    async (chords, expected) => {
+      expect((await fetchSong('D', `[Verse]\n${chords}`)).originalKey).toBe(expected)
+    },
+  )
 
   it('keeps detected major ahead of minor metadata', async () => {
     expect((await fetchSong('Am', '[Verse]\nD G A7 D')).originalKey).toBe('D')
   })
 
-  it.each([null, '', 'H#m', 'not a key'])('keeps missing or invalid fallback %s null', async metadata => {
-    expect((await fetchSong(metadata, 'Only lyrics here')).originalKey).toBeNull()
-  })
+  it.each([null, '', 'H#m', 'not a key'])(
+    'keeps missing or invalid fallback %s null',
+    async (metadata) => {
+      expect((await fetchSong(metadata, 'Only lyrics here')).originalKey).toBeNull()
+    },
+  )
 })

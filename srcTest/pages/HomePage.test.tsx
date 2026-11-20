@@ -59,13 +59,13 @@ describe('HomePage recent shared lyrics', () => {
           },
         ],
       },
-      new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+      new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     )
 
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
@@ -89,13 +89,13 @@ describe('HomePage recent shared lyrics', () => {
         name: 'Temporary Set',
         songs: [],
       },
-      new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+      new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     )
 
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
@@ -116,8 +116,8 @@ describe('HomePage live set cards', () => {
   const base = { createdAt: 0, songs: [] }
 
   it('tells live sets and shared sets from normal sets', async () => {
-    vi.mocked(getLiveShare).mockImplementation(
-      async (id: string) => (id === 'host' ? ({ url: 'u' } as never) : null),
+    vi.mocked(getLiveShare).mockImplementation(async (id: string) =>
+      id === 'host' ? ({ url: 'u' } as never) : null,
     )
     vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
       { ...base, id: 'f', name: 'Followed', liveSourceId: 'live-1' },
@@ -128,7 +128,7 @@ describe('HomePage live set cards', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(await screen.findByText('Live set')).toBeTruthy()
@@ -145,7 +145,7 @@ describe('HomePage live set cards', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(await screen.findByText('Live set ended')).toBeTruthy()
@@ -165,12 +165,14 @@ describe('HomePage set card actions', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     fireEvent.click(await screen.findByLabelText('Delete session'))
     expect(del).not.toHaveBeenCalled()
-    expect(await screen.findByText('"Normal" will be deleted. You can undo for 5 seconds.')).toBeTruthy()
+    expect(
+      await screen.findByText('"Normal" will be deleted. You can undo for 5 seconds.'),
+    ).toBeTruthy()
     expect(del).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -186,7 +188,7 @@ describe('HomePage set card actions', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     fireEvent.click(await screen.findByLabelText('Delete session'))
@@ -203,7 +205,7 @@ describe('HomePage set card actions', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     await screen.findByText('Followed')
@@ -218,7 +220,7 @@ describe('HomePage set card actions', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     const shareButton = await screen.findByLabelText('Share setlist')
@@ -236,13 +238,11 @@ describe('HomePage undoable set deletion', () => {
   })
 
   async function openDialog() {
-    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([
-      stored,
-    ] as never)
+    vi.spyOn(sessionStoreModule.sessionStore, 'getAllSessions').mockResolvedValue([stored] as never)
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     fireEvent.click(await screen.findByLabelText('Delete session'))
     await screen.findByRole('heading', { name: 'Delete this set?' })
@@ -301,7 +301,7 @@ describe('HomePage song tray', () => {
     render(
       <MemoryRouter>
         <HomePage />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     const input = screen.getByPlaceholderText(/e\.g\. Goodness/)
 
@@ -316,7 +316,9 @@ describe('HomePage song tray', () => {
       fireEvent.change(input, { target: { value: `song ${page}` } })
       fireEvent.submit(input.closest('form')!)
       await waitFor(() => expect(screen.getByText(`Song ${page * 8 + 1}`)).toBeTruthy())
-      for (const button of screen.queryAllByRole('button', { name: /^Add (multiple songs|to set)$/ })) {
+      for (const button of screen.queryAllByRole('button', {
+        name: /^Add (multiple songs|to set)$/,
+      })) {
         if (!(button as HTMLButtonElement).disabled) fireEvent.click(button)
       }
     }

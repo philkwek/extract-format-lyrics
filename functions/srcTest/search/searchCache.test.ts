@@ -59,7 +59,7 @@ describe('search cache keys', () => {
   it('keeps one source apart from the combined search', () => {
     expect(createSearchCacheKey('song', 'v1', 'pnwchords')).toBe('v1@pnwchords:song')
     expect(createSearchCacheKey('pnwchords:song', 'v1')).not.toBe(
-      createSearchCacheKey('song', 'v1', 'pnwchords')
+      createSearchCacheKey('song', 'v1', 'pnwchords'),
     )
   })
 
@@ -127,7 +127,10 @@ describe('SearchCache', () => {
     await expect(first).resolves.toMatchObject({ cacheStatus: 'miss' })
     await expect(second).resolves.toMatchObject({ cacheStatus: 'miss' })
 
-    const later = await cache.search('song', vi.fn(async () => data()))
+    const later = await cache.search(
+      'song',
+      vi.fn(async () => data()),
+    )
     expect(later.cacheStatus).toBe('hit')
   })
 

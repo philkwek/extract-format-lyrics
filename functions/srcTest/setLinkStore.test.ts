@@ -13,7 +13,10 @@ import {
 import type { SetLinkPayload } from '../src/types.js'
 
 class MockDocRef {
-  constructor(public readonly path: string, private readonly store: Map<string, Record<string, unknown>>) {}
+  constructor(
+    public readonly path: string,
+    private readonly store: Map<string, Record<string, unknown>>,
+  ) {}
   async get() {
     const data = this.store.get(this.path)
     return { exists: data !== undefined, data: () => data }
@@ -44,8 +47,19 @@ const payload: SetLinkPayload = {
   v: 1,
   name: ' Sunday ',
   songs: [
-    { entryId: 'e1', url: 'https://tabs.example.com/song-1', title: 'One', targetKey: 'G', simplified: true },
-    { entryId: 'e2', url: 'http://tabs.example.com/song-2', padKeyMode: 'custom', customPadKey: 'A' },
+    {
+      entryId: 'e1',
+      url: 'https://tabs.example.com/song-1',
+      title: 'One',
+      targetKey: 'G',
+      simplified: true,
+    },
+    {
+      entryId: 'e2',
+      url: 'http://tabs.example.com/song-2',
+      padKeyMode: 'custom',
+      customPadKey: 'A',
+    },
   ],
 }
 
@@ -53,12 +67,23 @@ function makeStore(start = new Date('2026-01-01T12:00:00Z')) {
   const db = new MockFirestore()
   let current = start
   const store = new SetLinkStore(db as unknown as Firestore, () => current)
-  return { db, store, advance: (ms: number) => { current = new Date(current.getTime() + ms) } }
+  return {
+    db,
+    store,
+    advance: (ms: number) => {
+      current = new Date(current.getTime() + ms)
+    },
+  }
 }
 
 describe('set link id derivation', () => {
   it('derives a 22 char base64url id matching an independent computation', () => {
-    const expected = crypto.createHash('sha256').update(`set-link-v1:${secret}`).digest().subarray(0, 16).toString('base64url')
+    const expected = crypto
+      .createHash('sha256')
+      .update(`set-link-v1:${secret}`)
+      .digest()
+      .subarray(0, 16)
+      .toString('base64url')
     expect(id).toBe(expected)
     expect(id).toMatch(/^[A-Za-z0-9_-]{22}$/)
   })
@@ -90,11 +115,28 @@ describe('isSetLinkPayload', () => {
     expect(isSetLinkPayload({ ...payload, name: '   ' })).toBe(false)
     expect(isSetLinkPayload({ ...payload, name: 'x'.repeat(201) })).toBe(false)
     expect(isSetLinkPayload({ ...payload, songs: [] })).toBe(false)
-    expect(isSetLinkPayload({ ...payload, songs: Array.from({ length: MAX_SET_LINK_SONGS + 1 }, () => song) })).toBe(false)
-    expect(isSetLinkPayload({ ...payload, songs: Array.from({ length: MAX_SET_LINK_SONGS }, () => song) })).toBe(true)
-    expect(isSetLinkPayload({ ...payload, songs: [{ ...song, url: `https://a.example.com/${'x'.repeat(2048)}` }] })).toBe(false)
+    expect(
+      isSetLinkPayload({
+        ...payload,
+        songs: Array.from({ length: MAX_SET_LINK_SONGS + 1 }, () => song),
+      }),
+    ).toBe(false)
+    expect(
+      isSetLinkPayload({
+        ...payload,
+        songs: Array.from({ length: MAX_SET_LINK_SONGS }, () => song),
+      }),
+    ).toBe(true)
+    expect(
+      isSetLinkPayload({
+        ...payload,
+        songs: [{ ...song, url: `https://a.example.com/${'x'.repeat(2048)}` }],
+      }),
+    ).toBe(false)
     expect(isSetLinkPayload({ ...payload, songs: [{ ...song, title: 5 }] })).toBe(false)
-    expect(isSetLinkPayload({ ...payload, songs: [{ ...song, targetKey: 'x'.repeat(11) }] })).toBe(false)
+    expect(isSetLinkPayload({ ...payload, songs: [{ ...song, targetKey: 'x'.repeat(11) }] })).toBe(
+      false,
+    )
     expect(isSetLinkPayload({ ...payload, songs: [{ ...song, simplified: 'yes' }] })).toBe(false)
     expect(isSetLinkPayload({ ...payload, songs: [{ ...song, padKeyMode: 'other' }] })).toBe(false)
   })
@@ -103,13 +145,27 @@ describe('isSetLinkPayload', () => {
 describe('SetLinkStore', () => {
   it('creates a doc with whitelisted fields and a 7 day expiry', async () => {
     const { db, store } = makeStore()
-    const dirty = { ...payload, extra: 1, songs: [{ ...payload.songs[0], secretField: 'x' }] } as unknown as SetLinkPayload
+    const dirty = {
+      ...payload,
+      extra: 1,
+      songs: [{ ...payload.songs[0], secretField: 'x' }],
+    } as unknown as SetLinkPayload
     const result = await store.publish(id, dirty)
     expect(result.unchanged).toBe(false)
-    expect(result.expiresAt.getTime()).toBe(new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS)
+    expect(result.expiresAt.getTime()).toBe(
+      new Date('2026-01-01T12:00:00Z').getTime() + SET_LINK_TTL_MS,
+    )
     const doc = db.data.get(`setLinks/${id}`)!
     expect(doc.name).toBe('Sunday')
-    expect(doc.songs).toEqual([{ entryId: 'e1', url: 'https://tabs.example.com/song-1', title: 'One', targetKey: 'G', simplified: true }])
+    expect(doc.songs).toEqual([
+      {
+        entryId: 'e1',
+        url: 'https://tabs.example.com/song-1',
+        title: 'One',
+        targetKey: 'G',
+        simplified: true,
+      },
+    ])
     expect(doc.writeDay).toBe('2026-01-01')
     expect(doc.writeCount).toBe(1)
     expect(typeof doc.payloadHash).toBe('string')
@@ -183,7 +239,12 @@ describe('SetLinkStore', () => {
 
   it('get treats an invalid stored payload as missing', async () => {
     const { db, store } = makeStore()
-    db.data.set(`setLinks/${id}`, { v: 1, name: 'x', songs: [{ entryId: 'e', url: 'upload://x' }], expiresAt: Timestamp.fromDate(new Date('2027-01-01')) })
+    db.data.set(`setLinks/${id}`, {
+      v: 1,
+      name: 'x',
+      songs: [{ entryId: 'e', url: 'upload://x' }],
+      expiresAt: Timestamp.fromDate(new Date('2027-01-01')),
+    })
     expect(await store.get(id)).toEqual({ kind: 'missing' })
   })
 })

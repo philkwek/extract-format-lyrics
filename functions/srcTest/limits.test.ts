@@ -60,7 +60,10 @@ describe('handleCors', () => {
     const res = { setHeader } as unknown as Response
 
     handleCors(req, res)
-    expect(setHeader).not.toHaveBeenCalledWith('Access-Control-Allow-Origin', 'https://malicious-site.com')
+    expect(setHeader).not.toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'https://malicious-site.com',
+    )
   })
 })
 

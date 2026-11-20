@@ -32,9 +32,7 @@ export interface BuildSetLinkPayloadResult {
 
 export type SetLinkUnavailableReason = NonNullable<BuildSetLinkPayloadResult['reason']> | 'failed'
 
-export type EnsureFreshResult =
-  | { ok: true }
-  | { ok: false; reason: SetLinkUnavailableReason }
+export type EnsureFreshResult = { ok: true } | { ok: false; reason: SetLinkUnavailableReason }
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
@@ -59,7 +57,8 @@ export function buildSetLinkPayload(session: Session): BuildSetLinkPayloadResult
     songs.push(song)
   }
   if (songs.length === 0) return { payload: null, skippedUploads, reason: 'empty' }
-  if (songs.length > SET_LINK_MAX_SONGS) return { payload: null, skippedUploads, reason: 'too_many' }
+  if (songs.length > SET_LINK_MAX_SONGS)
+    return { payload: null, skippedUploads, reason: 'too_many' }
   const name = session.name.trim().slice(0, SET_LINK_NAME_MAX)
   return { payload: { v: 1, name, songs }, skippedUploads }
 }
@@ -90,7 +89,7 @@ export interface SetLinkSyncIdentity {
   /** Merges bookkeeping into an existing record; no-op when the record is gone. */
   update(
     sessionId: string,
-    patch: Pick<SetLinkIdentityRecord, 'lastPublishedHash' | 'expiresAt'>
+    patch: Pick<SetLinkIdentityRecord, 'lastPublishedHash' | 'expiresAt'>,
   ): Promise<void>
   remove(sessionId: string): Promise<void>
 }
@@ -105,14 +104,14 @@ export interface SyncChannelDeps<P> {
   /** Sessions that return false are never published on this channel. */
   shouldSync?: (session: Session) => boolean | Promise<boolean>
   buildPayload: (
-    session: Session
+    session: Session,
   ) => MaybePromise<{ payload: P | null; skippedUploads?: number; reason?: 'empty' | 'too_many' }>
   /** Public id the session must carry to be published; absent means no check. */
   expectedPublicId?: (session: Session) => string | undefined
   publish: (
     identity: SetLinkIdentityRecord,
     payload: P,
-    options: { keepalive?: boolean }
+    options: { keepalive?: boolean },
   ) => Promise<{ expiresAt: string }>
   /** 'failing' once retries give up or the error can't be retried; 'ok' after a publish. */
   onStatus?: (sessionId: string, status: 'ok' | 'failing') => void
@@ -141,7 +140,7 @@ export interface SetLinkSyncDeps {
     id: string,
     secret: string,
     payload: SetLinkPayload,
-    options: { keepalive?: boolean }
+    options: { keepalive?: boolean },
   ) => Promise<PutSetLinkResult>
   now: () => number
   timers: SyncChannelDeps<SetLinkPayload>['timers']
@@ -150,7 +149,7 @@ export interface SetLinkSyncDeps {
   withLock: SyncChannelDeps<SetLinkPayload>['withLock']
   track: (
     name: 'set_link_published',
-    params: { song_count: number; skipped_uploads: number; trigger: SetLinkTrigger }
+    params: { song_count: number; skipped_uploads: number; trigger: SetLinkTrigger },
   ) => void
   visibility?: SyncChannelDeps<SetLinkPayload>['visibility']
 }
@@ -241,7 +240,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
   async function publishOnce(
     sessionId: string,
     st: SessionSyncState,
-    keepalive: boolean
+    keepalive: boolean,
   ): Promise<EnsureFreshResult> {
     const session = st.latest
     if (!session) return { ok: false, reason: 'failed' }

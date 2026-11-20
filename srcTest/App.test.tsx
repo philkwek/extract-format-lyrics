@@ -28,8 +28,12 @@ vi.mock('../src/pages/SessionPage', async () => {
       return (
         <div>
           <div>Session Page Content</div>
-          <button type="button" onClick={() => setHidden(true)}>Hide chrome</button>
-          <button type="button" onClick={() => setHidden(false)}>Show chrome</button>
+          <button type="button" onClick={() => setHidden(true)}>
+            Hide chrome
+          </button>
+          <button type="button" onClick={() => setHidden(false)}>
+            Show chrome
+          </button>
         </div>
       )
     },
@@ -47,7 +51,7 @@ describe('App navigation visibility', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/']}>
         <AppShell />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeTruthy()
@@ -57,7 +61,7 @@ describe('App navigation visibility', () => {
     render(
       <MemoryRouter initialEntries={['/search']}>
         <AppShell />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeTruthy()
@@ -67,7 +71,7 @@ describe('App navigation visibility', () => {
     render(
       <MemoryRouter initialEntries={['/lyrics/test-short-id']}>
         <AppShell />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(screen.queryByRole('navigation', { name: 'Primary navigation' })).toBeNull()
@@ -79,7 +83,7 @@ describe('App navigation visibility', () => {
     render(
       <MemoryRouter initialEntries={['/session/demo']}>
         <AppShell />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeTruthy()
@@ -103,7 +107,7 @@ describe('App navigation visibility', () => {
     render(
       <MemoryRouter initialEntries={['/session/broken']}>
         <AppShell />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(screen.getByText('This page could not be displayed')).toBeTruthy()

@@ -41,7 +41,11 @@ describe('LiveFollowPage', () => {
   it('explains a stopped share', async () => {
     vi.mocked(openLiveShareOnce).mockResolvedValue({ kind: 'stopped' })
     renderPage()
-    expect(await screen.findByText('This live share was stopped. Ask the person sharing for a new link.')).toBeTruthy()
+    expect(
+      await screen.findByText(
+        'This live share was stopped. Ask the person sharing for a new link.',
+      ),
+    ).toBeTruthy()
     expect(navigate).not.toHaveBeenCalled()
     expect(trackEvent).toHaveBeenCalledWith('live_share_followed', { outcome: 'stopped' })
   })

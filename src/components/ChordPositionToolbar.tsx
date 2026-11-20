@@ -21,7 +21,10 @@ export default function ChordPositionToolbar({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if an input or textarea is currently focused
       const target = e.target as HTMLElement | null
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+      ) {
         return
       }
       if (target?.tagName === 'BUTTON' && e.key === 'Enter') {
@@ -51,13 +54,13 @@ export default function ChordPositionToolbar({
     <div
       role="region"
       aria-label="Chord position adjustment"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[92vw] w-auto animate-in fade-in slide-in-from-bottom-3 duration-200"
+      className="animate-in fade-in slide-in-from-bottom-3 fixed bottom-6 left-1/2 z-40 w-auto max-w-[92vw] -translate-x-1/2 duration-200"
     >
-      <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-ui-surface-raised/95 backdrop-blur-md border border-ui-border shadow-2xl flex-wrap justify-center">
+      <div className="bg-ui-surface-raised/95 border-ui-border flex flex-wrap items-center justify-center gap-3 rounded-2xl border px-4 py-2.5 shadow-2xl backdrop-blur-md">
         {/* Chord info badge */}
-        <div className="flex items-center gap-1.5 text-xs text-ui-text-muted font-medium whitespace-nowrap">
+        <div className="text-ui-text-muted flex items-center gap-1.5 text-xs font-medium whitespace-nowrap">
           <span>Positioning</span>
-          <span className="font-mono font-bold text-ui-accent-strong bg-ui-surface-muted px-2 py-0.5 rounded border border-ui-border">
+          <span className="text-ui-accent-strong bg-ui-surface-muted border-ui-border rounded border px-2 py-0.5 font-mono font-bold">
             {chord}
           </span>
         </div>
@@ -83,7 +86,7 @@ export default function ChordPositionToolbar({
         </div>
 
         {/* Divider */}
-        <div className="h-5 w-px bg-ui-border hidden sm:block" />
+        <div className="bg-ui-border hidden h-5 w-px sm:block" />
 
         {/* Action buttons: Cancel & Save Changes */}
         <div className="flex items-center gap-2">

@@ -6,13 +6,17 @@ import { normalizeSongText } from '../../src/normalizer.js'
 
 describe('worshipChordsAdapter', () => {
   it('matches worshipchords URLs', () => {
-    expect(worshipChordsAdapter.matches('https://worshipchords.com/goodness-of-god-chords/')).toBe(true)
+    expect(worshipChordsAdapter.matches('https://worshipchords.com/goodness-of-god-chords/')).toBe(
+      true,
+    )
     expect(worshipChordsAdapter.matches('https://pnwchords.com/song')).toBe(false)
   })
 
   it('detects Cloudflare verification block', () => {
     const blockedHtml = `<html><head><title>Just a moment...</title></head><body><div id="challenge-error-text"></div></body></html>`
-    expect(() => worshipChordsAdapter.extract(blockedHtml, 'https://worshipchords.com/song')).toThrow(/anti-bot verification/)
+    expect(() =>
+      worshipChordsAdapter.extract(blockedHtml, 'https://worshipchords.com/song'),
+    ).toThrow(/anti-bot verification/)
   })
 
   it('parses the live archive-header layout and strips the Chords suffix', () => {
@@ -39,7 +43,7 @@ I love You Lord
     `
     const raw = worshipChordsAdapter.extract(
       html,
-      'https://worshipchords.com/goodness-of-god-chords/'
+      'https://worshipchords.com/goodness-of-god-chords/',
     )
     expect(raw.title).toBe('Goodness Of God')
     expect(raw.artist).toBe('Bethel Music, Jenn Johnson')
@@ -55,7 +59,10 @@ I love You Lord
     const fixturePath = path.join(__dirname, '__fixtures__', 'worshipchords.html')
     const html = fs.readFileSync(fixturePath, 'utf-8')
 
-    const raw = worshipChordsAdapter.extract(html, 'https://worshipchords.com/goodness-of-god-chords/')
+    const raw = worshipChordsAdapter.extract(
+      html,
+      'https://worshipchords.com/goodness-of-god-chords/',
+    )
     expect(raw.title).toBe('Goodness of God')
     expect(raw.artist).toBe('Bethel Music')
     expect(raw.originalKey).toBe('G')

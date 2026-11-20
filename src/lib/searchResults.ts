@@ -8,7 +8,7 @@ export const SEARCH_RESULT_LIMIT = 8
 
 function mergeCandidateMetadata(
   previous: SearchCandidate,
-  incoming: SearchCandidate
+  incoming: SearchCandidate,
 ): SearchCandidate {
   return { ...previous, ...incoming, url: previous.url }
 }
@@ -22,11 +22,11 @@ export function mergePartialSearchCandidates(
   previous: SearchCandidate[],
   incoming: SearchCandidate[],
   limit = SEARCH_RESULT_LIMIT,
-  sourceCount = SUPPORTED_SEARCH_SOURCE_COUNT
+  sourceCount = SUPPORTED_SEARCH_SOURCE_COUNT,
 ): SearchCandidate[] {
   const merged = [...previous]
   const seen = new Map(
-    merged.map((candidate, index) => [canonicalCandidateUrl(candidate.url), index])
+    merged.map((candidate, index) => [canonicalCandidateUrl(candidate.url), index]),
   )
   const perSourceLimit = Math.max(1, Math.ceil(limit / Math.max(1, sourceCount)))
   const perSourceCount = new Map<string, number>()
@@ -59,10 +59,10 @@ export function mergePartialSearchCandidates(
 export function mergeFinalSearchCandidates(
   previous: SearchCandidate[],
   final: SearchCandidate[],
-  limit = SEARCH_RESULT_LIMIT
+  limit = SEARCH_RESULT_LIMIT,
 ): SearchCandidate[] {
   const finalByUrl = new Map(
-    final.map((candidate) => [canonicalCandidateUrl(candidate.url), candidate])
+    final.map((candidate) => [canonicalCandidateUrl(candidate.url), candidate]),
   )
   const merged: SearchCandidate[] = []
   const seen = new Set<string>()
@@ -88,7 +88,7 @@ export function mergeFinalSearchCandidates(
 
 export function upsertSearchSource(
   sources: SearchSourceStatus[],
-  incoming: SearchSourceStatus
+  incoming: SearchSourceStatus,
 ): SearchSourceStatus[] {
   const index = sources.findIndex((source) => source.site === incoming.site)
   if (index < 0) return [...sources, incoming]

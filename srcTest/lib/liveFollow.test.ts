@@ -67,8 +67,7 @@ async function liveResponse(
               { entryId: 'e-b', contentHash: hb },
             ],
     },
-    contents:
-      status === 'stopped' ? {} : over.dropContent ? { [ha]: a } : { [ha]: a, [hb]: b },
+    contents: status === 'stopped' ? {} : over.dropContent ? { [ha]: a } : { [ha]: a, [hb]: b },
     expiresAt: new Date(Date.now() + 86400_000).toISOString(),
   }
 }

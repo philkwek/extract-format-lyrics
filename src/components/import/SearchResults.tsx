@@ -1,10 +1,6 @@
 import type { SearchCandidate, SearchSourceStatus } from '../../lib/api'
 import { classes } from '../../lib/classes'
-import {
-  allSearchSourcesFailed,
-  failedSearchSources,
-  sourceLabel,
-} from '../../lib/searchResults'
+import { allSearchSourcesFailed, failedSearchSources, sourceLabel } from '../../lib/searchResults'
 import SearchResultCard from './SearchResultCard'
 
 interface SearchActionState {
@@ -27,13 +23,7 @@ interface SearchResultsProps {
   className?: string
 }
 
-function SourceStatus({
-  source,
-  shownCount,
-}: {
-  source: SearchSourceStatus
-  shownCount: number
-}) {
+function SourceStatus({ source, shownCount }: { source: SearchSourceStatus; shownCount: number }) {
   const label = sourceLabel(source.site)
   const detail =
     source.status === 'failed'
@@ -98,12 +88,15 @@ export default function SearchResults({
     return (
       <div className={classes('space-y-3', className)}>
         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ui-text-muted)]">
+          <h3 className="text-[11px] font-bold tracking-[0.12em] text-[var(--ui-text-muted)] uppercase">
             Search results · {results.length}
             {isSearching ? ' · more sources pending' : ''}
           </h3>
           {isSearching && (
-            <span className="flex items-center gap-1.5 text-[10px] text-[var(--ui-text-muted)]" role="status">
+            <span
+              className="flex items-center gap-1.5 text-[10px] text-[var(--ui-text-muted)]"
+              role="status"
+            >
               <span className="ui-spinner" /> Checking remaining sources
             </span>
           )}
@@ -157,7 +150,12 @@ export default function SearchResults({
   if (hasSearched && !hasError && !isSearching) {
     if (allFailed) {
       return (
-        <div className={classes('space-y-2 py-10 text-center text-sm text-[var(--ui-text-muted)]', className)}>
+        <div
+          className={classes(
+            'space-y-2 py-10 text-center text-sm text-[var(--ui-text-muted)]',
+            className,
+          )}
+        >
           <p>Search sources are unavailable right now. Try again in a moment.</p>
           <p className="text-xs">
             {failed.map((source) => `${sourceLabel(source.site)}: unavailable`).join(' · ')}
@@ -166,7 +164,12 @@ export default function SearchResults({
       )
     }
     return (
-      <div className={classes('space-y-2 py-10 text-center text-sm text-[var(--ui-text-muted)]', className)}>
+      <div
+        className={classes(
+          'space-y-2 py-10 text-center text-sm text-[var(--ui-text-muted)]',
+          className,
+        )}
+      >
         <p>{emptyMessage}</p>
         {partial && failed.length > 0 && (
           <p className="text-xs">

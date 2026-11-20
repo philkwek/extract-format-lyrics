@@ -31,11 +31,7 @@ import {
 import { songCache } from '../lib/songCache'
 import { ensureSetLinkFresh } from '../lib/setLinkSync'
 import { isSetLinkId } from '../lib/setLinkIdentity'
-import {
-  diffLinkSnapshot,
-  savePreviewAsNew,
-  type SetLinkPreview,
-} from '../lib/setLinkImport'
+import { diffLinkSnapshot, savePreviewAsNew, type SetLinkPreview } from '../lib/setLinkImport'
 import SetLinkImportView, {
   type SetLinkFallback,
   type SetLinkNavState,
@@ -86,11 +82,7 @@ import {
   liveToneClasses,
   type LiveTone,
 } from '../components/ui/liveTone'
-import {
-  followLiveSet,
-  type FollowController,
-  type FollowStatus,
-} from '../lib/liveFollow'
+import { followLiveSet, type FollowController, type FollowStatus } from '../lib/liveFollow'
 import { useFollowEditGuard } from '../lib/useFollowEditGuard'
 import {
   describeHostChanges,
@@ -310,7 +302,11 @@ export default function SessionPage() {
     index: number
   } | null>(null)
   const followRef = useRef<FollowController | null>(null)
-  const viewRef = useRef({ activeIndex: 0, shown: [] as SessionSongItem[], songs: new Map<string, Song>() })
+  const viewRef = useRef({
+    activeIndex: 0,
+    shown: [] as SessionSongItem[],
+    songs: new Map<string, Song>(),
+  })
   const deferRef = useRef(false)
   const onHostUpdateRef = useRef<(next: Session) => void>(() => {})
   const [hostChanges, setHostChanges] = useState<HostChange[] | null>(null)
@@ -433,8 +429,8 @@ export default function SessionPage() {
     return () => {
       cancelled = true
     }
-  // location.state is only read to carry it across the one-time address replace.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // location.state is only read to carry it across the one-time address replace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, loadSessionSongs, navigate])
 
   const shownSongs = useMemo(() => {
@@ -452,14 +448,14 @@ export default function SessionPage() {
   const activeIndex = shownSongs.length > 0 ? Math.min(rawActiveIndex, shownSongs.length - 1) : 0
   const currentItem = shownSongs[activeIndex]
   const arrangeSongs = useMemo(
-    () =>
-      (session?.songs ?? []).filter((item) => item.entryId !== pendingSongRemoval?.entryId),
+    () => (session?.songs ?? []).filter((item) => item.entryId !== pendingSongRemoval?.entryId),
     [session?.songs, pendingSongRemoval],
   )
   const isRemovedItem = (item: SessionSongItem) =>
     removedByHost !== null && item.entryId === removedByHost.item.entryId
   const songForItem = (item: SessionSongItem) =>
-    songsData.get(item.entryId || item.url) ?? (isRemovedItem(item) ? removedByHost?.song : undefined)
+    songsData.get(item.entryId || item.url) ??
+    (isRemovedItem(item) ? removedByHost?.song : undefined)
   const currentSong = currentItem ? songForItem(currentItem) : null
 
   useEffect(() => {
@@ -783,10 +779,7 @@ export default function SessionPage() {
   )
 
   const activeFlow = useMemo(
-    () =>
-      subtractedSection
-        ? removeSectionFromFlow(baseFlow, subtractedSection.index)
-        : baseFlow,
+    () => (subtractedSection ? removeSectionFromFlow(baseFlow, subtractedSection.index) : baseFlow),
     [baseFlow, subtractedSection],
   )
 
@@ -1426,8 +1419,7 @@ export default function SessionPage() {
   const guardedResetKey = () => guard(() => void handleResetKey())
   const guardedChangePadKeyMode = (mode: PadKeyMode) =>
     guard(() => void handleChangePadKeyMode(mode))
-  const guardedSelectCustomPadKey = (key: PadKey) =>
-    guard(() => void handleSelectCustomPadKey(key))
+  const guardedSelectCustomPadKey = (key: PadKey) => guard(() => void handleSelectCustomPadKey(key))
 
   if (!session && sessionId && notFoundId === sessionId && isSetLinkId(sessionId)) {
     return (
@@ -1451,11 +1443,11 @@ export default function SessionPage() {
 
   if (!session) {
     return (
-      <div className="bg-ui-surface rounded-2xl shadow-sm p-12 text-center text-neutral-400 text-sm border border-ui-border">
+      <div className="bg-ui-surface border-ui-border rounded-2xl border p-12 text-center text-sm text-neutral-400 shadow-sm">
         Session not found.{' '}
         <button
           onClick={() => navigate('/')}
-          className="text-ui-accent-strong underline cursor-pointer"
+          className="text-ui-accent-strong cursor-pointer underline"
         >
           Return home
         </button>
@@ -1561,8 +1553,9 @@ export default function SessionPage() {
   const neighbourTitle = (item: SessionSongItem | undefined) =>
     item ? songForItem(item)?.title || item.title || item.url : ''
   const prevTitle = neighbourTitle(activeIndex > 0 ? shownSongs[activeIndex - 1] : undefined)
-  const nextTitle =
-    neighbourTitle(activeIndex < shownSongs.length - 1 ? shownSongs[activeIndex + 1] : undefined)
+  const nextTitle = neighbourTitle(
+    activeIndex < shownSongs.length - 1 ? shownSongs[activeIndex + 1] : undefined,
+  )
 
   const sheetPages: ReactNode[] = []
   if (previousItem && previousSong && previousPrefs) {
@@ -1594,9 +1587,7 @@ export default function SessionPage() {
             ? displayedSections
             : getSheetSections(currentSong, currentItem)
         }
-        titleBlock={
-          <FullScreenTitleBlock song={currentSong} warning={fullScreenWarning} />
-        }
+        titleBlock={<FullScreenTitleBlock song={currentSong} warning={fullScreenWarning} />}
         columns={prefs.columns}
         fontSizePx={prefs.fontSizePx}
         fitToScreen={prefs.fitToScreen ?? true}
@@ -1741,8 +1732,7 @@ export default function SessionPage() {
           <ul className="mt-1 space-y-0.5 text-xs">
             {importFailures.map((failure) => (
               <li key={failure.url}>
-                <span className="break-all font-mono">{failure.url}</span> {'—'}{' '}
-                {failure.reason}
+                <span className="font-mono break-all">{failure.url}</span> {'—'} {failure.reason}
               </li>
             ))}
           </ul>
@@ -1825,7 +1815,11 @@ export default function SessionPage() {
                   </LivePill>
                 )}
                 <LiveShareChip sessionId={session.id} />
-                <IconButton label="Rename set" variant="ghost" onClick={() => guard(handleStartRename)}>
+                <IconButton
+                  label="Rename set"
+                  variant="ghost"
+                  onClick={() => guard(handleStartRename)}
+                >
                   <Pencil size={14} />
                 </IconButton>
               </div>
@@ -1834,7 +1828,7 @@ export default function SessionPage() {
               {songCount(shownSongs.length)} in setlist
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <Button
               size="sm"
               variant="secondary"
@@ -1875,7 +1869,7 @@ export default function SessionPage() {
             ? isPhonePortrait
               ? 'grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--ui-border)] px-3 py-2'
               : `flex shrink-0 items-center gap-2 border-b border-[var(--ui-border)] px-2${
-                  isPhoneLandscape ? ' fullscreen-compact-row' : ''
+                  isPhoneLandscape ? 'fullscreen-compact-row' : ''
                 }`
             : 'flex items-center gap-2 border-y border-[var(--ui-border)] py-3'
         }
@@ -1888,7 +1882,7 @@ export default function SessionPage() {
             onClick={() => guard(() => setIsArrangingSongs(true))}
             aria-label="Arrange setlist"
             title="Arrange setlist"
-            className="shrink-0 h-9"
+            className="h-9 shrink-0"
           >
             <span className="hidden sm:inline">Arrange setlist</span>
           </Button>
@@ -1945,27 +1939,27 @@ export default function SessionPage() {
                   }
                 }}
                 title={canDrag ? 'Drag to reorder songs in setlist' : undefined}
-                className={`relative flex min-h-9 items-center space-x-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium outline-none transition-all select-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
+                className={`relative flex min-h-9 items-center space-x-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-[var(--ui-focus)] ${
                   canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-                } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+                } ${isDragging ? 'scale-95 opacity-40' : ''} ${
                   isActive
-                    ? 'bg-[var(--ui-surface-raised)] text-[#255283] dark:text-amber-400 border-[var(--ui-border-strong)] font-bold shadow-sm'
-                    : 'bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:text-[var(--ui-text)] border-transparent'
+                    ? 'border-[var(--ui-border-strong)] bg-[var(--ui-surface-raised)] font-bold text-[#255283] shadow-sm dark:text-amber-400'
+                    : 'border-transparent bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]'
                 }`}
               >
                 {/* Drop insertion indicator line */}
                 {isOver &&
                   (draggedSongIdx! < idx ? (
-                    <div className="absolute -right-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                      <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    <div className="pointer-events-none absolute top-0.5 -right-1 bottom-0.5 z-20 flex flex-col items-center justify-between">
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                      <div className="w-0.5 flex-1 bg-[#3368A0] shadow-xs dark:bg-amber-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
                     </div>
                   ) : (
-                    <div className="absolute -left-1 top-0.5 bottom-0.5 flex flex-col items-center justify-between z-20 pointer-events-none">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
-                      <div className="w-0.5 flex-1 bg-[#3368A0] dark:bg-amber-500 shadow-xs" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                    <div className="pointer-events-none absolute top-0.5 bottom-0.5 -left-1 z-20 flex flex-col items-center justify-between">
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
+                      <div className="w-0.5 flex-1 bg-[#3368A0] shadow-xs dark:bg-amber-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#3368A0] dark:bg-amber-500" />
                     </div>
                   ))}
 
@@ -1975,7 +1969,7 @@ export default function SessionPage() {
                   </span>
                 )}
 
-                <span className="truncate max-w-[140px]">{tabLabel}</span>
+                <span className="max-w-[140px] truncate">{tabLabel}</span>
                 {!isFullScreen && shownSongs.length > 1 && !isRemovedItem(item) && (
                   <button
                     type="button"
@@ -2065,7 +2059,7 @@ export default function SessionPage() {
             onClick={handleExitFullScreen}
             title="Exit full screen"
             aria-label="Exit full screen"
-            className={`shrink-0${isPhonePortrait ? ' col-start-2 row-start-1' : ''}`}
+            className={`shrink-0${isPhonePortrait ? 'col-start-2 row-start-1' : ''}`}
           >
             <span className="hidden lg:inline">Exit full screen</span>
           </Button>
@@ -2088,9 +2082,9 @@ export default function SessionPage() {
                 className={
                   isFullScreen
                     ? showFullScreenDisplayControls
-                      ? 'shrink-0 border-b border-ui-border px-3 py-1.5'
+                      ? 'border-ui-border shrink-0 border-b px-3 py-1.5'
                       : 'hidden'
-                    : 'space-y-1.5 pb-2 border-b border-ui-border'
+                    : 'border-ui-border space-y-1.5 border-b pb-2'
                 }
               >
                 {isFullScreen ? (
@@ -2270,7 +2264,7 @@ export default function SessionPage() {
             </div>
           ) : (
             <div className={isFullScreen ? 'min-h-0 flex-1 overflow-y-auto p-3' : ''}>
-              <div className="py-8 text-center text-xs text-[var(--ui-text-muted)] animate-pulse">
+              <div className="animate-pulse py-8 text-center text-xs text-[var(--ui-text-muted)]">
                 Loading song sheet...
               </div>
             </div>
@@ -2293,7 +2287,11 @@ export default function SessionPage() {
             <Button variant="secondary" onClick={() => setConfirmingUpdate(false)}>
               Cancel
             </Button>
-            <Button variant="primary" loading={savingPreview} onClick={() => void handleUpdateCopy()}>
+            <Button
+              variant="primary"
+              loading={savingPreview}
+              onClick={() => void handleUpdateCopy()}
+            >
               Update
             </Button>
           </>
@@ -2415,8 +2413,7 @@ export default function SessionPage() {
                   setIsArrangingSongs(false)
                   setPendingRemove({
                     entryId: item.entryId || '',
-                    title:
-                      s?.title || item.title || item.url.replace(/^https?:\/\//, ''),
+                    title: s?.title || item.title || item.url.replace(/^https?:\/\//, ''),
                   })
                 })
               }
@@ -2427,7 +2424,7 @@ export default function SessionPage() {
 
       {/* Floating tips and shortcuts share the bottom-right corner. */}
       {!isFullScreen && (
-        <div className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+        <div className="pointer-events-none fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
           {/* Section Customization Helper Tip (First song & first instance only) */}
           {showSectionEditTip && activeIndex === 0 && Boolean(displayedSong) && (
             <aside
@@ -2436,14 +2433,14 @@ export default function SessionPage() {
               className="ui-surface ui-surface--elevated pointer-events-auto flex max-w-xs flex-col gap-2.5 p-3.5 sm:max-w-sm"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-ui-accent-strong">
+                <div className="text-ui-accent-strong flex items-center gap-1.5 text-xs font-semibold">
                   <Lightbulb size={14} />
                   <span>Customise sections</span>
                 </div>
               </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                Tap <strong className="text-neutral-800 dark:text-neutral-100">✎</strong> to rename a
-                section, <strong className="text-neutral-800 dark:text-neutral-100">✕</strong> to
+              <p className="text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
+                Tap <strong className="text-neutral-800 dark:text-neutral-100">✎</strong> to rename
+                a section, <strong className="text-neutral-800 dark:text-neutral-100">✕</strong> to
                 remove a duplicate, and drag{' '}
                 <strong className="text-neutral-800 dark:text-neutral-100">⋮⋮</strong> to reorder
                 (with a mouse or trackpad).
