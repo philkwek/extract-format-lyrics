@@ -145,6 +145,26 @@ describe('UI primitives', () => {
     await user.tab()
     expect(screen.getByRole('button', { name: 'Close' })).toBe(document.activeElement)
   })
+  it('marks a pressed button without using the primary fill', () => {
+    const { rerender } = render(
+      <Button variant="secondary" pressed>
+        Wrapped
+      </Button>,
+    )
+    const button = screen.getByRole('button', { name: 'Wrapped' })
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(button.className).toContain('ui-button--secondary')
+    expect(button.className).toContain('ui-button--pressed')
+
+    rerender(
+      <Button variant="secondary" pressed={false}>
+        Wrapped
+      </Button>,
+    )
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+    expect(button.className).not.toContain('ui-button--pressed')
+  })
+
   it('reports the next state from a switch and stays put while busy', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

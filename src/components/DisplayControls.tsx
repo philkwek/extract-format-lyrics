@@ -125,10 +125,10 @@ export default function DisplayControls({
             {isFullScreen && onToggleFit && (
               <Button
                 size="sm"
-                variant={fitActive ? 'primary' : 'secondary'}
+                variant="secondary"
+                pressed={fitActive}
                 icon={<Scan size={14} />}
                 onClick={onToggleFit}
-                aria-pressed={fitActive}
                 title={fitActive ? 'Turn off fit to screen' : 'Fit the whole song on screen'}
               >
                 Fit screen
@@ -197,7 +197,8 @@ export default function DisplayControls({
 
           <Button
             size="sm"
-            variant={prefs.wrapLines ? 'primary' : 'secondary'}
+            variant="secondary"
+            pressed={Boolean(prefs.wrapLines)}
             icon={<WrapText size={14} />}
             onClick={() =>
               onChangePrefs({
@@ -206,7 +207,6 @@ export default function DisplayControls({
                 fitToScreen: fitActive ? false : prefs.fitToScreen,
               })
             }
-            aria-pressed={Boolean(prefs.wrapLines)}
             title={
               prefs.wrapLines
                 ? 'Turn off automatic line wrapping'
@@ -231,7 +231,8 @@ export default function DisplayControls({
               <div className="inline-flex items-center gap-1">
                 <Button
                   size="sm"
-                  variant={prefs.simplified ? 'primary' : 'secondary'}
+                  variant="secondary"
+                  pressed={Boolean(prefs.simplified)}
                   icon={<WandSparkles size={14} />}
                   onClick={() => onChangePrefs({ ...prefs, simplified: !prefs.simplified })}
                 >
@@ -264,7 +265,8 @@ export default function DisplayControls({
             {!isFullScreen && onToggleEditChords && (
               <Button
                 size="sm"
-                variant={isEditingChords ? 'primary' : 'secondary'}
+                variant="secondary"
+                pressed={Boolean(isEditingChords)}
                 icon={<Pencil size={14} />}
                 onClick={onToggleEditChords}
                 title={isEditingChords ? 'Exit chord editing mode' : 'Edit, move, or delete chords'}

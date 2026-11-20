@@ -1935,7 +1935,8 @@ export default function SessionPage() {
                         {canSimplify && (
                           <Button
                             size="sm"
-                            variant={prefs.simplified ? 'primary' : 'secondary'}
+                            variant="secondary"
+                            pressed={Boolean(prefs.simplified)}
                             icon={<WandSparkles size={14} />}
                             onClick={() =>
                               handleUpdatePrefs({
@@ -1943,7 +1944,6 @@ export default function SessionPage() {
                                 simplified: !prefs.simplified,
                               })
                             }
-                            aria-pressed={Boolean(prefs.simplified)}
                             title={
                               prefs.simplified
                                 ? currentSong?.simplifiedSource === 'algorithmic'
@@ -1968,7 +1968,8 @@ export default function SessionPage() {
                         />
                         <Button
                           size="sm"
-                          variant={showFullScreenDisplayControls ? 'primary' : 'secondary'}
+                          variant="secondary"
+                          pressed={showFullScreenDisplayControls}
                           icon={<SlidersHorizontal size={14} />}
                           onClick={() => setShowFullScreenDisplayControls((visible) => !visible)}
                           aria-expanded={showFullScreenDisplayControls}
