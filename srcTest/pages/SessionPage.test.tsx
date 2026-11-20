@@ -1643,6 +1643,39 @@ describe('SessionPage undoable removals', () => {
     expect(saved.songs[0].customSections?.map((s) => s.label)).toEqual(['Chorus', 'Bridge'])
   })
 
+  it('edits the right chord in a later section while an earlier section deletion is pending', async () => {
+    const song = {
+      ...sectionSong,
+      sections: sectionSong.sections.map((sec, i) =>
+        i === 2
+          ? { ...sec, lines: [{ kind: 'lyric', text: 'Third line', chords: [{ chord: 'D', pos: 0 }] }] }
+          : sec,
+      ),
+    }
+    vi.mocked(songCache.getSong).mockResolvedValue(song as never)
+    vi.mocked(sessionStore.updateSession).mockClear()
+    render(<TestHarness />)
+    fireEvent.click((await screen.findAllByTitle('Delete Verse 1'))[0])
+    await screen.findByRole('heading', { name: 'Remove this section?' })
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await act(async () => {})
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit chords' }))
+    fireEvent.click(screen.getByText('D'))
+    fireEvent.click(screen.getByTitle('Cancel out / remove this chord'))
+    await act(async () => {})
+    await act(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    const saved = vi.mocked(sessionStore.updateSession).mock.calls.at(-1)![0]
+    const sections = saved.songs[0].customSections!
+    expect(sections.map((s) => s.label)).toEqual(['Chorus', 'Verse 2'])
+    expect(sections[1].lines[0]).toMatchObject({ chords: [] })
+  })
+
   it('disables tab dragging while a song removal is pending undo', async () => {
     const threeSongs = {
       ...twoSongs,

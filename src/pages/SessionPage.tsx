@@ -263,11 +263,7 @@ export default function SessionPage() {
       await updateSongItem(payload.entryId, (item) =>
         withSections(item, sections, flow, payload.isSimplified),
       )
-      setSongsData((prev) => {
-        const next = new Map(prev).set(payload.songKey, updatedSong)
-        songsDataRef.current = next
-        return next
-      })
+      setSongsData((prev) => new Map(prev).set(payload.songKey, updatedSong))
       setRemovalError(null)
     },
     [updateSongItem],
@@ -360,7 +356,6 @@ export default function SessionPage() {
         map.set(item.entryId || item.url, songToUse)
       }
     }
-    songsDataRef.current = map
     setSongsData(map)
     setOriginalSongs(origMap)
     setLoadedSessionId(nextSession.id)
@@ -994,11 +989,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: baseSections, flow: nextFlow }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
 
     // Persist reordered sections to session so it survives page reloads
     await updateSongItem(currentItem?.entryId, (s) =>
@@ -1024,11 +1015,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: nextSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
 
     await updateSongItem(currentItem?.entryId, (s) =>
       withUpdatedSections(s, nextSections, baseFlow),
@@ -1135,11 +1122,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: updatedSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
     await updateSongItem(currentItem?.entryId, (song) =>
       withUpdatedSections(song, updatedSections, baseFlow),
     )
@@ -1166,11 +1149,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: updatedSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
     await updateSongItem(currentItem?.entryId, (song) =>
       withUpdatedSections(song, updatedSections, baseFlow),
     )
@@ -1229,11 +1208,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: nextSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
 
     await updateSongItem(currentItem?.entryId, (s) =>
       withUpdatedSections(s, nextSections, baseFlow),
@@ -1277,11 +1252,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: nextSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
 
     await updateSongItem(currentItem?.entryId, (s) =>
       withUpdatedSections(s, nextSections, baseFlow),
@@ -1310,11 +1281,7 @@ export default function SessionPage() {
         : { ...currentSong, sections: nextSections }
 
     const songKey = currentItem?.entryId || currentSong.sourceUrl
-    setSongsData((prev) => {
-      const next = new Map(prev).set(songKey, updatedSong)
-      songsDataRef.current = next
-      return next
-    })
+    setSongsData((prev) => new Map(prev).set(songKey, updatedSong))
 
     await updateSongItem(currentItem?.entryId, (s) =>
       withUpdatedSections(s, nextSections, baseFlow),
