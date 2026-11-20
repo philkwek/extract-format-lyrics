@@ -16,13 +16,16 @@ import { trackPage, setTrackingEnabled } from './lib/analytics'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import ThemeToggle from './components/ThemeToggle'
 import UpdateBanner from './components/UpdateBanner'
+import OfflineNotice from './components/OfflineNotice'
 import { ChromeVisibilityContext } from './lib/chromeVisibility'
 import { useAppUpdate } from './lib/useAppUpdate'
+import { useOnlineStatus } from './lib/useOnlineStatus'
 
 export function AppShell() {
   const location = useLocation()
   const [chromeHidden, setChromeHidden] = useState(false)
   const { updateAvailable, reload, dismiss } = useAppUpdate()
+  const online = useOnlineStatus()
   useEffect(() => {
     trackPage(location.pathname)
   }, [location.pathname])
@@ -37,6 +40,7 @@ export function AppShell() {
   }, [])
   const isLyricsView = location.pathname.startsWith('/lyrics/')
   const isSessionView = location.pathname.startsWith('/session/')
+  const isSharedLinkView = /^\/(s|live|lyrics)\//.test(location.pathname)
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
@@ -87,6 +91,11 @@ export function AppShell() {
               </nav>
             </div>
           </header>
+        )}
+        {!online && isSharedLinkView && (
+          <div className="mx-auto w-[96%] max-w-lg pt-4">
+            <OfflineNotice />
+          </div>
         )}
         <main
           className={

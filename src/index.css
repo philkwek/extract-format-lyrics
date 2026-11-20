@@ -398,6 +398,10 @@ html.dark body {
 .dark .ui-status--success { color: #86efac; }
 .dark .ui-status--warning { color: #fde68a; }
 .dark .ui-status--error { color: #fecaca; }
+/* The floating banner's text is normal body text, not a tinted tone, so dark mode stays white. */
+.dark .ui-status--floating {
+  color: var(--ui-text);
+}
 
 .ui-overlay {
   position: fixed;

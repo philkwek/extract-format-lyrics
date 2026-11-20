@@ -29,6 +29,7 @@ import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
 import SearchResults from '../components/import/SearchResults'
 import SongTray from '../components/import/SongTray'
+import HomeNotice from '../components/HomeNotice'
 import LiveShareChip from '../components/share/LiveShareChip'
 import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import { Button, IconButton, LivePill, SegmentedControl, StatusBanner } from '../components/ui'
@@ -37,6 +38,8 @@ import { useSeo } from '../lib/useSeo'
 import { songCount } from '../lib/plural'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 import { useSongTray } from '../lib/useSongTray'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
 
 export default function HomePage() {
   useSeo({
@@ -47,6 +50,7 @@ export default function HomePage() {
   })
   const navigate = useNavigate()
   const tray = useSongTray()
+  const online = useOnlineStatus()
   const [createMode, setCreateMode] = useState<'paste' | 'search'>('search')
 
   // Paste mode state
@@ -131,6 +135,10 @@ export default function HomePage() {
 
   const handleExtract = async () => {
     setGeneralError(null)
+    if (!online) {
+      setGeneralError(OFFLINE_MESSAGE)
+      return
+    }
     const { sources, invalid, tokenCount } = parsePastedSources(inputText)
     if (tokenCount === 0) {
       setGeneralError('Please paste at least one chord sheet URL.')
@@ -167,6 +175,10 @@ export default function HomePage() {
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!searchQuery.trim()) return
+    if (!online) {
+      setSearchError(OFFLINE_MESSAGE)
+      return
+    }
 
     const startedAt = Date.now()
     searchAbortRef.current?.abort()
@@ -242,6 +254,7 @@ export default function HomePage() {
     <div
       className={`mx-auto max-w-6xl space-y-7 px-[3%] ${tray.items.length > 0 ? 'pb-24 lg:pb-0' : ''}`}
     >
+      <HomeNotice />
       <div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -269,6 +282,7 @@ export default function HomePage() {
               onChange={setInputText}
               onSubmit={handleExtract}
               isProcessing={isProcessing}
+              disabled={!online}
               error={generalError}
               submitLabel="Extract and open session"
               processingLabel="Extracting songs"
@@ -289,6 +303,7 @@ export default function HomePage() {
                   onQueryChange={setSearchQuery}
                   onSubmit={handleSearch}
                   isSearching={isSearching}
+                  disabled={!online}
                   error={searchError}
                   description="Search by title or artist across Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords"
                   placeholder="e.g. Goodness of God, Way Maker, Phil Wickham, Bethel..."

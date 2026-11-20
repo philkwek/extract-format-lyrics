@@ -269,6 +269,11 @@ export function startLiveShareSync(): () => void {
   return stopDefault
 }
 
+/** Retries pending live-share updates now, e.g. when the connection returns. */
+export async function flushLiveShareSync(): Promise<void> {
+  await defaultSync?.flush()
+}
+
 const liveUrl = (publicId: string) => `${window.location.origin}/live/${publicId}`
 
 export interface LiveShareLink {

@@ -171,6 +171,8 @@ export interface SetLinkSync {
   start(): () => void
   handleEvent(event: SessionChangeEvent): void
   ensureFresh(session: Session): Promise<EnsureFreshResult>
+  /** Retries every session that already has an identity, e.g. when the connection returns. */
+  flush(): Promise<void>
   /** Resolves when nothing is in flight; for tests and shutdown. */
   idle(): Promise<void>
 }
@@ -378,6 +380,16 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
     }
   }
 
+  /** Retries sessions that already have an identity; runs when the connection returns. */
+  async function flush(): Promise<void> {
+    for (const [sessionId, st] of states) {
+      if (!st.latest) continue
+      if (!(await deps.identity.get(sessionId))) continue
+      st.failures = 0
+      void run(sessionId, { keepalive: false })
+    }
+  }
+
   async function ensureFresh(session: Session): Promise<EnsureFreshResult> {
     const st = stateFor(session.id)
     st.latest = session
@@ -403,6 +415,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
     },
     handleEvent,
     ensureFresh,
+    flush,
     async idle() {
       for (;;) {
         const pending = [...states.values()].map((s) => s.inFlight).filter(Boolean)
@@ -480,6 +493,11 @@ export function startSetLinkSync(): () => void {
     stopDefault = undefined
   }
   return stopDefault
+}
+
+/** Retries pending shares now, e.g. when the connection returns. */
+export async function flushSetLinkSync(): Promise<void> {
+  await defaultSync?.flush()
 }
 
 /** Publishes now (no debounce) if never published, changed, or close to expiring. Never throws. */

@@ -93,6 +93,7 @@ import {
 import { getNextTabIndex } from '../lib/tabNavigation'
 import { useSongArrowKeys } from '../lib/useSongArrowKeys'
 import { useFullScreenLayout } from '../lib/useMediaQuery'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import {
   ambientPadPlayer,
   resolvePadKey,
@@ -207,6 +208,7 @@ export default function SessionPage() {
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null)
   const [reloadingSong, setReloadingSong] = useState(false)
+  const online = useOnlineStatus()
   const [reloadError, setReloadError] = useState<string | null>(null)
   const [prefsRevision, setPrefsRevision] = useState(0)
   const simplificationAttempts = useRef<Set<string>>(new Set())
@@ -2219,9 +2221,13 @@ export default function SessionPage() {
               <StatusBanner
                 tone={reloadError ? 'error' : 'warning'}
                 icon={<AlertTriangle size={16} />}
-                title="This song sheet isn’t saved in this browser."
+                title={
+                  online
+                    ? 'This song sheet isn’t saved in this browser.'
+                    : 'This song sheet isn’t saved on this device.'
+                }
                 actions={
-                  currentItem.url.startsWith('https://') ? (
+                  online && currentItem.url.startsWith('https://') ? (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -2257,9 +2263,11 @@ export default function SessionPage() {
                 }
               >
                 {reloadError ??
-                  (currentItem.url.startsWith('https://')
-                    ? 'You can try reloading it from its original link.'
-                    : 'Uploaded or pasted sheets are stored only on the device where they were added.')}
+                  (!online
+                    ? 'It opens again when you’re back online.'
+                    : currentItem.url.startsWith('https://')
+                      ? 'You can try reloading it from its original link.'
+                      : 'Uploaded or pasted sheets are stored only on the device where they were added.')}
               </StatusBanner>
             </div>
           ) : (

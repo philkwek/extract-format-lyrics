@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Radio } from 'lucide-react'
+import { AlertTriangle, Radio, WifiOff } from 'lucide-react'
 import {
   getLiveShare,
   subscribeLiveShare,
   subscribeLiveShareStatus,
   type LiveShareStatus,
 } from '../../lib/liveShareSync'
+import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { LivePill } from '../ui'
 
 export default function LiveShareChip({
@@ -17,6 +18,7 @@ export default function LiveShareChip({
 }) {
   const [isLive, setIsLive] = useState(false)
   const [status, setStatus] = useState<LiveShareStatus>('ok')
+  const online = useOnlineStatus()
 
   useEffect(() => {
     let cancelled = false
@@ -38,6 +40,14 @@ export default function LiveShareChip({
   }, [sessionId])
 
   if (!isLive) return null
+  if (!online) {
+    return (
+      <LivePill tone="reconnecting" className={className}>
+        <WifiOff size={11} aria-hidden="true" />
+        Offline
+      </LivePill>
+    )
+  }
   if (status === 'failing') {
     return (
       <LivePill tone="reconnecting" className={className}>
