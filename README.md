@@ -78,7 +78,8 @@ Longer songs may still need scrolling, depending on your screen and text size.
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
 - **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
-- **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Cached songs can be reused, but full offline use isn't supported yet. Open your set and load any pads you need before the session.
+- **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Saved sets and songs open offline, and edits sync when you're back online. Install the app from the home page to keep the pads offline too; browser tabs download pads only as you play them.
+- **Installing:** Chrome, Edge and Android offer a one-tap install. On iPhone and iPad, use Share → **Add to Home Screen**; macOS Safari uses File → **Add to Dock**.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
