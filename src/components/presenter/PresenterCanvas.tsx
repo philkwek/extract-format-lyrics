@@ -74,32 +74,17 @@ export default function PresenterCanvas({
   const displayedSectionIndex = sameSong ? sectionIndex : shownSectionIndex
 
   useEffect(() => {
-    if (sameSong) {
-      const settle = window.setTimeout(() => {
-        setShownSong(song)
-        setShownSectionIndex(sectionIndex)
-        setVisible(true)
-      }, 0)
-      return () => window.clearTimeout(settle)
-    }
-    if (!song || !shownSong || reduceMotion) {
-      const swap = window.setTimeout(() => {
-        setShownSong(song)
-        setShownSectionIndex(sectionIndex)
-        setVisible(true)
-      }, 0)
-      return () => window.clearTimeout(swap)
-    }
-    const fadeOut = window.setTimeout(() => setVisible(false), 0)
-    const swap = window.setTimeout(() => {
+    const show = () => {
       setShownSong(song)
       setShownSectionIndex(sectionIndex)
       setVisible(true)
-    }, 150)
-    return () => {
-      window.clearTimeout(fadeOut)
-      window.clearTimeout(swap)
     }
+    // A different song fades out, swaps, and fades back in; anything else updates in place.
+    const crossFade = !sameSong && song && shownSong && !reduceMotion
+    const timers = crossFade
+      ? [window.setTimeout(() => setVisible(false), 0), window.setTimeout(show, 150)]
+      : [window.setTimeout(show, 0)]
+    return () => timers.forEach((timer) => window.clearTimeout(timer))
   }, [sameSong, song, sectionIndex, shownSong, reduceMotion])
 
   const sectionsView = view === 'sections'
