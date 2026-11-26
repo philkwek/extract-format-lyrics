@@ -250,4 +250,33 @@ describe('PresenterPage', () => {
     expect(corner?.className).toContain('opacity-0')
     expect(corner?.className).toContain('pointer-events-none')
   })
+
+  it('keeps corner controls visible while hovered and hides 500ms after mouse leave', () => {
+    vi.useFakeTimers()
+    localStorage.setItem('presenter.mode', 'auto')
+    feed.current = live()
+
+    renderPage()
+    fireEvent.mouseMove(window)
+
+    const corner = screen.getByRole('button', { name: 'Settings' }).closest('div.fixed')!
+    fireEvent.mouseEnter(corner)
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(corner.className).toContain('opacity-100')
+
+    fireEvent.mouseLeave(corner)
+    act(() => {
+      vi.advanceTimersByTime(499)
+    })
+    expect(corner.className).toContain('opacity-100')
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(corner.className).toContain('opacity-0')
+    expect(corner.className).toContain('pointer-events-none')
+  })
 })

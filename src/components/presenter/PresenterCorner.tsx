@@ -46,6 +46,7 @@ export default function PresenterCorner({
   const reduceMotion = Boolean(useReducedMotion())
   const [visible, setVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [activity, setActivity] = useState(0)
   const { isFullscreen, toggleFullscreen } = useFullscreen()
   const controlsRef = useRef<HTMLDivElement>(null)
@@ -86,13 +87,13 @@ export default function PresenterCorner({
   }, [show])
 
   useEffect(() => {
-    if (!visible || settingsOpen) return
+    if (!visible || settingsOpen || hovered) return
     const timer = window.setTimeout(() => {
       if (keyboardFocusRef.current && controlsRef.current?.contains(document.activeElement)) return
       setVisible(false)
     }, HIDE_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [visible, settingsOpen, activity])
+  }, [visible, settingsOpen, hovered, activity])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -128,6 +129,8 @@ export default function PresenterCorner({
           setActivity((count) => count + 1)
         }
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onPointerDown={show}
     >
       {settingsOpen && (

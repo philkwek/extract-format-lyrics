@@ -126,4 +126,29 @@ describe('PresenterOutputPage', () => {
 
     expect(corner?.className).toContain('opacity-0')
   })
+
+  it('keeps the full-screen button visible while hovered and hides 500ms after mouse leave', () => {
+    vi.useFakeTimers()
+    renderPage()
+
+    fireEvent.mouseMove(window)
+    const corner = screen.getByRole('button', { name: 'Go full screen' }).closest('div.fixed')!
+    fireEvent.mouseEnter(corner)
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(corner.className).toContain('opacity-100')
+
+    fireEvent.mouseLeave(corner)
+    act(() => {
+      vi.advanceTimersByTime(499)
+    })
+    expect(corner.className).toContain('opacity-100')
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(corner.className).toContain('opacity-0')
+  })
 })

@@ -17,6 +17,7 @@ export default function PresenterOutputPage() {
   const { id = '' } = useParams<{ id: string }>()
   const [state, setState] = useState<OutputState | null>(null)
   const [controlsVisible, setControlsVisible] = useState(false)
+  const [controlsHovered, setControlsHovered] = useState(false)
   const [activity, setActivity] = useState(0)
   const heightPx = useViewportHeight()
   const { isFullscreen, toggleFullscreen } = useFullscreen()
@@ -69,10 +70,10 @@ export default function PresenterOutputPage() {
   }, [show])
 
   useEffect(() => {
-    if (!controlsVisible) return
+    if (!controlsVisible || controlsHovered) return
     const timer = window.setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [controlsVisible, activity])
+  }, [controlsVisible, controlsHovered, activity])
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black">
@@ -97,6 +98,8 @@ export default function PresenterOutputPage() {
           controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
           reduceMotion ? '' : 'transition-opacity duration-200',
         )}
+        onMouseEnter={() => setControlsHovered(true)}
+        onMouseLeave={() => setControlsHovered(false)}
       >
         <Button
           variant="secondary"
