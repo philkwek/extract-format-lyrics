@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
@@ -151,7 +151,7 @@ export default function PresenterSongEditor({
                     disabled={visibleDrafts.length <= 1}
                     onClick={() => setConfirmingRemoval({ id: draft.id, label: draft.label })}
                   >
-                    <Trash2 size={15} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                   </IconButton>
                 </div>
               </div>
