@@ -12,6 +12,7 @@ import {
   ListOrdered,
   Maximize2,
   Minimize2,
+  Monitor,
   Pencil,
   Plus,
   Radio,
@@ -57,6 +58,7 @@ import { getSheetSections } from '../lib/sheetSections'
 import DisplayControls from '../components/DisplayControls'
 import PadControls from '../components/PadControls'
 import TransposeSelector from '../components/TransposeSelector'
+import PresentationModal from '../components/PresentationModal'
 import ShareMenuModal from '../components/ShareMenuModal'
 import LiveShareChip from '../components/share/LiveShareChip'
 import HostChangeToast, { type HostNote } from '../components/share/HostChangeToast'
@@ -302,6 +304,7 @@ export default function SessionPage() {
       return false
     }
   })
+  const [isPresentationModalOpen, setIsPresentationModalOpen] = useState(false)
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false)
   const [isEditSetOpen, setIsEditSetOpen] = useState(false)
   const [followStatus, setFollowStatus] = useState<FollowStatus>('live')
@@ -409,7 +412,8 @@ export default function SessionPage() {
     controllerRef: followRef,
     onSavePreview: linkPreview ? handleSavePreview : undefined,
   })
-  const setDialogOpen = isShareMenuOpen || isEditSetOpen || isArrangingSongs
+  const setDialogOpen =
+    isPresentationModalOpen || isShareMenuOpen || isEditSetOpen || isArrangingSongs
 
   useEffect(() => {
     if (!sessionId) return
@@ -913,6 +917,7 @@ export default function SessionPage() {
     fullScreenScrollYRef.current = window.scrollY
     setIsEditingChords(false)
     setPositioningChord(null)
+    setIsPresentationModalOpen(false)
     setIsShareMenuOpen(false)
     setIsEditSetOpen(false)
     setIsArrangingSongs(false)
@@ -1855,14 +1860,24 @@ export default function SessionPage() {
               Add song
             </Button>
             {!linkPreview && (
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={<Share2 size={14} />}
-                onClick={handleOpenShareMenu}
-              >
-                Share set/lyrics
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Monitor size={14} />}
+                  onClick={() => setIsPresentationModalOpen(true)}
+                >
+                  Start presentation
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Share2 size={14} />}
+                  onClick={handleOpenShareMenu}
+                >
+                  Share set/lyrics
+                </Button>
+              </>
             )}
             <Button
               size="sm"
@@ -2377,6 +2392,16 @@ export default function SessionPage() {
           <p>You can restore it to the original chord sheet at any time.</p>
         </div>
       </OverlayDialog>
+
+      {/* Presentation Modal */}
+      {isPresentationModalOpen && session && !isFullScreen && (
+        <PresentationModal
+          session={session}
+          songsData={songsData}
+          isOpen={isPresentationModalOpen}
+          onClose={() => setIsPresentationModalOpen(false)}
+        />
+      )}
 
       {/* Share Modal */}
       {isShareMenuOpen && session && !isFullScreen && (

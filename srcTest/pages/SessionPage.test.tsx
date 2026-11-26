@@ -357,13 +357,30 @@ describe('SessionPage full screen mode', () => {
     expect(screen.getByRole('heading', { name: /Share .*Sunday Set/ })).toBeTruthy()
   })
 
-  it('puts Add song first in the title bar, before Share set/lyrics', async () => {
+  it('puts Add song first in the title bar, then Start presentation, before Share set/lyrics', async () => {
     render(<TestHarness />)
 
     const addSong = await screen.findByRole('button', { name: 'Add song' })
+    const present = screen.getByRole('button', { name: 'Start presentation' })
     const share = screen.getByRole('button', { name: 'Share set/lyrics' })
 
-    expect(addSong.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(addSong.compareDocumentPosition(present) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(present.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('Start presentation opens the presentation modal with its controls', async () => {
+    render(<TestHarness />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start presentation' }))
+
+    expect(
+      screen.getByRole('heading', { name: 'Start presentation mode for lyrics' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Just like a PowerPoint presentation.')).toBeTruthy()
+    expect(screen.getByText('Present on this device')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open in a new tab' })).toBeTruthy()
+    expect(screen.getByText('Present from a different laptop')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
   })
 
   it('Add song opens the add song dialog', async () => {
@@ -867,6 +884,7 @@ describe('SessionPage set links', () => {
     ).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Shared Sunday' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Great Are You Lord' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Start presentation' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Share set/lyrics' })).toBeNull()
     expect(sessionStore.updateSession).not.toHaveBeenCalled()
     expect(sessionStore.createSession).not.toHaveBeenCalled()

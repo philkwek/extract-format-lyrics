@@ -81,9 +81,10 @@ describe('ShareMenuModal', () => {
     expect(screen.getByRole('heading', { name: 'Share this entire set' })).toBeTruthy()
     expect(screen.getByText('For other musicians to follow along your created set.')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Share lyrics only' })).toBeTruthy()
-    expect(screen.getByText('Words only, no chords.')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Start presentation mode for lyrics' })).toBeTruthy()
-    expect(screen.getByText('For the big screen!')).toBeTruthy()
+    expect(screen.getByText('Send this link to your friends to see lyrics directly.')).toBeTruthy()
+    expect(
+      screen.queryByRole('heading', { name: 'Start presentation mode for lyrics' }),
+    ).toBeNull()
 
     expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Share live' })).toBeTruthy()
