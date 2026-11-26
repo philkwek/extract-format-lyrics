@@ -84,7 +84,7 @@ describe('PresenterOutputPage', () => {
     renderPage()
 
     expect(screen.getByText('Waiting for the presenter console…')).toBeTruthy()
-    expect(document.title).toBe('Presenter output')
+    expect(document.title).toBe('Presenter Screen')
     expect(FakeBroadcastChannel.instances[0].name).toBe('presenter:pub-1')
     expect(FakeBroadcastChannel.instances[0].postMessage).toHaveBeenCalledWith({
       type: 'hello',
