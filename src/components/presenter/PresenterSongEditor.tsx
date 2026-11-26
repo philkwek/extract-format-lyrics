@@ -7,6 +7,7 @@ import { UNDO_WINDOW_MS, usePendingRemoval } from '../../lib/usePendingRemoval'
 import type { SharedLyricsSection, SharedLyricsSong } from '../../types/song'
 import ChangeToast, { type ChangeNote } from '../share/ChangeToast'
 import { Button, IconButton } from '../ui'
+import OverlayDialog from '../ui/OverlayDialog'
 
 interface PresenterSongEditorProps {
   hostSong: SharedLyricsSong
@@ -37,6 +38,10 @@ export default function PresenterSongEditor({
       label: section.label,
       text: section.lines.join('\n'),
     })),
+  )
+
+  const [confirmingRemoval, setConfirmingRemoval] = useState<{ id: number; label: string } | null>(
+    null,
   )
 
   const commitRemoval = useCallback(({ id }: { id: number }) => {
@@ -142,11 +147,11 @@ export default function PresenterSongEditor({
                   )}
                   <IconButton
                     label={`Remove ${draft.label || 'section'}`}
-                    variant="ghost"
+                    variant="danger"
                     disabled={visibleDrafts.length <= 1}
-                    onClick={() => startRemoval({ id: draft.id })}
+                    onClick={() => setConfirmingRemoval({ id: draft.id, label: draft.label })}
                   >
-                    <Trash2 size={14} aria-hidden="true" />
+                    <Trash2 size={15} aria-hidden="true" />
                   </IconButton>
                 </div>
               </div>
@@ -172,6 +177,37 @@ export default function PresenterSongEditor({
           )
         })}
       </div>
+
+      <OverlayDialog
+        isOpen={confirmingRemoval !== null}
+        onClose={() => setConfirmingRemoval(null)}
+        title="Remove this section?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingRemoval(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger-solid"
+              onClick={() => {
+                if (!confirmingRemoval) return
+                const target = confirmingRemoval
+                setConfirmingRemoval(null)
+                startRemoval({ id: target.id })
+              }}
+            >
+              Remove
+            </Button>
+          </>
+        }
+      >
+        <p className="text-ui-text text-sm">
+          {confirmingRemoval
+            ? `"${confirmingRemoval.label || 'This section'}" will be removed from this song on this laptop. You can undo for 5 seconds.`
+            : ''}
+        </p>
+      </OverlayDialog>
 
       <ChangeToast
         note={undoNote}

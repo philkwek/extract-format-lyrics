@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PresenterConsole from '../../../src/components/presenter/PresenterConsole'
 import {
   resetPresenterEditsStore,
@@ -272,11 +272,22 @@ describe('PresenterConsole', () => {
     expect(screen.getByText('Editing: First Song')).toBeTruthy()
   })
 
-  it('deletes a section with undo and restores it when Undo is clicked', () => {
+  it('confirms section deletion, cancels cleanly, and restores via Undo', async () => {
     renderConsole()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     fireEvent.click(screen.getByRole('button', { name: 'Remove Verse 1' }))
+
+    expect(screen.getByText('Remove this section?')).toBeTruthy()
+    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' })
+    fireEvent.click(cancelButtons[cancelButtons.length - 1])
+    await waitFor(() => {
+      expect(screen.queryByText('Remove this section?')).toBeNull()
+    })
+    expect(screen.getByDisplayValue('Verse 1')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Verse 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
 
     expect(screen.getAllByText('Section removed').length).toBeGreaterThan(0)
     expect(screen.queryByDisplayValue('Verse 1')).toBeNull()
@@ -292,6 +303,7 @@ describe('PresenterConsole', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     fireEvent.click(screen.getByRole('button', { name: 'Remove Chorus' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(screen.getByText('Edited on this laptop')).toBeTruthy()
