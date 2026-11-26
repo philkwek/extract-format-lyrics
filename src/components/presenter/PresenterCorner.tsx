@@ -155,7 +155,7 @@ export default function PresenterCorner({
                   { value: 'left', label: 'Left' },
                   { value: 'center', label: 'Centre' },
                 ]}
-                className="ui-segmented--full"
+                className="ui-segmented--full ui-segmented--accent"
               />
             </div>
 
@@ -169,7 +169,7 @@ export default function PresenterCorner({
                   { value: 'normal', label: 'Normal case' },
                   { value: 'caps', label: 'All caps' },
                 ]}
-                className="ui-segmented--full"
+                className="ui-segmented--full ui-segmented--accent"
               />
             </div>
 
@@ -183,7 +183,7 @@ export default function PresenterCorner({
                   { value: 'dark', label: 'Dark' },
                   { value: 'light', label: 'Light' },
                 ]}
-                className="ui-segmented--full"
+                className="ui-segmented--full ui-segmented--accent"
               />
             </div>
 

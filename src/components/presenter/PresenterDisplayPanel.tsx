@@ -72,6 +72,7 @@ export default function PresenterDisplayPanel({
               { value: 'whole', label: 'Whole song' },
               { value: 'sections', label: 'Sections' },
             ]}
+            className="ui-segmented--accent"
           />
         </DisplayRow>
 
@@ -117,7 +118,8 @@ export default function PresenterDisplayPanel({
                 { value: 'top', label: 'Top' },
                 { value: 'center', label: 'Centre' },
               ]}
-              />
+              className="ui-segmented--accent"
+            />
           </DisplayRow>
         )}
 
@@ -130,6 +132,7 @@ export default function PresenterDisplayPanel({
               { value: 'left', label: 'Left' },
               { value: 'center', label: 'Centre' },
             ]}
+            className="ui-segmented--accent"
           />
         </DisplayRow>
 
@@ -142,6 +145,7 @@ export default function PresenterDisplayPanel({
               { value: 'normal', label: 'Normal case' },
               { value: 'caps', label: 'All caps' },
             ]}
+            className="ui-segmented--accent"
           />
         </DisplayRow>
 
@@ -154,6 +158,7 @@ export default function PresenterDisplayPanel({
               { value: 'dark', label: 'Dark' },
               { value: 'light', label: 'Light' },
             ]}
+            className="ui-segmented--accent"
           />
         </DisplayRow>
       </div>

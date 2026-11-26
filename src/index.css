@@ -321,6 +321,17 @@ html.dark body {
 .ui-segmented__item:active { transform: scale(0.96); }
 .ui-segmented__item--active { color: var(--ui-text); }
 
+/* Tinted active thumb for presenter controls, where the active choice must read at a glance. */
+.ui-segmented--accent .ui-segmented__thumb {
+  background: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-surface-raised));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.14),
+    inset 0 0 0 1px var(--ui-border-strong);
+}
+.ui-segmented--accent .ui-segmented__item--active {
+  color: var(--ui-accent-strong);
+}
+
 /* Match the song-column selector to the font-size selector. Explicit dimensions
    override the shared segmented defaults, keeping selected and unselected
    choices at the same height. */
