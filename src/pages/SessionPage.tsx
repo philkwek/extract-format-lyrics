@@ -94,6 +94,7 @@ import { getNextTabIndex } from '../lib/tabNavigation'
 import { useSongArrowKeys } from '../lib/useSongArrowKeys'
 import { useFullScreenLayout } from '../lib/useMediaQuery'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useWakeLock } from '../lib/useWakeLock'
 import {
   ambientPadPlayer,
   resolvePadKey,
@@ -203,6 +204,7 @@ export default function SessionPage() {
 
   const [session, setSession] = useState<Session | null>(null)
   const hasSession = Boolean(session)
+  useWakeLock(hasSession)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const songsDataRef = useRef<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())

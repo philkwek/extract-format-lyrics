@@ -74,6 +74,8 @@ Choose one to four columns and set the text size for your screen. Long chord and
 
 Longer songs may still need scrolling, depending on your screen and text size.
 
+While a set is open, the screen stays on so it doesn't dim mid-song. This works in browsers that support it (most current Chrome, Edge and Safari); others still let the screen sleep.
+
 ## Before you rely on it
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
