@@ -17,8 +17,6 @@ function makeSender(overrides: Partial<CurrentSongSenderDeps> = {}) {
   const sender = createCurrentSongSender({
     getIdentity,
     api,
-    setTimeout: (fn, ms) => setTimeout(fn, ms),
-    clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     now: () => Date.now(),
     ...overrides,
   })

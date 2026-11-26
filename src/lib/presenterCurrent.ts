@@ -13,8 +13,6 @@ export interface CurrentSongIdentity {
 export interface CurrentSongSenderDeps {
   getIdentity: (sessionId: string) => Promise<CurrentSongIdentity | null>
   api: typeof putLyricsCurrentApi
-  setTimeout: (fn: () => void, ms: number) => unknown
-  clearTimeout: (handle: unknown) => void
   now: () => number
 }
 
@@ -26,8 +24,8 @@ export interface CurrentSongSender {
 interface SessionState {
   /** Latest entry requested in this tab. */
   entryId: string
-  timer?: unknown
-  retryTimer?: unknown
+  timer?: ReturnType<typeof setTimeout>
+  retryTimer?: ReturnType<typeof setTimeout>
   /** The entry the server last accepted, so repeats are skipped. */
   sentEntryId?: string
   queue: Promise<void>
@@ -35,10 +33,6 @@ interface SessionState {
 
 export function createCurrentSongSender(deps: CurrentSongSenderDeps): CurrentSongSender {
   const sessions = new Map<string, SessionState>()
-
-  function clearTimer(handle: unknown) {
-    if (handle !== undefined) deps.clearTimeout(handle)
-  }
 
   function isExpired(identity: CurrentSongIdentity): boolean {
     if (!identity.expiresAt) return false
@@ -64,8 +58,8 @@ export function createCurrentSongSender(deps: CurrentSongSenderDeps): CurrentSon
       if (state.entryId === entryId) state.sentEntryId = entryId
     } catch {
       if (!retry || state.entryId !== entryId) return
-      clearTimer(state.retryTimer)
-      state.retryTimer = deps.setTimeout(() => {
+      clearTimeout(state.retryTimer)
+      state.retryTimer = setTimeout(() => {
         state.retryTimer = undefined
         if (state.entryId === entryId) enqueue(sessionId, entryId, true, false)
       }, RETRY_MS)
@@ -85,10 +79,10 @@ export function createCurrentSongSender(deps: CurrentSongSenderDeps): CurrentSon
     const state = existing ?? { entryId, queue: Promise.resolve() }
     if (!existing) sessions.set(sessionId, state)
     state.entryId = entryId
-    clearTimer(state.retryTimer)
+    clearTimeout(state.retryTimer)
     state.retryTimer = undefined
-    clearTimer(state.timer)
-    state.timer = deps.setTimeout(() => {
+    clearTimeout(state.timer)
+    state.timer = setTimeout(() => {
       state.timer = undefined
       enqueue(sessionId, state.entryId, force, true)
     }, CURRENT_SONG_DEBOUNCE_MS)
@@ -116,7 +110,5 @@ export const currentSongSender = createCurrentSongSender({
     }
   },
   api: putLyricsCurrentApi,
-  setTimeout: (fn, ms) => setTimeout(fn, ms),
-  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
   now: () => Date.now(),
 })
