@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Maximize, Minimize, Minus, Plus, SlidersHorizontal } from 'lucide-react'
+import { Maximize, Minimize, SlidersHorizontal } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { useFullscreen } from '../../lib/useFullscreen'
-import {
-  clampTextScale,
-  resolveAlign,
-  TEXT_SCALE_MAX,
-  TEXT_SCALE_MIN,
-  TEXT_SCALE_STEP,
-  type PresenterDisplay,
-} from '../../lib/presenterSettings'
+import { resolveAlign, type PresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedStatus } from '../../lib/usePresenterFeed'
-import { Button, IconButton, LivePill, SegmentedControl } from '../ui'
+import { Button, LivePill } from '../ui'
 import { liveDotClasses, type LiveTone } from '../ui/liveTone'
+import { DisplaySegments, TextSizeStepper } from './PresenterDisplayControls'
 
 interface PresenterCornerProps {
   status: PresenterFeedStatus
@@ -144,78 +138,25 @@ export default function PresenterCorner({
 
             <div className="flex items-center justify-between gap-3">
               <span className="text-ui-text-muted text-sm">Text size</span>
-              <div className="flex items-center gap-1.5">
-                <IconButton
-                  label="Make text smaller"
-                  variant="secondary"
-                  disabled={display.textScale <= TEXT_SCALE_MIN}
-                  onClick={() =>
-                    onPatchDisplay({
-                      textScale: clampTextScale(display.textScale - TEXT_SCALE_STEP),
-                    })
-                  }
-                >
-                  <Minus size={16} />
-                </IconButton>
-                <span className="w-11 text-center font-mono text-sm tabular-nums">
-                  {display.textScale}%
-                </span>
-                <IconButton
-                  label="Make text larger"
-                  variant="secondary"
-                  disabled={display.textScale >= TEXT_SCALE_MAX}
-                  onClick={() =>
-                    onPatchDisplay({
-                      textScale: clampTextScale(display.textScale + TEXT_SCALE_STEP),
-                    })
-                  }
-                >
-                  <Plus size={16} />
-                </IconButton>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="text-ui-text-muted text-xs">Lyrics alignment</span>
-              <SegmentedControl
-                label="Lyrics alignment"
-                value={align}
-                onChange={(value) => onPatchDisplay({ align: value })}
-                options={[
-                  { value: 'left', label: 'Left' },
-                  { value: 'center', label: 'Centre' },
-                ]}
-                className="ui-segmented--full ui-segmented--accent"
+              <TextSizeStepper
+                display={display}
+                onPatchDisplay={onPatchDisplay}
+                valueClassName="text-sm"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-ui-text-muted text-xs">Case</span>
-              <SegmentedControl
-                label="Case"
-                value={display.caps ? 'caps' : 'normal'}
-                onChange={(value) => onPatchDisplay({ caps: value === 'caps' })}
-                options={[
-                  { value: 'normal', label: 'Normal case' },
-                  { value: 'caps', label: 'All caps' },
-                ]}
-                className="ui-segmented--full ui-segmented--accent"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="text-ui-text-muted text-xs">Theme</span>
-              <SegmentedControl
-                label="Theme"
-                value={display.theme}
-                onChange={(theme) => onPatchDisplay({ theme })}
-                options={[
-                  { value: 'dark', label: 'Dark' },
-                  { value: 'light', label: 'Light' },
-                ]}
-                className="ui-segmented--full ui-segmented--accent"
-              />
-            </div>
+            <DisplaySegments
+              display={display}
+              onPatchDisplay={onPatchDisplay}
+              align={align}
+              segmentClassName="ui-segmented--full ui-segmented--accent"
+              row={(label, control) => (
+                <div key={label} className="space-y-1.5">
+                  <span className="text-ui-text-muted text-xs">{label}</span>
+                  {control}
+                </div>
+              )}
+            />
 
             <Button variant="secondary" className="w-full" onClick={onToggleBlackout}>
               {blackout ? 'Show lyrics' : 'Fade to black'}

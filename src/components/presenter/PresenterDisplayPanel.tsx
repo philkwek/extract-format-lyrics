@@ -1,15 +1,9 @@
 import type { ReactNode } from 'react'
-import { AppWindow, Minus, Plus } from 'lucide-react'
-import {
-  clampTextScale,
-  resolveAlign,
-  TEXT_SCALE_MAX,
-  TEXT_SCALE_MIN,
-  TEXT_SCALE_STEP,
-  type PresenterDisplay,
-} from '../../lib/presenterSettings'
+import { AppWindow } from 'lucide-react'
+import { resolveAlign, type PresenterDisplay } from '../../lib/presenterSettings'
 import type { SharedLyricsSong } from '../../types/song'
-import { Button, IconButton, SegmentedControl } from '../ui'
+import { Button, SegmentedControl } from '../ui'
+import { DisplaySegments, TextSizeStepper } from './PresenterDisplayControls'
 import PresenterPreview from './PresenterPreview'
 
 interface PresenterDisplayPanelProps {
@@ -64,35 +58,11 @@ export default function PresenterDisplayPanel({
       </h2>
       <div className="mt-2.5 space-y-2.5">
         <DisplayRow label="Text size">
-          <div className="flex items-center justify-end gap-1.5">
-            <IconButton
-              label="Make text smaller"
-              variant="secondary"
-              disabled={display.textScale <= TEXT_SCALE_MIN}
-              onClick={() =>
-                onPatchDisplay({
-                  textScale: clampTextScale(display.textScale - TEXT_SCALE_STEP),
-                })
-              }
-            >
-              <Minus size={16} />
-            </IconButton>
-            <span className="w-11 text-center font-mono text-xs tabular-nums">
-              {display.textScale}%
-            </span>
-            <IconButton
-              label="Make text larger"
-              variant="secondary"
-              disabled={display.textScale >= TEXT_SCALE_MAX}
-              onClick={() =>
-                onPatchDisplay({
-                  textScale: clampTextScale(display.textScale + TEXT_SCALE_STEP),
-                })
-              }
-            >
-              <Plus size={16} />
-            </IconButton>
-          </div>
+          <TextSizeStepper
+            display={display}
+            onPatchDisplay={onPatchDisplay}
+            valueClassName="text-xs"
+          />
         </DisplayRow>
 
         <DisplayRow label="Lyrics view">
@@ -123,44 +93,17 @@ export default function PresenterDisplayPanel({
           </DisplayRow>
         )}
 
-        <DisplayRow label="Lyrics alignment">
-          <SegmentedControl
-            label="Lyrics alignment"
-            value={align}
-            onChange={(next) => onPatchDisplay({ align: next })}
-            options={[
-              { value: 'left', label: 'Left' },
-              { value: 'center', label: 'Centre' },
-            ]}
-            className="ui-segmented--accent"
-          />
-        </DisplayRow>
-
-        <DisplayRow label="Case">
-          <SegmentedControl
-            label="Case"
-            value={display.caps ? 'caps' : 'normal'}
-            onChange={(value) => onPatchDisplay({ caps: value === 'caps' })}
-            options={[
-              { value: 'normal', label: 'Normal case' },
-              { value: 'caps', label: 'All caps' },
-            ]}
-            className="ui-segmented--accent"
-          />
-        </DisplayRow>
-
-        <DisplayRow label="Theme">
-          <SegmentedControl
-            label="Theme"
-            value={display.theme}
-            onChange={(theme) => onPatchDisplay({ theme })}
-            options={[
-              { value: 'dark', label: 'Dark' },
-              { value: 'light', label: 'Light' },
-            ]}
-            className="ui-segmented--accent"
-          />
-        </DisplayRow>
+        <DisplaySegments
+          display={display}
+          onPatchDisplay={onPatchDisplay}
+          align={align}
+          segmentClassName="ui-segmented--accent"
+          row={(label, control) => (
+            <DisplayRow key={label} label={label}>
+              {control}
+            </DisplayRow>
+          )}
+        />
       </div>
 
       <div className="flex-1" />
