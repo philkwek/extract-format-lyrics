@@ -111,7 +111,7 @@ describe('PresenterOutputPage', () => {
     expect(FakeBroadcastChannel.instances[0].close).toHaveBeenCalled()
   })
 
-  it('hides the full-screen button 500ms after pointer activity', () => {
+  it('hides the full-screen button 800ms after pointer activity', () => {
     vi.useFakeTimers()
     renderPage()
 
@@ -121,13 +121,13 @@ describe('PresenterOutputPage', () => {
     expect(corner?.className).toContain('opacity-100')
 
     act(() => {
-      vi.advanceTimersByTime(500)
+      vi.advanceTimersByTime(800)
     })
 
     expect(corner?.className).toContain('opacity-0')
   })
 
-  it('keeps the full-screen button visible while hovered and hides 500ms after mouse leave', () => {
+  it('keeps the full-screen button visible while hovered and hides 800ms after mouse leave', () => {
     vi.useFakeTimers()
     renderPage()
 
@@ -142,7 +142,7 @@ describe('PresenterOutputPage', () => {
 
     fireEvent.mouseLeave(corner)
     act(() => {
-      vi.advanceTimersByTime(499)
+      vi.advanceTimersByTime(799)
     })
     expect(corner.className).toContain('opacity-100')
 

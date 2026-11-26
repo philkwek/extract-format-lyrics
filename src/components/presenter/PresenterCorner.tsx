@@ -24,7 +24,7 @@ interface PresenterCornerProps {
   onSwitchToManual: () => void
 }
 
-const HIDE_DELAY_MS = 500
+const HIDE_DELAY_MS = 800
 /** Sized for a laptop driving a projector across the room, as in the design. */
 const CORNER_BUTTON_STYLE = { height: 56, padding: '0 20px', fontSize: 18, borderRadius: 14 }
 

@@ -224,7 +224,7 @@ describe('PresenterPage', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
-  it('hides the corner controls 500ms after closing settings even when the button was focused', () => {
+  it('hides the corner controls 800ms after closing settings even when the button was focused', () => {
     vi.useFakeTimers()
     localStorage.setItem('presenter.mode', 'auto')
     feed.current = live()
@@ -244,14 +244,14 @@ describe('PresenterPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Display settings' })).toBeNull()
 
     act(() => {
-      vi.advanceTimersByTime(500)
+      vi.advanceTimersByTime(800)
     })
 
     expect(corner?.className).toContain('opacity-0')
     expect(corner?.className).toContain('pointer-events-none')
   })
 
-  it('keeps corner controls visible while hovered and hides 500ms after mouse leave', () => {
+  it('keeps corner controls visible while hovered and hides 800ms after mouse leave', () => {
     vi.useFakeTimers()
     localStorage.setItem('presenter.mode', 'auto')
     feed.current = live()
@@ -269,7 +269,7 @@ describe('PresenterPage', () => {
 
     fireEvent.mouseLeave(corner)
     act(() => {
-      vi.advanceTimersByTime(499)
+      vi.advanceTimersByTime(799)
     })
     expect(corner.className).toContain('opacity-100')
 
