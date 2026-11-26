@@ -1,7 +1,8 @@
 # Presenter view: lyrics on a church screen
 
-Status: design and technical plan decided, build in progress · 2026-11-26 · issue #80 ·
-branch `feat/presenter-view`
+Status: tasks 1–5 built, task 6 and final checks left (see
+[presenter-view-handoff.md](presenter-view-handoff.md)) · 2026-11-26 · issue #80 · branch
+`feat/presenter-view`
 
 Design: https://claude.ai/artifact/DBckauEQv33iryuGek54Hs (Claude Design; private to the
 owner). Inspiration: phyto.live's present and output screens.
