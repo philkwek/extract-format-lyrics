@@ -1,0 +1,337 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { trackEvent } from '../../lib/analytics'
+import {
+  createConsoleChannel,
+  type ConsoleChannel,
+  type OutputState,
+} from '../../lib/presenterChannel'
+import { BLANK_SECTION, stepPresenter } from '../../lib/presenterNavigation'
+import { applyPresenterEdits, isSectionEdited, usePresenterEdits } from '../../lib/presenterEdits'
+import { usePresenterDisplay, type PresenterDisplay } from '../../lib/presenterSettings'
+import type { PresenterFeedState } from '../../lib/usePresenterFeed'
+import type { SharedLyricsSection } from '../../types/song'
+import { Button, StatusBanner } from '../ui'
+import OverlayDialog from '../ui/OverlayDialog'
+import PresenterDisplayPanel from './PresenterDisplayPanel'
+import PresenterSections from './PresenterSections'
+import PresenterSongEditor, { type PresenterSongEditorHandle } from './PresenterSongEditor'
+import PresenterSongList from './PresenterSongList'
+
+interface PresenterConsoleProps {
+  id: string
+  feed: PresenterFeedState
+  onSwitchToAuto: () => void
+}
+
+function reconcileSectionIndex(
+  previousSections: SharedLyricsSection[],
+  previousIndex: number,
+  nextSections: SharedLyricsSection[],
+): number {
+  if (previousIndex === BLANK_SECTION) return BLANK_SECTION
+  if (nextSections.length === 0) return 0
+  const clamped = Math.min(Math.max(previousIndex, 0), nextSections.length - 1)
+  const active = previousSections[previousIndex]
+  if (!active) return clamped
+  if (nextSections[previousIndex] && !isSectionEdited(active, nextSections[previousIndex])) {
+    return previousIndex
+  }
+  const movedIndex = nextSections.findIndex((section) => !isSectionEdited(active, section))
+  return movedIndex >= 0 ? movedIndex : clamped
+}
+
+export default function PresenterConsole({ id, feed, onSwitchToAuto }: PresenterConsoleProps) {
+  const [display, patchDisplay] = usePresenterDisplay()
+  const [projectedId, setProjectedId] = useState<string | null>(null)
+  const [sectionIndex, setSectionIndex] = useState(0)
+  const [blackout, setBlackout] = useState(false)
+  const [outputOpen, setOutputOpen] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [pendingSongSwitch, setPendingSongSwitch] = useState<string | null>(null)
+  const channelRef = useRef<ConsoleChannel | null>(null)
+  const editorRef = useRef<PresenterSongEditorHandle | null>(null)
+  const outputWindowRef = useRef<Window | null>(null)
+
+  const { edits, saveEdit, resetEdit, isEdited } = usePresenterEdits(id)
+  const effectiveLyrics = useMemo(
+    () => (feed.lyrics ? applyPresenterEdits(feed.lyrics, edits) : null),
+    [feed.lyrics, edits],
+  )
+  const songs = useMemo(() => effectiveLyrics?.songs ?? [], [effectiveLyrics])
+  const selectedSong = projectedId
+    ? songs.find((song) => song.entryId === projectedId)
+    : undefined
+  const hostSong = songs.find((song) => song.entryId === feed.currentEntryId)
+  const fallbackSong = projectedId === null ? (hostSong ?? songs[0]) : songs[0]
+  const projectedSong = selectedSong ?? fallbackSong ?? null
+  const missingSelection = projectedId !== null && !selectedSong
+  const sectionCount = projectedSong?.sections.length ?? 0
+  const baseSectionIndex = missingSelection ? 0 : sectionIndex
+  const effectiveSectionIndex =
+    baseSectionIndex === BLANK_SECTION
+      ? BLANK_SECTION
+      : sectionCount === 0
+        ? 0
+        : Math.min(Math.max(baseSectionIndex, 0), sectionCount - 1)
+
+  const editingHostSong = editingEntryId
+    ? feed.lyrics?.songs.find((song) => song.entryId === editingEntryId)
+    : undefined
+  const editingCurrentSong = editingEntryId
+    ? songs.find((song) => song.entryId === editingEntryId)
+    : undefined
+  const isEditing = Boolean(editingHostSong && editingCurrentSong)
+
+  const outputState = useMemo<OutputState>(
+    () => ({
+      setName: effectiveLyrics?.name ?? '',
+      song: projectedSong,
+      view: display.lyricsView,
+      sectionIndex: effectiveSectionIndex,
+      display,
+      blackout,
+    }),
+    [effectiveLyrics?.name, projectedSong, display, effectiveSectionIndex, blackout],
+  )
+  const stateRef = useRef(outputState)
+
+  useEffect(() => {
+    stateRef.current = outputState
+    channelRef.current?.publish(outputState)
+  }, [outputState])
+
+  useEffect(() => {
+    const channel = createConsoleChannel(id, () => stateRef.current)
+    channelRef.current = channel
+    channel.publish(stateRef.current)
+    const off = channel.onOutputChange(setOutputOpen)
+    return () => {
+      off()
+      channel.close()
+      channelRef.current = null
+    }
+  }, [id])
+
+  const move = useCallback(
+    (direction: 1 | -1) => {
+      if (!projectedSong) return
+      const next = stepPresenter(
+        songs,
+        { entryId: projectedSong.entryId, sectionIndex: effectiveSectionIndex },
+        display.lyricsView,
+        direction,
+      )
+      setProjectedId(next.entryId)
+      setSectionIndex(next.sectionIndex)
+    },
+    [songs, projectedSong, effectiveSectionIndex, display.lyricsView],
+  )
+
+  useEffect(() => {
+    if (isEditing) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      const target = event.target as HTMLElement | null
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setBlackout((value) => !value)
+        return
+      }
+      let direction: 1 | -1 | null = null
+      if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown') {
+        direction = 1
+      } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+        direction = -1
+      }
+      if (direction === null) return
+      event.preventDefault()
+      move(direction)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [move, isEditing])
+
+  const projectSong = useCallback(
+    (entryId: string) => {
+      setProjectedId(entryId)
+      setSectionIndex(display.lyricsView === 'sections' ? BLANK_SECTION : 0)
+    },
+    [display.lyricsView],
+  )
+
+  const handlePatchDisplay = useCallback(
+    (patch: Partial<PresenterDisplay>) => {
+      // The whole song has no blank section, so leave it when switching to whole view.
+      if (patch.lyricsView === 'whole' && effectiveSectionIndex === BLANK_SECTION) {
+        setSectionIndex(0)
+      }
+      patchDisplay(patch)
+    },
+    [effectiveSectionIndex, patchDisplay],
+  )
+
+  const handleSelectSong = useCallback(
+    (entryId: string) => {
+      if (isEditing && entryId !== editingEntryId) {
+        setPendingSongSwitch(entryId)
+        return
+      }
+      projectSong(entryId)
+    },
+    [isEditing, editingEntryId, projectSong],
+  )
+
+  const confirmSaveAndSwitch = useCallback(() => {
+    if (!pendingSongSwitch || !editingHostSong) {
+      setPendingSongSwitch(null)
+      return
+    }
+    const sections = editorRef.current?.getSections()
+    if (sections) {
+      saveEdit(editingHostSong.entryId, sections, editingHostSong.sections)
+    }
+    setEditingEntryId(null)
+    projectSong(pendingSongSwitch)
+    setPendingSongSwitch(null)
+  }, [pendingSongSwitch, editingHostSong, saveEdit, projectSong])
+
+  const pendingSwitchSong = pendingSongSwitch
+    ? songs.find((song) => song.entryId === pendingSongSwitch)
+    : undefined
+
+  const projectSection = useCallback((entryId: string, index: number) => {
+    setProjectedId(entryId)
+    setSectionIndex(index)
+  }, [])
+
+  const openOutput = useCallback(() => {
+    outputWindowRef.current = window.open(
+      `/present/${id}/output`,
+      `presenter-output-${id}`,
+      'popup,width=1280,height=720',
+    )
+    trackEvent('presenter_output_opened', {})
+  }, [id])
+
+  const switchToAuto = () => {
+    // The channel reaches windows left open across a reload; the handle is a backup.
+    channelRef.current?.closeOutput()
+    outputWindowRef.current?.close()
+    onSwitchToAuto()
+  }
+
+  const banner =
+    feed.status === 'stopped' || feed.status === 'missing'
+      ? 'The host stopped sharing these lyrics.'
+      : feed.status === 'lost'
+        ? 'Lost connection. Showing the last lyrics received.'
+        : null
+
+  return (
+    <div className="bg-ui-canvas text-ui-text flex h-screen w-screen flex-col">
+      <header className="border-ui-border flex h-[72px] shrink-0 items-center justify-between border-b px-6">
+        <p className="text-base font-bold">
+          {effectiveLyrics?.name ? `Presenter Controls · ${effectiveLyrics.name}` : 'Presenter'}
+        </p>
+        <Button variant="secondary" onClick={switchToAuto}>
+          Switch to auto follow host
+        </Button>
+      </header>
+
+      {banner && (
+        <div className="px-6 pt-4">
+          <StatusBanner tone="warning">{banner}</StatusBanner>
+        </div>
+      )}
+
+      <div className="grid min-h-0 flex-1 grid-cols-[1.5fr_6fr_2.5fr] gap-6 p-6">
+        <PresenterSongList
+          songs={songs}
+          projectedId={projectedSong?.entryId ?? null}
+          hostEntryId={feed.currentEntryId}
+          isEdited={isEdited}
+          onProject={handleSelectSong}
+        />
+        {editingHostSong && editingCurrentSong ? (
+          <PresenterSongEditor
+            key={editingHostSong.entryId}
+            editorRef={editorRef}
+            hostSong={editingHostSong}
+            currentSong={editingCurrentSong}
+            hasSavedEdit={isEdited(editingHostSong.entryId)}
+            onCancel={() => setEditingEntryId(null)}
+            onSave={(sections) => {
+              if (projectedSong?.entryId === editingHostSong.entryId) {
+                setSectionIndex((prev) =>
+                  reconcileSectionIndex(editingCurrentSong.sections, prev, sections),
+                )
+              }
+              saveEdit(editingHostSong.entryId, sections, editingHostSong.sections)
+              setEditingEntryId(null)
+            }}
+            onReset={() => {
+              if (projectedSong?.entryId === editingHostSong.entryId) {
+                setSectionIndex((prev) =>
+                  reconcileSectionIndex(
+                    editingCurrentSong.sections,
+                    prev,
+                    editingHostSong.sections,
+                  ),
+                )
+              }
+              resetEdit(editingHostSong.entryId)
+              setEditingEntryId(null)
+            }}
+          />
+        ) : (
+          <PresenterSections
+            song={projectedSong}
+            view={display.lyricsView}
+            sectionIndex={effectiveSectionIndex}
+            onProjectSection={projectSection}
+            onEdit={() => projectedSong && setEditingEntryId(projectedSong.entryId)}
+          />
+        )}
+        <PresenterDisplayPanel
+          song={projectedSong}
+          sectionIndex={effectiveSectionIndex}
+          display={display}
+          onPatchDisplay={handlePatchDisplay}
+          blackout={blackout}
+          onToggleBlackout={() => setBlackout((value) => !value)}
+          outputOpen={outputOpen}
+          onOpenOutput={openOutput}
+        />
+      </div>
+
+      <OverlayDialog
+        isOpen={pendingSongSwitch !== null && Boolean(editingHostSong)}
+        onClose={() => setPendingSongSwitch(null)}
+        title="Save changes before switching?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingSongSwitch(null)}>
+              Continue editing
+            </Button>
+            <Button variant="primary" onClick={confirmSaveAndSwitch}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <p className="text-ui-text text-sm">
+          You&apos;re editing &ldquo;{editingHostSong?.title}&rdquo;. Save your changes and switch
+          to &ldquo;{pendingSwitchSong?.title ?? 'another song'}&rdquo;, or continue editing?
+        </p>
+      </OverlayDialog>
+    </div>
+  )
+}

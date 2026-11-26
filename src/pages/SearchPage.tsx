@@ -32,7 +32,7 @@ import ChangeToast from '../components/share/ChangeToast'
 
 export default function SearchPage() {
   useSeo({
-    title: 'Find Chord Sheets | Sets & Sheets',
+    title: 'Find Chord Sheets · Sets & Sheets',
     description:
       'Search Ultimate Guitar, PNW Chords, Essential Worship, Worship Together and WorshipChords by song title or artist and add the chart to your set.',
     path: '/search',

@@ -52,7 +52,7 @@ For cell group worship, open **Share**, choose **Create link** under **Share lyr
 
 One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. The link stops working seven days after your last change. Anyone reading the lyrics page gets a short notice when a new song is added.
 
-Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
+Set links and lyrics links both last seven days and support up to 30 songs. Anyone with the link can open it without an account.
 
 ![Generating a lyrics link and opening the shared lyrics view](docs/readme/share-lyrics.gif)
 
@@ -74,6 +74,8 @@ Choose one to four columns and set the text size for your screen. Long chord and
 
 Longer songs may still need scrolling, depending on your screen and text size.
 
+While a set is open, the screen stays on so it doesn't dim mid-song. This works in browsers that support it (most current Chrome, Edge and Safari); others still let the screen sleep.
+
 ## Before you rely on it
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
@@ -82,6 +84,7 @@ Longer songs may still need scrolling, depending on your screen and text size.
 - **Installing:** Chrome, Edge and Android offer a one-tap install. On iPhone and iPad, use Share → **Add to Home Screen**; macOS Safari uses File → **Add to Dock**.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
+- **Presenter view:** stops following when the host's device sleeps or goes offline.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
 - **Live shares expire:** they end 7 days after the host's last change.
 - **Deleting a set:** its lyrics link stops updating, but it still opens until it expires.

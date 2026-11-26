@@ -31,6 +31,9 @@ interface Events {
     outcome: 'success' | 'error'
     song_count: number
   }
+  presenter_opened: { mode: 'auto' | 'manual' }
+  presenter_mode_switched: { mode: 'auto' | 'manual' }
+  presenter_output_opened: Record<string, never>
 }
 
 const preferenceKey = 'usage-tracking-disabled'
@@ -41,6 +44,7 @@ const titles: Record<string, string> = {
   '/s': 'Import shared set',
   '/live': 'Live set',
   '/lyrics': 'Shared lyrics',
+  '/present': 'Presenter view',
   '/privacy': 'Privacy',
   '/other': 'Other page',
 }
@@ -198,6 +202,7 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
       'stopped',
     ],
     method: ['search', 'pasted_link', 'upload'],
+    mode: ['auto', 'manual'],
     operation: ['create', 'update'],
     trigger: ['create', 'update', 'refresh'],
   }
@@ -212,6 +217,9 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
     live_share_started: ['song_count'],
     live_share_stopped: [],
     live_share_followed: ['outcome'],
+    presenter_opened: ['mode'],
+    presenter_mode_switched: ['mode'],
+    presenter_output_opened: [],
   }
   if (!Object.hasOwn(fields, name)) return
   for (const key of fields[name]) {

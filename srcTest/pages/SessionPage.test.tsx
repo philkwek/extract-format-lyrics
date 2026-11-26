@@ -125,6 +125,7 @@ vi.mock('../../src/lib/songCache', () => ({
 vi.mock('../../src/lib/api', () => ({
   scrapeApi: vi.fn(),
   simplifyApi: vi.fn(),
+  putLyricsCurrentApi: vi.fn(async () => undefined),
 }))
 
 vi.mock('../../src/lib/useThemeMode', () => ({
@@ -1901,5 +1902,13 @@ describe('SessionPage full screen neighbour pages', () => {
     expect(nextPage!.isConnected).toBe(true)
     expect(nextPage!.getAttribute('aria-hidden')).toBeNull()
     expect(nextPage!.contains(screen.getByText('Carry the lantern home'))).toBe(true)
+  })
+})
+
+describe('SessionPage document title', () => {
+  it('uses the set name in the page title once loaded', async () => {
+    render(<TestHarness />)
+    await screen.findByText('Sunday Set')
+    expect(document.title).toBe('Session · Sunday Set')
   })
 })

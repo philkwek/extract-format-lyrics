@@ -10,8 +10,15 @@ import { subscribeSharedLyrics } from '../../src/lib/lyricsLive'
 
 const config = { apiKey: 'k', appId: 'a', projectId: 'p' }
 
+function snapshot(data?: Record<string, unknown>) {
+  return {
+    exists: () => data !== undefined,
+    data: () => data,
+  }
+}
+
 function setupFirestore() {
-  let onNext!: (snap: { exists: () => boolean }) => void
+  let onNext!: (snap: { exists: () => boolean; data: () => unknown }) => void
   let onError!: (error: unknown) => void
   const unsubscribe = vi.fn()
   const onSnapshot = vi.fn((_ref, next, error) => {
@@ -47,7 +54,7 @@ describe('subscribeSharedLyrics', () => {
     expect(loadFirestore).not.toHaveBeenCalled()
   })
 
-  it('listens to the publication summary and reports changes', async () => {
+  it('delivers the revision and current song on every snapshot', async () => {
     vi.mocked(firebaseConfig).mockReturnValue(config)
     const env = setupFirestore()
     const onUpdate = vi.fn()
@@ -57,12 +64,14 @@ describe('subscribeSharedLyrics', () => {
     await vi.waitFor(() => expect(env.onSnapshot).toHaveBeenCalledTimes(1))
 
     expect(env.doc).toHaveBeenCalledWith({}, 'sharedLyrics', 'pub-1')
-    // First snapshot is ignored
-    env.handlers.onNext({ exists: () => true })
-    expect(onUpdate).not.toHaveBeenCalled()
-    // Second snapshot triggers update
-    env.handlers.onNext({ exists: () => true })
+
+    env.handlers.onNext(snapshot({ rev: 'rev-1', currentEntryId: 'entry_1' }))
     expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenLastCalledWith({ rev: 'rev-1', currentEntryId: 'entry_1' })
+
+    env.handlers.onNext(snapshot({ rev: 'rev-1', currentEntryId: 'entry_2' }))
+    expect(onUpdate).toHaveBeenCalledTimes(2)
+    expect(onUpdate).toHaveBeenLastCalledWith({ rev: 'rev-1', currentEntryId: 'entry_2' })
 
     env.handlers.onError(new Error('offline'))
     expect(onError).toHaveBeenCalledWith(expect.any(Error))
@@ -71,7 +80,7 @@ describe('subscribeSharedLyrics', () => {
     expect(env.unsubscribe).toHaveBeenCalledTimes(1)
   })
 
-  it('does not report a missing document as an update', async () => {
+  it('reports nulls when the document is missing or fields are absent', async () => {
     vi.mocked(firebaseConfig).mockReturnValue(config)
     const env = setupFirestore()
     const onUpdate = vi.fn()
@@ -79,12 +88,11 @@ describe('subscribeSharedLyrics', () => {
     subscribeSharedLyrics('pub-1', { onUpdate })
     await vi.waitFor(() => expect(env.onSnapshot).toHaveBeenCalled())
 
-    // First snapshot (even if missing) is ignored
-    env.handlers.onNext({ exists: () => false })
-    expect(onUpdate).not.toHaveBeenCalled()
-    // A second snapshot with existing document should call onUpdate
-    env.handlers.onNext({ exists: () => true })
-    expect(onUpdate).toHaveBeenCalledTimes(1)
+    env.handlers.onNext(snapshot())
+    expect(onUpdate).toHaveBeenLastCalledWith({ rev: null, currentEntryId: null })
+
+    env.handlers.onNext(snapshot({ rev: 7, currentEntryId: null }))
+    expect(onUpdate).toHaveBeenLastCalledWith({ rev: null, currentEntryId: null })
   })
 
   it('does not subscribe after being stopped before the client loads', async () => {

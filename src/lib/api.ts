@@ -240,6 +240,8 @@ export interface GetSharedLyricsResult {
   id: string
   lyrics: import('../types/song').SharedLyricsPayload
   expiresAt: string
+  /** The host's open song, when they are sending it. */
+  currentEntryId?: string | null
 }
 
 export async function putSharedLyricsApi(
@@ -261,6 +263,24 @@ export async function putSharedLyricsApi(
     throw await readShareError(res)
   }
   return (await res.json()) as PutSharedLyricsResult
+}
+
+export async function putLyricsCurrentApi(
+  id: string,
+  secret: string,
+  entryId: string,
+): Promise<void> {
+  const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}/current`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ entryId }),
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
 }
 
 export async function getSharedLyricsApi(id: string): Promise<GetSharedLyricsResult> {

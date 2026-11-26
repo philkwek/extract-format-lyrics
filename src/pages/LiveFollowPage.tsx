@@ -30,7 +30,7 @@ const messages: Record<Exclude<ViewState, 'loading'>, { title: string; body: str
 
 /** Opens a live share link: fetches the host's set, then goes to the local copy. */
 export default function LiveFollowPage() {
-  useSeo({ title: 'Live Set | Sets & Sheets', noindex: true })
+  useSeo({ title: 'Live Set · Sets & Sheets', noindex: true })
   const { liveId } = useParams<{ liveId: string }>()
   const navigate = useNavigate()
   const [state, setState] = useState<ViewState>('loading')

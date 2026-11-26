@@ -90,6 +90,21 @@ describe('SharedLyricsStore on Firestore', () => {
     expect(second.kind === 'found' && second.lyrics.songs.map((s) => s.title)).toEqual(['A'])
     expect((await db.collection('sharedLyrics').doc(id).collection('songs').get()).size).toBe(1)
   })
+
+  it('sets the current song without changing the revision, and keeps it across a republish', async () => {
+    const store = new SharedLyricsStore(db, now)
+    const id = 'b'.repeat(64)
+    await store.publish(id, lyrics(['A', 'B']))
+    const root = db.collection('sharedLyrics').doc(id)
+    const revBefore = (await root.get()).data()!.rev
+
+    expect(await store.setCurrent(id, 'e1')).toBe('ok')
+    expect((await root.get()).data()!.rev).toBe(revBefore)
+    expect((await root.get()).data()!.currentEntryId).toBe('e1')
+
+    await store.publish(id, lyrics(['A', 'B', 'C']))
+    expect((await root.get()).data()!.currentEntryId).toBe('e1')
+  })
 })
 
 describe('SetLinkStore on Firestore', () => {

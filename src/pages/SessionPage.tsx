@@ -92,8 +92,10 @@ import {
 } from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import { useSongArrowKeys } from '../lib/useSongArrowKeys'
+import { currentSongSender } from '../lib/presenterCurrent'
 import { useFullScreenLayout } from '../lib/useMediaQuery'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useWakeLock } from '../lib/useWakeLock'
 import {
   ambientPadPlayer,
   resolvePadKey,
@@ -176,7 +178,6 @@ function describeLinkChanges({
 }
 
 export default function SessionPage() {
-  useSeo({ title: 'Session | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -202,7 +203,13 @@ export default function SessionPage() {
   const [removalError, setRemovalError] = useState<Removal | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
+  const setName = session?.name?.trim()
+  useSeo({
+    title: setName ? `Session · ${setName}` : 'Session · Sets & Sheets',
+    noindex: true,
+  })
   const hasSession = Boolean(session)
+  useWakeLock(hasSession)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())
   const songsDataRef = useRef<Map<string, Song>>(new Map())
   const [originalSongs, setOriginalSongs] = useState<Map<string, Song>>(new Map())
@@ -459,6 +466,14 @@ export default function SessionPage() {
     songsData.get(item.entryId || item.url) ??
     (isRemovedItem(item) ? removedByHost?.song : undefined)
   const currentSong = currentItem ? songForItem(currentItem) : null
+  const presenterSessionId = session?.id ?? null
+  // Matches the entryId the lyrics link publishes (see extractSongLyrics).
+  const currentEntryId = currentItem?.entryId || currentSong?.id || null
+
+  useEffect(() => {
+    if (!presenterSessionId || following || !currentEntryId) return
+    currentSongSender.notify(presenterSessionId, currentEntryId)
+  }, [presenterSessionId, following, currentEntryId])
 
   useEffect(() => {
     sessionRef.current = session

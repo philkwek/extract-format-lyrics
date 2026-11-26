@@ -1,8 +1,13 @@
 import { firebaseConfig, loadFirestore } from './firestoreClient'
 
+export interface LyricsLiveSummary {
+  rev: string | null
+  currentEntryId: string | null
+}
+
 export interface LyricsLiveHandlers {
-  /** Called when the publication summary changes. Fetch the payload from the API. */
-  onUpdate: () => void
+  /** Called on every root-document snapshot. Fetch the payload when rev changes. */
+  onUpdate: (summary: LyricsLiveSummary) => void
   onError?: (error: unknown) => void
 }
 
@@ -17,7 +22,6 @@ export function subscribeSharedLyrics(
   if (!firebaseConfig()) return () => {}
 
   let stopped = false
-  let first = true
   let unsubscribe: (() => void) | undefined
 
   void (async () => {
@@ -28,11 +32,12 @@ export function subscribeSharedLyrics(
         doc(db as never, 'sharedLyrics', publicationId),
         (snap) => {
           if (stopped) return
-          if (first) {
-            first = false
-            return
-          }
-          if (snap.exists()) handlers.onUpdate()
+          const data = snap.exists() ? snap.data() : undefined
+          handlers.onUpdate({
+            rev: typeof data?.rev === 'string' ? data.rev : null,
+            currentEntryId:
+              typeof data?.currentEntryId === 'string' ? data.currentEntryId : null,
+          })
         },
         (error) => {
           if (!stopped) handlers.onError?.(error)

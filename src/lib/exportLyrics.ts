@@ -7,7 +7,7 @@ import type {
   SharedLyricsSection,
 } from '../types/song'
 
-export const MAX_SHARED_LYRICS_SONGS = 15
+export const MAX_SHARED_LYRICS_SONGS = 30
 
 export class ShareLyricsError extends Error {}
 
@@ -99,9 +99,11 @@ export function extractSongLyrics(
     })
   }
 
+  const artist = item.artist?.trim() || song.artist?.trim()
   return {
     entryId,
     title,
+    ...(artist ? { artist } : {}),
     sections: structuredSections,
   }
 }

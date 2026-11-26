@@ -4,13 +4,13 @@ import { database } from './firestore.js'
 import { isExpired } from './shareStore.js'
 import type { SharedLyricsPayload, SharedLyricsSong, SharedLyricsSection } from './types.js'
 
-export const MAX_SHARED_LYRICS_SONGS = 15
+export const MAX_SHARED_LYRICS_SONGS = 30
 export const SHARE_LYRICS_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const COLLECTION = 'sharedLyrics'
 export const LYRICS_DOMAIN_SEPARATOR = 'lyrics-share-v1:'
 
 export type SharedLyricsLookup =
-  | { kind: 'found'; lyrics: SharedLyricsPayload; expiresAt: Date }
+  | { kind: 'found'; lyrics: SharedLyricsPayload; expiresAt: Date; currentEntryId: string | null }
   | { kind: 'expired' }
   | { kind: 'missing' }
 
@@ -40,6 +40,16 @@ export function verifyPublicationSecret(secret: string, publicationId: string): 
   }
 }
 
+/** Entry ids are checked on publish and when set as current, so a song can always be current. */
+export function isCurrentEntryId(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= 1 &&
+    value.length <= 64 &&
+    /^[A-Za-z0-9_:.-]+$/.test(value)
+  )
+}
+
 export function isSharedLyricsPayload(value: unknown): value is SharedLyricsPayload {
   if (!value || typeof value !== 'object') return false
   const payload = value as Partial<SharedLyricsPayload>
@@ -58,9 +68,9 @@ function isSharedLyricsSong(value: unknown): value is SharedLyricsSong {
   if (!value || typeof value !== 'object') return false
   const song = value as Partial<SharedLyricsSong>
   return (
-    typeof song.entryId === 'string' &&
-    song.entryId.trim().length > 0 &&
+    isCurrentEntryId(song.entryId?.trim()) &&
     typeof song.title === 'string' &&
+    (song.artist === undefined || (typeof song.artist === 'string' && song.artist.length <= 200)) &&
     Array.isArray(song.sections) &&
     song.sections.every(
       (sec) =>
@@ -110,6 +120,7 @@ export class SharedLyricsStore {
       const createdAt = rootSnap.exists && rootSnap.data()?.createdAt
         ? rootSnap.data()?.createdAt
         : FieldValue.serverTimestamp()
+      const previousCurrent = rootSnap.exists ? rootSnap.data()?.currentEntryId : undefined
 
       // Whitelist only approved fields for the root document
       transaction.set(ref, {
@@ -120,6 +131,7 @@ export class SharedLyricsStore {
         updatedAt: FieldValue.serverTimestamp(),
         expiresAt: Timestamp.fromDate(expiresAt),
         rev,
+        ...(typeof previousCurrent === 'string' ? { currentEntryId: previousCurrent } : {}),
       })
 
       // Write each song document with whitelisted display-ready fields
@@ -134,6 +146,7 @@ export class SharedLyricsStore {
           index,
           entryId: song.entryId.trim(),
           title: song.title.trim(),
+          ...(song.artist?.trim() ? { artist: song.artist.trim() } : {}),
           sections: whitelistedSections,
           rev,
           expiresAt: Timestamp.fromDate(expiresAt),
@@ -149,6 +162,20 @@ export class SharedLyricsStore {
     })
 
     return { id, expiresAt }
+  }
+
+  /**
+   * Records the host's current song without touching the lyrics, revision or expiry.
+   */
+  async setCurrent(id: string, entryId: string): Promise<'ok' | 'missing' | 'expired'> {
+    const ref = this.db.collection(COLLECTION).doc(id)
+    const snap = await ref.get()
+    if (!snap.exists) return 'missing'
+    const data = snap.data() ?? {}
+    const expiresAt = data.expiresAt instanceof Timestamp ? data.expiresAt.toDate() : null
+    if (isExpired(expiresAt, this.now())) return 'expired'
+    await ref.update({ currentEntryId: entryId })
+    return 'ok'
   }
 
   /**
@@ -193,6 +220,9 @@ export class SharedLyricsStore {
         return {
           entryId: String(songData.entryId || ''),
           title: String(songData.title || ''),
+          ...(typeof songData.artist === 'string' && songData.artist
+            ? { artist: songData.artist }
+            : {}),
           sections: Array.isArray(songData.sections)
             ? (songData.sections as Record<string, unknown>[]).map((s) => ({
                 label: String(s.label || ''),
@@ -217,6 +247,7 @@ export class SharedLyricsStore {
         kind: 'found',
         lyrics,
         expiresAt: expiresAt!,
+        currentEntryId: isCurrentEntryId(data.currentEntryId) ? data.currentEntryId : null,
       }
     }
 

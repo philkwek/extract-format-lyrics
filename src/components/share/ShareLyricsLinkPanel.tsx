@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, Eye } from 'lucide-react'
+import { AppWindow, Check, Copy, Eye } from 'lucide-react'
 import type { Session } from '../../lib/sessionStore'
 import type { SharedLyricsPayload, Song } from '../../types/song'
 import { buildSharedLyricsPayload, ShareLyricsError } from '../../lib/exportLyrics'
 import {
   getLyricsPublicationIdentity,
   publishLyricsForSession,
+  type PublishLyricsResult,
 } from '../../lib/lyricsPublishIdentity'
 import { ensureLyricsFresh } from '../../lib/lyricsSync'
+import { currentSongSender } from '../../lib/presenterCurrent'
 import { trackEvent } from '../../lib/analytics'
 import { Button } from '../ui'
 import LyricsPreviewModal from '../LyricsPreviewModal'
@@ -19,7 +21,9 @@ interface ShareLyricsLinkPanelProps {
 
 export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyricsLinkPanelProps) {
   const [copied, setCopied] = useState(false)
+  const [presenterCopied, setPresenterCopied] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [publicationId, setPublicationId] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -28,7 +32,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
   const [previewPayload, setPreviewPayload] = useState<SharedLyricsPayload | null>(null)
 
   // Only a fresh stored link is restored, so any link here still has time left.
-  const isPublished = Boolean(shareUrl && expiresAt)
+  const isPublished = Boolean(shareUrl && publicationId && expiresAt)
   const sessionRef = useRef(session)
 
   useEffect(() => {
@@ -45,6 +49,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
         if (isCurrent && record && record.expiresAt && expiry > Date.now()) {
           const origin = typeof window !== 'undefined' ? window.location.origin : ''
           setShareUrl(`${origin}/lyrics/${record.publicationId}`)
+          setPublicationId(record.publicationId)
           setExpiresAt(record.expiresAt)
         }
       } catch {
@@ -77,6 +82,8 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     }
   }, [isPublished])
 
+  const presenterUrl = (id: string) => `${window.location.origin}/present/${id}`
+
   const handleCopy = async () => {
     try {
       if (!shareUrl) return
@@ -88,8 +95,8 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     }
   }
 
-  const handlePublish = async () => {
-    if (isSaving) return
+  const handlePublish = async (): Promise<PublishLyricsResult | null> => {
+    if (isSaving) return null
     setIsSaving(true)
     setError(null)
 
@@ -97,12 +104,15 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
       const payload = buildSharedLyricsPayload(session, songsData)
       const result = await publishLyricsForSession(session.id, payload)
       setShareUrl(result.shareUrl)
+      setPublicationId(result.id)
       setExpiresAt(result.expiresAt)
+      currentSongSender.resend(session.id)
       trackEvent('lyrics_published', {
         operation: isPublished ? 'update' : 'create',
         outcome: 'success',
         song_count: payload.songs.length,
       })
+      return result
     } catch (err) {
       trackEvent('lyrics_published', {
         operation: isPublished ? 'update' : 'create',
@@ -114,9 +124,46 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
           ? err.message
           : (err as Error).message || 'Failed to publish lyrics'
       setError(message)
+      return null
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleCopyPresenter = async () => {
+    setError(null)
+    let id = isPublished ? publicationId : null
+    if (!id) {
+      const result = await handlePublish()
+      if (!result) return
+      id = result.id
+    }
+    const url = presenterUrl(id)
+    try {
+      await navigator.clipboard.writeText(url)
+      setPresenterCopied(true)
+      setTimeout(() => setPresenterCopied(false), 2500)
+    } catch {
+      window.prompt('Copy this presenter link:', url)
+    }
+  }
+
+  const handleOpenPresenter = async () => {
+    setError(null)
+    if (isPublished && publicationId) {
+      window.open(presenterUrl(publicationId), '_blank')
+      return
+    }
+    // Opened before publishing so the click still counts as a user gesture.
+    const win = window.open('', '_blank')
+    const result = await handlePublish()
+    if (!result) {
+      win?.close()
+      return
+    }
+    const url = presenterUrl(result.id)
+    if (win) win.location.href = url
+    else window.open(url, '_blank')
   }
 
   const handleOpenPreview = () => {
@@ -140,7 +187,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
         <div className="px-3 py-3">
           <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2">
             <div className="min-w-[12rem] flex-1">
-              <p className="text-ui-text text-sm font-bold">Lyrics link</p>
+              <p className="text-ui-text text-sm font-bold">For individual phones</p>
               <p className="text-ui-text-muted text-xs leading-5">
                 {isPublished && expiresAt
                   ? `Link works until ${new Date(expiresAt).toLocaleDateString()}. Updates when you change the set.`
@@ -178,13 +225,42 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
               </Button>
             )}
           </div>
-
-          {error && (
-            <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-red-300">
-              {error}
-            </p>
-          )}
         </div>
+
+        <div className="border-ui-border border-t px-3 py-3">
+          <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="min-w-[12rem] flex-1">
+              <p className="text-ui-text text-sm font-bold">For group projector/screen</p>
+              <p className="text-ui-text-muted text-xs leading-5">
+                Updates when you change songs. Stops if your device sleeps or goes offline.
+              </p>
+            </div>
+            <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                icon={presenterCopied ? <Check size={15} /> : <Copy size={15} />}
+                onClick={handleCopyPresenter}
+                disabled={isSaving || !initialized}
+              >
+                {presenterCopied ? 'Copied' : 'Copy presenter link'}
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<AppWindow size={15} />}
+                onClick={handleOpenPresenter}
+                disabled={isSaving || !initialized}
+              >
+                Open presenter window
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <p role="alert" className="px-3 pb-3 text-[11px] text-red-600 dark:text-red-300">
+            {error}
+          </p>
+        )}
       </div>
 
       <LyricsPreviewModal

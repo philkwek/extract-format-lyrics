@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import HomePage from './pages/HomePage'
@@ -21,6 +21,9 @@ import { ChromeVisibilityContext } from './lib/chromeVisibility'
 import { useAppUpdate } from './lib/useAppUpdate'
 import { useOnlineStatus } from './lib/useOnlineStatus'
 
+const PresenterPage = lazy(() => import('./pages/PresenterPage'))
+const PresenterOutputPage = lazy(() => import('./pages/PresenterOutputPage'))
+
 export function AppShell() {
   const location = useLocation()
   const [chromeHidden, setChromeHidden] = useState(false)
@@ -40,12 +43,13 @@ export function AppShell() {
   }, [])
   const isLyricsView = location.pathname.startsWith('/lyrics/')
   const isSessionView = location.pathname.startsWith('/session/')
+  const isPresentView = location.pathname.startsWith('/present/')
   const isSharedLinkView = /^\/(s|live|lyrics)\//.test(location.pathname)
 
   return (
     <ChromeVisibilityContext.Provider value={{ hidden: chromeHidden, setHidden: setChromeHidden }}>
       <div className="app-canvas text-ui-text flex min-h-screen flex-col">
-        {!isLyricsView && !chromeHidden && (
+        {!isLyricsView && !isPresentView && !chromeHidden && (
           <header
             data-app-header
             className="bg-ui-canvas/78 sticky top-0 z-30 border-b border-black/5 py-2.5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/7"
@@ -92,14 +96,14 @@ export function AppShell() {
             </div>
           </header>
         )}
-        {!online && isSharedLinkView && (
+        {!online && isSharedLinkView && !isPresentView && (
           <div className="mx-auto w-[96%] max-w-lg pt-4">
             <OfflineNotice online={online} />
           </div>
         )}
         <main
           className={
-            chromeHidden
+            chromeHidden || isPresentView
               ? 'w-full max-w-none flex-1 p-0'
               : `mx-auto w-[96%] max-w-[92rem] flex-1 pb-10 ${
                   isLyricsView ? 'pt-2 sm:pt-3' : isSessionView ? 'pt-2.5' : 'pt-4 sm:pt-5'
@@ -115,11 +119,27 @@ export function AppShell() {
               <Route path="/s/:shortId" element={<ShareImportPage />} />
               <Route path="/live/:liveId" element={<LiveFollowPage />} />
               <Route path="/lyrics/:shortId" element={<LyricsViewerPage />} />
+              <Route
+                path="/present/:id"
+                element={
+                  <Suspense fallback={null}>
+                    <PresenterPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/present/:id/output"
+                element={
+                  <Suspense fallback={null}>
+                    <PresenterOutputPage />
+                  </Suspense>
+                }
+              />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AppErrorBoundary>
         </main>
-        {!chromeHidden && (
+        {!chromeHidden && !isPresentView && (
           <footer className="mx-auto w-full max-w-[92rem] px-[2%] pb-4 text-center text-xs text-[var(--ui-text-muted)]">
             <NavLink to="/privacy" className="underline">
               Privacy and usage tracking

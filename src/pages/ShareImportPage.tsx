@@ -11,14 +11,19 @@ import { useSeo } from '../lib/useSeo'
 import { songCount } from '../lib/plural'
 
 export default function ShareImportPage() {
-  useSeo({ title: 'Shared Set | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expired, setExpired] = useState(false)
+  const [setName, setSetName] = useState<string | null>(null)
   const [progressMsg, setProgressMsg] = useState('Reading share payload...')
+  const trimmedName = setName?.trim()
+  useSeo({
+    title: trimmedName ? `Shared Set · ${trimmedName}` : 'Shared Set · Sets & Sheets',
+    noindex: true,
+  })
 
   useEffect(() => {
     let isCancelled = false
@@ -31,6 +36,7 @@ export default function ShareImportPage() {
 
         if (isCancelled) return
 
+        setSetName(snapshot.name)
         setProgressMsg(`Importing "${snapshot.name}" (${songCount(snapshot.songs.length)})...`)
         for (const entry of snapshot.songs) {
           if (!(await songCache.getSong(entry.song.sourceUrl))) await songCache.saveSong(entry.song)

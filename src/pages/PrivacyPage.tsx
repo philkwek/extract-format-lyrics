@@ -7,7 +7,7 @@ import { useSeo } from '../lib/useSeo'
 
 export default function PrivacyPage() {
   useSeo({
-    title: 'Privacy and Usage Tracking | Sets & Sheets',
+    title: 'Privacy and Usage Tracking · Sets & Sheets',
     description: 'How Sets & Sheets uses Google Analytics and how to turn usage tracking off.',
     path: '/privacy',
   })
