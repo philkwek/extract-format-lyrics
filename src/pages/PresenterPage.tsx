@@ -140,22 +140,18 @@ export default function PresenterPage() {
     setMode(next)
   }, [])
 
-  const switchToManual = useCallback(() => {
-    savePresenterMode('manual')
-    trackEvent('presenter_mode_switched', { mode: 'manual' })
-    setMode('manual')
-  }, [])
-
-  const switchToAuto = useCallback(() => {
-    savePresenterMode('auto')
-    trackEvent('presenter_mode_switched', { mode: 'auto' })
-    setMode('auto')
-  }, [])
+  const switchMode = useCallback(
+    (next: PresenterMode) => {
+      trackEvent('presenter_mode_switched', { mode: next })
+      chooseMode(next)
+    },
+    [chooseMode],
+  )
 
   if (!wide) return <BiggerScreenNotice />
   if (!mode) return <ModeChoice onChoose={chooseMode} />
   if (mode === 'manual') {
-    return <PresenterConsole id={id} feed={feed} onSwitchToAuto={switchToAuto} />
+    return <PresenterConsole id={id} feed={feed} onSwitchToAuto={() => switchMode('auto')} />
   }
   if (feed.status === 'missing') return <MissingNotice />
 
@@ -179,7 +175,7 @@ export default function PresenterPage() {
         onPatchDisplay={patchDisplay}
         blackout={blackout}
         onToggleBlackout={() => setBlackout((value) => !value)}
-        onSwitchToManual={switchToManual}
+        onSwitchToManual={() => switchMode('manual')}
       />
     </div>
   )
