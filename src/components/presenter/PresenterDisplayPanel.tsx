@@ -46,11 +46,11 @@ export default function PresenterDisplayPanel({
   const align = resolveAlign(display, display.lyricsView)
 
   return (
-    <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col overflow-y-auto rounded-2xl border p-6">
+    <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col overflow-y-auto rounded-2xl border p-4">
       <h2 className="text-ui-text-muted text-[10px] font-semibold tracking-wider uppercase">
         On screen
       </h2>
-      <div className="mt-3">
+      <div className="mt-2">
         <PresenterPreview
           song={song}
           display={display}
@@ -59,10 +59,10 @@ export default function PresenterDisplayPanel({
         />
       </div>
 
-      <h2 className="text-ui-text-muted mt-6 text-[10px] font-semibold tracking-wider uppercase">
+      <h2 className="text-ui-text-muted mt-4 text-[10px] font-semibold tracking-wider uppercase">
         Display
       </h2>
-      <div className="mt-3 space-y-3">
+      <div className="mt-2.5 space-y-2.5">
         <DisplayRow label="Lyrics view">
           <SegmentedControl
             label="Lyrics view"
@@ -165,10 +165,10 @@ export default function PresenterDisplayPanel({
 
       <div className="flex-1" />
 
-      <p className="text-ui-text-muted mt-6 text-xs">
+      <p className="text-ui-text-muted mt-4 text-xs">
         {outputOpen ? 'Output window: open' : 'Output window: not open yet'}
       </p>
-      <div className="mt-3 grid grid-cols-1 gap-2 2xl:grid-cols-2">
+      <div className="mt-2.5 grid grid-cols-1 gap-2 2xl:grid-cols-2">
         <Button variant="secondary" onClick={onToggleBlackout}>
           {blackout ? 'Show lyrics' : 'Fade to black'}
         </Button>

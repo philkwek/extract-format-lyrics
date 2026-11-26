@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PresenterConsole from '../../../src/components/presenter/PresenterConsole'
 import {
   resetPresenterEditsStore,
@@ -198,7 +198,7 @@ describe('PresenterConsole', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(screen.getByText('Edited')).toBeTruthy()
     expect(lastState().song?.sections[0]).toEqual({
       label: 'Verse 1 (Local)',
       lines: ['Updated local line', 'Second line'],
@@ -233,7 +233,7 @@ describe('PresenterConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
 
-    expect(screen.queryByText('Edited on this laptop')).toBeNull()
+    expect(screen.queryByText('Edited')).toBeNull()
     expect(lastState().song?.sections[0]).toEqual({
       label: 'Verse 1',
       lines: ['Host changed this'],
@@ -246,7 +246,7 @@ describe('PresenterConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    expect(screen.queryByText('Edited on this laptop')).toBeNull()
+    expect(screen.queryByText('Edited')).toBeNull()
   })
 
   it('disables keyboard shortcuts while editing', () => {
@@ -296,7 +296,7 @@ describe('PresenterConsole', () => {
     await waitFor(() => {
       expect(screen.queryByText('Save changes before switching?')).toBeNull()
     })
-    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(screen.getByText('Edited')).toBeTruthy()
     expect(lastState().song?.entryId).toBe('entry-2')
 
     fireEvent.click(screen.getByRole('button', { name: /First Song/ }))
@@ -340,13 +340,13 @@ describe('PresenterConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(screen.getByText('Edited')).toBeTruthy()
     expect(lastState().song?.sections).toEqual([{ label: 'Verse 1', lines: ['First line'] }])
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
 
-    expect(screen.queryByText('Edited on this laptop')).toBeNull()
+    expect(screen.queryByText('Edited')).toBeNull()
     expect(lastState().song?.sections).toHaveLength(2)
   })
 
@@ -377,7 +377,7 @@ describe('PresenterConsole', () => {
     expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
 
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(screen.getByText('Edited')).toBeTruthy()
     expect(lastState().song?.sections).toEqual([
       { label: 'Chorus', lines: ['Second line'] },
       { label: 'Verse 1', lines: ['First line'] },
@@ -405,11 +405,11 @@ describe('PresenterConsole', () => {
     const cards = view.container.querySelectorAll('[data-section-card]')
     expect(cards).toHaveLength(1)
     expect(cards[0].className).not.toContain('border-ui-accent')
-    expect(screen.queryByText('Edited')).toBeNull()
+    expect(within(cards[0] as HTMLElement).queryByText('Edited')).toBeNull()
 
     const lyricsBox = screen.getByLabelText('Lyrics') as HTMLTextAreaElement
     fireEvent.change(lyricsBox, { target: { value: 'Changed chorus line' } })
-    expect(screen.getByText('Edited')).toBeTruthy()
+    expect(within(cards[0] as HTMLElement).getByText('Edited')).toBeTruthy()
     expect(cards[0].className).not.toContain('border-ui-accent')
   })
 
