@@ -99,7 +99,7 @@ export default function PresenterDisplayPanel({
           <SegmentedControl
             label="Lyrics view"
             value={display.lyricsView}
-            onChange={(lyricsView) => onPatchDisplay({ lyricsView, align: null })}
+            onChange={(lyricsView) => onPatchDisplay({ lyricsView })}
             options={[
               { value: 'whole', label: 'Whole song' },
               { value: 'sections', label: 'Sections' },
