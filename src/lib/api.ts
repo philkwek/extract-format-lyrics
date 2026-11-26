@@ -240,6 +240,8 @@ export interface GetSharedLyricsResult {
   id: string
   lyrics: import('../types/song').SharedLyricsPayload
   expiresAt: string
+  /** The host's open song, when they are sending it. */
+  currentEntryId?: string | null
 }
 
 export async function putSharedLyricsApi(

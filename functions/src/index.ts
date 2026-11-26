@@ -571,7 +571,12 @@ export const api = onRequest(async (req, res) => {
         return
       }
 
-      res.status(200).json({ id, lyrics: result.lyrics, expiresAt: result.expiresAt.toISOString() })
+      res.status(200).json({
+        id,
+        lyrics: result.lyrics,
+        expiresAt: result.expiresAt.toISOString(),
+        currentEntryId: result.currentEntryId,
+      })
       return
     }
 

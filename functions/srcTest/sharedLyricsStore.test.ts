@@ -372,4 +372,21 @@ describe('shared lyrics store and validation', () => {
 
     expect(mockDb.data.get(`sharedLyrics/${id}`)?.currentEntryId).toBe('entry-2')
   })
+
+  it('returns the current song with the lyrics, or null when none is set', async () => {
+    const mockDb = new MockFirestore()
+    const store = new SharedLyricsStore(
+      mockDb as unknown as Firestore,
+      () => new Date('2026-10-15T10:00:00.000Z'),
+    )
+    const id = 'read-current-song'
+
+    await store.publish(id, validPayload)
+    const before = await store.get(id)
+    expect(before.kind === 'found' && before.currentEntryId).toBeNull()
+
+    await store.setCurrent(id, 'entry-2')
+    const after = await store.get(id)
+    expect(after.kind === 'found' && after.currentEntryId).toBe('entry-2')
+  })
 })

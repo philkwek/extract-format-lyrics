@@ -10,7 +10,7 @@ const COLLECTION = 'sharedLyrics'
 export const LYRICS_DOMAIN_SEPARATOR = 'lyrics-share-v1:'
 
 export type SharedLyricsLookup =
-  | { kind: 'found'; lyrics: SharedLyricsPayload; expiresAt: Date }
+  | { kind: 'found'; lyrics: SharedLyricsPayload; expiresAt: Date; currentEntryId: string | null }
   | { kind: 'expired' }
   | { kind: 'missing' }
 
@@ -243,6 +243,7 @@ export class SharedLyricsStore {
         kind: 'found',
         lyrics,
         expiresAt: expiresAt!,
+        currentEntryId: isCurrentEntryId(data.currentEntryId) ? data.currentEntryId : null,
       }
     }
 
