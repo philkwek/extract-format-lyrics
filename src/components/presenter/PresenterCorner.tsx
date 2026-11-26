@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Maximize, Minimize, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
-import { useFullscreen } from '../../lib/useFullscreen'
+import { useAutoHide } from '../../lib/useAutoHide'
 import { resolveAlign, type PresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedStatus } from '../../lib/usePresenterFeed'
 import { Button, LivePill } from '../ui'
 import { liveDotClasses, type LiveTone } from '../ui/liveTone'
 import { DisplaySegments, TextSizeStepper } from './PresenterDisplayControls'
+import { CORNER_BUTTON_STYLE } from './cornerButtonStyle'
+import PresenterFullscreenButton from './PresenterFullscreenButton'
 
 interface PresenterCornerProps {
   status: PresenterFeedStatus
@@ -17,10 +19,6 @@ interface PresenterCornerProps {
   onToggleBlackout: () => void
   onSwitchToManual: () => void
 }
-
-const HIDE_DELAY_MS = 800
-/** Sized for a laptop driving a projector across the room, as in the design. */
-const CORNER_BUTTON_STYLE = { height: 56, padding: '0 20px', fontSize: 18, borderRadius: 14 }
 
 function statusPill(status: PresenterFeedStatus): { tone: LiveTone; label: string } | null {
   if (status === 'live') return { tone: 'live', label: 'Live: Following host' }
@@ -38,18 +36,14 @@ export default function PresenterCorner({
   onSwitchToManual,
 }: PresenterCornerProps) {
   const reduceMotion = Boolean(useReducedMotion())
-  const [visible, setVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const [activity, setActivity] = useState(0)
-  const { isFullscreen, toggleFullscreen } = useFullscreen()
   const controlsRef = useRef<HTMLDivElement>(null)
   const keyboardFocusRef = useRef(false)
-
-  const show = useCallback(() => {
-    setVisible(true)
-    setActivity((count) => count + 1)
-  }, [])
+  const { visible, show, bump, hoverProps } = useAutoHide({
+    hold: settingsOpen,
+    canHide: () =>
+      !(keyboardFocusRef.current && controlsRef.current?.contains(document.activeElement)),
+  })
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false)
@@ -65,29 +59,17 @@ export default function PresenterCorner({
   useEffect(() => {
     const onPointerDown = () => {
       keyboardFocusRef.current = false
-      show()
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Tab') keyboardFocusRef.current = true
     }
-    window.addEventListener('mousemove', show)
     window.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      window.removeEventListener('mousemove', show)
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [show])
-
-  useEffect(() => {
-    if (!visible || settingsOpen || hovered) return
-    const timer = window.setTimeout(() => {
-      if (keyboardFocusRef.current && controlsRef.current?.contains(document.activeElement)) return
-      setVisible(false)
-    }, HIDE_DELAY_MS)
-    return () => window.clearTimeout(timer)
-  }, [visible, settingsOpen, hovered, activity])
+  }, [])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -120,11 +102,10 @@ export default function PresenterCorner({
       onBlur={(event) => {
         if (!controlsRef.current?.contains(event.relatedTarget as Node | null)) {
           keyboardFocusRef.current = false
-          setActivity((count) => count + 1)
+          bump()
         }
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      {...hoverProps}
       onPointerDown={show}
     >
       {settingsOpen && (
@@ -203,14 +184,7 @@ export default function PresenterCorner({
         >
           Settings
         </Button>
-        <Button
-          variant="secondary"
-          icon={isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-          style={CORNER_BUTTON_STYLE}
-          onClick={toggleFullscreen}
-        >
-          {isFullscreen ? 'Exit full screen' : 'Go full screen'}
-        </Button>
+        <PresenterFullscreenButton />
       </div>
     </div>
   )

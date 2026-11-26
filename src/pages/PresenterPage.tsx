@@ -4,6 +4,7 @@ import { ArrowRight, Monitor } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { usePresenterFeed } from '../lib/usePresenterFeed'
+import { usePresenterTheme } from '../lib/usePresenterTheme'
 import { useViewportHeight } from '../lib/useViewportHeight'
 import { useWakeLock } from '../lib/useWakeLock'
 import {
@@ -103,7 +104,6 @@ export default function PresenterPage() {
   const [blackout, setBlackout] = useState(false)
   const heightPx = useViewportHeight()
   const openedTracked = useRef(false)
-  const previousDark = useRef<boolean | null>(null)
 
   useWakeLock(wide)
 
@@ -113,18 +113,7 @@ export default function PresenterPage() {
     trackEvent('presenter_opened', { mode })
   }, [mode])
 
-  useEffect(() => {
-    if (mode !== 'auto') return
-    if (previousDark.current === null) {
-      previousDark.current = document.documentElement.classList.contains('dark')
-    }
-    document.documentElement.classList.toggle('dark', display.theme === 'dark')
-    return () => {
-      if (previousDark.current !== null) {
-        document.documentElement.classList.toggle('dark', previousDark.current)
-      }
-    }
-  }, [mode, display.theme])
+  usePresenterTheme(mode === 'auto' ? display.theme : undefined)
 
   useEffect(() => {
     if (!feed.lyrics) return
