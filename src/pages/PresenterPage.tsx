@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { ArrowRight, Monitor } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
 import { useMediaQuery } from '../lib/useMediaQuery'
-import { usePresenterFeed } from '../lib/usePresenterFeed'
+import { usePresenterFeed, type PresenterFeedState } from '../lib/usePresenterFeed'
 import { usePresenterTheme } from '../lib/usePresenterTheme'
 import { useViewportHeight } from '../lib/useViewportHeight'
 import { useWakeLock } from '../lib/useWakeLock'
@@ -95,14 +95,50 @@ function MissingNotice() {
   )
 }
 
+/** Own component so it reads the display settings fresh, including edits made in the console. */
+function PresenterAutoView({
+  feed,
+  onSwitchToManual,
+}: {
+  feed: PresenterFeedState
+  onSwitchToManual: () => void
+}) {
+  const [display, patchDisplay] = usePresenterDisplay()
+  const [blackout, setBlackout] = useState(false)
+  const heightPx = useViewportHeight()
+  usePresenterTheme(display.theme)
+
+  const stopped = feed.status === 'stopped'
+  const songs = feed.lyrics?.songs ?? []
+  const currentSong = songs.find((song) => song.entryId === feed.currentEntryId) ?? songs[0] ?? null
+
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <PresenterCanvas
+        song={stopped ? null : currentSong}
+        display={display}
+        view="whole"
+        sectionIndex={null}
+        blackout={blackout || stopped}
+        heightPx={heightPx}
+      />
+      <PresenterCorner
+        status={feed.status}
+        display={display}
+        onPatchDisplay={patchDisplay}
+        blackout={blackout}
+        onToggleBlackout={() => setBlackout((value) => !value)}
+        onSwitchToManual={onSwitchToManual}
+      />
+    </div>
+  )
+}
+
 export default function PresenterPage() {
   const { id = '' } = useParams<{ id: string }>()
   const wide = useMediaQuery(WIDE_QUERY)
   const feed = usePresenterFeed(id)
-  const [display, patchDisplay] = usePresenterDisplay()
   const [mode, setMode] = useState<PresenterMode | null>(loadPresenterMode)
-  const [blackout, setBlackout] = useState(false)
-  const heightPx = useViewportHeight()
   const openedTracked = useRef(false)
 
   useWakeLock(wide)
@@ -112,8 +148,6 @@ export default function PresenterPage() {
     openedTracked.current = true
     trackEvent('presenter_opened', { mode })
   }, [mode])
-
-  usePresenterTheme(mode === 'auto' ? display.theme : undefined)
 
   useEffect(() => {
     if (!feed.lyrics) return
@@ -144,28 +178,5 @@ export default function PresenterPage() {
   }
   if (feed.status === 'missing') return <MissingNotice />
 
-  const stopped = feed.status === 'stopped'
-  const songs = feed.lyrics?.songs ?? []
-  const currentSong = songs.find((song) => song.entryId === feed.currentEntryId) ?? songs[0] ?? null
-
-  return (
-    <div className="h-screen w-screen overflow-hidden">
-      <PresenterCanvas
-        song={stopped ? null : currentSong}
-        display={display}
-        view="whole"
-        sectionIndex={null}
-        blackout={blackout || stopped}
-        heightPx={heightPx}
-      />
-      <PresenterCorner
-        status={feed.status}
-        display={display}
-        onPatchDisplay={patchDisplay}
-        blackout={blackout}
-        onToggleBlackout={() => setBlackout((value) => !value)}
-        onSwitchToManual={() => switchMode('manual')}
-      />
-    </div>
-  )
+  return <PresenterAutoView feed={feed} onSwitchToManual={() => switchMode('manual')} />
 }

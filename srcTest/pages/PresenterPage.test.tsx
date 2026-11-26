@@ -211,6 +211,18 @@ describe('PresenterPage', () => {
     expect(trackEvent).toHaveBeenCalledWith('presenter_mode_switched', { mode: 'manual' })
   })
 
+  it('uses display settings changed in the console after switching to auto', async () => {
+    localStorage.setItem('presenter.mode', 'manual')
+    feed.current = live()
+
+    renderPage()
+    fireEvent.click(screen.getByText('Light'))
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to auto follow host' }))
+
+    await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(false))
+    expect(JSON.parse(localStorage.getItem('presenter.display') ?? '{}').theme).toBe('light')
+  })
+
   it('restores the html dark class on unmount', async () => {
     document.documentElement.classList.add('dark')
     localStorage.setItem('presenter.mode', 'auto')
