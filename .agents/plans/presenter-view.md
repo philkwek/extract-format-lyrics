@@ -1,7 +1,6 @@
 # Presenter view: lyrics on a church screen
 
-Status: tasks 1–5 built, task 6 and final checks left (see
-[presenter-view-handoff.md](presenter-view-handoff.md)) · 2026-11-26 · issue #80 · branch
+Status: tasks 1–6 and final checks complete · 2026-11-26 · issue #80 · branch
 `feat/presenter-view`
 
 Design: https://claude.ai/artifact/DBckauEQv33iryuGek54Hs (Claude Design; private to the

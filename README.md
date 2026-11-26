@@ -84,6 +84,7 @@ While a set is open, the screen stays on so it doesn't dim mid-song. This works 
 - **Installing:** Chrome, Edge and Android offer a one-tap install. On iPhone and iPad, use Share → **Add to Home Screen**; macOS Safari uses File → **Add to Dock**.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.
 - **Offline host:** followers keep the last version they got. Changes arrive when the host is back online.
+- **Presenter view:** stops following when the host's device sleeps or goes offline.
 - **Blocked networks:** if a network blocks Firestore, followers get updates every 30 seconds instead of at once.
 - **Live shares expire:** they end 7 days after the host's last change.
 - **Deleting a set:** its lyrics link stops updating, but it still opens until it expires.
