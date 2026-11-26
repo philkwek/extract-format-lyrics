@@ -93,6 +93,50 @@ describe('PresenterCanvas blackout', () => {
     expect(content().className).toContain('items-center')
   })
 
+  it('uses symmetric top and bottom insets in centered section view so lyrics center on the window', () => {
+    const { container, rerender } = render(
+      <PresenterCanvas
+        song={song}
+        display={{ ...display, sectionPosition: 'center' }}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    const frame = () =>
+      container.querySelector('[data-presenter-content]')?.parentElement?.parentElement as HTMLElement
+    expect(frame().style.top).toBe('10.4%')
+    expect(frame().style.bottom).toBe('10.4%')
+
+    rerender(
+      <PresenterCanvas
+        song={song}
+        display={{ ...display, sectionPosition: 'top' }}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+    expect(frame().style.top).toBe('10.4%')
+    expect(frame().style.bottom).toBe('4%')
+
+    rerender(
+      <PresenterCanvas
+        song={song}
+        display={{ ...display, sectionPosition: 'center' }}
+        view="whole"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+    expect(frame().style.top).toBe('10.4%')
+    expect(frame().style.bottom).toBe('4%')
+  })
+
   it('switches sections within the same song immediately without fading', () => {
     vi.useFakeTimers()
     const multiSectionSong: SharedLyricsSong = {

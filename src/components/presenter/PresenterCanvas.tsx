@@ -32,7 +32,7 @@ function contentKey(
   view: PresenterView,
   sectionIndex: number | null,
 ): string {
-  return `${songSignature(song)}:${view}:${sectionIndex ?? ''}:${display.caps}:${display.textScale}`
+  return `${songSignature(song)}:${view}:${sectionIndex ?? ''}:${display.caps}:${display.textScale}:${display.sectionPosition}`
 }
 
 function sectionAt(song: SharedLyricsSong, index: number | null): SharedLyricsSection | null {
@@ -125,8 +125,8 @@ export default function PresenterCanvas({
   const activeSection = displayedSong ? sectionAt(displayedSong, displayedSectionIndex) : null
   const align = resolveAlign(display, view)
   const isDark = display.theme === 'dark'
-  const vertical =
-    sectionsView && display.sectionPosition !== 'top' ? 'items-center' : 'items-start'
+  const centerSection = sectionsView && display.sectionPosition !== 'top'
+  const vertical = centerSection ? 'items-center' : 'items-start'
 
   return (
     <div
@@ -149,7 +149,12 @@ export default function PresenterCanvas({
         </div>
         <div
           className="absolute"
-          style={{ top: '10.4%', left: '4.2%', right: '4.2%', bottom: '4%' }}
+          style={{
+            top: '10.4%',
+            left: '4.2%',
+            right: '4.2%',
+            bottom: centerSection ? '10.4%' : '4%',
+          }}
         >
           <div
             ref={containerRef}
