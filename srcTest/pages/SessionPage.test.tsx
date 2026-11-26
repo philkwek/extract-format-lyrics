@@ -125,6 +125,7 @@ vi.mock('../../src/lib/songCache', () => ({
 vi.mock('../../src/lib/api', () => ({
   scrapeApi: vi.fn(),
   simplifyApi: vi.fn(),
+  putLyricsCurrentApi: vi.fn(async () => undefined),
 }))
 
 vi.mock('../../src/lib/useThemeMode', () => ({

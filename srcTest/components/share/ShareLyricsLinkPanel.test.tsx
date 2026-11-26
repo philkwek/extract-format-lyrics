@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getLyricsPublicationIdentity: vi.fn(),
   ensureLyricsFresh: vi.fn(async () => ({ ok: true })),
   publishLyricsForSession: vi.fn(),
+  resendCurrentSong: vi.fn(),
 }))
 
 vi.mock('../../../src/lib/lyricsPublishIdentity', () => ({
@@ -19,9 +20,17 @@ vi.mock('../../../src/lib/lyricsSync', () => ({
   ensureLyricsFresh: mocks.ensureLyricsFresh,
 }))
 vi.mock('../../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
+vi.mock('../../../src/lib/presenterCurrent', () => ({
+  currentSongSender: { notify: vi.fn(), resend: mocks.resendCurrentSong },
+}))
+
+const writeText = vi.fn(async () => {})
+const windowOpen = vi.fn()
 
 beforeEach(() => {
   vi.stubGlobal('location', { origin: 'https://example.test' })
+  vi.stubGlobal('open', windowOpen)
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 })
 
 afterEach(() => {
@@ -221,5 +230,89 @@ describe('ShareLyricsLinkPanel', () => {
     })
 
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the individual and group rows', async () => {
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    await screen.findByRole('button', { name: 'Copy link' })
+
+    expect(screen.getByText('For individual phones')).toBeTruthy()
+    expect(screen.getByText('For group projector/screen')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Updates when you change songs. Stops if your device sleeps or goes offline.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('copies the presenter link when the lyrics link is published', async () => {
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    await screen.findByRole('button', { name: 'Copy link' })
+    fireEvent.click(screen.getByRole('button', { name: 'Copy presenter link' }))
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('https://example.test/present/pub-id-123'),
+    )
+    expect(mocks.publishLyricsForSession).not.toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy()
+  })
+
+  it('publishes first when copying the presenter link without a link', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
+    mocks.publishLyricsForSession.mockResolvedValue({
+      id: 'pub-new',
+      expiresAt: futureDate,
+      shareUrl: 'https://example.test/lyrics/pub-new',
+    })
+
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    const button = screen.getByRole('button', {
+      name: 'Copy presenter link',
+    }) as HTMLButtonElement
+    await waitFor(() => expect(button.disabled).toBe(false))
+    fireEvent.click(button)
+
+    await waitFor(() =>
+      expect(mocks.publishLyricsForSession).toHaveBeenCalledWith('session-1', expect.anything()),
+    )
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('https://example.test/present/pub-new'),
+    )
+    expect(mocks.resendCurrentSong).toHaveBeenCalledWith('session-1')
+  })
+
+  it('opens the presenter window at once when the lyrics link is published', async () => {
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    await screen.findByRole('button', { name: 'Copy link' })
+    fireEvent.click(screen.getByRole('button', { name: 'Open presenter window' }))
+
+    expect(windowOpen).toHaveBeenCalledWith('https://example.test/present/pub-id-123', '_blank')
+  })
+
+  it('opens the presenter window after publishing without a link', async () => {
+    mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
+    mocks.publishLyricsForSession.mockResolvedValue({
+      id: 'pub-new',
+      expiresAt: futureDate,
+      shareUrl: 'https://example.test/lyrics/pub-new',
+    })
+    const opened = { location: { href: '' }, close: vi.fn() }
+    windowOpen.mockReturnValue(opened)
+
+    render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
+
+    const button = screen.getByRole('button', {
+      name: 'Open presenter window',
+    }) as HTMLButtonElement
+    await waitFor(() => expect(button.disabled).toBe(false))
+    fireEvent.click(button)
+
+    await waitFor(() => expect(opened.location.href).toBe('https://example.test/present/pub-new'))
+    expect(windowOpen).toHaveBeenNthCalledWith(1, '', '_blank')
+    expect(opened.close).not.toHaveBeenCalled()
   })
 })

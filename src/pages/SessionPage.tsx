@@ -92,6 +92,7 @@ import {
 } from '../lib/liveChanges'
 import { getNextTabIndex } from '../lib/tabNavigation'
 import { useSongArrowKeys } from '../lib/useSongArrowKeys'
+import { currentSongSender } from '../lib/presenterCurrent'
 import { useFullScreenLayout } from '../lib/useMediaQuery'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useWakeLock } from '../lib/useWakeLock'
@@ -461,6 +462,14 @@ export default function SessionPage() {
     songsData.get(item.entryId || item.url) ??
     (isRemovedItem(item) ? removedByHost?.song : undefined)
   const currentSong = currentItem ? songForItem(currentItem) : null
+  const presenterSessionId = session?.id ?? null
+  // Matches the entryId the lyrics link publishes (see extractSongLyrics).
+  const currentEntryId = currentItem?.entryId || currentSong?.id || null
+
+  useEffect(() => {
+    if (!presenterSessionId || following || !currentEntryId) return
+    currentSongSender.notify(presenterSessionId, currentEntryId)
+  }, [presenterSessionId, following, currentEntryId])
 
   useEffect(() => {
     sessionRef.current = session
