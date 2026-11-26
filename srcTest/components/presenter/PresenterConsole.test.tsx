@@ -324,25 +324,25 @@ describe('PresenterConsole', () => {
     expect(removeButton.disabled).toBe(true)
   })
 
-  it('rearranges sections with move up/down buttons, saves order, and resets', () => {
-    renderConsole()
+  it('rearranges sections by dragging, saves order, and resets', () => {
+    const view = renderConsole()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    const handles = view.container.querySelectorAll('[draggable="true"]')
+    const cards = view.container.querySelectorAll('[data-section-card]')
+    const setDragImage = vi.fn()
 
-    expect((screen.getByRole('button', { name: 'Move Verse 1 up' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: 'Move Chorus down' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.dragStart(handles[0], {
+      dataTransfer: { effectAllowed: '', setData: vi.fn(), setDragImage },
+    })
+    expect(setDragImage).toHaveBeenCalledWith(cards[0], expect.any(Number), expect.any(Number))
+    fireEvent.dragOver(cards[1])
+    fireEvent.drop(cards[1])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Move Chorus up' }))
-    let titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
     expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Move Chorus down' }))
-    titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
-    expect(titleInputs.map((input) => input.value)).toEqual(['Verse 1', 'Chorus'])
-
-    fireEvent.click(screen.getByRole('button', { name: 'Move Verse 1 down' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-
     expect(screen.getByText('Edited on this laptop')).toBeTruthy()
     expect(lastState().song?.sections).toEqual([
       { label: 'Chorus', lines: ['Second line'] },
@@ -356,24 +356,5 @@ describe('PresenterConsole', () => {
       { label: 'Verse 1', lines: ['First line'] },
       { label: 'Chorus', lines: ['Second line'] },
     ])
-  })
-
-  it('rearranges sections by dragging a section header onto another card', () => {
-    const view = renderConsole()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
-    const headers = view.container.querySelectorAll('[draggable="true"]')
-    const cards = Array.from(headers).map((header) => header.parentElement as HTMLElement)
-    const setDragImage = vi.fn()
-
-    fireEvent.dragStart(headers[0], {
-      dataTransfer: { effectAllowed: '', setData: vi.fn(), setDragImage },
-    })
-    expect(setDragImage).toHaveBeenCalledWith(cards[0], expect.any(Number), expect.any(Number))
-    fireEvent.dragOver(cards[1])
-    fireEvent.drop(cards[1])
-
-    const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
-    expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
   })
 })

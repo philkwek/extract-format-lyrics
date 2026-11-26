@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
+import { GripVertical, X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
@@ -128,14 +128,13 @@ export default function PresenterSongEditor({
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 content-start gap-4 overflow-y-auto pr-1">
-        {visibleDrafts.map((draft, visibleIndex) => {
+        {visibleDrafts.map((draft) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
             lines: parseEditedLyricsText(draft.text),
           }
           const hostSection = hostSong.sections[draft.id]
           const changed = hostSection ? isSectionEdited(hostSection, parsed) : true
-          const titleId = `presenter-section-title-${draft.id}`
           const lyricsId = `presenter-section-lyrics-${draft.id}`
           const canReorder = visibleDrafts.length > 1
 
@@ -167,72 +166,51 @@ export default function PresenterSongEditor({
                 dragOverId === draft.id && draggedId !== draft.id && 'ring-ui-accent ring-2',
               )}
             >
-              <div
-                draggable={canReorder}
-                onDragStart={(event) => {
-                  setDraggedId(draft.id)
-                  if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed = 'move'
-                    event.dataTransfer.setData('text/plain', String(draft.id))
-                    const card = event.currentTarget.closest<HTMLElement>('[data-section-card]')
-                    if (card && event.dataTransfer.setDragImage) {
-                      const rect = card.getBoundingClientRect()
-                      event.dataTransfer.setDragImage(
-                        card,
-                        Math.max(0, event.clientX - rect.left),
-                        Math.max(0, event.clientY - rect.top),
-                      )
-                    }
-                  }
-                }}
-                onDragEnd={() => {
-                  setDraggedId(null)
-                  setDragOverId(null)
-                }}
-                className="flex items-center justify-between gap-2"
-              >
-                <div
-                  className={classes(
-                    'flex items-center gap-1.5',
-                    canReorder && 'cursor-grab active:cursor-grabbing',
-                  )}
-                >
-                  {canReorder && (
-                    <GripVertical
-                      size={14}
-                      aria-hidden="true"
-                      className="text-ui-text-muted shrink-0"
-                    />
-                  )}
-                  <label
-                    htmlFor={titleId}
-                    className="text-ui-text-muted text-[11px] font-semibold whitespace-nowrap"
+              <div className="flex items-center gap-2">
+                {canReorder && (
+                  <div
+                    draggable
+                    title="Drag to reorder"
+                    aria-label={`Drag ${draft.label || 'section'} to reorder`}
+                    onDragStart={(event) => {
+                      setDraggedId(draft.id)
+                      if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = 'move'
+                        event.dataTransfer.setData('text/plain', String(draft.id))
+                        const card = event.currentTarget.closest<HTMLElement>('[data-section-card]')
+                        if (card && event.dataTransfer.setDragImage) {
+                          const rect = card.getBoundingClientRect()
+                          event.dataTransfer.setDragImage(
+                            card,
+                            Math.max(0, event.clientX - rect.left),
+                            Math.max(0, event.clientY - rect.top),
+                          )
+                        }
+                      }
+                    }}
+                    onDragEnd={() => {
+                      setDraggedId(null)
+                      setDragOverId(null)
+                    }}
+                    className="text-ui-text-muted -ml-1 flex shrink-0 cursor-grab items-center rounded p-1 active:cursor-grabbing"
                   >
-                    Section title
-                  </label>
-                </div>
-                <div className="flex items-center gap-1">
+                    <GripVertical size={14} aria-hidden="true" />
+                  </div>
+                )}
+                <input
+                  type="text"
+                  aria-label="Section title"
+                  placeholder="Section title"
+                  value={draft.label}
+                  onChange={(event) => updateDraft(draft.id, { label: event.target.value })}
+                  className="bg-ui-surface text-ui-text border-ui-border min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"
+                />
+                <div className="flex shrink-0 items-center gap-1.5">
                   {changed && (
                     <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                       Edited
                     </span>
                   )}
-                  <IconButton
-                    label={`Move ${draft.label || 'section'} up`}
-                    variant="ghost"
-                    disabled={visibleIndex === 0}
-                    onClick={() => moveDraft(draft.id, visibleDrafts[visibleIndex - 1].id)}
-                  >
-                    <ArrowUp size={14} aria-hidden="true" />
-                  </IconButton>
-                  <IconButton
-                    label={`Move ${draft.label || 'section'} down`}
-                    variant="ghost"
-                    disabled={visibleIndex === visibleDrafts.length - 1}
-                    onClick={() => moveDraft(draft.id, visibleDrafts[visibleIndex + 1].id)}
-                  >
-                    <ArrowDown size={14} aria-hidden="true" />
-                  </IconButton>
                   <IconButton
                     label={`Remove ${draft.label || 'section'}`}
                     variant="danger"
@@ -243,13 +221,6 @@ export default function PresenterSongEditor({
                   </IconButton>
                 </div>
               </div>
-              <input
-                id={titleId}
-                type="text"
-                value={draft.label}
-                onChange={(event) => updateDraft(draft.id, { label: event.target.value })}
-                className="bg-ui-surface text-ui-text border-ui-border w-full min-w-0 rounded-lg border px-3 py-1.5 text-xs font-semibold"
-              />
 
               <label htmlFor={lyricsId} className="text-ui-text-muted text-[11px] font-semibold">
                 Lyrics
