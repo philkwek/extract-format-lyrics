@@ -127,7 +127,7 @@ export default function PresenterSongEditor({
         )}
       </div>
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto pr-1">
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 content-start gap-4 overflow-y-auto pr-1">
         {visibleDrafts.map((draft, visibleIndex) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
@@ -142,6 +142,7 @@ export default function PresenterSongEditor({
           return (
             <div
               key={draft.id}
+              data-section-card
               onDragOver={(event) => {
                 if (draggedId === null) return
                 event.preventDefault()
@@ -173,6 +174,15 @@ export default function PresenterSongEditor({
                   if (event.dataTransfer) {
                     event.dataTransfer.effectAllowed = 'move'
                     event.dataTransfer.setData('text/plain', String(draft.id))
+                    const card = event.currentTarget.closest<HTMLElement>('[data-section-card]')
+                    if (card && event.dataTransfer.setDragImage) {
+                      const rect = card.getBoundingClientRect()
+                      event.dataTransfer.setDragImage(
+                        card,
+                        Math.max(0, event.clientX - rect.left),
+                        Math.max(0, event.clientY - rect.top),
+                      )
+                    }
                   }
                 }}
                 onDragEnd={() => {

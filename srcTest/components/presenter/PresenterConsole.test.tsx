@@ -364,8 +364,12 @@ describe('PresenterConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     const headers = view.container.querySelectorAll('[draggable="true"]')
     const cards = Array.from(headers).map((header) => header.parentElement as HTMLElement)
+    const setDragImage = vi.fn()
 
-    fireEvent.dragStart(headers[0])
+    fireEvent.dragStart(headers[0], {
+      dataTransfer: { effectAllowed: '', setData: vi.fn(), setDragImage },
+    })
+    expect(setDragImage).toHaveBeenCalledWith(cards[0], expect.any(Number), expect.any(Number))
     fireEvent.dragOver(cards[1])
     fireEvent.drop(cards[1])
 
