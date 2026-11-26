@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import PresenterCanvas from '../../../src/components/presenter/PresenterCanvas'
 import type { PresenterDisplay } from '../../../src/lib/presenterSettings'
 import type { SharedLyricsSong } from '../../../src/types/song'
@@ -26,6 +26,7 @@ function blackoutLayer(container: HTMLElement) {
 
 describe('PresenterCanvas blackout', () => {
   afterEach(() => {
+    vi.useRealTimers()
     cleanup()
   })
 
@@ -90,5 +91,102 @@ describe('PresenterCanvas blackout', () => {
     )
 
     expect(content().className).toContain('items-center')
+  })
+
+  it('switches sections within the same song immediately without fading', () => {
+    vi.useFakeTimers()
+    const multiSectionSong: SharedLyricsSong = {
+      entryId: 'entry-1',
+      title: 'Demo Song',
+      sections: [
+        { label: 'Verse 1', lines: ['First section line'] },
+        { label: 'Chorus', lines: ['Second section line'] },
+      ],
+    }
+
+    const { container, rerender } = render(
+      <PresenterCanvas
+        song={multiSectionSong}
+        display={display}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    const fadeWrapper = container.firstElementChild?.firstElementChild as HTMLElement
+    expect(fadeWrapper.style.opacity).toBe('1')
+
+    rerender(
+      <PresenterCanvas
+        song={multiSectionSong}
+        display={display}
+        view="sections"
+        sectionIndex={1}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    expect(screen.getByText('Second section line')).toBeTruthy()
+    expect(fadeWrapper.style.opacity).toBe('1')
+
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(fadeWrapper.style.opacity).toBe('1')
+
+    act(() => {
+      vi.advanceTimersByTime(50)
+    })
+    expect(fadeWrapper.style.opacity).toBe('1')
+  })
+
+  it('fades out and back in when switching to a different song', () => {
+    vi.useFakeTimers()
+    const secondSong: SharedLyricsSong = {
+      entryId: 'entry-2',
+      title: 'Next Song',
+      sections: [{ label: 'Verse 1', lines: ['Next song line'] }],
+    }
+
+    const { container, rerender } = render(
+      <PresenterCanvas
+        song={song}
+        display={display}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    const fadeWrapper = container.firstElementChild?.firstElementChild as HTMLElement
+    expect(fadeWrapper.style.opacity).toBe('1')
+
+    rerender(
+      <PresenterCanvas
+        song={secondSong}
+        display={display}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(fadeWrapper.style.opacity).toBe('0')
+    expect(screen.getByText('Demo Song')).toBeTruthy()
+
+    act(() => {
+      vi.advanceTimersByTime(150)
+    })
+    expect(fadeWrapper.style.opacity).toBe('1')
+    expect(screen.getByText('Next Song')).toBeTruthy()
+    expect(screen.getByText('Next song line')).toBeTruthy()
   })
 })

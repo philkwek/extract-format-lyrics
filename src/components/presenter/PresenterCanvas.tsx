@@ -26,14 +26,6 @@ function songSignature(song: SharedLyricsSong | null): string {
   ].join('\u0001')
 }
 
-function shownKey(
-  song: SharedLyricsSong | null,
-  view: PresenterView,
-  sectionIndex: number | null,
-): string {
-  return `${songSignature(song)}:${view}:${view === 'sections' ? (sectionIndex ?? '') : ''}`
-}
-
 function contentKey(
   song: SharedLyricsSong,
   display: PresenterDisplay,
@@ -75,9 +67,17 @@ export default function PresenterCanvas({
   const [shownSectionIndex, setShownSectionIndex] = useState<number | null>(sectionIndex)
   const [visible, setVisible] = useState(true)
 
+  const sameSong = Boolean(song && shownSong && song.entryId === shownSong.entryId)
+  const displayedSong = sameSong ? song : shownSong
+  const displayedSectionIndex = sameSong ? sectionIndex : shownSectionIndex
+
   useEffect(() => {
-    if (shownKey(song, view, sectionIndex) === shownKey(shownSong, view, shownSectionIndex)) {
-      const settle = window.setTimeout(() => setVisible(true), 0)
+    if (sameSong) {
+      const settle = window.setTimeout(() => {
+        setShownSong(song)
+        setShownSectionIndex(sectionIndex)
+        setVisible(true)
+      }, 0)
       return () => window.clearTimeout(settle)
     }
     if (!song || !shownSong || reduceMotion) {
@@ -98,14 +98,16 @@ export default function PresenterCanvas({
       window.clearTimeout(fadeOut)
       window.clearTimeout(swap)
     }
-  }, [song, view, sectionIndex, shownSong, shownSectionIndex, reduceMotion])
+  }, [sameSong, song, sectionIndex, shownSong, reduceMotion])
 
   const sectionsView = view === 'sections'
   const maxFontPx = Math.round((heightPx * (sectionsView ? 72 : 56)) / 1080)
   const minFontPx = Math.max(14, Math.round(heightPx * 0.018))
   const { containerRef, fontPx, columns, fitsOnScreen } = usePresenterFit({
-    enabled: Boolean(shownSong) && !blackout,
-    contentKey: shownSong ? contentKey(shownSong, display, view, shownSectionIndex) : '',
+    enabled: Boolean(displayedSong) && !blackout,
+    contentKey: displayedSong
+      ? contentKey(displayedSong, display, view, displayedSectionIndex)
+      : '',
     maxFontPx,
     minFontPx,
     maxColumns: sectionsView ? 1 : 3,
@@ -117,10 +119,10 @@ export default function PresenterCanvas({
   }
 
   const sheetColumns = Math.min(3, Math.max(1, columns)) as SheetColumns
-  const sectionColumns = shownSong
-    ? partitionSections(toPresenterSections(shownSong), sheetColumns)
+  const sectionColumns = displayedSong
+    ? partitionSections(toPresenterSections(displayedSong), sheetColumns)
     : []
-  const activeSection = shownSong ? sectionAt(shownSong, shownSectionIndex) : null
+  const activeSection = displayedSong ? sectionAt(displayedSong, displayedSectionIndex) : null
   const align = resolveAlign(display, view)
   const isDark = display.theme === 'dark'
   const vertical =
@@ -143,7 +145,7 @@ export default function PresenterCanvas({
           className="absolute font-medium"
           style={{ left: '2.5%', top: '3.7%', fontSize: `${(heightPx * 28) / 1080}px` }}
         >
-          {shownSong?.title}
+          {displayedSong?.title}
         </div>
         <div
           className="absolute"
