@@ -27,7 +27,7 @@ function DisplayRow({ label, children }: { label: string; children: ReactNode })
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
       <span className="text-ui-text-muted text-xs">{label}</span>
-      <div className="w-full max-w-[230px] min-w-[170px] flex-1">{children}</div>
+      <div className="shrink-0">{children}</div>
     </div>
   )
 }
@@ -72,7 +72,6 @@ export default function PresenterDisplayPanel({
               { value: 'whole', label: 'Whole song' },
               { value: 'sections', label: 'Sections' },
             ]}
-            className="ui-segmented--full"
           />
         </DisplayRow>
 
@@ -118,8 +117,7 @@ export default function PresenterDisplayPanel({
                 { value: 'top', label: 'Top' },
                 { value: 'center', label: 'Centre' },
               ]}
-              className="ui-segmented--full"
-            />
+              />
           </DisplayRow>
         )}
 
@@ -132,7 +130,6 @@ export default function PresenterDisplayPanel({
               { value: 'left', label: 'Left' },
               { value: 'center', label: 'Centre' },
             ]}
-            className="ui-segmented--full"
           />
         </DisplayRow>
 
@@ -145,7 +142,6 @@ export default function PresenterDisplayPanel({
               { value: 'normal', label: 'Normal case' },
               { value: 'caps', label: 'All caps' },
             ]}
-            className="ui-segmented--full"
           />
         </DisplayRow>
 
@@ -158,7 +154,6 @@ export default function PresenterDisplayPanel({
               { value: 'dark', label: 'Dark' },
               { value: 'light', label: 'Light' },
             ]}
-            className="ui-segmented--full"
           />
         </DisplayRow>
       </div>
