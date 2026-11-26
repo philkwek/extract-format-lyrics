@@ -61,4 +61,34 @@ describe('PresenterCanvas blackout', () => {
     expect(screen.getByText('A demo line')).toBeTruthy()
     expect(blackoutLayer(container).style.opacity).toBe('0')
   })
+
+  it('aligns whole-song columns to the top regardless of sectionPosition', () => {
+    const { container, rerender } = render(
+      <PresenterCanvas
+        song={song}
+        display={{ ...display, sectionPosition: 'center' }}
+        view="whole"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    const content = () => container.querySelector('[data-presenter-content]') as HTMLElement
+    expect(content().className).toContain('items-start')
+    expect(content().className).not.toContain('items-center')
+
+    rerender(
+      <PresenterCanvas
+        song={song}
+        display={{ ...display, sectionPosition: 'center' }}
+        view="sections"
+        sectionIndex={0}
+        blackout={false}
+        heightPx={1080}
+      />,
+    )
+
+    expect(content().className).toContain('items-center')
+  })
 })

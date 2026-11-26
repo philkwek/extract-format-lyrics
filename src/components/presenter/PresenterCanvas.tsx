@@ -123,13 +123,8 @@ export default function PresenterCanvas({
   const activeSection = shownSong ? sectionAt(shownSong, shownSectionIndex) : null
   const align = resolveAlign(display, view)
   const isDark = display.theme === 'dark'
-  const vertical = sectionsView
-    ? display.sectionPosition === 'top'
-      ? 'items-start'
-      : 'items-center'
-    : fitsOnScreen
-      ? 'items-center'
-      : 'items-start'
+  const vertical =
+    sectionsView && display.sectionPosition !== 'top' ? 'items-center' : 'items-start'
 
   return (
     <div
