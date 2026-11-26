@@ -140,4 +140,21 @@ describe('usePresenterDisplay', () => {
 
     expect(result.current[0].theme).toBe('light')
   })
+
+  it('resets explicit alignment when switching between whole and sections view', () => {
+    const { result } = renderHook(() => usePresenterDisplay())
+    act(() => result.current[1]({ align: 'left' }))
+    expect(result.current[0].align).toBe('left')
+
+    act(() => result.current[1]({ lyricsView: 'whole' }))
+    expect(result.current[0].align).toBeNull()
+    expect(resolveAlign(result.current[0], 'whole')).toBe('left')
+
+    act(() => result.current[1]({ align: 'center' }))
+    expect(result.current[0].align).toBe('center')
+
+    act(() => result.current[1]({ lyricsView: 'sections' }))
+    expect(result.current[0].align).toBeNull()
+    expect(resolveAlign(result.current[0], 'sections')).toBe('center')
+  })
 })

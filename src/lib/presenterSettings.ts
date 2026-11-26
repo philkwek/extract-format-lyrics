@@ -111,7 +111,17 @@ export function usePresenterDisplay(): [
   const [display, setDisplay] = useState<PresenterDisplay>(loadPresenterDisplay)
 
   const update = useCallback((patch: Partial<PresenterDisplay>) => {
-    setDisplay((previous) => ({ ...previous, ...patch }))
+    setDisplay((previous) => {
+      const next = { ...previous, ...patch }
+      if (
+        patch.lyricsView &&
+        patch.lyricsView !== previous.lyricsView &&
+        patch.align === undefined
+      ) {
+        next.align = null
+      }
+      return next
+    })
   }, [])
 
   useEffect(() => {
