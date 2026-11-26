@@ -115,7 +115,7 @@ describe('PresenterConsole', () => {
   it('shows the songs and marks the host song and projected song', () => {
     renderConsole()
 
-    expect(screen.getByText('Presenter · Sunday Morning Set')).toBeTruthy()
+    expect(screen.getByText('Presenter Controls · Sunday Morning Set')).toBeTruthy()
     expect(screen.getAllByText('First Song').length).toBeGreaterThan(0)
     expect(screen.getByText('Demo Artist')).toBeTruthy()
     expect(screen.getByText('Host is here')).toBeTruthy()

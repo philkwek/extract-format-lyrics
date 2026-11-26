@@ -173,7 +173,7 @@ export default function PresenterDisplayPanel({
           {blackout ? 'Show lyrics' : 'Fade to black'}
         </Button>
         <Button variant="primary" icon={<AppWindow size={16} />} onClick={onOpenOutput}>
-          Open output window
+          Open presenter window
         </Button>
       </div>
     </aside>
