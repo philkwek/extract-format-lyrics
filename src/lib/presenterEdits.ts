@@ -131,20 +131,8 @@ export function usePresenterEdits(publicationId: string) {
     }
   }, [publicationId])
 
-  const saveEdit = useCallback(
-    (entryId: string, sections: SharedLyricsSection[], hostSections?: SharedLyricsSection[]) => {
-      if (hostSections && areSectionsEqual(hostSections, sections)) {
-        const next = { ...editsRef.current }
-        delete next[entryId]
-        editsRef.current = next
-        setState({ forId: publicationId, map: next })
-        persistEdits(publicationId, next)
-        return
-      }
-      const next: PresenterEditsMap = {
-        ...editsRef.current,
-        [entryId]: { sections },
-      }
+  const commit = useCallback(
+    (next: PresenterEditsMap) => {
       editsRef.current = next
       setState({ forId: publicationId, map: next })
       persistEdits(publicationId, next)
@@ -156,11 +144,20 @@ export function usePresenterEdits(publicationId: string) {
     (entryId: string) => {
       const next = { ...editsRef.current }
       delete next[entryId]
-      editsRef.current = next
-      setState({ forId: publicationId, map: next })
-      persistEdits(publicationId, next)
+      commit(next)
     },
-    [publicationId],
+    [commit],
+  )
+
+  const saveEdit = useCallback(
+    (entryId: string, sections: SharedLyricsSection[], hostSections?: SharedLyricsSection[]) => {
+      if (hostSections && areSectionsEqual(hostSections, sections)) {
+        resetEdit(entryId)
+        return
+      }
+      commit({ ...editsRef.current, [entryId]: { sections } })
+    },
+    [commit, resetEdit],
   )
 
   const isEdited = useCallback((entryId: string) => Boolean(edits[entryId]), [edits])
