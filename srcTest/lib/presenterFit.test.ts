@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { searchLargestFit, toPresenterSections } from '../../src/lib/presenterFit'
+import {
+  resolveScaledFit,
+  searchLargestFit,
+  toPresenterSections,
+} from '../../src/lib/presenterFit'
 import type { SharedLyricsSong } from '../../src/types/song'
 
 describe('searchLargestFit', () => {
@@ -98,5 +102,39 @@ describe('toPresenterSections', () => {
       },
       { type: 'Other', label: 'Chorus', lines: [] },
     ])
+  })
+})
+
+describe('resolveScaledFit', () => {
+  it('scales relative to the fitted size when a long song already hit its fit ceiling', () => {
+    const fits = (font: number) => font <= 26
+    const base = { minFontPx: 14, maxFontPx: 56, maxColumns: 3 }
+
+    expect(resolveScaledFit(fits, { ...base, textScale: 100 })).toEqual({
+      fontPx: 26,
+      columns: 1,
+      fitsOnScreen: true,
+    })
+    expect(resolveScaledFit(fits, { ...base, textScale: 80 })).toEqual({
+      fontPx: 21,
+      columns: 1,
+      fitsOnScreen: true,
+    })
+    expect(resolveScaledFit(fits, { ...base, textScale: 120 })).toEqual({
+      fontPx: 31,
+      columns: 1,
+      fitsOnScreen: false,
+    })
+  })
+
+  it('grows a short song that had headroom at 100% and keeps it fitted when possible', () => {
+    const fits = (font: number) => font <= 80
+    const base = { minFontPx: 14, maxFontPx: 56, maxColumns: 3 }
+
+    expect(resolveScaledFit(fits, { ...base, textScale: 120 })).toEqual({
+      fontPx: 67,
+      columns: 1,
+      fitsOnScreen: true,
+    })
   })
 })

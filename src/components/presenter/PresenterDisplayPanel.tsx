@@ -25,9 +25,9 @@ interface PresenterDisplayPanelProps {
 
 function DisplayRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
       <span className="text-ui-text-muted text-sm">{label}</span>
-      <div className="w-[230px] shrink-0">{children}</div>
+      <div className="w-full max-w-[230px] min-w-[170px] flex-1">{children}</div>
     </div>
   )
 }
@@ -46,7 +46,7 @@ export default function PresenterDisplayPanel({
   const align = resolveAlign(display, display.lyricsView)
 
   return (
-    <aside className="bg-ui-surface border-ui-border flex w-[520px] shrink-0 flex-col overflow-y-auto rounded-2xl border p-6">
+    <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col overflow-y-auto rounded-2xl border p-6">
       <h2 className="text-ui-text-muted text-[11px] font-semibold tracking-wider uppercase">
         On screen
       </h2>
@@ -168,7 +168,7 @@ export default function PresenterDisplayPanel({
       <p className="text-ui-text-muted mt-6 text-sm">
         {outputOpen ? 'Output window: open' : 'Output window: not open yet'}
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-1 gap-2 2xl:grid-cols-2">
         <Button variant="secondary" onClick={onToggleBlackout}>
           {blackout ? 'Show lyrics' : 'Fade to black'}
         </Button>

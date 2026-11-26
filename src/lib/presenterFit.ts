@@ -72,12 +72,57 @@ export function searchLargestFit(
   return { fontPx: bestFont, columns: bestColumns, fitsOnScreen: true }
 }
 
+export interface ResolveScaledFitOptions extends SearchLargestFitOptions {
+  textScale: number
+}
+
+/**
+ * Scales the auto-fitted font size by `textScale` (%) so `-` / `+` always
+ * resize the displayed lyrics, even when a long song already hit its fit ceiling.
+ */
+export function resolveScaledFit(
+  fits: (fontPx: number, columns: number) => boolean,
+  { minFontPx, maxFontPx, maxColumns, textScale }: ResolveScaledFitOptions,
+): PresenterFitResult {
+  const base = searchLargestFit(fits, { minFontPx, maxFontPx, maxColumns })
+  if (textScale === 100) return base
+
+  if (textScale < 100) {
+    const fontPx = Math.max(minFontPx, Math.round(base.fontPx * (textScale / 100)))
+    return {
+      fontPx,
+      columns: base.columns,
+      fitsOnScreen: base.fitsOnScreen ? true : fits(fontPx, base.columns),
+    }
+  }
+
+  const scaledMax = Math.round(maxFontPx * (textScale / 100))
+  const targetFont = Math.min(scaledMax, Math.round(base.fontPx * (textScale / 100)))
+
+  if (base.fontPx === maxFontPx) {
+    const grown = searchLargestFit(fits, { minFontPx, maxFontPx: scaledMax, maxColumns })
+    if (grown.fontPx >= targetFont) return grown
+    return {
+      fontPx: targetFont,
+      columns: grown.columns,
+      fitsOnScreen: fits(targetFont, grown.columns),
+    }
+  }
+
+  return {
+    fontPx: targetFont,
+    columns: base.columns,
+    fitsOnScreen: fits(targetFont, base.columns),
+  }
+}
+
 export interface UsePresenterFitOptions {
   enabled: boolean
   contentKey: unknown
   maxFontPx: number
   minFontPx: number
   maxColumns: number
+  textScale?: number
 }
 
 export interface PresenterFit {
@@ -107,6 +152,7 @@ export function usePresenterFit({
   maxFontPx,
   minFontPx,
   maxColumns,
+  textScale = 100,
 }: UsePresenterFitOptions): PresenterFit {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   const [resizeTick, setResizeTick] = useState(0)
@@ -157,7 +203,7 @@ export function usePresenterFit({
         )
       }
 
-      const result = searchLargestFit(fits, { minFontPx, maxFontPx, maxColumns })
+      const result = resolveScaledFit(fits, { minFontPx, maxFontPx, maxColumns, textScale })
       if (cancelled) return
       flushSync(() =>
         setLayout((previous) =>
@@ -174,7 +220,7 @@ export function usePresenterFit({
       cancelled = true
     }
     // `layout` is deliberately absent: a fit run must not react to its own output.
-  }, [enabled, container, contentKey, maxFontPx, minFontPx, maxColumns, resizeTick])
+  }, [enabled, container, contentKey, maxFontPx, minFontPx, maxColumns, textScale, resizeTick])
 
   return {
     containerRef,

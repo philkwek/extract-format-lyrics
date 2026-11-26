@@ -101,9 +101,7 @@ export default function PresenterCanvas({
   }, [song, view, sectionIndex, shownSong, shownSectionIndex, reduceMotion])
 
   const sectionsView = view === 'sections'
-  const maxFontPx = Math.round(
-    ((heightPx * (sectionsView ? 72 : 56)) / 1080) * (display.textScale / 100),
-  )
+  const maxFontPx = Math.round((heightPx * (sectionsView ? 72 : 56)) / 1080)
   const minFontPx = Math.max(14, Math.round(heightPx * 0.018))
   const { containerRef, fontPx, columns, fitsOnScreen } = usePresenterFit({
     enabled: Boolean(shownSong) && !blackout,
@@ -111,6 +109,7 @@ export default function PresenterCanvas({
     maxFontPx,
     minFontPx,
     maxColumns: sectionsView ? 1 : 3,
+    textScale: display.textScale,
   })
 
   if (blackout || !song) {
@@ -181,7 +180,7 @@ export default function PresenterCanvas({
                 : sectionColumns.map((column, columnIndex) => (
                     <div
                       key={columnIndex}
-                      className="flex shrink-0 flex-col"
+                      className="flex min-w-0 flex-col"
                       style={{ gap: '0.8em' }}
                     >
                       {column.map(({ section, originalIndex }) => (

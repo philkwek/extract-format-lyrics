@@ -18,7 +18,7 @@ export default function PresenterSongList({
   onProject,
 }: PresenterSongListProps) {
   return (
-    <aside className="bg-ui-surface border-ui-border flex w-[340px] shrink-0 flex-col rounded-2xl border p-5">
+    <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col rounded-2xl border p-5">
       <h2 className="text-ui-text-muted text-[11px] font-semibold tracking-wider uppercase">
         Songs in this set
       </h2>
