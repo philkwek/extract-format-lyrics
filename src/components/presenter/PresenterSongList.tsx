@@ -6,6 +6,7 @@ interface PresenterSongListProps {
   songs: SharedLyricsSong[]
   projectedId: string | null
   hostEntryId: string | null
+  isEdited?: (entryId: string) => boolean
   onProject: (entryId: string) => void
 }
 
@@ -13,6 +14,7 @@ export default function PresenterSongList({
   songs,
   projectedId,
   hostEntryId,
+  isEdited,
   onProject,
 }: PresenterSongListProps) {
   return (
@@ -48,6 +50,11 @@ export default function PresenterSongList({
                   {song.artist && (
                     <span className="text-ui-text-muted mt-0.5 block truncate text-xs">
                       {song.artist}
+                    </span>
+                  )}
+                  {isEdited?.(song.entryId) && (
+                    <span className="text-ui-text-muted mt-0.5 block truncate text-[11px]">
+                      Edited on this laptop
                     </span>
                   )}
                 </span>
