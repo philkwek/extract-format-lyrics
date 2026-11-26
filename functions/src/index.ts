@@ -67,6 +67,11 @@ export interface ScrapeResponse {
   invalid: Array<{ input: string; reason: string }>
 }
 
+function secretFromRequest(req: Request): string {
+  const header = (req.headers['authorization'] as string) || ''
+  return (header.startsWith('Bearer ') ? header.slice(7) : header).trim()
+}
+
 /** Sends 429 and returns true when the caller is over the limit. */
 function rejectIfLimited(req: Request, res: Response): boolean {
   const limitCheck = rateLimiter.checkIp(clientIpFromRequest(req))
@@ -458,8 +463,7 @@ export const api = onRequest(async (req, res) => {
 
     const id = lyricsCurrentMatch[1]
 
-    const authHeader = (req.headers['authorization'] as string) || ''
-    const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+    const secret = secretFromRequest(req)
     if (!secret) {
       sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
       return
@@ -519,8 +523,7 @@ export const api = onRequest(async (req, res) => {
         return
       }
 
-      const authHeader = (req.headers['authorization'] as string) || ''
-      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      const secret = secretFromRequest(req)
       if (!secret) {
         sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
         return
@@ -599,8 +602,7 @@ export const api = onRequest(async (req, res) => {
         return
       }
 
-      const authHeader = (req.headers['authorization'] as string) || ''
-      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      const secret = secretFromRequest(req)
       if (!secret) {
         sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
         return
@@ -677,8 +679,7 @@ export const api = onRequest(async (req, res) => {
         sendJsonError(res, 413, 'PAYLOAD_TOO_LARGE', 'Live set data is too large')
         return true
       }
-      const authHeader = (req.headers['authorization'] as string) || ''
-      const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+      const secret = secretFromRequest(req)
       if (!secret) {
         sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
         return true
