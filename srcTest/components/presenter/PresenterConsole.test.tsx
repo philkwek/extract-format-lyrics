@@ -391,4 +391,59 @@ describe('PresenterConsole', () => {
       { label: 'Chorus', lines: ['Second line'] },
     ])
   })
+
+  it('shows no border highlights or false Edited badges after deleting a section and re-entering edit mode', () => {
+    const view = renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Verse 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+
+    const cards = view.container.querySelectorAll('[data-section-card]')
+    expect(cards).toHaveLength(1)
+    expect(cards[0].className).not.toContain('border-ui-accent')
+    expect(screen.queryByText('Edited')).toBeNull()
+
+    const lyricsBox = screen.getByLabelText('Lyrics') as HTMLTextAreaElement
+    fireEvent.change(lyricsBox, { target: { value: 'Changed chorus line' } })
+    expect(screen.getByText('Edited')).toBeTruthy()
+    expect(cards[0].className).not.toContain('border-ui-accent')
+  })
+
+  it('keeps section highlight on the same section after earlier deletion and avoids stale index jumps on reset', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: /Chorus/ }))
+    expect(lastState().sectionIndex).toBe(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Verse 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(lastState().sectionIndex).toBe(0)
+    expect(screen.getByRole('button', { name: /Chorus/ }).getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
+
+    expect(lastState().sectionIndex).toBe(1)
+    expect(screen.getByRole('button', { name: /Chorus/ }).getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Chorus' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(lastState().sectionIndex).toBe(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
+
+    expect(lastState().sectionIndex).toBe(0)
+    expect(screen.getByRole('button', { name: /Verse 1/ }).getAttribute('aria-pressed')).toBe('true')
+  })
 })

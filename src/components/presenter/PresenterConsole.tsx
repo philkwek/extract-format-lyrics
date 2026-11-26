@@ -6,9 +6,10 @@ import {
   type OutputState,
 } from '../../lib/presenterChannel'
 import { stepPresenter } from '../../lib/presenterNavigation'
-import { applyPresenterEdits, usePresenterEdits } from '../../lib/presenterEdits'
+import { applyPresenterEdits, isSectionEdited, usePresenterEdits } from '../../lib/presenterEdits'
 import { usePresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedState } from '../../lib/usePresenterFeed'
+import type { SharedLyricsSection } from '../../types/song'
 import { Button, StatusBanner } from '../ui'
 import OverlayDialog from '../ui/OverlayDialog'
 import PresenterDisplayPanel from './PresenterDisplayPanel'
@@ -20,6 +21,22 @@ interface PresenterConsoleProps {
   id: string
   feed: PresenterFeedState
   onSwitchToAuto: () => void
+}
+
+function reconcileSectionIndex(
+  previousSections: SharedLyricsSection[],
+  previousIndex: number,
+  nextSections: SharedLyricsSection[],
+): number {
+  if (nextSections.length === 0) return 0
+  const clamped = Math.min(Math.max(previousIndex, 0), nextSections.length - 1)
+  const active = previousSections[previousIndex]
+  if (!active) return clamped
+  if (nextSections[previousIndex] && !isSectionEdited(active, nextSections[previousIndex])) {
+    return previousIndex
+  }
+  const movedIndex = nextSections.findIndex((section) => !isSectionEdited(active, section))
+  return movedIndex >= 0 ? movedIndex : clamped
 }
 
 export default function PresenterConsole({ id, feed, onSwitchToAuto }: PresenterConsoleProps) {
@@ -224,10 +241,24 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
             hasSavedEdit={isEdited(editingHostSong.entryId)}
             onCancel={() => setEditingEntryId(null)}
             onSave={(sections) => {
+              if (projectedSong?.entryId === editingHostSong.entryId) {
+                setSectionIndex((prev) =>
+                  reconcileSectionIndex(editingCurrentSong.sections, prev, sections),
+                )
+              }
               saveEdit(editingHostSong.entryId, sections, editingHostSong.sections)
               setEditingEntryId(null)
             }}
             onReset={() => {
+              if (projectedSong?.entryId === editingHostSong.entryId) {
+                setSectionIndex((prev) =>
+                  reconcileSectionIndex(
+                    editingCurrentSong.sections,
+                    prev,
+                    editingHostSong.sections,
+                  ),
+                )
+              }
               resetEdit(editingHostSong.entryId)
               setEditingEntryId(null)
             }}

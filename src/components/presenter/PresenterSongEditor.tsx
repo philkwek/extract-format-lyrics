@@ -146,8 +146,9 @@ export default function PresenterSongEditor({
             label: draft.label,
             lines: parseEditedLyricsText(draft.text),
           }
-          const hostSection = hostSong.sections[draft.id]
-          const changed = hostSection ? isSectionEdited(hostSection, parsed) : true
+          const changed = !hostSong.sections.some(
+            (hostSection) => !isSectionEdited(hostSection, parsed),
+          )
           const lyricsId = `presenter-section-lyrics-${draft.id}`
           const canReorder = visibleDrafts.length > 1
 
@@ -174,7 +175,6 @@ export default function PresenterSongEditor({
               className={classes(
                 'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4 transition',
                 sectionTone(draft.label),
-                changed && 'border-ui-accent dark:border-ui-accent',
                 draggedId === draft.id && 'opacity-50',
                 dragOverId === draft.id && draggedId !== draft.id && 'ring-ui-accent ring-2',
               )}
@@ -266,6 +266,8 @@ export default function PresenterSongEditor({
                 if (!confirmingRemoval) return
                 const target = confirmingRemoval
                 setConfirmingRemoval(null)
+                setDraggedId(null)
+                setDragOverId(null)
                 startRemoval({ id: target.id })
               }}
             >

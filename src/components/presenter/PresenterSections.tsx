@@ -67,7 +67,7 @@ export default function PresenterSections({
         </Button>
       </div>
 
-      <div className="mt-4 grid min-h-0 grid-cols-2 content-start gap-4 overflow-y-auto p-1">
+      <div className="mt-4 grid min-h-0 grid-cols-2 content-start gap-4 overflow-y-auto p-1.5">
         {song.sections.map((section, index) => {
           const selected = view === 'sections' && index === sectionIndex
           return (
@@ -86,7 +86,9 @@ export default function PresenterSections({
               )}
             >
               {selected && <OnScreenTag className="absolute top-3 right-3" />}
-              <div className="text-sm font-bold">{section.label}</div>
+              <div className={classes('text-sm font-bold', selected && 'pr-20')}>
+                {section.label}
+              </div>
               <div className="text-ui-text mt-2 text-base leading-6">
                 {section.lines.map((line, lineIndex) => (
                   <div key={lineIndex}>{line}</div>
