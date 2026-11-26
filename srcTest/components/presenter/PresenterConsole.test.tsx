@@ -323,4 +323,53 @@ describe('PresenterConsole', () => {
     const removeButton = screen.getByRole('button', { name: 'Remove Bridge' }) as HTMLButtonElement
     expect(removeButton.disabled).toBe(true)
   })
+
+  it('rearranges sections with move up/down buttons, saves order, and resets', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+
+    expect((screen.getByRole('button', { name: 'Move Verse 1 up' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Move Chorus down' }) as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Chorus up' }))
+    let titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Chorus down' }))
+    titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    expect(titleInputs.map((input) => input.value)).toEqual(['Verse 1', 'Chorus'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Verse 1 down' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(lastState().song?.sections).toEqual([
+      { label: 'Chorus', lines: ['Second line'] },
+      { label: 'Verse 1', lines: ['First line'] },
+    ])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
+
+    expect(lastState().song?.sections).toEqual([
+      { label: 'Verse 1', lines: ['First line'] },
+      { label: 'Chorus', lines: ['Second line'] },
+    ])
+  })
+
+  it('rearranges sections by dragging a section header onto another card', () => {
+    const view = renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    const headers = view.container.querySelectorAll('[draggable="true"]')
+    const cards = Array.from(headers).map((header) => header.parentElement as HTMLElement)
+
+    fireEvent.dragStart(headers[0])
+    fireEvent.dragOver(cards[1])
+    fireEvent.drop(cards[1])
+
+    const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
+  })
 })

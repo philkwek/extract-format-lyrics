@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
@@ -43,6 +43,8 @@ export default function PresenterSongEditor({
   const [confirmingRemoval, setConfirmingRemoval] = useState<{ id: number; label: string } | null>(
     null,
   )
+  const [draggedId, setDraggedId] = useState<number | null>(null)
+  const [dragOverId, setDragOverId] = useState<number | null>(null)
 
   const commitRemoval = useCallback(({ id }: { id: number }) => {
     setDrafts((prev) => prev.filter((item) => item.id !== id))
@@ -74,6 +76,19 @@ export default function PresenterSongEditor({
 
   const updateDraft = (id: number, patch: Partial<SectionDraft>) => {
     setDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
+
+  const moveDraft = (fromId: number, toId: number) => {
+    if (fromId === toId) return
+    setDrafts((prev) => {
+      const fromIndex = prev.findIndex((item) => item.id === fromId)
+      const toIndex = prev.findIndex((item) => item.id === toId)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
   }
 
   const handleSave = () => {
@@ -113,7 +128,7 @@ export default function PresenterSongEditor({
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto pr-1">
-        {visibleDrafts.map((draft) => {
+        {visibleDrafts.map((draft, visibleIndex) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
             lines: parseEditedLyricsText(draft.text),
@@ -122,29 +137,92 @@ export default function PresenterSongEditor({
           const changed = hostSection ? isSectionEdited(hostSection, parsed) : true
           const titleId = `presenter-section-title-${draft.id}`
           const lyricsId = `presenter-section-lyrics-${draft.id}`
+          const canReorder = visibleDrafts.length > 1
 
           return (
             <div
               key={draft.id}
+              onDragOver={(event) => {
+                if (draggedId === null) return
+                event.preventDefault()
+                if (dragOverId !== draft.id) setDragOverId(draft.id)
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setDragOverId((prev) => (prev === draft.id ? null : prev))
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                if (draggedId !== null) moveDraft(draggedId, draft.id)
+                setDraggedId(null)
+                setDragOverId(null)
+              }}
               className={classes(
-                'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4',
+                'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4 transition',
                 sectionTone(draft.label),
                 changed && 'border-ui-accent dark:border-ui-accent',
+                draggedId === draft.id && 'opacity-50',
+                dragOverId === draft.id && draggedId !== draft.id && 'ring-ui-accent ring-2',
               )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <label
-                  htmlFor={titleId}
-                  className="text-ui-text-muted text-[11px] font-semibold whitespace-nowrap"
+              <div
+                draggable={canReorder}
+                onDragStart={(event) => {
+                  setDraggedId(draft.id)
+                  if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', String(draft.id))
+                  }
+                }}
+                onDragEnd={() => {
+                  setDraggedId(null)
+                  setDragOverId(null)
+                }}
+                className="flex items-center justify-between gap-2"
+              >
+                <div
+                  className={classes(
+                    'flex items-center gap-1.5',
+                    canReorder && 'cursor-grab active:cursor-grabbing',
+                  )}
                 >
-                  Section title
-                </label>
-                <div className="flex items-center gap-1.5">
+                  {canReorder && (
+                    <GripVertical
+                      size={14}
+                      aria-hidden="true"
+                      className="text-ui-text-muted shrink-0"
+                    />
+                  )}
+                  <label
+                    htmlFor={titleId}
+                    className="text-ui-text-muted text-[11px] font-semibold whitespace-nowrap"
+                  >
+                    Section title
+                  </label>
+                </div>
+                <div className="flex items-center gap-1">
                   {changed && (
                     <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                       Edited
                     </span>
                   )}
+                  <IconButton
+                    label={`Move ${draft.label || 'section'} up`}
+                    variant="ghost"
+                    disabled={visibleIndex === 0}
+                    onClick={() => moveDraft(draft.id, visibleDrafts[visibleIndex - 1].id)}
+                  >
+                    <ArrowUp size={14} aria-hidden="true" />
+                  </IconButton>
+                  <IconButton
+                    label={`Move ${draft.label || 'section'} down`}
+                    variant="ghost"
+                    disabled={visibleIndex === visibleDrafts.length - 1}
+                    onClick={() => moveDraft(draft.id, visibleDrafts[visibleIndex + 1].id)}
+                  >
+                    <ArrowDown size={14} aria-hidden="true" />
+                  </IconButton>
                   <IconButton
                     label={`Remove ${draft.label || 'section'}`}
                     variant="danger"
