@@ -269,7 +269,6 @@ export async function putLyricsCurrentApi(
   id: string,
   secret: string,
   entryId: string,
-  options: { keepalive?: boolean } = {},
 ): Promise<void> {
   const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}/current`, {
     method: 'PUT',
@@ -278,7 +277,6 @@ export async function putLyricsCurrentApi(
       Authorization: `Bearer ${secret}`,
     },
     body: JSON.stringify({ entryId }),
-    ...(options.keepalive ? { keepalive: true } : {}),
   })
   if (!res.ok) {
     throw await readShareError(res)
