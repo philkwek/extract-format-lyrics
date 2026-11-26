@@ -43,5 +43,8 @@ coverage
 playwright-report
 test-results
 
+# Local launch videos
+brag-output*/
+
 # Local Graphify knowledge graph (regenerated on demand)
 graphify-out/

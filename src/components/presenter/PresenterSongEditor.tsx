@@ -74,7 +74,7 @@ export default function PresenterSongEditor({
         )}
       </div>
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-3 content-start gap-4 overflow-y-auto pr-1">
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto pr-1">
         {drafts.map((draft, index) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
