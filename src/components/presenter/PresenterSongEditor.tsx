@@ -1,8 +1,10 @@
 import { useCallback, useImperativeHandle, useMemo, useState, type Ref } from 'react'
-import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, GripVertical, X } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
+import { reducedMotionTransition } from '../../lib/uiMotion'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../../lib/usePendingRemoval'
 import type { SharedLyricsSection, SharedLyricsSong } from '../../types/song'
 import ChangeToast, { type ChangeNote } from '../share/ChangeToast'
@@ -38,6 +40,7 @@ export default function PresenterSongEditor({
   onSave,
   onReset,
 }: PresenterSongEditorProps) {
+  const reduceMotion = useReducedMotion()
   const [drafts, setDrafts] = useState<SectionDraft[]>(() =>
     currentSong.sections.map((section, index) => ({
       id: index,
@@ -51,6 +54,7 @@ export default function PresenterSongEditor({
   )
   const [draggedId, setDraggedId] = useState<number | null>(null)
   const [dragOverId, setDragOverId] = useState<number | null>(null)
+  const [liftedId, setLiftedId] = useState<number | null>(null)
 
   const commitRemoval = useCallback(({ id }: { id: number }) => {
     setDrafts((prev) => prev.filter((item) => item.id !== id))
@@ -86,6 +90,7 @@ export default function PresenterSongEditor({
 
   const moveDraft = (fromId: number, toId: number) => {
     if (fromId === toId) return
+    setLiftedId(fromId)
     setDrafts((prev) => {
       const fromIndex = prev.findIndex((item) => item.id === fromId)
       const toIndex = prev.findIndex((item) => item.id === toId)
@@ -140,7 +145,7 @@ export default function PresenterSongEditor({
         )}
       </div>
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 content-start gap-4 overflow-y-auto pr-1">
+      <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-4 overflow-y-auto p-4">
         {visibleDrafts.map((draft, draftIndex) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
@@ -151,10 +156,23 @@ export default function PresenterSongEditor({
           )
           const lyricsId = `presenter-section-lyrics-${draft.id}`
           const canReorder = visibleDrafts.length > 1
+          const lifted = liftedId === draft.id
 
           return (
-            <div
+            <motion.div
               key={draft.id}
+              layout="position"
+              animate={{ scale: lifted && !reduceMotion ? 1.04 : 1 }}
+              style={{ zIndex: lifted ? 10 : 0 }}
+              onLayoutAnimationComplete={() => setLiftedId((id) => (id === draft.id ? null : id))}
+              transition={
+                reduceMotion
+                  ? reducedMotionTransition
+                  : {
+                      layout: { type: 'spring', stiffness: 220, damping: 26, mass: 0.9 },
+                      scale: { type: 'spring', stiffness: 400, damping: 30 },
+                    }
+              }
               data-section-card
               onDragOver={(event) => {
                 if (draggedId === null) return
@@ -173,7 +191,8 @@ export default function PresenterSongEditor({
                 setDragOverId(null)
               }}
               className={classes(
-                'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4 transition',
+                'relative flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4 transition-[opacity,box-shadow]',
+                lifted && 'shadow-xl',
                 sectionTone(draft.label),
                 draggedId === draft.id && 'opacity-50',
                 dragOverId === draft.id && draggedId !== draft.id && 'ring-ui-accent ring-2',
@@ -227,20 +246,20 @@ export default function PresenterSongEditor({
                   {canReorder && (
                     <>
                       <IconButton
-                        label={`Move ${draft.label || 'section'} up`}
+                        label={`Move ${draft.label || 'section'} left`}
                         variant="secondary"
                         disabled={draftIndex === 0}
                         onClick={() => moveDraft(draft.id, visibleDrafts[draftIndex - 1].id)}
                       >
-                        <ArrowUp size={14} aria-hidden="true" />
+                        <ArrowLeft size={14} aria-hidden="true" />
                       </IconButton>
                       <IconButton
-                        label={`Move ${draft.label || 'section'} down`}
+                        label={`Move ${draft.label || 'section'} right`}
                         variant="secondary"
                         disabled={draftIndex === visibleDrafts.length - 1}
                         onClick={() => moveDraft(draft.id, visibleDrafts[draftIndex + 1].id)}
                       >
-                        <ArrowDown size={14} aria-hidden="true" />
+                        <ArrowRight size={14} aria-hidden="true" />
                       </IconButton>
                     </>
                   )}
@@ -265,7 +284,7 @@ export default function PresenterSongEditor({
                 onChange={(event) => updateDraft(draft.id, { text: event.target.value })}
                 className="bg-ui-surface text-ui-text border-ui-border w-full resize-y rounded-lg border p-3 text-sm leading-5"
               />
-            </div>
+            </motion.div>
           )
         })}
       </div>

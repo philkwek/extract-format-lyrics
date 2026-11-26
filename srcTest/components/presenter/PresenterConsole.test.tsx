@@ -392,14 +392,14 @@ describe('PresenterConsole', () => {
     ])
   })
 
-  it('rearranges sections with the move buttons', () => {
+  it('rearranges sections with the left and right buttons', () => {
     renderConsole()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
     expect(
-      (screen.getByRole('button', { name: 'Move Verse 1 up' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Move Verse 1 left' }) as HTMLButtonElement).disabled,
     ).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Move Verse 1 down' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move Verse 1 right' }))
 
     const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
     expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
