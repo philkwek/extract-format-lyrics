@@ -102,11 +102,9 @@ describe('applyPresenterEdits', () => {
           { label: 'Intro', lines: ['New opening'] },
           { label: 'Chorus', lines: ['Chorus line'] },
         ],
-        editedAt: 100,
       },
       'removed-entry': {
         sections: [{ label: 'Verse 1', lines: ['Unused'] }],
-        editedAt: 200,
       },
     })
 
@@ -129,7 +127,6 @@ describe('applyPresenterEdits', () => {
           { label: 'Verse 1', lines: ['Local line'] },
           { label: 'Chorus', lines: ['Chorus line'] },
         ],
-        editedAt: 100,
       },
     }
     const updatedHost: SharedLyricsPayload = {

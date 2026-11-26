@@ -7,7 +7,6 @@ const EDITS_STORE_TABLE = 'edits'
 
 export interface PresenterSongEdit {
   sections: SharedLyricsSection[]
-  editedAt: number
 }
 
 export type PresenterEditsMap = Record<string, PresenterSongEdit>
@@ -63,10 +62,7 @@ export function parseEditedLyricsText(text: string): string[] {
   return lines
 }
 
-export function isSectionEdited(
-  host: SharedLyricsSection,
-  edited: SharedLyricsSection,
-): boolean {
+export function isSectionEdited(host: SharedLyricsSection, edited: SharedLyricsSection): boolean {
   if (host.label !== edited.label) return true
   if (host.lines.length !== edited.lines.length) return true
   return host.lines.some((line, index) => line !== edited.lines[index])
@@ -147,7 +143,7 @@ export function usePresenterEdits(publicationId: string) {
       }
       const next: PresenterEditsMap = {
         ...editsRef.current,
-        [entryId]: { sections, editedAt: Date.now() },
+        [entryId]: { sections },
       }
       editsRef.current = next
       setState({ forId: publicationId, map: next })
