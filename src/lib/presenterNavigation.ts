@@ -1,4 +1,5 @@
 import type { SharedLyricsSong } from '../types/song'
+import type { PresenterView } from './presenterSettings'
 
 export interface PresenterPosition {
   entryId: string | null
@@ -12,7 +13,7 @@ export interface PresenterPosition {
 export function stepPresenter(
   songs: SharedLyricsSong[],
   position: PresenterPosition,
-  view: 'whole' | 'sections',
+  view: PresenterView,
   direction: 1 | -1,
 ): PresenterPosition {
   if (songs.length === 0) return position

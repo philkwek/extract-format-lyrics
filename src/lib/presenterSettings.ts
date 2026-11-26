@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export type PresenterMode = 'auto' | 'manual'
+export type PresenterView = 'whole' | 'sections'
 
 export interface PresenterDisplay {
   textScale: number
@@ -8,7 +9,7 @@ export interface PresenterDisplay {
   caps: boolean
   theme: 'dark' | 'light'
   sectionPosition: 'top' | 'center'
-  lyricsView: 'whole' | 'sections'
+  lyricsView: PresenterView
 }
 
 export const TEXT_SCALE_MIN = 50
@@ -33,10 +34,7 @@ export function clampTextScale(n: number): number {
 }
 
 /** Null alignment follows the view: one section is centred, the whole song reads left. */
-export function resolveAlign(
-  display: PresenterDisplay,
-  view: 'whole' | 'sections',
-): 'left' | 'center' {
+export function resolveAlign(display: PresenterDisplay, view: PresenterView): 'left' | 'center' {
   if (display.align) return display.align
   return view === 'sections' ? 'center' : 'left'
 }

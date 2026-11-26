@@ -2,13 +2,14 @@ import type { ReactNode } from 'react'
 import { Pencil } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { sectionTone } from '../../lib/presenterSections'
+import type { PresenterView } from '../../lib/presenterSettings'
 import type { SharedLyricsSong } from '../../types/song'
 import { Button } from '../ui'
 import { OnScreenTag } from './PresenterTags'
 
 interface PresenterSectionsProps {
   song: SharedLyricsSong | null
-  view: 'whole' | 'sections'
+  view: PresenterView
   sectionIndex: number
   onProjectSong: (entryId: string) => void
   onProjectSection: (entryId: string, sectionIndex: number) => void

@@ -1,7 +1,5 @@
-import type { PresenterDisplay } from './presenterSettings'
+import type { PresenterDisplay, PresenterView } from './presenterSettings'
 import type { SharedLyricsSong } from '../types/song'
-
-export type PresenterView = 'whole' | 'sections'
 
 export interface OutputState {
   setName: string

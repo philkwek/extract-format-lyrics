@@ -3,10 +3,12 @@ import { useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { partitionSections, type SheetColumns } from '../../lib/songLayout'
 import { toPresenterSections, usePresenterFit } from '../../lib/presenterFit'
-import { resolveAlign, type PresenterDisplay } from '../../lib/presenterSettings'
+import {
+  resolveAlign,
+  type PresenterDisplay,
+  type PresenterView,
+} from '../../lib/presenterSettings'
 import type { SharedLyricsSection, SharedLyricsSong } from '../../types/song'
-
-type PresenterView = 'whole' | 'sections'
 
 interface PresenterCanvasProps {
   song: SharedLyricsSong | null
