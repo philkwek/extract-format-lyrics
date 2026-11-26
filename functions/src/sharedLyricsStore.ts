@@ -71,6 +71,7 @@ function isSharedLyricsSong(value: unknown): value is SharedLyricsSong {
     typeof song.entryId === 'string' &&
     song.entryId.trim().length > 0 &&
     typeof song.title === 'string' &&
+    (song.artist === undefined || (typeof song.artist === 'string' && song.artist.length <= 200)) &&
     Array.isArray(song.sections) &&
     song.sections.every(
       (sec) =>
@@ -146,6 +147,7 @@ export class SharedLyricsStore {
           index,
           entryId: song.entryId.trim(),
           title: song.title.trim(),
+          ...(song.artist?.trim() ? { artist: song.artist.trim() } : {}),
           sections: whitelistedSections,
           rev,
           expiresAt: Timestamp.fromDate(expiresAt),
@@ -219,6 +221,9 @@ export class SharedLyricsStore {
         return {
           entryId: String(songData.entryId || ''),
           title: String(songData.title || ''),
+          ...(typeof songData.artist === 'string' && songData.artist
+            ? { artist: songData.artist }
+            : {}),
           sections: Array.isArray(songData.sections)
             ? (songData.sections as Record<string, unknown>[]).map((s) => ({
                 label: String(s.label || ''),

@@ -88,6 +88,7 @@ export interface SharedLyricsSection {
 export interface SharedLyricsSong {
   entryId: string
   title: string
+  artist?: string
   sections: SharedLyricsSection[]
 }
 

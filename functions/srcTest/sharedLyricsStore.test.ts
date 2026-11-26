@@ -373,6 +373,29 @@ describe('shared lyrics store and validation', () => {
     expect(mockDb.data.get(`sharedLyrics/${id}`)?.currentEntryId).toBe('entry-2')
   })
 
+  it('keeps an optional artist and rejects one that is too long', async () => {
+    const mockDb = new MockFirestore()
+    const store = new SharedLyricsStore(
+      mockDb as unknown as Firestore,
+      () => new Date('2026-10-15T10:00:00.000Z'),
+    )
+    const id = 'with-artist'
+    const withArtist = {
+      ...validPayload,
+      songs: validPayload.songs.map((song) => ({ ...song, artist: ' Demo Band ' })),
+    }
+
+    await store.publish(id, withArtist)
+    const lookup = await store.get(id)
+    expect(lookup.kind === 'found' && lookup.lyrics.songs[0].artist).toBe('Demo Band')
+
+    const tooLong = {
+      ...validPayload,
+      songs: validPayload.songs.map((song) => ({ ...song, artist: 'x'.repeat(201) })),
+    }
+    expect(isSharedLyricsPayload(tooLong)).toBe(false)
+  })
+
   it('returns the current song with the lyrics, or null when none is set', async () => {
     const mockDb = new MockFirestore()
     const store = new SharedLyricsStore(

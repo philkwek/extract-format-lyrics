@@ -296,6 +296,7 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
     const structured = extractSongLyrics(item, song)
     expect(structured.entryId).toBe('entry-1')
     expect(structured.title).toBe('Amazing Grace')
+    expect(structured.artist).toBe('John Newton')
     expect(structured.sections).toHaveLength(1)
     expect(structured.sections[0].label).toBe('Verse 1')
     expect(structured.sections[0].lines).toEqual([
