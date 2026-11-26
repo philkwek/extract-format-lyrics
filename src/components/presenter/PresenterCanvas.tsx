@@ -112,7 +112,7 @@ export default function PresenterCanvas({
     textScale: display.textScale,
   })
 
-  if (blackout || !song) {
+  if (!song) {
     return <div className="h-full w-full overflow-hidden bg-black" aria-hidden="true" />
   }
 
@@ -203,6 +203,14 @@ export default function PresenterCanvas({
           </div>
         </div>
       </div>
+      <div
+        className="pointer-events-none absolute inset-0 bg-black"
+        aria-hidden="true"
+        style={{
+          opacity: blackout ? 1 : 0,
+          transition: reduceMotion ? 'none' : 'opacity 300ms ease',
+        }}
+      />
     </div>
   )
 }
