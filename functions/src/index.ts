@@ -6,6 +6,7 @@ import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { scrapeUrls, type ScrapeResult } from './scrapePool.js'
 import { loadOfficialSimplification } from './chartSimplification.js'
 import { rateLimiter } from './rateLimit.js'
+import { BoundedMap } from './boundedMap.js'
 import { clientIpFromRequest } from './clientIp.js'
 import { ultimateGuitarSearchAdapter } from './search/ultimateGuitarSearch.js'
 import { pnwChordsSearchAdapter } from './search/pnwChordsSearch.js'
@@ -22,6 +23,7 @@ import {
   sharedLyricsStore,
   verifyPublicationSecret,
   isSharedLyricsPayload,
+  isCurrentEntryId,
   MAX_SHARED_LYRICS_SONGS,
 } from './sharedLyricsStore.js'
 import {
@@ -77,6 +79,35 @@ function rejectIfLimited(req: Request, res: Response): boolean {
     `Rate limit exceeded. Try again in ${limitCheck.retryAfterSeconds}s`
   )
   return true
+}
+
+const CURRENT_WRITE_LIMIT_PER_MINUTE = 120
+const CURRENT_WRITE_LIMIT_IDS = 5000
+const currentWriteLimits = new BoundedMap<{ count: number; resetAt: number }>(
+  CURRENT_WRITE_LIMIT_IDS,
+)
+
+/** Caps current-song writes per publication; the scrape IP limiter is not involved. */
+function rejectIfCurrentLimited(id: string, res: Response): boolean {
+  const now = Date.now()
+  const record = currentWriteLimits.get(id)
+  if (!record || now >= record.resetAt) {
+    currentWriteLimits.set(id, { count: 1, resetAt: now + 60_000 })
+    return false
+  }
+  if (record.count >= CURRENT_WRITE_LIMIT_PER_MINUTE) {
+    const retryAfter = Math.max(1, Math.ceil((record.resetAt - now) / 1000))
+    res.setHeader('Retry-After', String(retryAfter))
+    sendJsonError(
+      res,
+      429,
+      'RATE_LIMITED',
+      `Too many current song changes. Try again in ${retryAfter}s`,
+    )
+    return true
+  }
+  record.count++
+  return false
 }
 
 const SEARCH_ADAPTERS = [
@@ -407,6 +438,70 @@ export const api = onRequest(async (req, res) => {
 
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
     res.status(200).json({ id, snapshot: result.snapshot, expiresAt: result.expiresAt.toISOString() })
+    return
+  }
+
+  // Lyrics share current song: PUT /api/lyrics-share/:id/current
+  const lyricsCurrentMatch = req.path.match(
+    /^\/(?:api\/)?lyrics-share\/([a-zA-Z0-9_-]+)\/current$/,
+  )
+  if (lyricsCurrentMatch) {
+    if (req.method !== 'PUT') {
+      sendJsonError(
+        res,
+        405,
+        'METHOD_NOT_ALLOWED',
+        'Only PUT is allowed for /api/lyrics-share/:id/current',
+      )
+      return
+    }
+
+    const id = lyricsCurrentMatch[1]
+
+    const authHeader = (req.headers['authorization'] as string) || ''
+    const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
+    if (!secret) {
+      sendJsonError(res, 401, 'UNAUTHORIZED', 'Missing authorization secret')
+      return
+    }
+
+    if (!verifyPublicationSecret(secret, id)) {
+      sendJsonError(res, 403, 'FORBIDDEN', 'Invalid authorization secret for this publication')
+      return
+    }
+
+    const entryId = req.body?.entryId
+    if (!isCurrentEntryId(entryId)) {
+      sendJsonError(res, 400, 'BAD_REQUEST', 'Missing or invalid entryId')
+      return
+    }
+
+    if (rejectIfCurrentLimited(id, res)) return
+
+    let result
+    try {
+      result = await sharedLyricsStore.setCurrent(id, entryId)
+    } catch (err) {
+      sendJsonError(
+        res,
+        500,
+        'LYRICS_SHARE_FAILED',
+        (err as Error).message || 'Failed to save current song',
+      )
+      return
+    }
+
+    if (result === 'missing') {
+      sendJsonError(res, 404, 'NOT_FOUND', 'Lyrics share not found')
+      return
+    }
+
+    if (result === 'expired') {
+      sendJsonError(res, 410, 'EXPIRED', 'This lyrics share link has expired')
+      return
+    }
+
+    res.status(200).json({ ok: true })
     return
   }
 

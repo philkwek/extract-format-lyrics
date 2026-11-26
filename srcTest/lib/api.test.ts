@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resumeLiveSetApi, searchApiStream } from '../../src/lib/api'
+import { resumeLiveSetApi, putLyricsCurrentApi, searchApiStream } from '../../src/lib/api'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -87,6 +87,34 @@ describe('searchApiStream', () => {
     )
 
     await expect(searchApiStream('song')).rejects.toThrow(/Rate limit exceeded/)
+  })
+})
+
+describe('putLyricsCurrentApi', () => {
+  it('puts the current entry id with the bearer secret', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await putLyricsCurrentApi('pub/1', 'secret', 'entry_abc')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/lyrics-share/pub%2F1/current', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer secret' },
+      body: JSON.stringify({ entryId: 'entry_abc' }),
+    })
+  })
+
+  it('throws the server error when the write is refused', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({ error: { code: 'EXPIRED', message: 'Link expired' } }, { status: 410 }),
+      ),
+    )
+
+    await expect(putLyricsCurrentApi('pub-1', 'secret', 'entry_abc')).rejects.toThrow(
+      'Link expired',
+    )
   })
 })
 

@@ -33,6 +33,8 @@ export default function LyricsViewerPage() {
   const appliedPublicationRef = useRef<string | null>(null)
   const requestGenerationRef = useRef(0)
   const lyricsDataRef = useRef<GetSharedLyricsResult | null>(null)
+  const lastSeenRevRef = useRef<string | null>(null)
+  const hasSeenRevRef = useRef(false)
 
   const applyLyrics = useCallback((result: GetSharedLyricsResult) => {
     if (appliedPublicationRef.current !== result.id) {
@@ -207,8 +209,18 @@ export default function LyricsViewerPage() {
   // Listen for changes to the publication while the page is open.
   useEffect(() => {
     if (!shortId) return
+    hasSeenRevRef.current = false
+    lastSeenRevRef.current = null
     return subscribeSharedLyrics(shortId, {
-      onUpdate: () => {
+      onUpdate: ({ rev }) => {
+        // The page already loaded, so the first snapshot only records the revision.
+        if (!hasSeenRevRef.current) {
+          hasSeenRevRef.current = true
+          lastSeenRevRef.current = rev
+          return
+        }
+        if (rev === lastSeenRevRef.current) return
+        lastSeenRevRef.current = rev
         void refreshLyrics(false)
       },
     })

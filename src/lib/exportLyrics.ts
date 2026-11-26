@@ -7,7 +7,7 @@ import type {
   SharedLyricsSection,
 } from '../types/song'
 
-export const MAX_SHARED_LYRICS_SONGS = 15
+export const MAX_SHARED_LYRICS_SONGS = 30
 
 export class ShareLyricsError extends Error {}
 

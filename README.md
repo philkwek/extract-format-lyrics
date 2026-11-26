@@ -52,7 +52,7 @@ For cell group worship, open **Share**, choose **Create link** under **Share lyr
 
 One link stays with the set. After you change lyrics or section order, the link updates automatically. Each update renews it for another seven days. The link stops working seven days after your last change. Anyone reading the lyrics page gets a short notice when a new song is added.
 
-Set links and lyrics links both last seven days and support up to 15 songs. Anyone with the link can open it without an account.
+Set links and lyrics links both last seven days and support up to 30 songs. Anyone with the link can open it without an account.
 
 ![Generating a lyrics link and opening the shared lyrics view](docs/readme/share-lyrics.gif)
 

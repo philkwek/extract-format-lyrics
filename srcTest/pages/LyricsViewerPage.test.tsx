@@ -94,12 +94,14 @@ function renderViewer(shortId = 'pub-123') {
   )
 }
 
-async function triggerLyricsUpdate() {
+async function triggerLyricsUpdate(rev = 'rev-2') {
   await waitFor(() => expect(subscribeSharedLyrics).toHaveBeenCalled())
   const onUpdate = vi.mocked(subscribeSharedLyrics).mock.calls.at(-1)?.[1].onUpdate
   expect(onUpdate).toBeTruthy()
   await act(async () => {
-    onUpdate?.()
+    // The first snapshot only records the revision; the second one is a real change.
+    onUpdate?.({ rev: 'rev-1', currentEntryId: null })
+    onUpdate?.({ rev, currentEntryId: null })
     await Promise.resolve()
   })
 }
@@ -327,6 +329,25 @@ describe('LyricsViewerPage', () => {
     await triggerLyricsUpdate()
 
     expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('does not refetch when only the current song changes', async () => {
+    vi.mocked(api.getSharedLyricsApi).mockResolvedValue(mockLyricsData)
+
+    renderViewer()
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+    expect(api.getSharedLyricsApi).toHaveBeenCalledTimes(1)
+
+    const onUpdate = vi.mocked(subscribeSharedLyrics).mock.calls.at(-1)?.[1].onUpdate
+    await act(async () => {
+      onUpdate?.({ rev: 'rev-1', currentEntryId: null })
+      onUpdate?.({ rev: 'rev-1', currentEntryId: 'entry-song-2' })
+      await Promise.resolve()
+    })
+
+    expect(api.getSharedLyricsApi).toHaveBeenCalledTimes(1)
   })
 
   it('keeps loaded lyrics visible when a background or manual refresh fails transiently', async () => {

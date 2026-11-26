@@ -34,6 +34,10 @@ class MockDocRef {
       data: () => data,
     }
   }
+
+  async update(data: Record<string, unknown>): Promise<void> {
+    this.store.set(this.path, { ...(this.store.get(this.path) ?? {}), ...data })
+  }
 }
 
 class MockCollectionRef {
@@ -144,10 +148,17 @@ describe('shared lyrics store and validation', () => {
     expect(isSharedLyricsPayload(validPayload)).toBe(true)
   })
 
-  it('rejects invalid payloads and limits above 15 songs', () => {
+  it('rejects invalid payloads and caps lyrics links at 30 songs', () => {
+    expect(MAX_SHARED_LYRICS_SONGS).toBe(30)
     expect(isSharedLyricsPayload({ ...validPayload, v: 2 })).toBe(false)
     expect(isSharedLyricsPayload({ ...validPayload, name: '' })).toBe(false)
     expect(isSharedLyricsPayload({ ...validPayload, songs: [] })).toBe(false)
+    expect(
+      isSharedLyricsPayload({
+        ...validPayload,
+        songs: Array.from({ length: MAX_SHARED_LYRICS_SONGS }, () => validPayload.songs[0]),
+      }),
+    ).toBe(true)
     expect(
       isSharedLyricsPayload({
         ...validPayload,
@@ -318,5 +329,47 @@ describe('shared lyrics store and validation', () => {
     currentTime = new Date(currentTime.getTime() + 8 * 24 * 60 * 60 * 1000)
     const expired = await store.get(id)
     expect(expired.kind).toBe('expired')
+  })
+
+  it('sets only the current song on a live publication', async () => {
+    const mockDb = new MockFirestore()
+    let currentTime = new Date('2026-10-15T10:00:00.000Z')
+    const store = new SharedLyricsStore(mockDb as unknown as Firestore, () => currentTime)
+    const id = 'current-song-test'
+
+    expect(await store.setCurrent(id, 'entry_1')).toBe('missing')
+
+    await store.publish(id, validPayload)
+    const rootBefore = mockDb.data.get(`sharedLyrics/${id}`) ?? {}
+    const songBefore = mockDb.data.get(`sharedLyrics/${id}/songs/00`) ?? {}
+
+    expect(await store.setCurrent(id, 'entry_lk3j2h_abc1234')).toBe('ok')
+
+    const rootAfter = mockDb.data.get(`sharedLyrics/${id}`)
+    expect(rootAfter?.currentEntryId).toBe('entry_lk3j2h_abc1234')
+    expect(rootAfter?.rev).toBe(rootBefore.rev)
+    expect(rootAfter?.updatedAt).toBe(rootBefore.updatedAt)
+    expect(rootAfter?.expiresAt).toBe(rootBefore.expiresAt)
+    expect(rootAfter?.songCount).toBe(rootBefore.songCount)
+    expect(mockDb.data.get(`sharedLyrics/${id}/songs/00`)).toEqual(songBefore)
+
+    currentTime = new Date(currentTime.getTime() + 8 * 24 * 60 * 60 * 1000)
+    expect(await store.setCurrent(id, 'entry_2')).toBe('expired')
+  })
+
+  it('keeps an existing current song when publishing lyrics again', async () => {
+    const mockDb = new MockFirestore()
+    const store = new SharedLyricsStore(
+      mockDb as unknown as Firestore,
+      () => new Date('2026-10-15T10:00:00.000Z'),
+    )
+    const id = 'keep-current-song'
+
+    await store.publish(id, validPayload)
+    expect(await store.setCurrent(id, 'entry-2')).toBe('ok')
+
+    await store.publish(id, { ...validPayload, name: 'Evening' })
+
+    expect(mockDb.data.get(`sharedLyrics/${id}`)?.currentEntryId).toBe('entry-2')
   })
 })

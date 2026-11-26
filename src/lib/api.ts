@@ -263,6 +263,26 @@ export async function putSharedLyricsApi(
   return (await res.json()) as PutSharedLyricsResult
 }
 
+export async function putLyricsCurrentApi(
+  id: string,
+  secret: string,
+  entryId: string,
+  options: { keepalive?: boolean } = {},
+): Promise<void> {
+  const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}/current`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ entryId }),
+    ...(options.keepalive ? { keepalive: true } : {}),
+  })
+  if (!res.ok) {
+    throw await readShareError(res)
+  }
+}
+
 export async function getSharedLyricsApi(id: string): Promise<GetSharedLyricsResult> {
   const res = await fetch(`/api/lyrics-share/${encodeURIComponent(id)}`, {
     headers: {

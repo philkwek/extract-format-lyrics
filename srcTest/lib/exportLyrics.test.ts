@@ -467,8 +467,8 @@ describe('structured lyrics extraction and SharedLyricsPayload', () => {
       ShareLyricsError,
     )
 
-    // Over 15 songs
-    const tooMany = Array.from({ length: 16 }, (_, i) => ({
+    // Over 30 songs
+    const tooMany = Array.from({ length: 31 }, (_, i) => ({
       entryId: `e-${i}`,
       url: song.sourceUrl,
     }))
