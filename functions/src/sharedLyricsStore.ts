@@ -40,7 +40,7 @@ export function verifyPublicationSecret(secret: string, publicationId: string): 
   }
 }
 
-/** Current-song ids are entry ids from any published set; keep them short and URL-safe. */
+/** Entry ids are checked on publish and when set as current, so a song can always be current. */
 export function isCurrentEntryId(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -68,8 +68,7 @@ function isSharedLyricsSong(value: unknown): value is SharedLyricsSong {
   if (!value || typeof value !== 'object') return false
   const song = value as Partial<SharedLyricsSong>
   return (
-    typeof song.entryId === 'string' &&
-    song.entryId.trim().length > 0 &&
+    isCurrentEntryId(song.entryId?.trim()) &&
     typeof song.title === 'string' &&
     (song.artist === undefined || (typeof song.artist === 'string' && song.artist.length <= 200)) &&
     Array.isArray(song.sections) &&

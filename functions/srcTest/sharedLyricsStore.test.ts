@@ -167,6 +167,13 @@ describe('shared lyrics store and validation', () => {
     ).toBe(false)
   })
 
+  it('rejects song entry ids that could never become the current song', () => {
+    for (const entryId of ['x'.repeat(65), 'bad id!']) {
+      const songs = [{ ...validPayload.songs[0], entryId }]
+      expect(isSharedLyricsPayload({ ...validPayload, songs })).toBe(false)
+    }
+  })
+
   it('derives and verifies domain-separated publication secrets', () => {
     const secret = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
     const publicationId = derivePublicationId(secret)
