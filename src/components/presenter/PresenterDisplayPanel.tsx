@@ -63,19 +63,6 @@ export default function PresenterDisplayPanel({
         Display
       </h2>
       <div className="mt-2.5 space-y-2.5">
-        <DisplayRow label="Lyrics view">
-          <SegmentedControl
-            label="Lyrics view"
-            value={display.lyricsView}
-            onChange={(lyricsView) => onPatchDisplay({ lyricsView })}
-            options={[
-              { value: 'whole', label: 'Whole song' },
-              { value: 'sections', label: 'Sections' },
-            ]}
-            className="ui-segmented--accent"
-          />
-        </DisplayRow>
-
         <DisplayRow label="Text size">
           <div className="flex items-center justify-end gap-1.5">
             <IconButton
@@ -106,6 +93,19 @@ export default function PresenterDisplayPanel({
               <Plus size={16} />
             </IconButton>
           </div>
+        </DisplayRow>
+
+        <DisplayRow label="Lyrics view">
+          <SegmentedControl
+            label="Lyrics view"
+            value={display.lyricsView}
+            onChange={(lyricsView) => onPatchDisplay({ lyricsView })}
+            options={[
+              { value: 'whole', label: 'Whole song' },
+              { value: 'sections', label: 'Sections' },
+            ]}
+            className="ui-segmented--accent"
+          />
         </DisplayRow>
 
         {sectionsView && (
