@@ -67,7 +67,7 @@ export default function PresenterSections({
         </Button>
       </div>
 
-      <div className="mt-4 grid min-h-0 grid-cols-2 content-start gap-4 overflow-y-auto pr-1">
+      <div className="mt-4 grid min-h-0 grid-cols-2 content-start gap-4 overflow-y-auto p-1">
         {song.sections.map((section, index) => {
           const selected = view === 'sections' && index === sectionIndex
           return (
