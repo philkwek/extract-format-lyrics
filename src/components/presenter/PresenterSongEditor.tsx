@@ -1,5 +1,5 @@
 import { useCallback, useImperativeHandle, useMemo, useState, type Ref } from 'react'
-import { GripVertical, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
@@ -141,7 +141,7 @@ export default function PresenterSongEditor({
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 content-start gap-4 overflow-y-auto pr-1">
-        {visibleDrafts.map((draft) => {
+        {visibleDrafts.map((draft, draftIndex) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
             lines: parseEditedLyricsText(draft.text),
@@ -223,6 +223,26 @@ export default function PresenterSongEditor({
                     <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                       Edited
                     </span>
+                  )}
+                  {canReorder && (
+                    <>
+                      <IconButton
+                        label={`Move ${draft.label || 'section'} up`}
+                        variant="secondary"
+                        disabled={draftIndex === 0}
+                        onClick={() => moveDraft(draft.id, visibleDrafts[draftIndex - 1].id)}
+                      >
+                        <ArrowUp size={14} aria-hidden="true" />
+                      </IconButton>
+                      <IconButton
+                        label={`Move ${draft.label || 'section'} down`}
+                        variant="secondary"
+                        disabled={draftIndex === visibleDrafts.length - 1}
+                        onClick={() => moveDraft(draft.id, visibleDrafts[draftIndex + 1].id)}
+                      >
+                        <ArrowDown size={14} aria-hidden="true" />
+                      </IconButton>
+                    </>
                   )}
                   <IconButton
                     label={`Remove ${draft.label || 'section'}`}

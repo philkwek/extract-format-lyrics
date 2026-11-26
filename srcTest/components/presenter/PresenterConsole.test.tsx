@@ -392,6 +392,19 @@ describe('PresenterConsole', () => {
     ])
   })
 
+  it('rearranges sections with the move buttons', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    expect(
+      (screen.getByRole('button', { name: 'Move Verse 1 up' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Move Verse 1 down' }))
+
+    const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    expect(titleInputs.map((input) => input.value)).toEqual(['Chorus', 'Verse 1'])
+  })
+
   it('shows no border highlights or false Edited badges after deleting a section and re-entering edit mode', () => {
     const view = renderConsole()
 
@@ -444,6 +457,8 @@ describe('PresenterConsole', () => {
     fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
 
     expect(lastState().sectionIndex).toBe(0)
-    expect(screen.getByRole('button', { name: /Verse 1/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /Verse 1/ }).getAttribute('aria-pressed')).toBe(
+      'true',
+    )
   })
 })
