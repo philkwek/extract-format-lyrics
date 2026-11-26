@@ -10,7 +10,7 @@ import { useWakeLock } from '../lib/useWakeLock'
 import PresenterCanvas from '../components/presenter/PresenterCanvas'
 import { Button } from '../components/ui'
 
-const HIDE_DELAY_MS = 3000
+const HIDE_DELAY_MS = 500
 const CORNER_BUTTON_STYLE = { height: 56, padding: '0 20px', fontSize: 18, borderRadius: 14 }
 
 export default function PresenterOutputPage() {

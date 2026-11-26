@@ -24,7 +24,7 @@ interface PresenterCornerProps {
   onSwitchToManual: () => void
 }
 
-const HIDE_DELAY_MS = 3000
+const HIDE_DELAY_MS = 500
 /** Sized for a laptop driving a projector across the room, as in the design. */
 const CORNER_BUTTON_STYLE = { height: 56, padding: '0 20px', fontSize: 18, borderRadius: 14 }
 
@@ -49,25 +49,46 @@ export default function PresenterCorner({
   const [activity, setActivity] = useState(0)
   const { isFullscreen, toggleFullscreen } = useFullscreen()
   const controlsRef = useRef<HTMLDivElement>(null)
+  const keyboardFocusRef = useRef(false)
 
   const show = useCallback(() => {
     setVisible(true)
     setActivity((count) => count + 1)
   }, [])
 
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false)
+    keyboardFocusRef.current = false
+    if (
+      controlsRef.current?.contains(document.activeElement) &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur()
+    }
+  }, [])
+
   useEffect(() => {
+    const onPointerDown = () => {
+      keyboardFocusRef.current = false
+      show()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') keyboardFocusRef.current = true
+    }
     window.addEventListener('mousemove', show)
-    window.addEventListener('pointerdown', show)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('mousemove', show)
-      window.removeEventListener('pointerdown', show)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
     }
   }, [show])
 
   useEffect(() => {
     if (!visible || settingsOpen) return
     const timer = window.setTimeout(() => {
-      if (controlsRef.current?.contains(document.activeElement)) return
+      if (keyboardFocusRef.current && controlsRef.current?.contains(document.activeElement)) return
       setVisible(false)
     }, HIDE_DELAY_MS)
     return () => window.clearTimeout(timer)
@@ -76,10 +97,10 @@ export default function PresenterCorner({
   useEffect(() => {
     if (!settingsOpen) return
     const onPointerDown = (event: MouseEvent) => {
-      if (!controlsRef.current?.contains(event.target as Node)) setSettingsOpen(false)
+      if (!controlsRef.current?.contains(event.target as Node)) closeSettings()
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSettingsOpen(false)
+      if (event.key === 'Escape') closeSettings()
     }
     document.addEventListener('mousedown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
@@ -87,7 +108,7 @@ export default function PresenterCorner({
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [settingsOpen])
+  }, [settingsOpen, closeSettings])
 
   const pill = statusPill(status)
   const align = resolveAlign(display, 'whole')
@@ -101,6 +122,12 @@ export default function PresenterCorner({
         reduceMotion ? '' : 'transition-opacity duration-200',
       )}
       onFocus={show}
+      onBlur={(event) => {
+        if (!controlsRef.current?.contains(event.relatedTarget as Node | null)) {
+          keyboardFocusRef.current = false
+          setActivity((count) => count + 1)
+        }
+      }}
       onPointerDown={show}
     >
       {settingsOpen && (
@@ -222,8 +249,12 @@ export default function PresenterCorner({
           aria-haspopup="dialog"
           aria-expanded={settingsOpen}
           onClick={() => {
-            setSettingsOpen((open) => !open)
-            show()
+            if (settingsOpen) {
+              closeSettings()
+            } else {
+              setSettingsOpen(true)
+              show()
+            }
           }}
         >
           Settings

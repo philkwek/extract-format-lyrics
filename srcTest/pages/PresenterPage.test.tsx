@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import PresenterPage from '../../src/pages/PresenterPage'
 import { trackEvent } from '../../src/lib/analytics'
@@ -83,6 +83,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   window.matchMedia = originalMatchMedia
   document.documentElement.classList.remove('dark')
@@ -221,5 +222,32 @@ describe('PresenterPage', () => {
     await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(false))
     unmount()
     expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('hides the corner controls 500ms after closing settings even when the button was focused', () => {
+    vi.useFakeTimers()
+    localStorage.setItem('presenter.mode', 'auto')
+    feed.current = live()
+
+    renderPage()
+    fireEvent.mouseMove(window)
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' })
+    const corner = settingsButton.closest('div.fixed')
+    expect(corner?.className).toContain('opacity-100')
+
+    settingsButton.focus()
+    fireEvent.click(settingsButton)
+    expect(screen.getByRole('dialog', { name: 'Display settings' })).toBeTruthy()
+
+    fireEvent.click(settingsButton)
+    expect(screen.queryByRole('dialog', { name: 'Display settings' })).toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(corner?.className).toContain('opacity-0')
+    expect(corner?.className).toContain('pointer-events-none')
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import PresenterOutputPage from '../../src/pages/PresenterOutputPage'
 import type { OutputState } from '../../src/lib/presenterChannel'
@@ -73,6 +73,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
@@ -108,5 +109,21 @@ describe('PresenterOutputPage', () => {
 
     expect(FakeBroadcastChannel.instances[0].postMessage).toHaveBeenCalledWith({ type: 'bye' })
     expect(FakeBroadcastChannel.instances[0].close).toHaveBeenCalled()
+  })
+
+  it('hides the full-screen button 500ms after pointer activity', () => {
+    vi.useFakeTimers()
+    renderPage()
+
+    fireEvent.mouseMove(window)
+    const button = screen.getByRole('button', { name: 'Go full screen' })
+    const corner = button.closest('div.fixed')
+    expect(corner?.className).toContain('opacity-100')
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(corner?.className).toContain('opacity-0')
   })
 })
