@@ -100,7 +100,7 @@ describe('PresenterPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Open this on a bigger screen' })).toBeTruthy()
     expect(screen.getByText(/Presenter view is for sharing lyrics/)).toBeTruthy()
-    expect(screen.queryByText('How should this screen work?')).toBeNull()
+    expect(screen.queryByText('Choose presentation mode')).toBeNull()
     expect(screen.queryByText('First Song')).toBeNull()
   })
 
@@ -109,9 +109,10 @@ describe('PresenterPage', () => {
 
     renderPage()
 
-    expect(screen.getByRole('heading', { name: 'How should this screen work?' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Choose presentation mode' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Manual control/ })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /Follow the host/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Auto follow the host/ }))
 
     expect(localStorage.getItem('presenter.mode')).toBe('auto')
     expect(screen.getByText('Second Song')).toBeTruthy()

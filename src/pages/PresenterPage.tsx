@@ -59,18 +59,18 @@ function ModeChoice({ onChoose }: { onChoose: (mode: PresenterMode) => void }) {
         Sets &amp; Sheets · Presenter view
       </p>
       <div className="w-full max-w-[1120px] text-center">
-        <h1 className="text-5xl font-bold tracking-[-0.03em]">How should this screen work?</h1>
+        <h1 className="text-5xl font-bold tracking-[-0.03em]">Choose presentation mode</h1>
         <p className="text-ui-text-muted mt-3 text-xl">You can always change your choice later.</p>
         <div className="mt-12 grid grid-cols-2 gap-8">
           <ModeCard
-            title="Follow the host"
-            body="Shows the song the host is on. Nothing for you to do."
+            title="Auto follow the host"
+            body="Immediately shows the presenter view and automatically displays lyrics for the song the host is on."
             icon={<ArrowRight size={40} strokeWidth={1.75} />}
             onClick={() => onChoose('auto')}
           />
           <ModeCard
-            title="Control it myself"
-            body="You pick the song and section. Lyrics show in a separate window for the projector."
+            title="Manual control"
+            body="Opens the presenter console for song lyric arrangement, editing and manual presenter controls. Lyrics are projected into a 2nd window."
             icon={<Monitor size={40} strokeWidth={1.75} />}
             onClick={() => onChoose('manual')}
           />
