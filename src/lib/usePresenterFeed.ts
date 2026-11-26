@@ -60,7 +60,6 @@ export function createPresenterFeed(
 ): () => void {
   let state = INITIAL_STATE
   let stopped = false
-  let generation = 0
   let fetchSeq = 0
   let loaded = false
   let initialSettled = false
@@ -90,11 +89,10 @@ export function createPresenterFeed(
 
   async function load(source: FetchSource): Promise<void> {
     if (stopped) return
-    const startedAt = generation
     const seq = ++fetchSeq
     try {
       const result = await deps.getLyrics(id)
-      if (stopped || startedAt !== generation || seq !== fetchSeq) return
+      if (stopped || seq !== fetchSeq) return
       if (source === 'initial') initialSettled = true
       clearRetry()
       loaded = true
@@ -104,7 +102,7 @@ export function createPresenterFeed(
         currentEntryId: result.currentEntryId ?? null,
       })
     } catch (error) {
-      if (stopped || startedAt !== generation || seq !== fetchSeq) return
+      if (stopped || seq !== fetchSeq) return
       if (source === 'initial') initialSettled = true
       if (isGone(error)) {
         const hadLyrics = loaded
@@ -178,8 +176,6 @@ export function createPresenterFeed(
   return () => {
     if (stopped) return
     stopped = true
-    generation += 1
-    fetchSeq += 1
     unsubscribe?.()
     unsubscribe = undefined
     clearRetry()
