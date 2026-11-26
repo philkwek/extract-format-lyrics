@@ -109,11 +109,11 @@ describe('ShareLyricsLinkPanel', () => {
     await findReadyCreateLink()
     expect(screen.getByText('Updates when you change the set.')).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
   })
 
-  it('creates a link and shows Copy link, Preview and the expiry date', async () => {
+  it('creates a link and shows Copy, Preview and the expiry date', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
     mocks.publishLyricsForSession.mockResolvedValue({
       id: 'pub-new',
@@ -128,9 +128,9 @@ describe('ShareLyricsLinkPanel', () => {
     await waitFor(() => {
       expect(mocks.publishLyricsForSession).toHaveBeenCalledWith('session-1', expect.anything())
     })
-    expect(await screen.findByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Copy' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
-    expect(screen.getByText(/Link works until/)).toBeTruthy()
+    expect(screen.getByText(/Works until/)).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
   })
 
@@ -162,13 +162,13 @@ describe('ShareLyricsLinkPanel', () => {
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Network down'))
     expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
   })
 
-  it('restores an unexpired publication as Copy link', async () => {
+  it('restores an unexpired publication as Copy', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await screen.findByRole('button', { name: 'Copy link' })
+    await screen.findByRole('button', { name: 'Copy' })
 
     expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Create link' })).toBeNull()
@@ -186,7 +186,7 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     await findReadyCreateLink()
-    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
     expect(screen.queryByRole('switch')).toBeNull()
   })
@@ -232,25 +232,27 @@ describe('ShareLyricsLinkPanel', () => {
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
   })
 
-  it('shows the individual and group rows', async () => {
+  it('shows the individual and group sections separately', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await screen.findByRole('button', { name: 'Copy link' })
+    await screen.findByRole('button', { name: 'Copy' })
 
-    expect(screen.getByText('For individual phones')).toBeTruthy()
-    expect(screen.getByText('For group projector/screen')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Share lyrics only' })).toBeTruthy()
+    expect(screen.getByText('Words only, no chords.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Start presentation mode for lyrics' })).toBeTruthy()
+    expect(screen.getByText('For the big screen!')).toBeTruthy()
+    expect(screen.getByText('This device')).toBeTruthy()
+    expect(screen.getByText('Another laptop')).toBeTruthy()
     expect(
-      screen.getByText(
-        'Updates when you change songs. Stops if your device sleeps or goes offline.',
-      ),
+      screen.getByText('Warning: it stops if your device sleeps or goes offline.'),
     ).toBeTruthy()
   })
 
   it('copies the presenter link when the lyrics link is published', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await screen.findByRole('button', { name: 'Copy link' })
-    fireEvent.click(screen.getByRole('button', { name: 'Copy presenter link' }))
+    await screen.findByRole('button', { name: 'Copy' })
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
 
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith('https://example.test/present/pub-id-123'),
@@ -270,7 +272,7 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     const button = screen.getByRole('button', {
-      name: 'Copy presenter link',
+      name: 'Copy link',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
@@ -287,8 +289,8 @@ describe('ShareLyricsLinkPanel', () => {
   it('opens the presenter window at once when the lyrics link is published', async () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
-    await screen.findByRole('button', { name: 'Copy link' })
-    fireEvent.click(screen.getByRole('button', { name: 'Open presenter window' }))
+    await screen.findByRole('button', { name: 'Copy' })
+    fireEvent.click(screen.getByRole('button', { name: 'Open window' }))
 
     expect(windowOpen).toHaveBeenCalledWith('https://example.test/present/pub-id-123', '_blank')
   })
@@ -306,7 +308,7 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     const button = screen.getByRole('button', {
-      name: 'Open presenter window',
+      name: 'Open window',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)

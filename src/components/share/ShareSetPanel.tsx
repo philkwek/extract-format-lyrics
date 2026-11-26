@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, CopyPlus } from 'lucide-react'
+import { Check, Copy, CopyPlus, Link2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getLiveShare,
@@ -10,7 +10,7 @@ import {
 } from '../../lib/liveShareSync'
 import { sessionPath, sessionStore, type Session } from '../../lib/sessionStore'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
-import { Button, Switch } from '../ui'
+import { Button, SegmentedControl, Switch } from '../ui'
 import SendCopyRow from './SendCopyRow'
 
 interface ShareSetPanelProps {
@@ -27,6 +27,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
   const [busy, setBusy] = useState<'start' | 'stop' | 'create' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingLive, setPendingLive] = useState<boolean | null>(null)
+  const [mode, setMode] = useState<'copy' | 'live'>('copy')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -156,14 +157,27 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
     )
   }
 
-  return (
-    <div className="border-ui-border bg-ui-surface-raised rounded-xl border">
-      <div className="px-3 py-3">
-        <SendCopyRow session={session} canShareLive={canShareLive} />
-      </div>
+  if (!canShareLive) {
+    return <SendCopyRow session={session} canShareLive={false} />
+  }
 
-      {canShareLive && (
-        <div className="border-ui-border border-t px-3 py-3">
+  return (
+    <div className="space-y-3">
+      <SegmentedControl
+        label="Set sharing mode"
+        value={mode}
+        onChange={setMode}
+        className="w-full"
+        options={[
+          { value: 'copy', label: 'Send a copy' },
+          { value: 'live', label: 'Share live' },
+        ]}
+      />
+
+      {mode === 'copy' ? (
+        <SendCopyRow session={session} canShareLive={canShareLive} />
+      ) : (
+        <div className="space-y-2.5">
           <div className="flex min-h-[44px] items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-ui-text text-sm font-bold">Share live</p>
@@ -182,24 +196,38 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
           </div>
 
           {liveUrl && (
-            <div className="mt-3">
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                {expiresAt && (
-                  <span className="text-ui-text-muted text-[11px]">
-                    Link works until {new Date(expiresAt).toLocaleDateString()}
-                  </span>
-                )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Link2
+                    size={15}
+                    className="text-ui-text-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="text"
+                    readOnly
+                    aria-label="Live share link"
+                    value={liveUrl.replace(/^https?:\/\//, '')}
+                    className="ui-field truncate py-2 pr-3 pl-9 font-mono text-xs select-all"
+                  />
+                </div>
                 <Button
-                  variant="secondary"
-                  className="ml-auto"
+                  variant="primary"
+                  className="shrink-0"
                   icon={copied ? <Check size={15} /> : <Copy size={15} />}
                   onClick={() => copyText(liveUrl)}
                 >
-                  {copied ? 'Copied' : 'Copy link'}
+                  {copied ? 'Copied' : 'Copy'}
                 </Button>
               </div>
+              {expiresAt && (
+                <p className="text-ui-text-muted text-xs leading-5">
+                  Link works until {new Date(expiresAt).toLocaleDateString()}
+                </p>
+              )}
               {status === 'failing' && (
-                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">
                   {online
                     ? 'Not updating. People can’t see your latest changes yet.'
                     : 'Offline. Followers get your changes when you’re back online.'}
@@ -209,7 +237,7 @@ export default function ShareSetPanel({ session, canShareLive = true }: ShareSet
           )}
 
           {error && (
-            <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-red-300">
+            <p role="alert" className="text-[11px] text-red-600 dark:text-red-300">
               {error}
             </p>
           )}

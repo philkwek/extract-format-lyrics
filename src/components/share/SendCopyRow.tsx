@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Link2 } from 'lucide-react'
 import { ensureSetLinkFresh } from '../../lib/setLinkSync'
 import { sessionPath, type Session } from '../../lib/sessionStore'
 import { Button } from '../ui'
@@ -46,26 +46,39 @@ export default function SendCopyRow({ session, canShareLive }: SendCopyRowProps)
   }
 
   const hasUploads = session.songs.some((item) => item.url?.startsWith('upload://'))
+  const path = sessionPath(session)
+  const displayUrl = `${window.location.host}${path}`
 
   return (
     <div className="space-y-2">
-      <div className="flex min-h-[44px] items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-ui-text text-sm font-bold">Send a copy</p>
-          <p className="text-ui-text-muted text-xs leading-5">
-            Their own copy, without your chord changes.
-          </p>
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Link2
+            size={15}
+            className="text-ui-text-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            readOnly
+            aria-label="Set copy link"
+            value={displayUrl}
+            className="ui-field truncate py-2 pr-3 pl-9 font-mono text-xs select-all"
+          />
         </div>
         <Button
-          variant="secondary"
+          variant="primary"
           className="shrink-0"
           icon={copied ? <Check size={15} /> : <Copy size={15} />}
           onClick={handleCopyCopy}
           loading={busy}
         >
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? 'Copied' : 'Copy'}
         </Button>
       </div>
+      <p className="text-ui-text-muted text-xs leading-5">
+        They get their own copy. Your chord changes stay with you.
+      </p>
       {hasUploads && canShareLive && (
         <p className="text-ui-text-muted text-xs leading-5">
           Uploaded sheets aren&rsquo;t included. Use <strong>Share live</strong> to send them.

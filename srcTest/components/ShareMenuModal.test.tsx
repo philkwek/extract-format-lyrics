@@ -75,21 +75,23 @@ function renderModal(modalSession: Session) {
 }
 
 describe('ShareMenuModal', () => {
-  it('shows both share methods on one screen, Share live has a switch and lyrics has Create link', () => {
+  it('shows all share sections on one screen with tabs and Create link', () => {
     renderModal(session)
 
-    expect(screen.getByRole('heading', { name: 'Share full set' })).toBeTruthy()
-    expect(screen.getByText('For other musicians')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Share lyrics' })).toBeTruthy()
-    expect(screen.getByText('For people to follow along')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Share this entire set' })).toBeTruthy()
+    expect(screen.getByText('For other musicians to follow along your created set.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Share lyrics only' })).toBeTruthy()
+    expect(screen.getByText('Words only, no chords.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Start presentation mode for lyrics' })).toBeTruthy()
+    expect(screen.getByText('For the big screen!')).toBeTruthy()
 
-    expect(screen.getByText('Send a copy')).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Share live' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Send a copy' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Share live' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Create link' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Share' })).toBeNull()
   })
 
-  it('shows Copy link for the lyrics when a publication is active', async () => {
+  it('shows Copy for the lyrics when a publication is active', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue({
       sessionId: 'session-1',
       publicationId: 'pub-id-123',
@@ -102,7 +104,7 @@ describe('ShareMenuModal', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Create link' })).toBeNull()
     })
-    expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Copy' })).toHaveLength(2)
   })
 
   it('shows the followed live link instead of a Share live switch', () => {

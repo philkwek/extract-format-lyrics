@@ -319,8 +319,11 @@ describe('SessionPage full screen mode', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Share set/lyrics' }))
 
-    expect(await screen.findByText('For other musicians')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(
+      await screen.findByText('For other musicians to follow along your created set.'),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Share live' }))
     expect(screen.getByRole('switch', { name: 'Share live' }).getAttribute('aria-checked')).toBe(
       'false',
     )

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AppWindow, Check, Copy, Eye } from 'lucide-react'
+import { AppWindow, Check, Copy, Eye, Link2, Monitor } from 'lucide-react'
 import type { Session } from '../../lib/sessionStore'
 import type { SharedLyricsPayload, Song } from '../../types/song'
 import { buildSharedLyricsPayload, ShareLyricsError } from '../../lib/exportLyrics'
@@ -11,7 +11,7 @@ import {
 import { ensureLyricsFresh } from '../../lib/lyricsSync'
 import { currentSongSender } from '../../lib/presenterCurrent'
 import { trackEvent } from '../../lib/analytics'
-import { Button } from '../ui'
+import { Button, IconButton } from '../ui'
 import LyricsPreviewModal from '../LyricsPreviewModal'
 
 interface ShareLyricsLinkPanelProps {
@@ -25,7 +25,9 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [publicationId, setPublicationId] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ scope: 'lyrics' | 'presenter'; message: string } | null>(
+    null,
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -95,7 +97,9 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     }
   }
 
-  const handlePublish = async (): Promise<PublishLyricsResult | null> => {
+  const handlePublish = async (
+    errorScope: 'lyrics' | 'presenter' = 'lyrics',
+  ): Promise<PublishLyricsResult | null> => {
     if (isSaving) return null
     setIsSaving(true)
     setError(null)
@@ -123,7 +127,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
         err instanceof ShareLyricsError
           ? err.message
           : (err as Error).message || 'Failed to publish lyrics'
-      setError(message)
+      setError({ scope: errorScope, message })
       return null
     } finally {
       setIsSaving(false)
@@ -134,7 +138,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     setError(null)
     let id = isPublished ? publicationId : null
     if (!id) {
-      const result = await handlePublish()
+      const result = await handlePublish('presenter')
       if (!result) return
       id = result.id
     }
@@ -156,7 +160,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     }
     // Opened before publishing so the click still counts as a user gesture.
     const win = window.open('', '_blank')
-    const result = await handlePublish()
+    const result = await handlePublish('presenter')
     if (!result) {
       win?.close()
       return
@@ -177,91 +181,139 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
         err instanceof ShareLyricsError
           ? err.message
           : (err as Error).message || 'Failed to prepare lyrics preview'
-      setError(message)
+      setError({ scope: 'lyrics', message })
     }
   }
 
   return (
     <>
-      <div className="border-ui-border bg-ui-surface-raised rounded-xl border">
-        <div className="px-3 py-3">
-          <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="min-w-[12rem] flex-1">
-              <p className="text-ui-text text-sm font-bold">For individual phones</p>
-              <p className="text-ui-text-muted text-xs leading-5">
-                {isPublished && expiresAt
-                  ? `Link works until ${new Date(expiresAt).toLocaleDateString()}. Updates when you change the set.`
-                  : 'Updates when you change the set.'}
-              </p>
-            </div>
-            {isPublished ? (
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                <Button
-                  variant="secondary"
-                  icon={<Eye size={15} />}
-                  onClick={handleOpenPreview}
-                  disabled={isSaving}
-                >
-                  Preview
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon={copied ? <Check size={15} /> : <Copy size={15} />}
-                  onClick={handleCopy}
-                  disabled={isSaving || !initialized}
-                >
-                  {copied ? 'Copied' : 'Copy link'}
-                </Button>
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-ui-text text-base font-bold">Share lyrics only</h3>
+          <p className="text-ui-text-muted text-sm">Send this link to your friends to see lyrics directly.</p>
+        </div>
+
+        <div className="space-y-2">
+          {isPublished && shareUrl ? (
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Link2
+                  size={15}
+                  className="text-ui-text-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                  aria-hidden="true"
+                />
+                <input
+                  type="text"
+                  readOnly
+                  aria-label="Lyrics link"
+                  value={shareUrl.replace(/^https?:\/\//, '')}
+                  className="ui-field truncate py-2 pr-3 pl-9 font-mono text-xs select-all"
+                />
               </div>
-            ) : (
+              <IconButton
+                variant="secondary"
+                label="Preview"
+                onClick={handleOpenPreview}
+                disabled={isSaving}
+              >
+                <Eye size={16} />
+              </IconButton>
               <Button
                 variant="primary"
                 className="shrink-0"
-                onClick={handlePublish}
+                icon={copied ? <Check size={15} /> : <Copy size={15} />}
+                onClick={handleCopy}
+                disabled={isSaving || !initialized}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <Button
+                variant="primary"
+                onClick={() => handlePublish('lyrics')}
                 loading={isSaving}
                 disabled={!initialized}
               >
                 Create link
               </Button>
-            )}
-          </div>
+            </div>
+          )}
+
+          <p className="text-ui-text-muted text-xs leading-5">
+            {isPublished && expiresAt
+              ? `Works until ${new Date(expiresAt).toLocaleDateString()}. Link automatically updates when you add or remove songs.`
+              : 'Link automatically updates when you add or remove songs.'}
+          </p>
+
+          {error?.scope === 'lyrics' && (
+            <p role="alert" className="text-[11px] text-red-600 dark:text-red-300">
+              {error.message}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-ui-text text-base font-bold">
+            Start presentation mode for lyrics
+          </h3>
+          <p className="text-ui-text-muted text-sm">Just like a PowerPoint presentation.</p>
         </div>
 
-        <div className="border-ui-border border-t px-3 py-3">
-          <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="min-w-[12rem] flex-1">
-              <p className="text-ui-text text-sm font-bold">For group projector/screen</p>
-              <p className="text-ui-text-muted text-xs leading-5">
-                Updates when you change songs. Stops if your device sleeps or goes offline.
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="border-ui-border bg-ui-surface-raised flex flex-col rounded-xl border p-3.5">
+              <AppWindow
+                size={18}
+                className="text-ui-accent mb-2.5 shrink-0"
+                aria-hidden="true"
+              />
+              <p className="text-ui-text text-sm font-bold">Present on this device</p>
+              <p className="text-ui-text-muted mt-1 flex-1 text-xs leading-5">
+                Drag the new window into your 2nd display.
               </p>
+              <Button
+                variant="primary"
+                className="mt-3 w-full"
+                onClick={handleOpenPresenter}
+                disabled={isSaving || !initialized}
+              >
+                Open in a new tab
+              </Button>
             </div>
-            <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
+
+            <div className="border-ui-border bg-ui-surface-raised flex flex-col rounded-xl border p-3.5">
+              <Monitor
+                size={18}
+                className="text-ui-accent mb-2.5 shrink-0"
+                aria-hidden="true"
+              />
+              <p className="text-ui-text text-sm font-bold">Present from a different laptop</p>
+              <p className="text-ui-text-muted mt-1 flex-1 text-xs leading-5">
+                Copy the link and open it on your 2nd device.
+              </p>
               <Button
                 variant="secondary"
+                className="mt-3 w-full"
                 icon={presenterCopied ? <Check size={15} /> : <Copy size={15} />}
                 onClick={handleCopyPresenter}
                 disabled={isSaving || !initialized}
               >
-                {presenterCopied ? 'Copied' : 'Copy presenter link'}
-              </Button>
-              <Button
-                variant="secondary"
-                icon={<AppWindow size={15} />}
-                onClick={handleOpenPresenter}
-                disabled={isSaving || !initialized}
-              >
-                Open presenter window
+                {presenterCopied ? 'Copied' : 'Copy link'}
               </Button>
             </div>
           </div>
-        </div>
 
-        {error && (
-          <p role="alert" className="px-3 pb-3 text-[11px] text-red-600 dark:text-red-300">
-            {error}
-          </p>
-        )}
-      </div>
+          {error?.scope === 'presenter' && (
+            <p role="alert" className="text-[11px] text-red-600 dark:text-red-300">
+              {error.message}
+            </p>
+          )}
+        </div>
+      </section>
 
       <LyricsPreviewModal
         isOpen={isPreviewOpen}

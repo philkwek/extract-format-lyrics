@@ -51,7 +51,7 @@ describe('SendCopyRow', () => {
     })
     render(<SendCopyRow session={session} canShareLive />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     await screen.findByRole('button', { name: 'Copied' })
 
     expect(mocks.ensureSetLinkFresh).toHaveBeenCalledWith(session)
@@ -63,7 +63,7 @@ describe('SendCopyRow', () => {
     mocks.ensureSetLinkFresh.mockResolvedValueOnce({ ok: false, reason: 'too_many' })
     render(<SendCopyRow session={session} canShareLive />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toBe('A set link holds up to 30 songs. Remove some and try again.')
