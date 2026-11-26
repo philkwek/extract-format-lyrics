@@ -24,6 +24,8 @@ interface PresenterCornerProps {
 }
 
 const HIDE_DELAY_MS = 3000
+/** Sized for a laptop driving a projector across the room, as in the design. */
+const CORNER_BUTTON_STYLE = { height: 56, padding: '0 20px', fontSize: 18, borderRadius: 14 }
 
 function statusPill(status: PresenterFeedStatus): { tone: LiveTone; label: string } | null {
   if (status === 'live') return { tone: 'live', label: 'Live: Following host' }
@@ -138,7 +140,7 @@ export default function PresenterCorner({
         <div
           role="dialog"
           aria-label="Display settings"
-          className="border-ui-border bg-ui-surface-raised absolute right-0 bottom-full mb-3 w-80 rounded-2xl border p-4 shadow-[var(--ui-shadow-lg)]"
+          className="border-ui-border bg-ui-surface-raised absolute right-0 bottom-full mb-3 w-[380px] rounded-2xl border p-4 shadow-[var(--ui-shadow-lg)]"
         >
           <div className="text-ui-text space-y-4">
             <h2 className="text-base font-bold">Display settings</h2>
@@ -248,7 +250,8 @@ export default function PresenterCorner({
         )}
         <Button
           variant="secondary"
-          icon={<SlidersHorizontal size={15} />}
+          icon={<SlidersHorizontal size={18} />}
+          style={CORNER_BUTTON_STYLE}
           aria-haspopup="dialog"
           aria-expanded={settingsOpen}
           onClick={() => {
@@ -260,7 +263,8 @@ export default function PresenterCorner({
         </Button>
         <Button
           variant="secondary"
-          icon={isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+          icon={isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          style={CORNER_BUTTON_STYLE}
           onClick={toggleFullscreen}
         >
           {isFullscreen ? 'Exit full screen' : 'Go full screen'}

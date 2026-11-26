@@ -41,15 +41,11 @@ function ModeCard({ title, body, icon, onClick }: ModeCardProps) {
     <button
       type="button"
       onClick={onClick}
-      className="border-ui-border bg-ui-surface-raised hover:border-ui-border-strong flex items-start justify-between gap-4 rounded-3xl border p-6 text-left shadow-sm transition active:scale-[0.99]"
+      className="border-ui-border bg-ui-surface-raised hover:border-ui-border-strong flex flex-col items-start gap-4 rounded-3xl border p-10 text-left shadow-sm transition active:scale-[0.99]"
     >
-      <span>
-        <span className="block text-lg font-bold">{title}</span>
-        <span className="text-ui-text-muted mt-2 block text-sm leading-6">{body}</span>
-      </span>
-      <span className="bg-ui-accent/10 text-ui-accent-strong flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
-        {icon}
-      </span>
+      <span className="text-ui-accent">{icon}</span>
+      <span className="block text-[32px] leading-tight font-bold">{title}</span>
+      <span className="text-ui-text-muted block text-xl leading-[30px]">{body}</span>
     </button>
   )
 }
@@ -57,23 +53,23 @@ function ModeCard({ title, body, icon, onClick }: ModeCardProps) {
 function ModeChoice({ onChoose }: { onChoose: (mode: PresenterMode) => void }) {
   return (
     <div className="bg-ui-canvas text-ui-text relative flex min-h-screen flex-col items-center justify-center px-6 py-16">
-      <p className="text-ui-text-muted absolute top-5 left-6 text-xs font-medium">
+      <p className="absolute top-10 left-12 text-lg font-bold">
         Sets &amp; Sheets · Presenter view
       </p>
-      <div className="w-full max-w-3xl text-center">
-        <h1 className="text-3xl font-bold tracking-[-0.03em]">How should this screen work?</h1>
-        <p className="text-ui-text-muted mt-2 text-sm">You can always change your choice later.</p>
-        <div className="mt-8 grid grid-cols-2 gap-4">
+      <div className="w-full max-w-[1120px] text-center">
+        <h1 className="text-5xl font-bold tracking-[-0.03em]">How should this screen work?</h1>
+        <p className="text-ui-text-muted mt-3 text-xl">You can always change your choice later.</p>
+        <div className="mt-12 grid grid-cols-2 gap-8">
           <ModeCard
             title="Follow the host"
             body="Shows the song the host is on. Nothing for you to do."
-            icon={<ArrowRight size={22} />}
+            icon={<ArrowRight size={40} strokeWidth={1.75} />}
             onClick={() => onChoose('auto')}
           />
           <ModeCard
             title="Control it myself"
             body="You pick the song and section. Lyrics show in a separate window for the projector."
-            icon={<Monitor size={22} />}
+            icon={<Monitor size={40} strokeWidth={1.75} />}
             onClick={() => onChoose('manual')}
           />
         </div>
@@ -165,8 +161,7 @@ export default function PresenterPage() {
 
   const stopped = feed.status === 'stopped'
   const songs = feed.lyrics?.songs ?? []
-  const currentSong =
-    songs.find((song) => song.entryId === feed.currentEntryId) ?? songs[0] ?? null
+  const currentSong = songs.find((song) => song.entryId === feed.currentEntryId) ?? songs[0] ?? null
 
   return (
     <div className="h-screen w-screen overflow-hidden">
