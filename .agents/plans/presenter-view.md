@@ -32,7 +32,7 @@ the host as they change songs, or someone at the presenter laptop controls it.
 | D13 | Display settings, saved per laptop: **Text size** (−/+), **Lyrics alignment** (Left / Centre), **Case** (Normal case / All caps), **Theme** (Dark / Light, dark default). **Section positioning** (Top / Centre) appears only in manual mode's **Sections** view. |
 | D14 | **Lyrics alignment** defaults: Left when the whole song shows, Centre when one section shows. The setting overrides either default. |
 | D15 | Auto mode controls, shown only after the mouse moves, bottom right: a status pill, then a **Settings** button (icon and label) that opens the settings popover with **Fade to black** and **Switch mode**. Never anything over the lyrics. |
-| D16 | Status pill states: green "Live: Following host"; amber "Not live: lost connection" (the presenter's own connection is down; last lyrics stay); neutral "Not live: sharing stopped" (link removed or expired; screen goes black). |
+| D16 | Status pill states: green "Live: Following host"; amber "Not live: Lost connection" (the presenter's own connection is down; last lyrics stay); neutral "Not live: sharing stopped" (link removed or expired; screen goes black). |
 | D17 | Song and section changes crossfade in about 0.3 s; instant under `prefers-reduced-motion`. No setting. |
 | D18 | Dropped from v1: the host's page does not show what is on screen. |
 | D19 | The presenter's own status pill uses `liveTone.ts` colours (emerald live, amber lost connection, neutral ended). |
