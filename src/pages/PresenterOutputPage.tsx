@@ -49,7 +49,7 @@ export default function PresenterOutputPage() {
 
   useEffect(() => {
     const previousTitle = document.title
-    document.title = 'Presenter output'
+    document.title = 'Presenter Screen'
     return () => {
       document.title = previousTitle
     }

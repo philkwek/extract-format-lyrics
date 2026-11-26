@@ -178,7 +178,6 @@ function describeLinkChanges({
 }
 
 export default function SessionPage() {
-  useSeo({ title: 'Session | Sets & Sheets', noindex: true })
   const { sessionId } = useParams<{ sessionId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -204,6 +203,11 @@ export default function SessionPage() {
   const [removalError, setRemovalError] = useState<Removal | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
+  const setName = session?.name?.trim()
+  useSeo({
+    title: setName ? `Session · ${setName}` : 'Session · Sets & Sheets',
+    noindex: true,
+  })
   const hasSession = Boolean(session)
   useWakeLock(hasSession)
   const [songsData, setSongsData] = useState<Map<string, Song>>(new Map())

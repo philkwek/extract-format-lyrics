@@ -14,7 +14,6 @@ import { subscribeSharedLyrics } from '../lib/lyricsLive'
 import { useSeo } from '../lib/useSeo'
 
 export default function LyricsViewerPage() {
-  useSeo({ title: 'Shared Lyrics | Sets & Sheets', noindex: true })
   const { shortId } = useParams<{ shortId?: string }>()
   const navigate = useNavigate()
 
@@ -24,6 +23,11 @@ export default function LyricsViewerPage() {
     'loading',
   )
   const [lyricsData, setLyricsData] = useState<GetSharedLyricsResult | null>(null)
+  const setName = lyricsData?.lyrics.name?.trim()
+  useSeo({
+    title: setName ? `Shared Lyrics · ${setName}` : 'Shared Lyrics · Sets & Sheets',
+    noindex: true,
+  })
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [changeNotice, setChangeNotice] = useState<{
     publicationId: string

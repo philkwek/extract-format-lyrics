@@ -368,4 +368,14 @@ describe('LyricsViewerPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Way Maker' })).toBeTruthy()
     expect(screen.queryByText(/Could not load lyrics/i)).toBeNull()
   })
+
+  it('uses the set name in the page title once loaded', async () => {
+    vi.mocked(api.getSharedLyricsApi).mockResolvedValue(mockLyricsData)
+    renderViewer()
+
+    await waitFor(() => {
+      expect(screen.getByText('Sunday Morning Set')).toBeTruthy()
+    })
+    expect(document.title).toBe('Shared Lyrics · Sunday Morning Set')
+  })
 })
