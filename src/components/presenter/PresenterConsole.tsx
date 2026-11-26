@@ -224,7 +224,7 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[2fr_5fr_3fr] gap-6 p-6">
+      <div className="grid min-h-0 flex-1 grid-cols-[1.5fr_6fr_2.5fr] gap-6 p-6">
         <PresenterSongList
           songs={songs}
           projectedId={projectedSong?.entryId ?? null}
