@@ -26,7 +26,7 @@ export default function PresenterSongList({
         {songs.length === 0 ? (
           <p className="text-ui-text-muted text-xs">No songs in this set yet.</p>
         ) : (
-          songs.map((song, index) => {
+          songs.map((song) => {
             const projected = song.entryId === projectedId
             const hostHere = song.entryId === hostEntryId
             return (
@@ -42,9 +42,6 @@ export default function PresenterSongList({
                     : 'hover:border-ui-border border-transparent',
                 )}
               >
-                <span className="text-ui-text-muted w-4 shrink-0 text-[11px] tabular-nums">
-                  {index + 1}
-                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{song.title}</span>
                   {song.artist && (
@@ -54,7 +51,7 @@ export default function PresenterSongList({
                   )}
                   {isEdited?.(song.entryId) && (
                     <span className="text-ui-text-muted mt-0.5 block truncate text-[10px]">
-                      Edited on this laptop
+                      Edited
                     </span>
                   )}
                 </span>
