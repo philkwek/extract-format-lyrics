@@ -50,6 +50,7 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   const [pendingSongSwitch, setPendingSongSwitch] = useState<string | null>(null)
   const channelRef = useRef<ConsoleChannel | null>(null)
   const editorRef = useRef<PresenterSongEditorHandle | null>(null)
+  const outputWindowRef = useRef<Window | null>(null)
 
   const { edits, saveEdit, resetEdit, isEdited } = usePresenterEdits(id)
   const effectiveLyrics = useMemo(
@@ -211,13 +212,20 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   }, [])
 
   const openOutput = useCallback(() => {
-    window.open(
+    outputWindowRef.current = window.open(
       `/present/${id}/output`,
       `presenter-output-${id}`,
       'popup,width=1280,height=720',
     )
     trackEvent('presenter_output_opened', {})
   }, [id])
+
+  const switchToAuto = () => {
+    // The channel reaches windows left open across a reload; the handle is a backup.
+    channelRef.current?.closeOutput()
+    outputWindowRef.current?.close()
+    onSwitchToAuto()
+  }
 
   const banner =
     feed.status === 'stopped' || feed.status === 'missing'
@@ -232,7 +240,7 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
         <p className="text-base font-bold">
           {effectiveLyrics?.name ? `Presenter Controls · ${effectiveLyrics.name}` : 'Presenter'}
         </p>
-        <Button variant="secondary" onClick={onSwitchToAuto}>
+        <Button variant="secondary" onClick={switchToAuto}>
           Switch to auto follow host
         </Button>
       </header>

@@ -171,6 +171,16 @@ describe('PresenterConsole', () => {
     expect(lastState()).toMatchObject({ sectionIndex: 0, song: { entryId: 'entry-1' } })
   })
 
+  it('asks the output window to close when switching to auto follow', () => {
+    const onSwitchToAuto = vi.fn()
+    render(<PresenterConsole id="pub-1" feed={live()} onSwitchToAuto={onSwitchToAuto} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to auto follow host' }))
+
+    expect(sent).toContainEqual({ type: 'close' })
+    expect(onSwitchToAuto).toHaveBeenCalledTimes(1)
+  })
+
   it('shows a blank section first that sends no section to the output', () => {
     renderConsole()
 

@@ -10,7 +10,7 @@ export interface OutputState {
   blackout: boolean
 }
 
-type ConsoleToOutput = { type: 'state'; state: OutputState } | { type: 'ping' }
+type ConsoleToOutput = { type: 'state'; state: OutputState } | { type: 'ping' } | { type: 'close' }
 type OutputToConsole = { type: 'hello' } | { type: 'bye' }
 
 interface ChannelLike {
@@ -23,6 +23,7 @@ type CreateChannel = (name: string) => ChannelLike | null
 
 export interface ConsoleChannel {
   publish(state: OutputState): void
+  closeOutput(): void
   isOutputOpen(): boolean
   onOutputChange(callback: (open: boolean) => void): () => void
   close(): void
@@ -82,6 +83,10 @@ export function createConsoleChannel(
       const message: ConsoleToOutput = { type: 'state', state }
       channel?.postMessage(message)
     },
+    closeOutput() {
+      const message: ConsoleToOutput = { type: 'close' }
+      channel?.postMessage(message)
+    },
     isOutputOpen: () => open,
     onOutputChange(callback) {
       listeners.add(callback)
@@ -103,6 +108,7 @@ export function createOutputChannel(
   id: string,
   onState: (state: OutputState) => void,
   createChannel: CreateChannel = broadcastChannel,
+  onClose?: () => void,
 ): OutputChannel {
   const channel = createChannel(channelName(id))
   if (!channel) return { close: () => {} }
@@ -116,6 +122,8 @@ export function createOutputChannel(
       onState(message.state as OutputState)
     } else if (message?.type === 'ping') {
       channel.postMessage(hello)
+    } else if (message?.type === 'close') {
+      onClose?.()
     }
   }
 

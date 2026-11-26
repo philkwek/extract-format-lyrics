@@ -41,6 +41,10 @@ class FakeBroadcastChannel {
     FakeBroadcastChannel.instances.push(this)
   }
 
+  emitClose() {
+    this.onmessage?.({ data: { type: 'close' } } as MessageEvent)
+  }
+
   emit(next: OutputState) {
     this.onmessage?.({ data: { type: 'state', state: next } } as MessageEvent)
   }
@@ -89,6 +93,15 @@ describe('PresenterOutputPage', () => {
     expect(FakeBroadcastChannel.instances[0].postMessage).toHaveBeenCalledWith({
       type: 'hello',
     })
+  })
+
+  it('closes its window when the console asks it to', () => {
+    const close = vi.spyOn(window, 'close').mockImplementation(() => {})
+    renderPage()
+
+    act(() => FakeBroadcastChannel.instances[0].emitClose())
+
+    expect(close).toHaveBeenCalledTimes(1)
   })
 
   it('renders the state it receives and applies the display theme', () => {

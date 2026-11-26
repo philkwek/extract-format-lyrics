@@ -20,7 +20,7 @@ export default function PresenterOutputPage() {
   useWakeLock(true)
 
   useEffect(() => {
-    const channel = createOutputChannel(id, setState)
+    const channel = createOutputChannel(id, setState, undefined, () => window.close())
     return () => channel.close()
   }, [id])
 

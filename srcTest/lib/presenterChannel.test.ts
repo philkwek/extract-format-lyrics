@@ -70,6 +70,18 @@ describe('presenterChannel', () => {
     consoleChannel.close()
   })
 
+  it('tells the output window to close', () => {
+    const onClose = vi.fn()
+    const consoleChannel = createConsoleChannel('pub-1', () => state, createFake)
+    const output = createOutputChannel('pub-1', () => {}, createFake, onClose)
+
+    consoleChannel.closeOutput()
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    output.close()
+    consoleChannel.close()
+  })
+
   it('finds an output window that was already open when the console reloads', () => {
     const states: OutputState[] = []
     const output = createOutputChannel('pub-1', (next) => states.push(next), createFake)
