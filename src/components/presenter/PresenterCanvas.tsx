@@ -3,12 +3,16 @@ import { useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
 import { partitionSections, type SheetColumns } from '../../lib/songLayout'
 import { toPresenterSections, usePresenterFit } from '../../lib/presenterFit'
+import { BLANK_SECTION } from '../../lib/presenterNavigation'
 import {
   resolveAlign,
   type PresenterDisplay,
   type PresenterView,
 } from '../../lib/presenterSettings'
 import type { SharedLyricsSection, SharedLyricsSong } from '../../types/song'
+
+const FADE_MS = 300
+const BLACKOUT_FADE_MS = 600
 
 interface PresenterCanvasProps {
   song: SharedLyricsSong | null
@@ -68,24 +72,36 @@ export default function PresenterCanvas({
   const [shownSong, setShownSong] = useState<SharedLyricsSong | null>(song)
   const [shownSectionIndex, setShownSectionIndex] = useState<number | null>(sectionIndex)
   const [visible, setVisible] = useState(true)
+  const [lyricsVisible, setLyricsVisible] = useState(true)
 
   const sameSong = Boolean(song && shownSong && song.entryId === shownSong.entryId)
   const displayedSong = sameSong ? song : shownSong
-  const displayedSectionIndex = sameSong ? sectionIndex : shownSectionIndex
+  // Going into or out of the blank section keeps the old section until the lyrics fade out.
+  const blankChanging =
+    sameSong && (sectionIndex === BLANK_SECTION) !== (shownSectionIndex === BLANK_SECTION)
+  const displayedSectionIndex = sameSong && !blankChanging ? sectionIndex : shownSectionIndex
 
   useEffect(() => {
     const show = () => {
       setShownSong(song)
       setShownSectionIndex(sectionIndex)
       setVisible(true)
+      setLyricsVisible(true)
     }
-    // A different song fades out, swaps, and fades back in; anything else updates in place.
-    const crossFade = !sameSong && song && shownSong && !reduceMotion
-    const timers = crossFade
-      ? [window.setTimeout(() => setVisible(false), 0), window.setTimeout(show, 150)]
-      : [window.setTimeout(show, 0)]
+    // A different song fades everything; the blank section fades only the lyrics; the rest is instant.
+    const fade = (hide: () => void) => [
+      window.setTimeout(hide, 0),
+      window.setTimeout(show, FADE_MS),
+    ]
+    const canFade = Boolean(song && shownSong) && !reduceMotion
+    const timers =
+      canFade && !sameSong
+        ? fade(() => setVisible(false))
+        : canFade && blankChanging
+          ? fade(() => setLyricsVisible(false))
+          : [window.setTimeout(show, 0)]
     return () => timers.forEach((timer) => window.clearTimeout(timer))
-  }, [sameSong, song, sectionIndex, shownSong, reduceMotion])
+  }, [sameSong, blankChanging, song, sectionIndex, shownSong, reduceMotion])
 
   const sectionsView = view === 'sections'
   const maxFontPx = Math.round((heightPx * (sectionsView ? 72 : 56)) / 1080)
@@ -106,10 +122,13 @@ export default function PresenterCanvas({
   }
 
   const sheetColumns = Math.min(3, Math.max(1, columns)) as SheetColumns
-  const sectionColumns = displayedSong
-    ? partitionSections(toPresenterSections(displayedSong), sheetColumns)
-    : []
-  const activeSection = displayedSong ? sectionAt(displayedSong, displayedSectionIndex) : null
+  const blank = displayedSectionIndex === BLANK_SECTION
+  const sectionColumns =
+    displayedSong && !blank
+      ? partitionSections(toPresenterSections(displayedSong), sheetColumns)
+      : []
+  const activeSection =
+    displayedSong && !blank ? sectionAt(displayedSong, displayedSectionIndex) : null
   const align = resolveAlign(display, view)
   const isDark = display.theme === 'dark'
   const centerSection = sectionsView && display.sectionPosition !== 'top'
@@ -125,7 +144,7 @@ export default function PresenterCanvas({
       <div
         style={{
           opacity: visible ? 1 : 0,
-          transition: reduceMotion ? 'none' : 'opacity 150ms ease',
+          transition: reduceMotion ? 'none' : `opacity ${FADE_MS}ms ease`,
         }}
       >
         <div
@@ -137,6 +156,8 @@ export default function PresenterCanvas({
         <div
           className="absolute"
           style={{
+            opacity: lyricsVisible ? 1 : 0,
+            transition: reduceMotion ? 'none' : `opacity ${FADE_MS}ms ease`,
             top: '10.4%',
             left: '4.2%',
             right: '4.2%',
@@ -197,7 +218,7 @@ export default function PresenterCanvas({
         aria-hidden="true"
         style={{
           opacity: blackout ? 1 : 0,
-          transition: reduceMotion ? 'none' : 'opacity 300ms ease',
+          transition: reduceMotion ? 'none' : `opacity ${BLACKOUT_FADE_MS}ms ease`,
         }}
       />
     </div>

@@ -5,9 +5,9 @@ import {
   type ConsoleChannel,
   type OutputState,
 } from '../../lib/presenterChannel'
-import { stepPresenter } from '../../lib/presenterNavigation'
+import { BLANK_SECTION, stepPresenter } from '../../lib/presenterNavigation'
 import { applyPresenterEdits, isSectionEdited, usePresenterEdits } from '../../lib/presenterEdits'
-import { usePresenterDisplay } from '../../lib/presenterSettings'
+import { usePresenterDisplay, type PresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedState } from '../../lib/usePresenterFeed'
 import type { SharedLyricsSection } from '../../types/song'
 import { Button, StatusBanner } from '../ui'
@@ -28,6 +28,7 @@ function reconcileSectionIndex(
   previousIndex: number,
   nextSections: SharedLyricsSection[],
 ): number {
+  if (previousIndex === BLANK_SECTION) return BLANK_SECTION
   if (nextSections.length === 0) return 0
   const clamped = Math.min(Math.max(previousIndex, 0), nextSections.length - 1)
   const active = previousSections[previousIndex]
@@ -66,7 +67,11 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   const sectionCount = projectedSong?.sections.length ?? 0
   const baseSectionIndex = missingSelection ? 0 : sectionIndex
   const effectiveSectionIndex =
-    sectionCount === 0 ? 0 : Math.min(Math.max(baseSectionIndex, 0), sectionCount - 1)
+    baseSectionIndex === BLANK_SECTION
+      ? BLANK_SECTION
+      : sectionCount === 0
+        ? 0
+        : Math.min(Math.max(baseSectionIndex, 0), sectionCount - 1)
 
   const editingHostSong = editingEntryId
     ? feed.lyrics?.songs.find((song) => song.entryId === editingEntryId)
@@ -152,10 +157,24 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [move, isEditing])
 
-  const projectSong = useCallback((entryId: string) => {
-    setProjectedId(entryId)
-    setSectionIndex(0)
-  }, [])
+  const projectSong = useCallback(
+    (entryId: string) => {
+      setProjectedId(entryId)
+      setSectionIndex(display.lyricsView === 'sections' ? BLANK_SECTION : 0)
+    },
+    [display.lyricsView],
+  )
+
+  const handlePatchDisplay = useCallback(
+    (patch: Partial<PresenterDisplay>) => {
+      // The whole song has no blank section, so leave it when switching to whole view.
+      if (patch.lyricsView === 'whole' && effectiveSectionIndex === BLANK_SECTION) {
+        setSectionIndex(0)
+      }
+      patchDisplay(patch)
+    },
+    [effectiveSectionIndex, patchDisplay],
+  )
 
   const handleSelectSong = useCallback(
     (entryId: string) => {
@@ -268,7 +287,6 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
             song={projectedSong}
             view={display.lyricsView}
             sectionIndex={effectiveSectionIndex}
-            onProjectSong={projectSong}
             onProjectSection={projectSection}
             onEdit={() => projectedSong && setEditingEntryId(projectedSong.entryId)}
           />
@@ -277,7 +295,7 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
           song={projectedSong}
           sectionIndex={effectiveSectionIndex}
           display={display}
-          onPatchDisplay={patchDisplay}
+          onPatchDisplay={handlePatchDisplay}
           blackout={blackout}
           onToggleBlackout={() => setBlackout((value) => !value)}
           outputOpen={outputOpen}

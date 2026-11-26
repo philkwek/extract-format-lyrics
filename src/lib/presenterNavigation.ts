@@ -1,6 +1,9 @@
 import type { SharedLyricsSong } from '../types/song'
 import type { PresenterView } from './presenterSettings'
 
+/** Every song starts with a blank section: no lyrics on screen, the title stays. */
+export const BLANK_SECTION = -1
+
 export interface PresenterPosition {
   entryId: string | null
   sectionIndex: number
@@ -8,7 +11,7 @@ export interface PresenterPosition {
 
 /**
  * Moves through the set for the arrow keys and clicker buttons. Sections view walks
- * every section and wraps onto the next or previous song; whole view moves by song.
+ * the blank section and every section, and wraps onto the next or previous song; whole view moves by song.
  */
 export function stepPresenter(
   songs: SharedLyricsSong[],
@@ -27,10 +30,10 @@ export function stepPresenter(
     return { entryId: songs[nextSongIndex].entryId, sectionIndex: 0 }
   }
 
-  const lastSection = Math.max(0, song.sections.length - 1)
-  const currentSection = Math.min(lastSection, Math.max(0, position.sectionIndex))
+  const lastSection = song.sections.length - 1
+  const currentSection = Math.min(lastSection, Math.max(BLANK_SECTION, position.sectionIndex))
   const nextSection = currentSection + direction
-  if (nextSection >= 0 && nextSection <= lastSection) {
+  if (nextSection >= BLANK_SECTION && nextSection <= lastSection) {
     return { entryId: song.entryId, sectionIndex: nextSection }
   }
 
@@ -41,6 +44,6 @@ export function stepPresenter(
   const nextSong = songs[nextSongIndex]
   return {
     entryId: nextSong.entryId,
-    sectionIndex: direction === 1 ? 0 : Math.max(0, nextSong.sections.length - 1),
+    sectionIndex: direction === 1 ? BLANK_SECTION : nextSong.sections.length - 1,
   }
 }

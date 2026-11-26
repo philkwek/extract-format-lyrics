@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stepPresenter } from '../../src/lib/presenterNavigation'
+import { BLANK_SECTION, stepPresenter } from '../../src/lib/presenterNavigation'
 import type { SharedLyricsSong } from '../../src/types/song'
 
 const songs: SharedLyricsSong[] = [
@@ -34,22 +34,31 @@ describe('stepPresenter', () => {
     })
   })
 
-  it('wraps from the last section to the next song and back again', () => {
+  it('starts every song on the blank section and wraps between songs', () => {
     expect(stepPresenter(songs, { entryId: 'one', sectionIndex: 1 }, 'sections', 1)).toEqual({
       entryId: 'two',
-      sectionIndex: 0,
+      sectionIndex: BLANK_SECTION,
     })
     expect(stepPresenter(songs, { entryId: 'two', sectionIndex: 0 }, 'sections', -1)).toEqual({
-      entryId: 'one',
-      sectionIndex: 1,
+      entryId: 'two',
+      sectionIndex: BLANK_SECTION,
     })
+    expect(
+      stepPresenter(songs, { entryId: 'two', sectionIndex: BLANK_SECTION }, 'sections', 1),
+    ).toEqual({ entryId: 'two', sectionIndex: 0 })
+    expect(
+      stepPresenter(songs, { entryId: 'two', sectionIndex: BLANK_SECTION }, 'sections', -1),
+    ).toEqual({ entryId: 'one', sectionIndex: 1 })
   })
 
-  it('stops at the first and last section of the set', () => {
+  it('stops at the blank section of the first song and the last section of the set', () => {
     expect(stepPresenter(songs, { entryId: 'one', sectionIndex: 0 }, 'sections', -1)).toEqual({
       entryId: 'one',
-      sectionIndex: 0,
+      sectionIndex: BLANK_SECTION,
     })
+    expect(
+      stepPresenter(songs, { entryId: 'one', sectionIndex: BLANK_SECTION }, 'sections', -1),
+    ).toEqual({ entryId: 'one', sectionIndex: BLANK_SECTION })
     expect(stepPresenter(songs, { entryId: 'two', sectionIndex: 2 }, 'sections', 1)).toEqual({
       entryId: 'two',
       sectionIndex: 2,
@@ -78,7 +87,7 @@ describe('stepPresenter', () => {
   it('clamps a stale section index before moving', () => {
     expect(stepPresenter(songs, { entryId: 'one', sectionIndex: 9 }, 'sections', 1)).toEqual({
       entryId: 'two',
-      sectionIndex: 0,
+      sectionIndex: BLANK_SECTION,
     })
     expect(stepPresenter(songs, { entryId: 'one', sectionIndex: 9 }, 'sections', -1)).toEqual({
       entryId: 'one',

@@ -96,7 +96,7 @@ export default function PresenterCorner({
       className={classes(
         'fixed right-8 bottom-8 z-50 flex flex-col items-end gap-2',
         visible ? 'opacity-100' : 'pointer-events-none opacity-0',
-        reduceMotion ? '' : 'transition-opacity duration-200',
+        reduceMotion ? '' : 'transition-opacity duration-400',
       )}
       onFocus={show}
       onBlur={(event) => {

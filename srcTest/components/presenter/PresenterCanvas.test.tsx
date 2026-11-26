@@ -44,7 +44,7 @@ describe('PresenterCanvas blackout', () => {
 
     expect(screen.getByText('A demo line')).toBeTruthy()
     expect(blackoutLayer(container).style.opacity).toBe('1')
-    expect(blackoutLayer(container).style.transition).toBe('opacity 300ms ease')
+    expect(blackoutLayer(container).style.transition).toBe('opacity 600ms ease')
   })
 
   it('shows the lyrics with the black layer hidden when blackout is off', () => {
@@ -61,6 +61,26 @@ describe('PresenterCanvas blackout', () => {
 
     expect(screen.getByText('A demo line')).toBeTruthy()
     expect(blackoutLayer(container).style.opacity).toBe('0')
+  })
+
+  it('shows the title but no lyrics on the blank section in both views', () => {
+    for (const view of ['whole', 'sections'] as const) {
+      const { unmount } = render(
+        <PresenterCanvas
+          song={song}
+          display={{ ...display, lyricsView: view }}
+          view={view}
+          sectionIndex={-1}
+          blackout={false}
+          heightPx={1080}
+        />,
+      )
+
+      expect(screen.getByText('Demo Song')).toBeTruthy()
+      expect(screen.queryByText('A demo line')).toBeNull()
+      expect(screen.queryByText('Verse 1')).toBeNull()
+      unmount()
+    }
   })
 
   it('aligns whole-song columns to the top regardless of sectionPosition', () => {
@@ -106,7 +126,8 @@ describe('PresenterCanvas blackout', () => {
     )
 
     const frame = () =>
-      container.querySelector('[data-presenter-content]')?.parentElement?.parentElement as HTMLElement
+      container.querySelector('[data-presenter-content]')?.parentElement
+        ?.parentElement as HTMLElement
     expect(frame().style.top).toBe('10.4%')
     expect(frame().style.bottom).toBe('10.4%')
 
@@ -187,6 +208,44 @@ describe('PresenterCanvas blackout', () => {
     expect(fadeWrapper.style.opacity).toBe('1')
   })
 
+  it('fades only the lyrics when moving into and out of the blank section', () => {
+    vi.useFakeTimers()
+    const props = { display, view: 'sections' as const, blackout: false, heightPx: 1080 }
+    const { container, rerender } = render(
+      <PresenterCanvas {...props} song={song} sectionIndex={0} />,
+    )
+    const fadeWrapper = container.firstElementChild?.firstElementChild as HTMLElement
+    const lyricsFrame = container.querySelector('[style*="top: 10.4%"]') as HTMLElement
+
+    rerender(<PresenterCanvas {...props} song={song} sectionIndex={-1} />)
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(lyricsFrame.style.opacity).toBe('0')
+    expect(fadeWrapper.style.opacity).toBe('1')
+    expect(screen.getByText('A demo line')).toBeTruthy()
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(lyricsFrame.style.opacity).toBe('1')
+    expect(screen.getByText('Demo Song')).toBeTruthy()
+    expect(screen.queryByText('A demo line')).toBeNull()
+
+    rerender(<PresenterCanvas {...props} song={song} sectionIndex={0} />)
+    act(() => {
+      vi.advanceTimersByTime(0)
+    })
+    expect(lyricsFrame.style.opacity).toBe('0')
+    expect(screen.queryByText('A demo line')).toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(lyricsFrame.style.opacity).toBe('1')
+    expect(screen.getByText('A demo line')).toBeTruthy()
+  })
+
   it('fades out and back in when switching to a different song', () => {
     vi.useFakeTimers()
     const secondSong: SharedLyricsSong = {
@@ -227,7 +286,7 @@ describe('PresenterCanvas blackout', () => {
     expect(screen.getByText('Demo Song')).toBeTruthy()
 
     act(() => {
-      vi.advanceTimersByTime(150)
+      vi.advanceTimersByTime(300)
     })
     expect(fadeWrapper.style.opacity).toBe('1')
     expect(screen.getByText('Next Song')).toBeTruthy()

@@ -154,10 +154,58 @@ describe('PresenterConsole', () => {
     expect(lastState()).toMatchObject({ sectionIndex: 1, song: { entryId: 'entry-1' } })
 
     fireEvent.keyDown(window, { key: ' ' })
-    expect(lastState()).toMatchObject({ sectionIndex: 0, song: { entryId: 'entry-2' } })
+    expect(lastState()).toMatchObject({ sectionIndex: -1, song: { entryId: 'entry-2' } })
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' })
     expect(lastState()).toMatchObject({ sectionIndex: 1, song: { entryId: 'entry-1' } })
+  })
+
+  it('starts a newly chosen song on the blank section in sections view only', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: /Second Song/ }))
+    expect(lastState()).toMatchObject({ sectionIndex: -1, song: { entryId: 'entry-2' } })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Whole song' }))
+    fireEvent.click(screen.getByRole('button', { name: /First Song/ }))
+    expect(lastState()).toMatchObject({ sectionIndex: 0, song: { entryId: 'entry-1' } })
+  })
+
+  it('shows a blank section first that sends no section to the output', () => {
+    renderConsole()
+
+    const blank = screen.getByRole('button', { name: /Blank/ })
+    expect(blank.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(blank)
+
+    expect(blank.getAttribute('aria-pressed')).toBe('true')
+    expect(lastState()).toMatchObject({ sectionIndex: -1, song: { entryId: 'entry-1' } })
+  })
+
+  it('leaves the blank section when switching to whole song', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: /Blank/ }))
+    expect(lastState()).toMatchObject({ view: 'sections', sectionIndex: -1 })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Whole song' }))
+
+    expect(lastState()).toMatchObject({ view: 'whole', sectionIndex: 0 })
+  })
+
+  it('covers the section cards in whole song view', () => {
+    renderConsole()
+    expect(screen.queryByText('Displaying whole song')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Whole song' }))
+
+    expect(screen.getByText('Displaying whole song')).toBeTruthy()
+    const cards = screen.getAllByRole('button', { name: /^(Blank|Verse 1|Chorus)/ })
+    expect(cards).toHaveLength(3)
+    expect(cards.every((card) => (card as HTMLButtonElement).disabled)).toBe(true)
+
+    fireEvent.click(cards[2])
+    expect(lastState()).toMatchObject({ view: 'whole', sectionIndex: 0 })
   })
 
   it('switches whole view and hides section positioning', () => {
