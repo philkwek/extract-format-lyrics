@@ -43,7 +43,9 @@ function reconcileSectionIndex(
 export default function PresenterConsole({ id, feed, onSwitchToAuto }: PresenterConsoleProps) {
   const [display, patchDisplay] = usePresenterDisplay()
   const [projectedId, setProjectedId] = useState<string | null>(null)
-  const [sectionIndex, setSectionIndex] = useState(0)
+  const [sectionIndex, setSectionIndex] = useState(() =>
+    display.lyricsView === 'sections' ? BLANK_SECTION : 0,
+  )
   const [blackout, setBlackout] = useState(false)
   const [outputOpen, setOutputOpen] = useState(false)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
@@ -66,7 +68,11 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   const projectedSong = selectedSong ?? fallbackSong ?? null
   const missingSelection = projectedId !== null && !selectedSong
   const sectionCount = projectedSong?.sections.length ?? 0
-  const baseSectionIndex = missingSelection ? 0 : sectionIndex
+  const baseSectionIndex = missingSelection
+    ? display.lyricsView === 'sections'
+      ? BLANK_SECTION
+      : 0
+    : sectionIndex
   const effectiveSectionIndex =
     baseSectionIndex === BLANK_SECTION
       ? BLANK_SECTION

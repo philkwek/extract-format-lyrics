@@ -125,11 +125,22 @@ describe('PresenterConsole', () => {
     )
   })
 
-  it('starts on the host song and first section', () => {
+  it('starts on the host song and blank section in sections view', () => {
     renderConsole(live('entry-2'))
 
     expect(lastState()).toMatchObject({
       view: 'sections',
+      sectionIndex: -1,
+      song: { entryId: 'entry-2' },
+    })
+  })
+
+  it('starts on the first section when whole song view is saved', () => {
+    localStorage.setItem('presenter.display', JSON.stringify({ lyricsView: 'whole' }))
+    renderConsole(live('entry-2'))
+
+    expect(lastState()).toMatchObject({
+      view: 'whole',
       sectionIndex: 0,
       song: { entryId: 'entry-2' },
     })
@@ -151,6 +162,9 @@ describe('PresenterConsole', () => {
     renderConsole()
 
     fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(lastState()).toMatchObject({ sectionIndex: 0, song: { entryId: 'entry-1' } })
+
+    fireEvent.keyDown(window, { key: ' ' })
     expect(lastState()).toMatchObject({ sectionIndex: 1, song: { entryId: 'entry-1' } })
 
     fireEvent.keyDown(window, { key: ' ' })
@@ -185,9 +199,13 @@ describe('PresenterConsole', () => {
     renderConsole()
 
     const blank = screen.getByRole('button', { name: /Blank/ })
-    expect(blank.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(blank)
+    expect(blank.getAttribute('aria-pressed')).toBe('true')
+    expect(lastState()).toMatchObject({ sectionIndex: -1, song: { entryId: 'entry-1' } })
 
+    fireEvent.click(screen.getByRole('button', { name: /Verse 1/ }))
+    expect(blank.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(blank)
     expect(blank.getAttribute('aria-pressed')).toBe('true')
     expect(lastState()).toMatchObject({ sectionIndex: -1, song: { entryId: 'entry-1' } })
   })
@@ -321,7 +339,7 @@ describe('PresenterConsole', () => {
 
     expect(lastState()).toMatchObject({
       song: { entryId: 'entry-1' },
-      sectionIndex: 0,
+      sectionIndex: -1,
       blackout: false,
     })
   })
