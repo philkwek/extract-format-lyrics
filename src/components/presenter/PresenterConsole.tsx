@@ -10,9 +10,10 @@ import { applyPresenterEdits, usePresenterEdits } from '../../lib/presenterEdits
 import { usePresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedState } from '../../lib/usePresenterFeed'
 import { Button, StatusBanner } from '../ui'
+import OverlayDialog from '../ui/OverlayDialog'
 import PresenterDisplayPanel from './PresenterDisplayPanel'
 import PresenterSections from './PresenterSections'
-import PresenterSongEditor from './PresenterSongEditor'
+import PresenterSongEditor, { type PresenterSongEditorHandle } from './PresenterSongEditor'
 import PresenterSongList from './PresenterSongList'
 
 interface PresenterConsoleProps {
@@ -28,7 +29,9 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   const [blackout, setBlackout] = useState(false)
   const [outputOpen, setOutputOpen] = useState(false)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [pendingSongSwitch, setPendingSongSwitch] = useState<string | null>(null)
   const channelRef = useRef<ConsoleChannel | null>(null)
+  const editorRef = useRef<PresenterSongEditorHandle | null>(null)
 
   const { edits, saveEdit, resetEdit, isEdited } = usePresenterEdits(id)
   const effectiveLyrics = useMemo(
@@ -137,6 +140,35 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
     setSectionIndex(0)
   }, [])
 
+  const handleSelectSong = useCallback(
+    (entryId: string) => {
+      if (isEditing && entryId !== editingEntryId) {
+        setPendingSongSwitch(entryId)
+        return
+      }
+      projectSong(entryId)
+    },
+    [isEditing, editingEntryId, projectSong],
+  )
+
+  const confirmSaveAndSwitch = useCallback(() => {
+    if (!pendingSongSwitch || !editingHostSong) {
+      setPendingSongSwitch(null)
+      return
+    }
+    const sections = editorRef.current?.getSections()
+    if (sections) {
+      saveEdit(editingHostSong.entryId, sections, editingHostSong.sections)
+    }
+    setEditingEntryId(null)
+    projectSong(pendingSongSwitch)
+    setPendingSongSwitch(null)
+  }, [pendingSongSwitch, editingHostSong, saveEdit, projectSong])
+
+  const pendingSwitchSong = pendingSongSwitch
+    ? songs.find((song) => song.entryId === pendingSongSwitch)
+    : undefined
+
   const projectSection = useCallback((entryId: string, index: number) => {
     setProjectedId(entryId)
     setSectionIndex(index)
@@ -181,11 +213,12 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
           projectedId={projectedSong?.entryId ?? null}
           hostEntryId={feed.currentEntryId}
           isEdited={isEdited}
-          onProject={projectSong}
+          onProject={handleSelectSong}
         />
         {editingHostSong && editingCurrentSong ? (
           <PresenterSongEditor
             key={editingHostSong.entryId}
+            editorRef={editorRef}
             hostSong={editingHostSong}
             currentSong={editingCurrentSong}
             hasSavedEdit={isEdited(editingHostSong.entryId)}
@@ -220,6 +253,28 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
           onOpenOutput={openOutput}
         />
       </div>
+
+      <OverlayDialog
+        isOpen={pendingSongSwitch !== null && Boolean(editingHostSong)}
+        onClose={() => setPendingSongSwitch(null)}
+        title="Save changes before switching?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingSongSwitch(null)}>
+              Continue editing
+            </Button>
+            <Button variant="primary" onClick={confirmSaveAndSwitch}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <p className="text-ui-text text-sm">
+          You&apos;re editing &ldquo;{editingHostSong?.title}&rdquo;. Save your changes and switch
+          to &ldquo;{pendingSwitchSong?.title ?? 'another song'}&rdquo;, or continue editing?
+        </p>
+      </OverlayDialog>
     </div>
   )
 }

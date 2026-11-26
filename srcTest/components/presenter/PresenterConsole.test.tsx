@@ -249,7 +249,7 @@ describe('PresenterConsole', () => {
     expect(screen.queryByText('Edited on this laptop')).toBeNull()
   })
 
-  it('disables keyboard shortcuts while editing and keeps editor on its song when another song is projected', () => {
+  it('disables keyboard shortcuts while editing', () => {
     renderConsole()
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
@@ -266,10 +266,44 @@ describe('PresenterConsole', () => {
       sectionIndex: 0,
       blackout: false,
     })
+  })
+
+  it('prompts to save changes or continue editing when switching songs while editing', async () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    const lyricsBoxes = screen.getAllByLabelText('Lyrics') as HTMLTextAreaElement[]
+    fireEvent.change(lyricsBoxes[0], { target: { value: 'Unsaved local line' } })
 
     fireEvent.click(screen.getByRole('button', { name: /Second Song/ }))
-    expect(lastState().song?.entryId).toBe('entry-2')
+    expect(screen.getByText('Save changes before switching?')).toBeTruthy()
+    expect(lastState().song?.entryId).toBe('entry-1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }))
+    await waitFor(() => {
+      expect(screen.queryByText('Save changes before switching?')).toBeNull()
+    })
     expect(screen.getByText('Editing: First Song')).toBeTruthy()
+    expect((screen.getAllByLabelText('Lyrics')[0] as HTMLTextAreaElement).value).toBe(
+      'Unsaved local line',
+    )
+    expect(lastState().song?.entryId).toBe('entry-1')
+
+    fireEvent.click(screen.getByRole('button', { name: /Second Song/ }))
+    const saveButtons = screen.getAllByRole('button', { name: 'Save changes' })
+    fireEvent.click(saveButtons[saveButtons.length - 1])
+
+    await waitFor(() => {
+      expect(screen.queryByText('Save changes before switching?')).toBeNull()
+    })
+    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(lastState().song?.entryId).toBe('entry-2')
+
+    fireEvent.click(screen.getByRole('button', { name: /First Song/ }))
+    expect(lastState().song?.sections[0]).toEqual({
+      label: 'Verse 1',
+      lines: ['Unsaved local line'],
+    })
   })
 
   it('confirms section deletion, cancels cleanly, and restores via Undo', async () => {

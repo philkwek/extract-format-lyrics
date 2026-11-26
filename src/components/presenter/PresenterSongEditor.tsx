@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useImperativeHandle, useMemo, useState, type Ref } from 'react'
 import { GripVertical, X } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
@@ -9,10 +9,15 @@ import ChangeToast, { type ChangeNote } from '../share/ChangeToast'
 import { Button, IconButton } from '../ui'
 import OverlayDialog from '../ui/OverlayDialog'
 
+export interface PresenterSongEditorHandle {
+  getSections: () => SharedLyricsSection[]
+}
+
 interface PresenterSongEditorProps {
   hostSong: SharedLyricsSong
   currentSong: SharedLyricsSong
   hasSavedEdit: boolean
+  editorRef?: Ref<PresenterSongEditorHandle>
   onCancel: () => void
   onSave: (sections: SharedLyricsSection[]) => void
   onReset: () => void
@@ -28,6 +33,7 @@ export default function PresenterSongEditor({
   hostSong,
   currentSong,
   hasSavedEdit,
+  editorRef,
   onCancel,
   onSave,
   onReset,
@@ -91,12 +97,19 @@ export default function PresenterSongEditor({
     })
   }
 
+  const buildSections = useCallback(
+    (): SharedLyricsSection[] =>
+      visibleDrafts.map((draft) => ({
+        label: draft.label,
+        lines: parseEditedLyricsText(draft.text),
+      })),
+    [visibleDrafts],
+  )
+
+  useImperativeHandle(editorRef, () => ({ getSections: buildSections }), [buildSections])
+
   const handleSave = () => {
-    const sections: SharedLyricsSection[] = visibleDrafts.map((draft) => ({
-      label: draft.label,
-      lines: parseEditedLyricsText(draft.text),
-    }))
-    onSave(sections)
+    onSave(buildSections())
   }
 
   return (
