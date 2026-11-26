@@ -235,7 +235,7 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
                 Updates when you change songs. Stops if your device sleeps or goes offline.
               </p>
             </div>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+            <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
               <Button
                 variant="secondary"
                 icon={presenterCopied ? <Check size={15} /> : <Copy size={15} />}

@@ -47,7 +47,7 @@ export default function PresenterSongEditor({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-4">
         <h2 className="min-w-0 truncate text-[28px] leading-tight font-bold">
           Editing: {hostSong.title}
@@ -89,13 +89,16 @@ export default function PresenterSongEditor({
             <div
               key={index}
               className={classes(
-                'flex flex-col gap-3 rounded-2xl border-2 p-4',
+                'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4',
                 sectionTone(draft.label),
                 changed && 'border-ui-accent dark:border-ui-accent',
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <label htmlFor={titleId} className="text-ui-text-muted text-xs font-semibold">
+                <label
+                  htmlFor={titleId}
+                  className="text-ui-text-muted text-xs font-semibold whitespace-nowrap"
+                >
                   Section title
                 </label>
                 {changed && (
@@ -109,7 +112,7 @@ export default function PresenterSongEditor({
                 type="text"
                 value={draft.label}
                 onChange={(event) => updateDraft(index, { label: event.target.value })}
-                className="bg-ui-surface text-ui-text border-ui-border rounded-lg border px-3 py-1.5 text-sm font-semibold"
+                className="bg-ui-surface text-ui-text border-ui-border w-full min-w-0 rounded-lg border px-3 py-1.5 text-sm font-semibold"
               />
 
               <label htmlFor={lyricsId} className="text-ui-text-muted text-xs font-semibold">
