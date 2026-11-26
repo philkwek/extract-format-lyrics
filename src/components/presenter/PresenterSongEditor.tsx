@@ -49,7 +49,7 @@ export default function PresenterSongEditor({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="min-w-0 truncate text-[28px] leading-tight font-bold">
+        <h2 className="min-w-0 truncate text-2xl leading-tight font-bold">
           Editing: {hostSong.title}
         </h2>
         <div className="flex shrink-0 items-center gap-2">
@@ -62,7 +62,7 @@ export default function PresenterSongEditor({
         </div>
       </div>
 
-      <div className="bg-ui-surface border-ui-border mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
+      <div className="bg-ui-surface border-ui-border mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs">
         <p className="text-ui-text-muted">
           These changes are saved on this laptop only and change what the projector shows. The
           host&apos;s set stays the same.
@@ -97,12 +97,12 @@ export default function PresenterSongEditor({
               <div className="flex items-center justify-between gap-2">
                 <label
                   htmlFor={titleId}
-                  className="text-ui-text-muted text-xs font-semibold whitespace-nowrap"
+                  className="text-ui-text-muted text-[11px] font-semibold whitespace-nowrap"
                 >
                   Section title
                 </label>
                 {changed && (
-                  <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[11px] font-semibold">
+                  <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                     Edited
                   </span>
                 )}
@@ -112,10 +112,10 @@ export default function PresenterSongEditor({
                 type="text"
                 value={draft.label}
                 onChange={(event) => updateDraft(index, { label: event.target.value })}
-                className="bg-ui-surface text-ui-text border-ui-border w-full min-w-0 rounded-lg border px-3 py-1.5 text-sm font-semibold"
+                className="bg-ui-surface text-ui-text border-ui-border w-full min-w-0 rounded-lg border px-3 py-1.5 text-xs font-semibold"
               />
 
-              <label htmlFor={lyricsId} className="text-ui-text-muted text-xs font-semibold">
+              <label htmlFor={lyricsId} className="text-ui-text-muted text-[11px] font-semibold">
                 Lyrics
               </label>
               <textarea
@@ -123,7 +123,7 @@ export default function PresenterSongEditor({
                 rows={6}
                 value={draft.text}
                 onChange={(event) => updateDraft(index, { text: event.target.value })}
-                className="bg-ui-surface text-ui-text border-ui-border w-full resize-y rounded-lg border p-3 text-base leading-6"
+                className="bg-ui-surface text-ui-text border-ui-border w-full resize-y rounded-lg border p-3 text-sm leading-5"
               />
             </div>
           )

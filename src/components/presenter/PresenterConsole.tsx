@@ -161,7 +161,7 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
   return (
     <div className="bg-ui-canvas text-ui-text flex h-screen w-screen flex-col">
       <header className="border-ui-border flex h-[72px] shrink-0 items-center justify-between border-b px-6">
-        <p className="text-[18px] font-bold">
+        <p className="text-base font-bold">
           {effectiveLyrics?.name ? `Presenter · ${effectiveLyrics.name}` : 'Presenter'}
         </p>
         <Button variant="secondary" onClick={onSwitchToAuto}>

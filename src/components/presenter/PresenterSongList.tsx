@@ -19,12 +19,12 @@ export default function PresenterSongList({
 }: PresenterSongListProps) {
   return (
     <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col rounded-2xl border p-5">
-      <h2 className="text-ui-text-muted text-[11px] font-semibold tracking-wider uppercase">
+      <h2 className="text-ui-text-muted text-[10px] font-semibold tracking-wider uppercase">
         Songs in this set
       </h2>
       <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto">
         {songs.length === 0 ? (
-          <p className="text-ui-text-muted text-sm">No songs in this set yet.</p>
+          <p className="text-ui-text-muted text-xs">No songs in this set yet.</p>
         ) : (
           songs.map((song, index) => {
             const projected = song.entryId === projectedId
@@ -42,25 +42,25 @@ export default function PresenterSongList({
                     : 'hover:border-ui-border border-transparent',
                 )}
               >
-                <span className="text-ui-text-muted w-4 shrink-0 text-xs tabular-nums">
+                <span className="text-ui-text-muted w-4 shrink-0 text-[11px] tabular-nums">
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[16px] font-semibold">{song.title}</span>
+                  <span className="block truncate text-sm font-semibold">{song.title}</span>
                   {song.artist && (
-                    <span className="text-ui-text-muted mt-0.5 block truncate text-xs">
+                    <span className="text-ui-text-muted mt-0.5 block truncate text-[11px]">
                       {song.artist}
                     </span>
                   )}
                   {isEdited?.(song.entryId) && (
-                    <span className="text-ui-text-muted mt-0.5 block truncate text-[11px]">
+                    <span className="text-ui-text-muted mt-0.5 block truncate text-[10px]">
                       Edited on this laptop
                     </span>
                   )}
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {hostHere && (
-                    <span className="border-ui-text-muted text-ui-text rounded-full border px-2 py-0.5 text-[11px] font-semibold">
+                    <span className="border-ui-text-muted text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                       Host is here
                     </span>
                   )}

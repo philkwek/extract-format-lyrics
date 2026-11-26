@@ -26,7 +26,7 @@ interface PresenterDisplayPanelProps {
 function DisplayRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-      <span className="text-ui-text-muted text-sm">{label}</span>
+      <span className="text-ui-text-muted text-xs">{label}</span>
       <div className="w-full max-w-[230px] min-w-[170px] flex-1">{children}</div>
     </div>
   )
@@ -47,7 +47,7 @@ export default function PresenterDisplayPanel({
 
   return (
     <aside className="bg-ui-surface border-ui-border flex min-w-0 flex-col overflow-y-auto rounded-2xl border p-6">
-      <h2 className="text-ui-text-muted text-[11px] font-semibold tracking-wider uppercase">
+      <h2 className="text-ui-text-muted text-[10px] font-semibold tracking-wider uppercase">
         On screen
       </h2>
       <div className="mt-3">
@@ -59,7 +59,7 @@ export default function PresenterDisplayPanel({
         />
       </div>
 
-      <h2 className="text-ui-text-muted mt-6 text-[11px] font-semibold tracking-wider uppercase">
+      <h2 className="text-ui-text-muted mt-6 text-[10px] font-semibold tracking-wider uppercase">
         Display
       </h2>
       <div className="mt-3 space-y-3">
@@ -90,7 +90,7 @@ export default function PresenterDisplayPanel({
             >
               <Minus size={16} />
             </IconButton>
-            <span className="w-11 text-center font-mono text-sm tabular-nums">
+            <span className="w-11 text-center font-mono text-xs tabular-nums">
               {display.textScale}%
             </span>
             <IconButton
@@ -165,7 +165,7 @@ export default function PresenterDisplayPanel({
 
       <div className="flex-1" />
 
-      <p className="text-ui-text-muted mt-6 text-sm">
+      <p className="text-ui-text-muted mt-6 text-xs">
         {outputOpen ? 'Output window: open' : 'Output window: not open yet'}
       </p>
       <div className="mt-3 grid grid-cols-1 gap-2 2xl:grid-cols-2">

@@ -17,7 +17,7 @@ interface PresenterSectionsProps {
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="border-ui-border bg-ui-surface-raised text-ui-text rounded-md border px-1.5 py-0.5 font-sans text-[11px] font-medium">
+    <kbd className="border-ui-border bg-ui-surface-raised text-ui-text rounded-md border px-1.5 py-0.5 font-sans text-[10px] font-medium">
       {children}
     </kbd>
   )
@@ -45,7 +45,7 @@ export default function PresenterSections({
   if (!song) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center">
-        <p className="text-ui-text-muted text-sm">Choose a song to show its lyrics.</p>
+        <p className="text-ui-text-muted text-xs">Choose a song to show its lyrics.</p>
       </div>
     )
   }
@@ -54,7 +54,7 @@ export default function PresenterSections({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h2 className="truncate text-[28px] leading-tight font-bold">{song.title}</h2>
+          <h2 className="truncate text-2xl leading-tight font-bold">{song.title}</h2>
           {view === 'whole' && <OnScreenTag />}
         </div>
         <Button
@@ -86,8 +86,8 @@ export default function PresenterSections({
               )}
             >
               {selected && <OnScreenTag className="absolute top-3 right-3" />}
-              <div className="font-bold">{section.label}</div>
-              <div className="text-ui-text mt-2 text-xl leading-[30px]">
+              <div className="text-sm font-bold">{section.label}</div>
+              <div className="text-ui-text mt-2 text-base leading-6">
                 {section.lines.map((line, lineIndex) => (
                   <div key={lineIndex}>{line}</div>
                 ))}
@@ -97,7 +97,7 @@ export default function PresenterSections({
         })}
       </div>
 
-      <div className="text-ui-text-muted mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4 text-xs">
+      <div className="text-ui-text-muted mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-4 text-[11px]">
         <KeyHint keys={['→', 'Space']} label="Next" />
         <KeyHint keys={['←']} label="Previous" />
         <KeyHint keys={['Esc']} label="Fade to black" />
