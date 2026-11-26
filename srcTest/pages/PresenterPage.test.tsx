@@ -206,7 +206,7 @@ describe('PresenterPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch to manual control' }))
 
     expect(localStorage.getItem('presenter.mode')).toBe('manual')
-    expect(screen.getByRole('heading', { name: 'Manual control' })).toBeTruthy()
+    expect(screen.getByText('Presenter · Sunday Morning Set')).toBeTruthy()
     expect(trackEvent).toHaveBeenCalledWith('presenter_mode_switched', { mode: 'manual' })
   })
 

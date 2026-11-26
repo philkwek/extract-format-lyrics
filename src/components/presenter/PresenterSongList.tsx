@@ -1,0 +1,69 @@
+import { classes } from '../../lib/classes'
+import type { SharedLyricsSong } from '../../types/song'
+import { OnScreenTag } from './PresenterTags'
+
+interface PresenterSongListProps {
+  songs: SharedLyricsSong[]
+  projectedId: string | null
+  hostEntryId: string | null
+  onProject: (entryId: string) => void
+}
+
+export default function PresenterSongList({
+  songs,
+  projectedId,
+  hostEntryId,
+  onProject,
+}: PresenterSongListProps) {
+  return (
+    <aside className="bg-ui-surface border-ui-border flex w-[340px] shrink-0 flex-col rounded-2xl border p-5">
+      <h2 className="text-ui-text-muted text-[11px] font-semibold tracking-wider uppercase">
+        Songs in this set
+      </h2>
+      <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto">
+        {songs.length === 0 ? (
+          <p className="text-ui-text-muted text-sm">No songs in this set yet.</p>
+        ) : (
+          songs.map((song, index) => {
+            const projected = song.entryId === projectedId
+            const hostHere = song.entryId === hostEntryId
+            return (
+              <button
+                key={song.entryId}
+                type="button"
+                aria-pressed={projected}
+                onClick={() => onProject(song.entryId)}
+                className={classes(
+                  'flex w-full items-center gap-3 rounded-xl border p-3 text-left transition',
+                  projected
+                    ? 'border-ui-accent bg-ui-surface-raised'
+                    : 'hover:border-ui-border border-transparent',
+                )}
+              >
+                <span className="text-ui-text-muted w-4 shrink-0 text-xs tabular-nums">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[16px] font-semibold">{song.title}</span>
+                  {song.artist && (
+                    <span className="text-ui-text-muted mt-0.5 block truncate text-xs">
+                      {song.artist}
+                    </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  {hostHere && (
+                    <span className="border-ui-text-muted text-ui-text rounded-full border px-2 py-0.5 text-[11px] font-semibold">
+                      Host is here
+                    </span>
+                  )}
+                  {projected && <OnScreenTag />}
+                </span>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </aside>
+  )
+}

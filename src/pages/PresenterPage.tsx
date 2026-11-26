@@ -4,6 +4,7 @@ import { ArrowRight, Monitor } from 'lucide-react'
 import { trackEvent } from '../lib/analytics'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { usePresenterFeed } from '../lib/usePresenterFeed'
+import { useViewportHeight } from '../lib/useViewportHeight'
 import { useWakeLock } from '../lib/useWakeLock'
 import {
   loadPresenterMode,
@@ -100,6 +101,7 @@ export default function PresenterPage() {
   const [display, patchDisplay] = usePresenterDisplay()
   const [mode, setMode] = useState<PresenterMode | null>(loadPresenterMode)
   const [blackout, setBlackout] = useState(false)
+  const heightPx = useViewportHeight()
   const openedTracked = useRef(false)
   const previousDark = useRef<boolean | null>(null)
 
@@ -112,19 +114,17 @@ export default function PresenterPage() {
   }, [mode])
 
   useEffect(() => {
+    if (mode !== 'auto') return
     if (previousDark.current === null) {
       previousDark.current = document.documentElement.classList.contains('dark')
     }
     document.documentElement.classList.toggle('dark', display.theme === 'dark')
-  }, [display.theme])
-
-  useEffect(() => {
     return () => {
       if (previousDark.current !== null) {
         document.documentElement.classList.toggle('dark', previousDark.current)
       }
     }
-  }, [])
+  }, [mode, display.theme])
 
   useEffect(() => {
     if (!feed.lyrics) return
@@ -155,7 +155,7 @@ export default function PresenterPage() {
   if (!wide) return <BiggerScreenNotice />
   if (!mode) return <ModeChoice onChoose={chooseMode} />
   if (mode === 'manual') {
-    return <PresenterConsole id={id} onSwitchToAuto={switchToAuto} />
+    return <PresenterConsole id={id} feed={feed} onSwitchToAuto={switchToAuto} />
   }
   if (feed.status === 'missing') return <MissingNotice />
 
@@ -169,7 +169,9 @@ export default function PresenterPage() {
         song={stopped ? null : currentSong}
         display={display}
         view="whole"
+        sectionIndex={null}
         blackout={blackout || stopped}
+        heightPx={heightPx}
       />
       <PresenterCorner
         status={feed.status}

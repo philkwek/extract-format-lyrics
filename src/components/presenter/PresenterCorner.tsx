@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Maximize, Minimize, Minus, Plus, SlidersHorizontal } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { classes } from '../../lib/classes'
+import { useFullscreen } from '../../lib/useFullscreen'
 import {
   clampTextScale,
   resolveAlign,
@@ -46,7 +47,7 @@ export default function PresenterCorner({
   const [visible, setVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [activity, setActivity] = useState(0)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const { isFullscreen, toggleFullscreen } = useFullscreen()
   const controlsRef = useRef<HTMLDivElement>(null)
 
   const show = useCallback(() => {
@@ -87,40 +88,6 @@ export default function PresenterCorner({
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [settingsOpen])
-
-  useEffect(() => {
-    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement))
-    sync()
-    document.addEventListener('fullscreenchange', sync)
-    return () => document.removeEventListener('fullscreenchange', sync)
-  }, [])
-
-  const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.().catch(() => {})
-    } else {
-      void document.documentElement.requestFullscreen?.().catch(() => {})
-    }
-  }, [])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'f') return
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
-      const target = event.target as HTMLElement | null
-      if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
-      ) {
-        return
-      }
-      event.preventDefault()
-      toggleFullscreen()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [toggleFullscreen])
 
   const pill = statusPill(status)
   const align = resolveAlign(display, 'whole')

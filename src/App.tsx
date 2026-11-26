@@ -22,6 +22,7 @@ import { useAppUpdate } from './lib/useAppUpdate'
 import { useOnlineStatus } from './lib/useOnlineStatus'
 
 const PresenterPage = lazy(() => import('./pages/PresenterPage'))
+const PresenterOutputPage = lazy(() => import('./pages/PresenterOutputPage'))
 
 export function AppShell() {
   const location = useLocation()
@@ -123,6 +124,14 @@ export function AppShell() {
                 element={
                   <Suspense fallback={null}>
                     <PresenterPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/present/:id/output"
+                element={
+                  <Suspense fallback={null}>
+                    <PresenterOutputPage />
                   </Suspense>
                 }
               />
