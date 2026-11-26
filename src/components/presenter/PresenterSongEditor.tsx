@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { classes } from '../../lib/classes'
 import { isSectionEdited, parseEditedLyricsText } from '../../lib/presenterEdits'
 import { sectionTone } from '../../lib/presenterSections'
+import { UNDO_WINDOW_MS, usePendingRemoval } from '../../lib/usePendingRemoval'
 import type { SharedLyricsSection, SharedLyricsSong } from '../../types/song'
-import { Button } from '../ui'
+import ChangeToast, { type ChangeNote } from '../share/ChangeToast'
+import { Button, IconButton } from '../ui'
 
 interface PresenterSongEditorProps {
   hostSong: SharedLyricsSong
@@ -15,6 +18,7 @@ interface PresenterSongEditorProps {
 }
 
 interface SectionDraft {
+  id: number
   label: string
   text: string
 }
@@ -28,18 +32,47 @@ export default function PresenterSongEditor({
   onReset,
 }: PresenterSongEditorProps) {
   const [drafts, setDrafts] = useState<SectionDraft[]>(() =>
-    currentSong.sections.map((section) => ({
+    currentSong.sections.map((section, index) => ({
+      id: index,
       label: section.label,
       text: section.lines.join('\n'),
     })),
   )
 
-  const updateDraft = (index: number, patch: Partial<SectionDraft>) => {
-    setDrafts((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  const commitRemoval = useCallback(({ id }: { id: number }) => {
+    setDrafts((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const {
+    pending: pendingRemoval,
+    start: startRemoval,
+    undo: undoRemoval,
+  } = usePendingRemoval<{ id: number }>({ onCommit: commitRemoval })
+
+  const visibleDrafts = useMemo(
+    () => (pendingRemoval ? drafts.filter((item) => item.id !== pendingRemoval.id) : drafts),
+    [drafts, pendingRemoval],
+  )
+
+  const undoNote = useMemo<ChangeNote | null>(
+    () =>
+      pendingRemoval
+        ? {
+            text: 'Section removed',
+            action: { label: 'Undo', run: undoRemoval },
+          }
+        : null,
+    [pendingRemoval, undoRemoval],
+  )
+
+  const dismissUndoToast = useCallback(() => undefined, [])
+
+  const updateDraft = (id: number, patch: Partial<SectionDraft>) => {
+    setDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
   }
 
   const handleSave = () => {
-    const sections: SharedLyricsSection[] = drafts.map((draft) => ({
+    const sections: SharedLyricsSection[] = visibleDrafts.map((draft) => ({
       label: draft.label,
       lines: parseEditedLyricsText(draft.text),
     }))
@@ -75,19 +108,19 @@ export default function PresenterSongEditor({
       </div>
 
       <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto pr-1">
-        {drafts.map((draft, index) => {
+        {visibleDrafts.map((draft) => {
           const parsed: SharedLyricsSection = {
             label: draft.label,
             lines: parseEditedLyricsText(draft.text),
           }
-          const hostSection = hostSong.sections[index]
+          const hostSection = hostSong.sections[draft.id]
           const changed = hostSection ? isSectionEdited(hostSection, parsed) : true
-          const titleId = `presenter-section-title-${index}`
-          const lyricsId = `presenter-section-lyrics-${index}`
+          const titleId = `presenter-section-title-${draft.id}`
+          const lyricsId = `presenter-section-lyrics-${draft.id}`
 
           return (
             <div
-              key={index}
+              key={draft.id}
               className={classes(
                 'flex min-w-0 flex-col gap-3 rounded-2xl border-2 p-4',
                 sectionTone(draft.label),
@@ -101,17 +134,27 @@ export default function PresenterSongEditor({
                 >
                   Section title
                 </label>
-                {changed && (
-                  <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
-                    Edited
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {changed && (
+                    <span className="border-ui-border bg-ui-surface-raised text-ui-text rounded-full border px-2 py-0.5 text-[10px] font-semibold">
+                      Edited
+                    </span>
+                  )}
+                  <IconButton
+                    label={`Remove ${draft.label || 'section'}`}
+                    variant="ghost"
+                    disabled={visibleDrafts.length <= 1}
+                    onClick={() => startRemoval({ id: draft.id })}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                  </IconButton>
+                </div>
               </div>
               <input
                 id={titleId}
                 type="text"
                 value={draft.label}
-                onChange={(event) => updateDraft(index, { label: event.target.value })}
+                onChange={(event) => updateDraft(draft.id, { label: event.target.value })}
                 className="bg-ui-surface text-ui-text border-ui-border w-full min-w-0 rounded-lg border px-3 py-1.5 text-xs font-semibold"
               />
 
@@ -122,13 +165,22 @@ export default function PresenterSongEditor({
                 id={lyricsId}
                 rows={6}
                 value={draft.text}
-                onChange={(event) => updateDraft(index, { text: event.target.value })}
+                onChange={(event) => updateDraft(draft.id, { text: event.target.value })}
                 className="bg-ui-surface text-ui-text border-ui-border w-full resize-y rounded-lg border p-3 text-sm leading-5"
               />
             </div>
           )
         })}
       </div>
+
+      <ChangeToast
+        note={undoNote}
+        onDismiss={dismissUndoToast}
+        progressMs={UNDO_WINDOW_MS}
+        progressKey={pendingRemoval?.id}
+        pauseOnHover={false}
+        dismissible={false}
+      />
     </div>
   )
 }

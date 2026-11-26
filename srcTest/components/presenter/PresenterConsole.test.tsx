@@ -271,4 +271,44 @@ describe('PresenterConsole', () => {
     expect(lastState().song?.entryId).toBe('entry-2')
     expect(screen.getByText('Editing: First Song')).toBeTruthy()
   })
+
+  it('deletes a section with undo and restores it when Undo is clicked', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Verse 1' }))
+
+    expect(screen.getAllByText('Section removed').length).toBeGreaterThan(0)
+    expect(screen.queryByDisplayValue('Verse 1')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    const titleInputs = screen.getAllByLabelText('Section title') as HTMLInputElement[]
+    expect(titleInputs.map((input) => input.value)).toEqual(['Verse 1', 'Chorus'])
+  })
+
+  it('saves deleted sections even during the undo window and resets to host version', () => {
+    renderConsole()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Chorus' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(screen.getByText('Edited on this laptop')).toBeTruthy()
+    expect(lastState().song?.sections).toEqual([{ label: 'Verse 1', lines: ['First line'] }])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    fireEvent.click(screen.getByRole('button', { name: "Reset to host's version" }))
+
+    expect(screen.queryByText('Edited on this laptop')).toBeNull()
+    expect(lastState().song?.sections).toHaveLength(2)
+  })
+
+  it('disables removing the last remaining section', () => {
+    renderConsole(live('entry-2'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit song lyrics and titles' }))
+    const removeButton = screen.getByRole('button', { name: 'Remove Bridge' }) as HTMLButtonElement
+    expect(removeButton.disabled).toBe(true)
+  })
 })
