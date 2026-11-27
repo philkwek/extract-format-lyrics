@@ -171,12 +171,12 @@ For your own deployment:
 ```bash
 npm run build
 npm run build:functions
-firebase deploy --only hosting,functions,firestore:rules
+firebase deploy --only hosting,functions,firestore:rules,firestore:indexes
 ```
 
-The Firestore rules deny direct browser access, except that browsers may read (get only, no list or write) single documents in `liveSets`, `liveSetSongs` and `sharedLyrics`, so followers and lyrics readers get live updates. Deploy the rules (`firestore:rules`) together with the new frontend. The backend uses Admin credentials to write shared content.
+The Firestore rules deny direct browser access, except that browsers may read (get only, no list or write) single documents in `liveSets`, `liveSetSongs` and `sharedLyrics`, so followers and lyrics readers get live updates. Deploy the rules and indexes (`firestore:rules,firestore:indexes`) together with the new frontend. The backend uses Admin credentials to write shared content.
 
-[The production workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions and Firestore rules. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules.
+[The production workflow](.github/workflows/deploy.yml) runs lint, frontend tests and both builds on pushes to `main`, then deploys Hosting, Functions, Firestore rules and Firestore indexes. It uses `FIREBASE_SERVICE_ACCOUNT_EXTRACT_FORMAT_LYRICS`, falling back to `FIREBASE_SERVICE_ACCOUNT`. The workflow's deployment project is currently `extract-format-lyrics`; change it for a fork. The service account needs permissions for each deployed service, including Firestore rules and indexes.
 
 [The pull request workflow](.github/workflows/ci.yml) runs lint, both test suites and both builds without deploying anything.
 
