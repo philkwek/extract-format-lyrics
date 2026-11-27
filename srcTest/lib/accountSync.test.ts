@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ACCOUNT_SYNC_RETRY_DELAYS_MS,
+  AccountOfflineError,
   createAccountSync,
   type AccountFirestore,
   type AccountSync,
@@ -17,6 +18,7 @@ import type { AccountUser } from '../../src/lib/auth'
 
 const USER = 'uid-a'
 const OTHER_USER = 'uid-b'
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const song = (name: string, key = 'C'): Song => ({
   id: name,
@@ -150,8 +152,20 @@ class FakeFirestore implements AccountFirestore {
           lastSetId: setId,
         })
       }
+      // A real listener delivers the write asynchronously, after the lock is released.
+      setTimeout(() => {
+        const latest = this.sets.get(setId)
+        if (latest) this.pushRemote(setId, latest)
+      }, 0)
     }
     return decision.outcome
+  }
+
+  async listDeletedSets(_uid: string, since: number) {
+    return [...this.sets.entries()]
+      .filter(([, snapshot]) => snapshot.deletedAt != null && snapshot.deletedAt >= since)
+      .sort(([, a], [, b]) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
+      .map(([setId, snapshot]) => ({ setId, snapshot: structuredClone(snapshot) }))
   }
 
   subscribeSets(
@@ -220,8 +234,7 @@ interface Harness {
 
 const harnesses: Harness[] = []
 
-function createHarness(): Harness {
-  const fire = new FakeFirestore()
+function createHarness(fire: FakeFirestore = new FakeFirestore()): Harness {
   const kv = memoryKv()
   const { store } = memorySessionStore()
   const cache = memorySongCache()
@@ -1653,5 +1666,141 @@ describe('account sync third fix round', () => {
     expect(ensureSpy).not.toHaveBeenCalled()
     expect(h.fire.writes).toEqual([])
     expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+  })
+})
+
+describe('recently deleted', () => {
+  const emptySet = (name: string): SyncedSet => ({ name, createdAt: 1, songs: [] })
+
+  it('writes a tombstone when a signed-in set is deleted', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    await seedBase(h, session, await syncedFrom(session, h.cache))
+    h.fire.meta.set(USER, { setCount: 1, lastSetId: session.id })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await h.store.deleteSession(session.id)
+    await engine.idle()
+
+    const doc = h.fire.sets.get(session.id)!
+    expect(doc.deletedAt).not.toBeNull()
+    expect(doc.rev).toBe(2)
+    expect(h.fire.meta.get(USER)).toEqual({ setCount: 0, lastSetId: session.id })
+    expect(await h.store.getSession(session.id)).toBeNull()
+
+    const list = await engine.listRecentlyDeleted()
+    expect(list.map((row) => row.name)).toEqual([session.name])
+  })
+
+  it('lists only the last 30 days, newest first', async () => {
+    const h = createHarness()
+    const now = 100 * DAY_MS
+    h.deps.now = () => now
+    h.fire.listDeletedSets = async () => [
+      {
+        setId: 'old',
+        snapshot: remoteDoc(emptySet('Demo Old'), 2, { deletedAt: now - 31 * DAY_MS }),
+      },
+      {
+        setId: 'mid',
+        snapshot: remoteDoc(emptySet('Demo Mid'), 2, { deletedAt: now - 29 * DAY_MS }),
+      },
+      {
+        setId: 'new',
+        snapshot: remoteDoc(emptySet('Demo New'), 2, { deletedAt: now - 2 * DAY_MS }),
+      },
+    ]
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const list = await engine.listRecentlyDeleted()
+
+    expect(list.map((row) => row.setId)).toEqual(['new', 'mid'])
+    expect(list[0]).toMatchObject({
+      name: 'Demo New',
+      songCount: 0,
+      deletedAt: now - 2 * DAY_MS,
+    })
+  })
+
+  it('restores a tombstone with rev + 1 and setCount + 1', async () => {
+    const h = createHarness()
+    h.fire.sets.set('set-a', remoteDoc(emptySet('Demo Song A'), 2, { deletedAt: 500 }))
+    h.fire.meta.set(USER, { setCount: 0, lastSetId: 'set-a' })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await expect(engine.restoreDeletedSet('set-a')).resolves.toBe('restored')
+
+    const doc = h.fire.sets.get('set-a')!
+    expect(doc.rev).toBe(3)
+    expect(doc.deletedAt).toBeNull()
+    expect((JSON.parse(doc.data) as SyncedSet).name).toBe('Demo Song A')
+    expect(h.fire.meta.get(USER)).toEqual({ setCount: 1, lastSetId: 'set-a' })
+  })
+
+  it('refuses to restore when the account already has 100 sets', async () => {
+    const h = createHarness()
+    h.fire.sets.set('set-a', remoteDoc(emptySet('Demo Song A'), 2, { deletedAt: 500 }))
+    h.fire.meta.set(USER, { setCount: 100, lastSetId: 'set-b' })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await expect(engine.restoreDeletedSet('set-a')).resolves.toBe('full')
+    await expect(engine.restoreDeletedSet('missing')).resolves.toBe('gone')
+
+    expect(h.fire.writes).toEqual([])
+    expect(h.fire.sets.get('set-a')).toMatchObject({ rev: 2, deletedAt: 500 })
+    expect(h.fire.meta.get(USER)).toEqual({ setCount: 100, lastSetId: 'set-b' })
+  })
+
+  it('creates the restored set on a second device through the listener', async () => {
+    const h = createHarness()
+    const second = createHarness(h.fire)
+    h.fire.sets.set('set-a', remoteDoc(emptySet('Demo Song A'), 2, { deletedAt: 500 }))
+    h.fire.meta.set(USER, { setCount: 0, lastSetId: 'set-a' })
+    const first = h.startEngine()
+    const other = second.startEngine()
+    await h.signIn()
+    await second.signIn()
+
+    await expect(first.restoreDeletedSet('set-a')).resolves.toBe('restored')
+    await vi.advanceTimersByTimeAsync(1)
+    await first.idle()
+    await other.idle()
+
+    const restored = await second.store.getSession('set-a')
+    expect(restored?.name).toBe('Demo Song A')
+    expect(restored?.accountUid).toBe(USER)
+    expect((await h.store.getSession('set-a'))?.name).toBe('Demo Song A')
+  })
+
+  it('throws the offline error and writes nothing while offline', async () => {
+    const h = createHarness()
+    h.fire.sets.set('set-a', remoteDoc(emptySet('Demo Song A'), 2, { deletedAt: 500 }))
+    h.fire.meta.set(USER, { setCount: 0, lastSetId: 'set-a' })
+    const engine = h.startEngine()
+    await h.signIn()
+    h.setOnline(false)
+
+    await expect(engine.listRecentlyDeleted()).rejects.toBeInstanceOf(AccountOfflineError)
+    await expect(engine.restoreDeletedSet('set-a')).rejects.toBeInstanceOf(AccountOfflineError)
+
+    expect(h.fire.writes).toEqual([])
+    expect(h.fire.sets.get('set-a')).toMatchObject({ rev: 2, deletedAt: 500 })
+  })
+
+  it('publishes whether a user is signed in', async () => {
+    const h = createHarness()
+    const engine = h.startEngine()
+    expect(engine.getSyncState().signedIn).toBe(false)
+
+    await h.signIn()
+    expect(engine.getSyncState().signedIn).toBe(true)
+
+    h.stops[0]()
+    expect(engine.getSyncState().signedIn).toBe(false)
   })
 })
