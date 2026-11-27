@@ -414,6 +414,60 @@ html.dark body {
   color: var(--ui-text);
 }
 
+.ui-diff-local {
+  border: 1px solid rgba(22, 163, 74, 0.24);
+  background: rgba(22, 163, 74, 0.08);
+  color: #166534;
+}
+.ui-diff-remote {
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b42323;
+}
+.dark .ui-diff-local {
+  border-color: rgba(74, 222, 128, 0.24);
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+}
+.dark .ui-diff-remote {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fecaca;
+}
+
+.ui-button--diff-local {
+  border-color: rgba(22, 163, 74, 0.38);
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+}
+.ui-button--diff-local:hover:not(:disabled) {
+  background: rgba(22, 163, 74, 0.22);
+}
+.ui-button--diff-remote {
+  border-color: rgba(220, 38, 38, 0.38);
+  background: rgba(220, 38, 38, 0.14);
+  color: #b42323;
+}
+.ui-button--diff-remote:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.22);
+}
+.dark .ui-button--diff-local {
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+.dark .ui-button--diff-local:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.26);
+}
+.dark .ui-button--diff-remote {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
+.dark .ui-button--diff-remote:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.26);
+}
+
 .ui-overlay {
   position: fixed;
   inset: 0;
