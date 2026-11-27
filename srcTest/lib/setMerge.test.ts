@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clashDiff,
   describeClash,
   mergeSet,
   type Clash,
@@ -363,7 +364,15 @@ describe('3.3 table: custom sections and flow', () => {
       base: { customSections: [verse], customFlow: [0] },
       local: { customSections: [chorus], customFlow: [0] },
       remote: { customSections: [verse, chorus], customFlow: [0, 1] },
-      clash: { kind: 'sections', entryId: 'A', title: 'Demo Song A', simplified: false },
+      clash: {
+        kind: 'sections',
+        entryId: 'A',
+        title: 'Demo Song A',
+        simplified: false,
+        arrangement: true,
+        localSummary: 'Added Chorus; Removed Verse 1',
+        remoteSummary: 'Added Chorus',
+      },
     },
     {
       name: 'treats custom sections and flow as one unit',
@@ -391,7 +400,15 @@ describe('3.3 table: custom sections and flow', () => {
       base: { customSimplifiedSections: [verse], customSimplifiedFlow: [0] },
       local: { customSimplifiedSections: [chorus], customSimplifiedFlow: [0] },
       remote: { customSimplifiedSections: [verse, chorus], customSimplifiedFlow: [0, 1] },
-      clash: { kind: 'sections', entryId: 'A', title: 'Demo Song A', simplified: true },
+      clash: {
+        kind: 'sections',
+        entryId: 'A',
+        title: 'Demo Song A',
+        simplified: true,
+        arrangement: true,
+        localSummary: 'Added Chorus; Removed Verse 1',
+        remoteSummary: 'Added Chorus',
+      },
     },
   ]
 
@@ -447,7 +464,13 @@ describe('3.3 table: song order', () => {
       makeSet('Demo Set', [song('B'), song('A'), song('C')]),
       makeSet('Demo Set', [song('C'), song('B'), song('A')]),
     )
-    expect(clashesOf(result)).toEqual([{ kind: 'order' }])
+    expect(clashesOf(result)).toEqual([
+      {
+        kind: 'order',
+        localSummary: '1. Demo Song B\n2. Demo Song A\n3. Demo Song C',
+        remoteSummary: '1. Demo Song C\n2. Demo Song B\n3. Demo Song A',
+      },
+    ])
   })
 
   it('places additions after the entry they follow on their side', () => {
@@ -520,7 +543,15 @@ describe('empty base (first sign-in, 3.6)', () => {
       makeSet('Demo Set', [song('A', { customSections: [chorus], customFlow: [0] })]),
     )
     expect(clashesOf(result)).toEqual([
-      { kind: 'sections', entryId: 'A', title: 'Demo Song A', simplified: false },
+      {
+        kind: 'sections',
+        entryId: 'A',
+        title: 'Demo Song A',
+        simplified: false,
+        arrangement: true,
+        localSummary: 'Added Verse 1; Removed Chorus',
+        remoteSummary: 'Added Chorus; Removed Verse 1',
+      },
     ])
   })
 
@@ -530,7 +561,40 @@ describe('empty base (first sign-in, 3.6)', () => {
       makeSet('Demo Set', [song('A'), song('B')]),
       makeSet('Demo Set', [song('B'), song('A')]),
     )
-    expect(clashesOf(result)).toEqual([{ kind: 'order' }])
+    expect(clashesOf(result)).toEqual([
+      {
+        kind: 'order',
+        localSummary: '1. Demo Song A\n2. Demo Song B',
+        remoteSummary: '1. Demo Song B\n2. Demo Song A',
+      },
+    ])
+  })
+
+  it('shows only affected positions for song order and pure section reorder clashes', () => {
+    const orderResult = mergeSet(
+      makeSet('Demo Set', [song('A'), song('B'), song('C'), song('D')]),
+      makeSet('Demo Set', [song('A'), song('C'), song('B'), song('D')]),
+      makeSet('Demo Set', [song('A'), song('B'), song('D'), song('C')]),
+    )
+    expect(clashDiff(clashesOf(orderResult)[0])).toEqual({
+      label: 'Arrangement clash',
+      local: '2. Demo Song C\n3. Demo Song B\n4. Demo Song D',
+      remote: '2. Demo Song B\n3. Demo Song D\n4. Demo Song C',
+    })
+
+    const intro = { type: 'Intro' as const, label: 'Intro', lines: [] }
+    const bridge = { type: 'Bridge' as const, label: 'Bridge', lines: [] }
+    const all = [intro, verse, chorus, bridge]
+    const sectionOrderResult = mergeSet(
+      makeSet('Demo Set', [song('A')]),
+      makeSet('Demo Set', [song('A', { customSections: all, customFlow: [0, 2, 1, 3] })]),
+      makeSet('Demo Set', [song('A', { customSections: all, customFlow: [0, 1, 2, 3] })]),
+    )
+    expect(clashDiff(clashesOf(sectionOrderResult)[0])).toEqual({
+      label: 'Demo Song A · Section clash',
+      local: '2. Chorus\n3. Verse 1',
+      remote: '2. Verse 1\n3. Chorus',
+    })
   })
 
   it('accepts the same order of common entries', () => {
@@ -734,5 +798,259 @@ describe('describeClash', () => {
     expect(describeClash(clashesOf(result)[0])).toBe(
       'a song key: A on this device vs B in the cloud.',
     )
+  })
+})
+
+describe('clashDiff', () => {
+  it('formats name, field, sections, removed-edited, order, and chart diffs', () => {
+    expect(clashDiff({ kind: 'name', local: 'Sunday AM', remote: 'Sunday PM' })).toEqual({
+      label: 'Set name',
+      local: 'Sunday AM',
+      remote: 'Sunday PM',
+    })
+    expect(clashDiff(fieldClash('targetKey', 'Demo Song A', 'G', 'A'))).toEqual({
+      label: 'Demo Song A · Chosen key',
+      local: 'G',
+      remote: 'A',
+    })
+    expect(clashDiff(fieldClash('pad', 'Demo Song A', 'D', 'match key'))).toEqual({
+      label: 'Demo Song A · Pad key',
+      local: 'D',
+      remote: 'match key',
+    })
+    expect(clashDiff(fieldClash('simplified', 'Demo Song A', 'on', 'off'))).toEqual({
+      label: 'Demo Song A · Simplified chords',
+      local: 'on',
+      remote: 'off',
+    })
+    expect(clashDiff(fieldClash('song'))).toEqual({
+      label: 'Demo Song A · Chord chart',
+      local: 'Updated chart',
+      remote: 'Updated chart',
+    })
+    expect(
+      clashDiff({
+        kind: 'sections',
+        entryId: 'A',
+        title: 'Demo Song A',
+        simplified: true,
+        localSummary: 'Verse 1',
+        remoteSummary: 'Chorus',
+      }),
+    ).toEqual({
+      label: 'Demo Song A · Edited sections',
+      local: 'Verse 1',
+      remote: 'Chorus',
+    })
+    expect(
+      clashDiff({ kind: 'sections', entryId: 'A', title: 'Demo Song A', simplified: false }),
+    ).toEqual({
+      label: 'Demo Song A · Edited sections',
+      local: 'Edited',
+      remote: 'Edited',
+    })
+    expect(
+      clashDiff({
+        kind: 'removed-edited',
+        entryId: 'A',
+        title: 'Demo Song A',
+        removedOn: 'local',
+      }),
+    ).toEqual({ label: 'Demo Song A · Song in set', local: 'Removed', remote: 'Changed' })
+    expect(
+      clashDiff({
+        kind: 'removed-edited',
+        entryId: 'A',
+        title: 'Demo Song A',
+        removedOn: 'remote',
+      }),
+    ).toEqual({ label: 'Demo Song A · Song in set', local: 'Changed', remote: 'Removed' })
+    expect(clashDiff({ kind: 'order' })).toEqual({
+      label: 'Arrangement clash',
+      local: 'Reordered',
+      remote: 'Reordered',
+    })
+  })
+
+  it('summarizes chord, lyric, flow, and reset differences inside edited sections', () => {
+    const chordLocal = {
+      type: 'Verse' as const,
+      label: 'Verse 1',
+      lines: [
+        {
+          kind: 'lyric' as const,
+          text: 'Morning light',
+          chords: [
+            { pos: 0, chord: 'G' },
+            { pos: 8, chord: 'D' },
+          ],
+        },
+      ],
+    }
+    const chordRemote = {
+      type: 'Verse' as const,
+      label: 'Verse 1',
+      lines: [
+        {
+          kind: 'lyric' as const,
+          text: 'Morning light',
+          chords: [
+            { pos: 0, chord: 'A' },
+            { pos: 8, chord: 'E' },
+          ],
+        },
+      ],
+    }
+    const chordClash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A')]),
+        makeSet('Demo Set', [song('A', { customSections: [chordLocal], customFlow: [0] })]),
+        makeSet('Demo Set', [song('A', { customSections: [chordRemote], customFlow: [0] })]),
+      ),
+    )[0]
+    expect(clashDiff(chordClash)).toEqual({
+      label: 'Demo Song A · Edited sections',
+      local: 'Verse 1: G, D',
+      remote: 'Verse 1: A, E',
+    })
+
+    const lyricRemote = {
+      type: 'Verse' as const,
+      label: 'Verse 1',
+      lines: [{ kind: 'lyric' as const, text: 'Evening shadow', chords: [{ pos: 0, chord: 'G' }] }],
+    }
+    const lyricClash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A')]),
+        makeSet('Demo Set', [song('A', { customSections: [chordLocal], customFlow: [0] })]),
+        makeSet('Demo Set', [song('A', { customSections: [lyricRemote], customFlow: [0] })]),
+      ),
+    )[0]
+    expect(clashDiff(lyricClash)).toEqual({
+      label: 'Demo Song A · Edited sections',
+      local: 'Verse 1: "Morning light"',
+      remote: 'Verse 1: "Evening shadow"',
+    })
+
+    const resetClash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A', { customSections: [verse], customFlow: [0] })]),
+        makeSet('Demo Set', [song('A')]),
+        makeSet('Demo Set', [song('A', { customSections: [verse, chorus], customFlow: [0, 1] })]),
+      ),
+    )[0]
+    expect(clashDiff(resetClash)).toEqual({
+      label: 'Demo Song A · Section clash',
+      local: 'Original chart',
+      remote: 'Added Chorus',
+    })
+  })
+
+  it('summarizes removed sections on a simplified song without dumping the full flow', () => {
+    const intro = { type: 'Intro' as const, label: 'Intro', lines: [] }
+    const bridge = { type: 'Bridge' as const, label: 'Bridge', lines: [] }
+    const allSections = [intro, verse, chorus, bridge]
+    const clash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A', { simplified: true })]),
+        makeSet('Demo Set', [
+          song('A', {
+            simplified: true,
+            customSimplifiedSections: allSections,
+            customSimplifiedFlow: [0, 1, 2],
+          }),
+        ]),
+        makeSet('Demo Set', [
+          song('A', {
+            simplified: true,
+            customSimplifiedSections: allSections,
+            customSimplifiedFlow: [1, 2, 3],
+          }),
+        ]),
+        new Map([['A', { simplifiedBaseLabels: ['Intro', 'Verse 1', 'Chorus', 'Bridge'] }]]),
+      ),
+    )[0]
+    expect(clashDiff(clash)).toEqual({
+      label: 'Demo Song A · Section clash',
+      local: 'Removed Bridge',
+      remote: 'Removed Intro',
+    })
+  })
+
+  it('applies each side targetKey transpose when summarizing edited chord diffs', () => {
+    const chordLocal = {
+      type: 'Verse' as const,
+      label: 'Verse 1',
+      lines: [
+        {
+          kind: 'lyric' as const,
+          text: 'Morning light',
+          chords: [
+            { pos: 0, chord: 'C' },
+            { pos: 8, chord: 'G' },
+          ],
+        },
+      ],
+    }
+    const chordRemote = {
+      type: 'Verse' as const,
+      label: 'Verse 1',
+      lines: [
+        {
+          kind: 'lyric' as const,
+          text: 'Morning light',
+          chords: [
+            { pos: 0, chord: 'C' },
+            { pos: 8, chord: 'F' },
+          ],
+        },
+      ],
+    }
+    const clash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A', { targetKey: 'D' })]),
+        makeSet('Demo Set', [
+          song('A', { targetKey: 'D', customSections: [chordLocal], customFlow: [0] }),
+        ]),
+        makeSet('Demo Set', [
+          song('A', { targetKey: 'D', customSections: [chordRemote], customFlow: [0] }),
+        ]),
+        new Map([['A', { originalKey: 'C' }]]),
+      ),
+    )[0]
+    expect(clashDiff(clash)).toEqual({
+      label: 'Demo Song A · Edited sections',
+      local: 'Verse 1: D, A',
+      remote: 'Verse 1: D, G',
+    })
+  })
+
+  it('shows chord-sheet section reorders even when customFlow keeps the same played order', () => {
+    const bridge1 = {
+      type: 'Bridge' as const,
+      label: 'Bridge 1',
+      lines: [{ kind: 'lyric' as const, text: 'I have to have You', chords: [] }],
+    }
+    const chorus1 = {
+      type: 'Chorus' as const,
+      label: 'Chorus 1',
+      lines: [{ kind: 'lyric' as const, text: 'You can take the clothes', chords: [] }],
+    }
+    const clash = clashesOf(
+      mergeSet(
+        makeSet('Demo Set', [song('A')]),
+        makeSet('Demo Set', [
+          song('A', { customSections: [bridge1, chorus1], customFlow: [1, 0] }),
+        ]),
+        makeSet('Demo Set', [
+          song('A', { customSections: [chorus1, bridge1], customFlow: [0, 1] }),
+        ]),
+      ),
+    )[0]
+    expect(clashDiff(clash)).toEqual({
+      label: 'Demo Song A · Section clash',
+      local: '1. Bridge 1\n2. Chorus 1',
+      remote: '1. Chorus 1\n2. Bridge 1',
+    })
   })
 })

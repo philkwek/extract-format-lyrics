@@ -10,11 +10,14 @@ import { loadFirestore } from './firestoreClient'
 import { hashLiveSongContent } from './liveShareSync'
 import { withNamedLock } from './lyricsPublishIdentity'
 import {
+  clashDiff,
   describeClash,
   mergeSet,
   sameSyncedSet,
+  type ClashDiff,
   type SyncedEntry,
   type SyncedSet,
+  type SyncedSongMeta,
 } from './setMerge'
 import { normalizeSongUrl, songCache } from './songCache'
 import { sessionStore, type Session, type SessionChangeEvent } from './sessionStore'
@@ -23,6 +26,8 @@ import { setSyncStatus, type SyncStatus } from './syncStatus'
 export interface SetConflict {
   /** Plain-English lines saying what clashed, e.g. "Both devices changed the key of Song A". */
   clashes: string[]
+  /** Side-by-side comparison rows for the conflict dialog. */
+  diffs?: ClashDiff[]
 }
 
 export interface SyncState {
@@ -155,6 +160,7 @@ type TombstoneOutcome =
       remoteRev: number
       remoteUpdatedAt: number
       clashes: string[]
+      diffs?: ClashDiff[]
     }
 
 export interface AccountSync {
@@ -266,7 +272,13 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       pendingRemote: new Set(pendingRemote.keys()),
       deletedElsewhere: new Set(deletedElsewhere),
       conflicts: new Map(
-        [...conflicts].map(([setId, record]) => [setId, { clashes: [...record.clashes] }]),
+        [...conflicts].map(([setId, record]) => [
+          setId,
+          {
+            clashes: [...record.clashes],
+            ...(record.diffs ? { diffs: [...record.diffs] } : {}),
+          },
+        ]),
       ),
     }
     for (const listener of [...listeners]) listener(state)
@@ -548,6 +560,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
               remoteRev: current.rev,
               remoteUpdatedAt: current.updatedAt,
               clashes: ['This set was deleted on this device, but changed in the cloud.'],
+              diffs: [{ label: 'Saved set', local: 'Deleted', remote: 'Changed' }],
             },
           }
         } catch {
@@ -580,7 +593,14 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       await fetchRemoteSongs(uid, outcome.remote)
       if (user?.uid !== uid) return
       await deps.store.applyRemote(toSession(outcome.remote, setId, uid, outcome.remoteUpdatedAt))
-      await recordConflict(setId, outcome.remote, outcome.remoteRev, outcome.clashes, true)
+      await recordConflict(
+        setId,
+        outcome.remote,
+        outcome.remoteRev,
+        outcome.clashes,
+        outcome.diffs,
+        true,
+      )
       outbox.delete(setId)
       await saveOutbox()
       return
@@ -600,12 +620,14 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     remote: SyncedSet,
     remoteRev: number,
     clashes: string[],
+    diffs?: ClashDiff[],
     localDeleted = false,
   ): Promise<void> {
     const record: ConflictRecord = {
       remote,
       remoteRev,
       clashes,
+      ...(diffs?.length ? { diffs } : {}),
       ...(localDeleted ? { localDeleted: true } : {}),
     }
     conflicts.set(setId, record)
@@ -683,9 +705,27 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       return
     }
 
-    const merge = mergeSet(base?.synced ?? null, built.synced, remote)
+    const songMeta = new Map<string, SyncedSongMeta>()
+    for (const entry of built.synced.songs) {
+      const cached = entry.contentHash ? built.songs.get(entry.contentHash) : undefined
+      if (!cached) continue
+      songMeta.set(entry.entryId, {
+        originalKey: cached.originalKey ?? undefined,
+        baseLabels: cached.sections.map((section) => section.label),
+        simplifiedBaseLabels: (cached.simplifiedSections ?? cached.sections).map(
+          (section) => section.label,
+        ),
+      })
+    }
+    const merge = mergeSet(base?.synced ?? null, built.synced, remote, songMeta)
     if (!merge.ok) {
-      await recordConflict(setId, remote, rev, merge.clashes.map(describeClash))
+      await recordConflict(
+        setId,
+        remote,
+        rev,
+        merge.clashes.map(describeClash),
+        merge.clashes.map(clashDiff),
+      )
       return
     }
 
@@ -969,9 +1009,13 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
 
       const built = await buildLocal(session)
       if (!built.ok) {
-        await recordConflict(setId, pending.remote, pending.rev, [
-          'This set could not be read on this device.',
-        ])
+        await recordConflict(
+          setId,
+          pending.remote,
+          pending.rev,
+          ['This set could not be read on this device.'],
+          [{ label: 'Saved set', local: 'Could not be read', remote: 'Available in the cloud' }],
+        )
         return
       }
 

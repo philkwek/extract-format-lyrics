@@ -1262,6 +1262,9 @@ describe('account sync second fix round', () => {
     expect(engine.getSyncState().conflicts.get(session.id)?.clashes).toEqual([
       'This set was deleted on this device, but changed in the cloud.',
     ])
+    expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toEqual([
+      { label: 'Saved set', local: 'Deleted', remote: 'Changed' },
+    ])
 
     h.stops.shift()?.()
     h.engines.length = 0
@@ -1307,5 +1310,88 @@ describe('account sync second fix round', () => {
     const outbox = await h.kv.get<string[]>('syncOutbox')
     expect(outbox).toContain('other-tab-set')
     expect(outbox).toContain(session.id)
+  })
+
+  it('transposes edited chord diffs using the song originalKey and set targetKey', async () => {
+    const h = createHarness()
+    const baseSong: Song = {
+      ...song('a', 'C'),
+      sections: [
+        {
+          type: 'Verse',
+          label: 'Verse 1',
+          lines: [{ kind: 'lyric', text: 'Morning light', chords: [{ pos: 0, chord: 'C' }] }],
+        },
+      ],
+    }
+    h.cache.songs.set(baseSong.sourceUrl, baseSong)
+    const session = await seedSession(h.store, [item('a', { targetKey: 'D' })])
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const local = (await h.store.getSession(session.id))!
+    local.songs[0].customSections = [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'Morning light', chords: [{ pos: 0, chord: 'G' }] }],
+      },
+    ]
+    local.songs[0].customFlow = [0]
+    await h.store.updateSession(local)
+
+    const remote = structuredClone(base)
+    remote.songs[0].customSections = [
+      {
+        type: 'Verse',
+        label: 'Verse 1',
+        lines: [{ kind: 'lyric', text: 'Morning light', chords: [{ pos: 0, chord: 'F' }] }],
+      },
+    ]
+    remote.songs[0].customFlow = [0]
+    h.fire.pushRemote(session.id, remoteDoc(remote, 2))
+    await engine.idle()
+
+    expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toEqual([
+      { label: 'Demo a · Edited sections', local: 'Verse 1: A', remote: 'Verse 1: G' },
+    ])
+  })
+
+  it('shows only removed sections for simplified section removal conflicts', async () => {
+    const h = createHarness()
+    const allSections = [
+      { type: 'Intro' as const, label: 'Intro', lines: [] },
+      { type: 'Verse' as const, label: 'Verse 1', lines: [] },
+      { type: 'Chorus' as const, label: 'Chorus', lines: [] },
+      { type: 'Bridge' as const, label: 'Bridge', lines: [] },
+    ]
+    const baseSong: Song = {
+      ...song('a', 'C'),
+      sections: allSections,
+      simplifiedSections: allSections,
+    }
+    h.cache.songs.set(baseSong.sourceUrl, baseSong)
+    const session = await seedSession(h.store, [item('a', { simplified: true })])
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const local = (await h.store.getSession(session.id))!
+    local.songs[0].customSimplifiedSections = allSections
+    local.songs[0].customSimplifiedFlow = [0, 1, 2]
+    await h.store.updateSession(local)
+
+    const remote = structuredClone(base)
+    remote.songs[0].customSimplifiedSections = allSections
+    remote.songs[0].customSimplifiedFlow = [1, 2, 3]
+    h.fire.pushRemote(session.id, remoteDoc(remote, 2))
+    await engine.idle()
+
+    expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toEqual([
+      { label: 'Demo a · Section clash', local: 'Removed Bridge', remote: 'Removed Intro' },
+    ])
   })
 })
