@@ -10,7 +10,10 @@ const sync = vi.hoisted(() => {
   let state = {
     pendingRemote: new Set<string>(),
     deletedElsewhere: new Set<string>(),
-    conflicts: new Map<string, { clashes: string[] }>(),
+    conflicts: new Map<
+      string,
+      { diffs: Array<{ label: string; local: string; remote: string }> }
+    >(),
   }
   const listeners = new Set<(next: typeof state) => void>()
   return {
@@ -315,7 +318,6 @@ describe('SessionPage account sync banners', () => {
         [
           'session-1',
           {
-            clashes: ['Demo Song A key: G on this device vs A in the cloud.'],
             diffs: [{ label: 'Demo Song A · Chosen key', local: 'G', remote: 'A' }],
           },
         ],
@@ -340,7 +342,9 @@ describe('SessionPage account sync banners', () => {
     sync.set({
       pendingRemote: new Set(['session-1']),
       deletedElsewhere: new Set(['session-1']),
-      conflicts: new Map([['session-1', { clashes: ['Song order changed.'] }]]),
+      conflicts: new Map([
+        ['session-1', { diffs: [{ label: 'Arrangement clash', local: '1. A', remote: '1. B' }] }],
+      ]),
     })
     renderPage()
 

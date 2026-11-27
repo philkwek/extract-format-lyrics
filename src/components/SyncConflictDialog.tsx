@@ -8,15 +8,13 @@ import { Button, StatusBanner } from './ui'
 export interface SyncConflictDialogProps {
   isOpen: boolean
   sessionId: string
-  clashes: string[]
-  diffs?: ClashDiff[]
+  diffs: ClashDiff[]
   onClose: () => void
 }
 
 export default function SyncConflictDialog({
   isOpen,
   sessionId,
-  clashes,
   diffs,
   onClose,
 }: SyncConflictDialogProps) {
@@ -36,9 +34,8 @@ export default function SyncConflictDialog({
     }
   }
 
-  const uniqueClashes = [...new Set(clashes)]
   const seenDiffs = new Set<string>()
-  const uniqueDiffs = (diffs ?? []).filter((diff) => {
+  const uniqueDiffs = diffs.filter((diff) => {
     const key = `${diff.label}|${diff.local}|${diff.remote}`
     if (seenDiffs.has(key)) return false
     seenDiffs.add(key)
@@ -59,7 +56,7 @@ export default function SyncConflictDialog({
       <p className="text-ui-text text-sm">
         This set changed in two places. Pick one version; the other is replaced.
       </p>
-      {uniqueDiffs.length > 0 ? (
+      {uniqueDiffs.length > 0 && (
         <div className="mt-4 space-y-3">
           {uniqueDiffs.map((diff) => (
             <div key={`${diff.label}|${diff.local}|${diff.remote}`}>
@@ -81,14 +78,6 @@ export default function SyncConflictDialog({
             </div>
           ))}
         </div>
-      ) : (
-        uniqueClashes.length > 0 && (
-          <ul className="text-ui-text-muted mt-3 list-disc space-y-1 pl-5 text-sm">
-            {uniqueClashes.map((clash, index) => (
-              <li key={`${clash}-${index}`}>{clash}</li>
-            ))}
-          </ul>
-        )
       )}
       {error && (
         <StatusBanner tone="error" className="mt-3">

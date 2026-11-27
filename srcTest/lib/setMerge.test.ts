@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   clashDiff,
-  describeClash,
   mergeSet,
+  sameSyncedSet,
   type Clash,
   type MergeResult,
   type SyncedEntry,
@@ -220,17 +220,17 @@ describe('3.3 table: entry fields', () => {
     },
     {
       name: 'clashes on different padKeyModes',
-      base: {},
+      base: { padKeyMode: 'custom', customPadKey: 'C' },
       local: { padKeyMode: 'match' },
-      remote: { padKeyMode: 'custom' },
-      clash: fieldClash('pad', 'Demo Song A', 'match key', 'custom'),
+      remote: { padKeyMode: 'custom', customPadKey: 'D' },
+      clash: fieldClash('pad', 'Demo Song A', 'match key', 'D'),
     },
     {
       name: 'takes a customPadKey changed on one side',
-      base: { customPadKey: 'C' },
-      local: { customPadKey: 'D' },
-      remote: { customPadKey: 'C' },
-      expected: { customPadKey: 'D' },
+      base: { padKeyMode: 'custom', customPadKey: 'C' },
+      local: { padKeyMode: 'custom', customPadKey: 'D' },
+      remote: { padKeyMode: 'custom', customPadKey: 'C' },
+      expected: { padKeyMode: 'custom', customPadKey: 'D' },
     },
     {
       name: 'clashes on different customPadKeys',
@@ -261,11 +261,11 @@ describe('3.3 table: entry fields', () => {
       expected: { simplified: true },
     },
     {
-      name: 'clashes on different simplified flags',
+      name: 'takes simplified: true when base omits simplified and remote is false',
       base: {},
       local: { simplified: true },
       remote: { simplified: false },
-      clash: fieldClash('simplified', 'Demo Song A', 'on', 'off'),
+      expected: { simplified: true },
     },
     {
       name: 'takes a contentHash changed on one side',
@@ -700,107 +700,6 @@ describe('nothing lost', () => {
   }
 })
 
-describe('describeClash', () => {
-  it('describes a name clash', () => {
-    expect(describeClash({ kind: 'name', local: 'Sunday AM', remote: 'Sunday Morning' })).toBe(
-      'Set name: "Sunday AM" on this device vs "Sunday Morning" in the cloud.',
-    )
-  })
-
-  it('describes a key clash', () => {
-    expect(describeClash(fieldClash('targetKey', 'Demo Song A', 'G', 'A'))).toBe(
-      'Demo Song A key: G on this device vs A in the cloud.',
-    )
-    expect(describeClash(fieldClash('targetKey', 'Demo Song A', 'original', 'A'))).toBe(
-      'Demo Song A key: original on this device vs A in the cloud.',
-    )
-  })
-
-  it('describes a pad clash', () => {
-    expect(describeClash(fieldClash('pad', 'Demo Song A', 'D', 'match key'))).toBe(
-      'Demo Song A pad: D on this device vs match key in the cloud.',
-    )
-  })
-
-  it('describes a simplified-chords clash', () => {
-    expect(describeClash(fieldClash('simplified', 'Demo Song A', 'on', 'off'))).toBe(
-      'Demo Song A simplified chords: on on this device vs off in the cloud.',
-    )
-  })
-
-  it('describes a chart clash', () => {
-    expect(describeClash(fieldClash('song'))).toBe(
-      'Both this device and the cloud updated the chart for Demo Song A.',
-    )
-  })
-
-  it('describes a sections clash', () => {
-    expect(
-      describeClash({
-        kind: 'sections',
-        entryId: 'A',
-        title: 'Demo Song A',
-        simplified: false,
-      }),
-    ).toBe('Both this device and the cloud edited the sections of Demo Song A.')
-    expect(
-      describeClash({
-        kind: 'sections',
-        entryId: 'A',
-        title: 'Demo Song A',
-        simplified: true,
-      }),
-    ).toBe('Both this device and the cloud edited the sections of Demo Song A (simplified).')
-    expect(
-      describeClash({
-        kind: 'sections',
-        entryId: 'A',
-        title: 'Demo Song A',
-        simplified: false,
-        localSummary: 'Verse 1',
-        remoteSummary: 'Chorus',
-      }),
-    ).toBe('Demo Song A sections: Verse 1 on this device vs Chorus in the cloud.')
-  })
-
-  it('describes a removed-edited clash', () => {
-    expect(
-      describeClash({
-        kind: 'removed-edited',
-        entryId: 'A',
-        title: 'Demo Song A',
-        removedOn: 'local',
-      }),
-    ).toBe('Demo Song A was removed on this device, but changed in the cloud.')
-    expect(
-      describeClash({
-        kind: 'removed-edited',
-        entryId: 'A',
-        title: 'Demo Song A',
-        removedOn: 'remote',
-      }),
-    ).toBe('Demo Song A was changed on this device, but removed in the cloud.')
-  })
-
-  it('describes an order clash', () => {
-    expect(describeClash({ kind: 'order' })).toBe(
-      'Both this device and the cloud changed the song order.',
-    )
-  })
-
-  it('falls back to "a song" when the entry has no title', () => {
-    const result = mergeSet(
-      makeSet('Demo Set', [song('A', { title: undefined })]),
-      makeSet('Demo Set', [song('A', { title: undefined, targetKey: 'A' })]),
-      makeSet('Demo Set', [song('A', { title: undefined, targetKey: 'B' })]),
-    )
-    expect(clashesOf(result)).toEqual([fieldClash('targetKey', 'a song', 'A', 'B')])
-    expect(describeClash(clashesOf(result)[0])).toBe(
-      'a song key: A on this device vs B in the cloud.',
-    )
-  })
-})
-
 describe('clashDiff', () => {
   it('formats name, field, sections, removed-edited, order, and chart diffs', () => {
     expect(clashDiff({ kind: 'name', local: 'Sunday AM', remote: 'Sunday PM' })).toEqual({
@@ -1052,5 +951,13 @@ describe('clashDiff', () => {
       local: '1. Bridge 1\n2. Chorus 1',
       remote: '1. Chorus 1\n2. Bridge 1',
     })
+  })
+
+  it('normalizes default simplified and padKeyMode in sameSyncedSet', () => {
+    const a = makeSet('Demo Set', [song('A', { simplified: undefined, padKeyMode: undefined })])
+    const b = makeSet('Demo Set', [
+      song('A', { simplified: false, padKeyMode: 'match', customPadKey: 'G' }),
+    ])
+    expect(sameSyncedSet(a, b)).toBe(true)
   })
 })

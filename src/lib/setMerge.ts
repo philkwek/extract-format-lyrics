@@ -1,5 +1,6 @@
 import type { Line } from '../types/song'
 import type { SessionSongItem } from './sessionStore'
+import { keyOffset } from './keys'
 import { keyUsesFlats, parseKey, transposeChord } from './transpose'
 
 export type SyncedEntry = SessionSongItem & { entryId: string; contentHash?: string }
@@ -47,8 +48,6 @@ type PadUnit = [SyncedEntry['padKeyMode'], SyncedEntry['customPadKey']]
 type SongUnit = [string | undefined, string | undefined, string | undefined, string | undefined]
 type SectionsUnit = [SyncedEntry['customSections'], SyncedEntry['customFlow']]
 
-const SIMPLE_FIELDS: SimpleField[] = ['targetKey', 'simplified']
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -71,11 +70,18 @@ function deepEqual(a: unknown, b: unknown): boolean {
 }
 
 export function sameSyncedSet(a: SyncedSet, b: SyncedSet): boolean {
-  return deepEqual(a, b)
+  return (
+    a.name === b.name &&
+    a.createdAt === b.createdAt &&
+    a.songs.length === b.songs.length &&
+    a.songs.every(
+      (song, index) => song.entryId === b.songs[index].entryId && sameEntry(song, b.songs[index]),
+    )
+  )
 }
 
 function padUnit(entry: SyncedEntry | undefined): PadUnit {
-  return [entry?.padKeyMode, entry?.customPadKey]
+  return entry?.padKeyMode === 'custom' ? ['custom', entry.customPadKey] : ['match', undefined]
 }
 
 function songUnit(entry: SyncedEntry | undefined): SongUnit {
@@ -127,10 +133,8 @@ function chordTransposer(
   targetKey: string | undefined,
 ): (chord: string) => string {
   if (!originalKey || !targetKey || originalKey === targetKey) return (chord) => chord
-  const orig = parseKey(originalKey)
-  const target = parseKey(targetKey)
-  if (!orig || !target) return (chord) => chord
-  const shift = (((target.root - orig.root) % 12) + 12) % 12
+  if (!parseKey(originalKey) || !parseKey(targetKey)) return (chord) => chord
+  const shift = ((keyOffset(originalKey, targetKey) % 12) + 12) % 12
   const useFlats = keyUsesFlats(targetKey)
   return (chord) => transposeChord(chord, shift, useFlats)
 }
@@ -373,7 +377,8 @@ function mergeValue<T>(
 
 function sameEntry(a: SyncedEntry, b: SyncedEntry): boolean {
   return (
-    SIMPLE_FIELDS.every((field) => Object.is(a[field], b[field])) &&
+    Object.is(a.targetKey, b.targetKey) &&
+    Boolean(a.simplified) === Boolean(b.simplified) &&
     deepEqual(padUnit(a), padUnit(b)) &&
     deepEqual(songUnit(a), songUnit(b)) &&
     deepEqual(sectionsUnit(a, false), sectionsUnit(b, false)) &&
@@ -399,21 +404,36 @@ function mergeEntry(
   const title = titleOf(local, remote, base)
   const result: SyncedEntry = { entryId, url: local.url }
 
-  const fields = result as Record<SimpleField, unknown>
-  for (const field of SIMPLE_FIELDS) {
-    const merged = mergeValue<unknown>(base?.[field], local[field], remote[field])
-    if (merged.clash) {
-      clashes.push({
-        kind: 'field',
-        entryId,
-        title,
-        field,
-        local: formatFieldValue(field, local),
-        remote: formatFieldValue(field, remote),
-      })
-    } else if (merged.value !== undefined) {
-      fields[field] = merged.value
-    }
+  const targetKey = mergeValue(base?.targetKey, local.targetKey, remote.targetKey)
+  if (targetKey.clash) {
+    clashes.push({
+      kind: 'field',
+      entryId,
+      title,
+      field: 'targetKey',
+      local: formatFieldValue('targetKey', local),
+      remote: formatFieldValue('targetKey', remote),
+    })
+  } else if (targetKey.value !== undefined) {
+    result.targetKey = targetKey.value
+  }
+
+  const simplified = mergeValue(
+    Boolean(base?.simplified),
+    Boolean(local.simplified),
+    Boolean(remote.simplified),
+  )
+  if (simplified.clash) {
+    clashes.push({
+      kind: 'field',
+      entryId,
+      title,
+      field: 'simplified',
+      local: formatFieldValue('simplified', local),
+      remote: formatFieldValue('simplified', remote),
+    })
+  } else if (simplified.value) {
+    result.simplified = true
   }
 
   const pad = mergeValue(padUnit(base), padUnit(local), padUnit(remote), deepEqual)
@@ -428,8 +448,12 @@ function mergeEntry(
     })
   } else if (pad.value) {
     const [padKeyMode, customPadKey] = pad.value
-    if (padKeyMode !== undefined) result.padKeyMode = padKeyMode
-    if (customPadKey !== undefined) result.customPadKey = customPadKey
+    if (padKeyMode === 'custom') {
+      result.padKeyMode = 'custom'
+      if (customPadKey !== undefined) result.customPadKey = customPadKey
+    } else if (local.padKeyMode === 'match' || remote.padKeyMode === 'match') {
+      result.padKeyMode = 'match'
+    }
   }
 
   const song = mergeValue(songUnit(base), songUnit(local), songUnit(remote), deepEqual)
@@ -709,39 +733,4 @@ export function clashDiff(clash: Clash): ClashDiff {
     local: 'Updated chart',
     remote: 'Updated chart',
   }
-}
-
-export function describeClash(clash: Clash): string {
-  if (clash.kind === 'name') {
-    return `Set name: "${clash.local}" on this device vs "${clash.remote}" in the cloud.`
-  }
-  if (clash.kind === 'order') return 'Both this device and the cloud changed the song order.'
-  if (clash.kind === 'removed-edited') {
-    return clash.removedOn === 'local'
-      ? `${clash.title} was removed on this device, but changed in the cloud.`
-      : `${clash.title} was changed on this device, but removed in the cloud.`
-  }
-  if (clash.kind === 'sections') {
-    const suffix = clash.simplified ? ' (simplified)' : ''
-    if (clash.localSummary && clash.remoteSummary && clash.localSummary !== clash.remoteSummary) {
-      return `${clash.title} sections${suffix}: ${clash.localSummary.replaceAll('\n', '; ')} on this device vs ${clash.remoteSummary.replaceAll('\n', '; ')} in the cloud.`
-    }
-    return `Both this device and the cloud edited the sections of ${clash.title}${suffix}.`
-  }
-  if (clash.field === 'targetKey') {
-    return `${clash.title} key: ${clash.local ?? 'original'} on this device vs ${
-      clash.remote ?? 'original'
-    } in the cloud.`
-  }
-  if (clash.field === 'pad') {
-    return `${clash.title} pad: ${clash.local ?? 'match key'} on this device vs ${
-      clash.remote ?? 'match key'
-    } in the cloud.`
-  }
-  if (clash.field === 'simplified') {
-    return `${clash.title} simplified chords: ${clash.local ?? 'off'} on this device vs ${
-      clash.remote ?? 'off'
-    } in the cloud.`
-  }
-  return `Both this device and the cloud updated the chart for ${clash.title}.`
 }

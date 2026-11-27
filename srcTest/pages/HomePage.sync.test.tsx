@@ -9,7 +9,10 @@ const sync = vi.hoisted(() => {
   let state = {
     pendingRemote: new Set<string>(),
     deletedElsewhere: new Set<string>(),
-    conflicts: new Map<string, { clashes: string[] }>(),
+    conflicts: new Map<
+      string,
+      { diffs: Array<{ label: string; local: string; remote: string }> }
+    >(),
   }
   return {
     get: () => state,
@@ -20,7 +23,14 @@ const sync = vi.hoisted(() => {
       state = {
         pendingRemote: new Set(),
         deletedElsewhere: new Set(),
-        conflicts: new Map(ids.map((id) => [id, { clashes: [] }])),
+        conflicts: new Map(ids.map((id) => [id, { diffs: [] }])),
+      }
+    },
+    setDeletedElsewhere: (ids: string[]) => {
+      state = {
+        pendingRemote: new Set(),
+        deletedElsewhere: new Set(ids),
+        conflicts: new Map(),
       }
     },
   }
@@ -88,6 +98,22 @@ describe('HomePage account sync banner', () => {
     expect(await screen.findByText('1 set needs your choice.')).toBeTruthy()
     const link = screen.getByRole('link', { name: 'Sunday Set' })
     expect(link.getAttribute('href')).toBe('/session/set-a')
+  })
+
+  it('includes sets deleted elsewhere in the needs-choice banner', async () => {
+    sync.setDeletedElsewhere(['set-a'])
+    mockSessions([{ id: 'set-a', name: 'Sunday Set' }])
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('1 set needs your choice.')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Sunday Set' }).getAttribute('href')).toBe(
+      '/session/set-a',
+    )
   })
 
   it('says how many sets need a choice and links to each', async () => {

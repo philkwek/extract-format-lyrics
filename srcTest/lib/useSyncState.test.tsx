@@ -7,7 +7,10 @@ const store = vi.hoisted(() => {
   let state = {
     pendingRemote: new Set<string>(),
     deletedElsewhere: new Set<string>(),
-    conflicts: new Map<string, { clashes: string[] }>(),
+    conflicts: new Map<
+      string,
+      { diffs: Array<{ label: string; local: string; remote: string }> }
+    >(),
   }
   const listeners = new Set<(next: typeof state) => void>()
   return {
@@ -56,13 +59,17 @@ describe('useSyncState', () => {
     const next = {
       pendingRemote: new Set(['set-1']),
       deletedElsewhere: new Set(['set-2']),
-      conflicts: new Map([['set-3', { clashes: ['Song A key changed'] }]]),
+      conflicts: new Map([
+        ['set-3', { diffs: [{ label: 'Song A · Chosen key', local: 'G', remote: 'A' }] }],
+      ]),
     }
 
     act(() => store.set(next))
 
     expect(result.current.pendingRemote.has('set-1')).toBe(true)
     expect(result.current.deletedElsewhere.has('set-2')).toBe(true)
-    expect(result.current.conflicts.get('set-3')?.clashes).toEqual(['Song A key changed'])
+    expect(result.current.conflicts.get('set-3')?.diffs).toEqual([
+      { label: 'Song A · Chosen key', local: 'G', remote: 'A' },
+    ])
   })
 })

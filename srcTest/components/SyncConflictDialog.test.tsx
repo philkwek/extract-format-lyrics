@@ -28,26 +28,13 @@ afterEach(() => {
   resolveConflict.mockReset()
 })
 
-const clashes = [
-  'Demo Song A key: G on this device vs A in the cloud.',
-  'Both this device and the cloud changed the song order.',
-]
-
 const diffs = [
   { label: 'Demo Song A · Chosen key', local: 'G', remote: 'A' },
   { label: 'Song order', local: 'Reordered', remote: 'Reordered' },
 ]
 
-function renderDialog(onClose = vi.fn(), withDiffs = true) {
-  render(
-    <SyncConflictDialog
-      isOpen
-      sessionId="set-1"
-      clashes={clashes}
-      diffs={withDiffs ? diffs : undefined}
-      onClose={onClose}
-    />,
-  )
+function renderDialog(onClose = vi.fn()) {
+  render(<SyncConflictDialog isOpen sessionId="set-1" diffs={diffs} onClose={onClose} />)
   return onClose
 }
 
@@ -72,11 +59,6 @@ describe('SyncConflictDialog', () => {
     expect(screen.getByRole('button', { name: 'Use cloud version' }).className).toContain(
       'ui-button--diff-remote',
     )
-  })
-
-  it('falls back to clash lines when diffs are omitted', () => {
-    renderDialog(vi.fn(), false)
-    for (const clash of clashes) expect(screen.getByText(clash)).toBeTruthy()
   })
 
   it('keeps this device and closes on success', async () => {
@@ -111,12 +93,11 @@ describe('SyncConflictDialog', () => {
     expect((cloudBtn as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('deduplicates repeated diffs and clash lines', () => {
+  it('deduplicates repeated diffs', () => {
     render(
       <SyncConflictDialog
         isOpen
         sessionId="set-1"
-        clashes={[clashes[0], clashes[0]]}
         diffs={[diffs[0], diffs[0]]}
         onClose={vi.fn()}
       />,

@@ -116,7 +116,9 @@ export default function HomePage() {
   const visibleSessions = pendingSetRemoval
     ? sessions.filter((session) => session.id !== pendingSetRemoval.id)
     : sessions
-  const conflictSessions = visibleSessions.filter((session) => syncState.conflicts.has(session.id))
+  const conflictSessions = visibleSessions.filter(
+    (session) => syncState.conflicts.has(session.id) || syncState.deletedElsewhere.has(session.id),
+  )
 
   const undoNote = useMemo<ChangeNote | null>(
     () =>

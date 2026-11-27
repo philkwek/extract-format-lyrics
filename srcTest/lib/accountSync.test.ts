@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ACCOUNT_SYNC_RETRY_DELAYS_MS,
   createAccountSync,
   type AccountFirestore,
   type AccountSync,
@@ -345,9 +346,9 @@ describe('account sync', () => {
     const h = createHarness()
     h.cache.songs.set(song('a').sourceUrl, song('a'))
     const session = await seedSession(h.store)
+    h.setOnline(false)
     const engine = h.startEngine()
     await h.signIn()
-    h.setOnline(false)
 
     await h.store.renameSession(session.id, 'Hall rehearsal')
     await advance(engine)
@@ -417,7 +418,7 @@ describe('account sync', () => {
     await engine.idle()
 
     expect(engine.getSyncState().conflicts.size).toBe(1)
-    expect(engine.getSyncState().conflicts.get(session.id)?.clashes).toHaveLength(1)
+    expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toHaveLength(1)
     expect(h.statuses.at(-1)).toBe('needs-choice')
     expect(h.fire.sets.get(session.id)!.rev).toBe(2)
     expect(h.fire.writes).toEqual([])
@@ -450,7 +451,7 @@ describe('account sync', () => {
     const second = h.startEngine()
     await h.signIn()
 
-    expect(second.getSyncState().conflicts.get(session.id)?.clashes).toHaveLength(1)
+    expect(second.getSyncState().conflicts.get(session.id)?.diffs).toHaveLength(1)
     expect(h.statuses.at(-1)).toBe('needs-choice')
   })
 
@@ -932,6 +933,8 @@ describe('account sync second fix round', () => {
     const h = createHarness()
     h.cache.songs.set(song('a').sourceUrl, song('a'))
     const session = await seedSession(h.store)
+    await seedBase(h, session, await syncedFrom(session, h.cache))
+    h.fire.sets.set(session.id, remoteDoc(await syncedFrom(session, h.cache), 1))
 
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
@@ -960,7 +963,7 @@ describe('account sync second fix round', () => {
     release()
     await engine.idle()
 
-    expect(h.fire.sets.get(session.id)?.rev).toBe(2)
+    expect(h.fire.sets.get(session.id)?.rev).toBe(3)
     expect((JSON.parse(h.fire.sets.get(session.id)!.data) as SyncedSet).name).toBe('Second edit')
     expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
   })
@@ -1259,9 +1262,6 @@ describe('account sync second fix round', () => {
 
     // Restored locally so Home/Session/reload see it, and conflict survives reload.
     expect((await h.store.getSession(session.id))?.name).toBe('Edited in cloud')
-    expect(engine.getSyncState().conflicts.get(session.id)?.clashes).toEqual([
-      'This set was deleted on this device, but changed in the cloud.',
-    ])
     expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toEqual([
       { label: 'Saved set', local: 'Deleted', remote: 'Changed' },
     ])
@@ -1283,9 +1283,11 @@ describe('account sync second fix round', () => {
   it('skips an upload inside the lock when the set crosses limits while waiting', async () => {
     const h = createHarness()
     h.cache.songs.set(song('a').sourceUrl, song('a'))
-    const session = await seedSession(h.store)
     const engine = h.startEngine()
     await h.signIn()
+    const session = await h.store.createSession([item('a')], 'Sunday set')
+    await Promise.resolve()
+    await Promise.resolve()
 
     // Grow past 30 songs after markDirty, simulating a late change before uploadLocked runs.
     const oversized = (await h.store.getSession(session.id))!
@@ -1393,5 +1395,263 @@ describe('account sync second fix round', () => {
     expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toEqual([
       { label: 'Demo a · Section clash', local: 'Removed Bridge', remote: 'Removed Intro' },
     ])
+  })
+})
+
+describe('account sync third fix round', () => {
+  it('Finding 1: skips fetchRemoteSongs when an open set is deferred, and fetches on Update set', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const getSongSpy = vi.spyOn(h.fire, 'getSong')
+
+    const engine = h.startEngine()
+    await h.signIn()
+    engine.setOpenSet(session.id)
+
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const remote = await syncedFrom({ ...session, songs: [item('a'), item('b')] }, h.cache)
+    const songBHash = remote.songs[1].contentHash!
+    h.fire.songs.set(songBHash, song('b'))
+    h.cache.songs.delete(song('b').sourceUrl)
+
+    h.fire.pushRemote(session.id, remoteDoc(remote, 2))
+    await engine.idle()
+
+    expect(engine.getSyncState().pendingRemote.has(session.id)).toBe(true)
+    expect(getSongSpy).not.toHaveBeenCalled()
+
+    await engine.applyPendingRemote(session.id)
+    expect(getSongSpy).toHaveBeenCalledWith(USER, songBHash)
+  })
+
+  it('Finding 2: refuses to overwrite a newer cloud rev on Keep this device and keeps conflict open', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const local = (await h.store.getSession(session.id))!
+    local.songs[0].targetKey = 'D'
+    await h.store.updateSession(local)
+
+    const remote2 = structuredClone(base)
+    remote2.songs[0].targetKey = 'E'
+    h.fire.pushRemote(session.id, remoteDoc(remote2, 2))
+    await engine.idle()
+    expect(engine.getSyncState().conflicts.size).toBe(1)
+
+    // Another device advances the cloud to rev 3 before the user clicks Keep this device.
+    const remote3 = structuredClone(base)
+    remote3.songs[0].targetKey = 'F'
+    h.fire.sets.set(session.id, remoteDoc(remote3, 3))
+
+    await expect(engine.resolveConflict(session.id, 'keep-local')).rejects.toThrow(
+      'This set changed again in the cloud.',
+    )
+    expect(h.fire.sets.get(session.id)?.rev).toBe(3)
+    expect(engine.getSyncState().conflicts.size).toBe(1)
+    expect(engine.getSyncState().conflicts.get(session.id)?.diffs).toContainEqual({
+      label: 'Demo a · Chosen key',
+      local: 'D',
+      remote: 'F',
+    })
+  })
+
+  it('Finding 2: refuses to tombstone a newer cloud rev on localDeleted Keep this device and writes record.remote when current', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+    const engine = h.startEngine()
+    await h.signIn()
+
+    h.setOnline(false)
+    await h.store.deleteSession(session.id)
+    await engine.idle()
+
+    const remote2 = structuredClone(base)
+    remote2.name = 'Cloud v2'
+    h.fire.sets.set(session.id, remoteDoc(remote2, 2))
+    h.setOnline(true)
+    await engine.flush()
+    await engine.idle()
+    expect(engine.getSyncState().conflicts.size).toBe(1)
+
+    // Cloud advances to rev 3 before resolving.
+    const remote3 = structuredClone(base)
+    remote3.name = 'Cloud v3'
+    h.fire.sets.set(session.id, remoteDoc(remote3, 3))
+    await expect(engine.resolveConflict(session.id, 'keep-local')).rejects.toThrow(
+      'This set changed again in the cloud.',
+    )
+    expect(h.fire.sets.get(session.id)?.rev).toBe(3)
+    expect(h.fire.sets.get(session.id)?.deletedAt).toBeUndefined()
+    expect(engine.getSyncState().conflicts.size).toBe(1)
+
+    // Now resolve against rev 3: tombstone writes Cloud v3 (record.remote), not base.synced.
+    await engine.resolveConflict(session.id, 'keep-local')
+    await engine.idle()
+    const tombstoned = h.fire.sets.get(session.id)!
+    expect(tombstoned.rev).toBe(4)
+    expect(tombstoned.deletedAt).not.toBeNull()
+    expect((JSON.parse(tombstoned.data) as SyncedSet).name).toBe('Cloud v3')
+  })
+
+  it('Finding 4: serializes online deletes behind an in-flight upload', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let first = true
+    const transact = h.fire.transactSet.bind(h.fire)
+    h.fire.transactSet = async (uid, setId, decide) => {
+      if (first) {
+        first = false
+        await gate
+      }
+      return transact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await h.store.renameSession(session.id, 'Edited before delete')
+    await vi.advanceTimersByTimeAsync(1500)
+    await h.store.deleteSession(session.id)
+    expect(h.fire.writes).toEqual([])
+
+    release()
+    await engine.idle()
+
+    expect(h.fire.sets.get(session.id)?.rev).toBe(3)
+    expect(h.fire.sets.get(session.id)?.deletedAt).not.toBeNull()
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+  })
+
+  it('Finding 5: reports needs-choice status when deletedElsewhere is non-empty', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    engine.setOpenSet(session.id)
+    h.fire.pushRemote(session.id, { ...remoteDoc(base, 2), deletedAt: 1234 })
+    await engine.idle()
+
+    expect(engine.getSyncState().deletedElsewhere.has(session.id)).toBe(true)
+    expect(h.statuses.at(-1)).toBe('needs-choice')
+  })
+
+  it('Finding 6: retries failed uploads with backoff and reports offline while outbox is stuck', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+
+    let attempts = 0
+    const transact = h.fire.transactSet.bind(h.fire)
+    h.fire.transactSet = async (uid, setId, decide) => {
+      attempts += 1
+      if (attempts <= 2) throw new Error('network blip')
+      return transact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+    await h.store.renameSession(session.id, 'Retry me')
+    await advance(engine)
+
+    expect(attempts).toBe(1)
+    expect(h.statuses.at(-1)).toBe('offline')
+
+    await advance(engine, ACCOUNT_SYNC_RETRY_DELAYS_MS[0])
+    expect(attempts).toBe(2)
+    expect(h.statuses.at(-1)).toBe('offline')
+
+    await advance(engine, ACCOUNT_SYNC_RETRY_DELAYS_MS[1])
+    expect(attempts).toBe(3)
+    expect(h.statuses.at(-1)).toBe('synced')
+    expect((JSON.parse(h.fire.sets.get(session.id)!.data) as SyncedSet).name).toBe('Retry me')
+  })
+
+  it('Finding 8: reconciles local sets edited while signed out on sign-in', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+
+    // Edited while signed out (engine not started yet)
+    await h.store.renameSession(session.id, 'Edited signed out')
+
+    h.startEngine()
+    await h.signIn()
+
+    expect(h.fire.sets.get(session.id)?.rev).toBe(2)
+    expect((JSON.parse(h.fire.sets.get(session.id)!.data) as SyncedSet).name).toBe(
+      'Edited signed out',
+    )
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+  })
+
+  it('Finding 9: removeFromOutbox preserves another tab outbox entry on upload completion', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+
+    const transact = h.fire.transactSet.bind(h.fire)
+    h.fire.transactSet = async (uid, setId, decide) => {
+      await h.kv.set('syncOutbox', [session.id, 'other-tab-set'])
+      return transact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+    await h.store.renameSession(session.id, 'Tab 1 edit')
+    await advance(engine)
+
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual(['other-tab-set'])
+  })
+
+  it('Finding 10: skips ensureSong on no-op upload when local matches base', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+    await h.kv.set('syncOutbox', [session.id])
+    const ensureSpy = vi.spyOn(h.fire, 'ensureSong')
+
+    h.startEngine()
+    await h.signIn()
+
+    expect(ensureSpy).not.toHaveBeenCalled()
+    expect(h.fire.writes).toEqual([])
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
   })
 })

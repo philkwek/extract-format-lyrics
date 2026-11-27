@@ -2529,8 +2529,7 @@ export default function SessionPage() {
       <SyncConflictDialog
         isOpen={conflictOpen && syncConflict}
         sessionId={session.id}
-        clashes={syncState.conflicts.get(session.id)?.clashes ?? []}
-        diffs={syncState.conflicts.get(session.id)?.diffs}
+        diffs={syncState.conflicts.get(session.id)?.diffs ?? []}
         onClose={() => {
           setConflictOpen(false)
           void reloadFromStore()

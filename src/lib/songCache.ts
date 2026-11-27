@@ -137,15 +137,18 @@ export class SongCache {
     // Clear any temporary failed marker
     await this.store.del(`${FAILED_PREFIX}${finalUrl}`)
 
+    let aliasUrl: string | undefined
     if (requestedUrl) {
       const originalUrl = normalizeSongUrl(requestedUrl)
       if (originalUrl !== finalUrl) {
         await this.store.set(`${ALIAS_PREFIX}${originalUrl}`, finalUrl)
         await this.store.del(`${FAILED_PREFIX}${originalUrl}`)
+        aliasUrl = originalUrl
       }
     }
 
     this.emit(finalUrl, song)
+    if (aliasUrl) this.emit(aliasUrl, song)
   }
 
   async getAlias(url: string): Promise<string | null> {
