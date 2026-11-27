@@ -1340,27 +1340,38 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     let added = 0
     let keptLocal = 0
 
-    for (const target of targets) {
-      if (user?.uid !== uid) throw new AccountOfflineError()
-      const session = await deps.store.getSession(target.id)
-      if (!session || session.liveSourceId || session.accountUid === uid) continue
-      const exists = await setExists(uid, target.id)
-      if (!exists && liveCount >= ACCOUNT_MAX_SETS) {
-        skipped.add(target.id)
-        keptLocal += 1
-        continue
+    try {
+      for (const target of targets) {
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        const session = await deps.store.getSession(target.id)
+        if (!session || session.liveSourceId || session.accountUid === uid) {
+          if (user?.uid === uid) {
+            unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
+          }
+          continue
+        }
+        const exists = await setExists(uid, target.id)
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        if (!exists && liveCount >= ACCOUNT_MAX_SETS) {
+          skipped.add(target.id)
+          keptLocal += 1
+          unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
+          continue
+        }
+        await deps.kv.del(baseKey(target.id))
+        await deps.kv.del(conflictKey(target.id))
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        await deps.store.setAccountUid(target.id, uid)
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        markDirty(target.id)
+        if (!exists) liveCount += 1
+        added += 1
+        unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
       }
-      await deps.kv.del(baseKey(target.id))
-      await deps.kv.del(conflictKey(target.id))
-      await deps.store.setAccountUid(target.id, uid)
-      markDirty(target.id)
-      if (!exists) liveCount += 1
-      added += 1
+    } finally {
+      if (keptLocal > 0) await deps.kv.set(linkSkippedKey(uid), [...skipped])
+      if (user?.uid === uid) publishState()
     }
-
-    if (keptLocal > 0) await deps.kv.set(linkSkippedKey(uid), [...skipped])
-    unlinkedSets = []
-    publishState()
     return { added, keptLocal }
   }
 

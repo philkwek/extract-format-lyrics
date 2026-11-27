@@ -2005,4 +2005,77 @@ describe('first sign-in link prompt', () => {
 
     expect(engine.getSyncState().unlinkedSets).toEqual([])
   })
+
+  it('stops linking without tagging or wiping sets if the user switches accounts mid-flight', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    const second = await seedSession(h.store, [item('b')], 'Demo Song B', {
+      accountUid: undefined,
+    })
+    h.fire.meta.set(USER, { setCount: 99, lastSetId: 'other-set' })
+
+    const origTransact = h.fire.transactSet.bind(h.fire)
+    let release!: () => void
+    let markEntered!: () => void
+    const entered = new Promise<void>((resolve) => {
+      markEntered = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let switched = false
+    h.fire.transactSet = async (uid, setId, decide) => {
+      if (!switched) {
+        switched = true
+        markEntered()
+        await gate
+      }
+      return origTransact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const linking = engine.linkLocalSets()
+    await entered
+    await h.signIn(OTHER_USER)
+    release()
+
+    await expect(linking).rejects.toBeInstanceOf(AccountOfflineError)
+    expect((await h.store.getSession(first.id))?.accountUid).toBeUndefined()
+    expect((await h.store.getSession(second.id))?.accountUid).toBeUndefined()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toContain(first.id)
+  })
+
+  it('keeps only unlinked sets in the prompt when linking fails mid-way', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    const second = await seedSession(h.store, [item('b')], 'Demo Song B', {
+      accountUid: undefined,
+    })
+    h.fire.meta.set(USER, { setCount: 99, lastSetId: 'other-set' })
+
+    const origTransact = h.fire.transactSet.bind(h.fire)
+    h.fire.transactSet = async (uid, setId, decide) => {
+      if (setId === first.id) throw new Error('network drop')
+      return origTransact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await expect(engine.linkLocalSets()).rejects.toThrow('network drop')
+
+    expect((await h.store.getSession(second.id))?.accountUid).toBe(USER)
+    expect((await h.store.getSession(first.id))?.accountUid).toBeUndefined()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toEqual([first.id])
+
+    await engine.removeUnlinkedSets()
+    expect(await h.store.getSession(second.id)).not.toBeNull()
+    expect(await h.store.getSession(first.id)).toBeNull()
+  })
 })
