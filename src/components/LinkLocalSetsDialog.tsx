@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AccountOfflineError, linkLocalSets, removeUnlinkedSets } from '../lib/accountSync'
 import { ACCOUNT_MAX_SETS } from '../lib/accountLimits'
+import { trackEvent } from '../lib/analytics'
 import { useSyncState } from '../lib/useSyncState'
 import OverlayDialog from './ui/OverlayDialog'
 import { Button, StatusBanner, type StatusTone } from './ui'
@@ -47,6 +48,7 @@ export default function LinkLocalSetsDialog() {
     setNotice(null)
     try {
       const result = await linkLocalSets()
+      if (result.added > 0) trackEvent('account_sync_enabled', { set_count: result.added })
       if (result.keptLocal > 0) {
         setKeptLocal(result.keptLocal)
         setNotice({

@@ -2,10 +2,12 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SyncConflictDialog from '../../src/components/SyncConflictDialog'
+import { trackEvent } from '../../src/lib/analytics'
 
 const resolveConflict = vi.hoisted(() => vi.fn())
 
 vi.mock('../../src/lib/accountSync', () => ({ resolveConflict }))
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -26,6 +28,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   resolveConflict.mockReset()
+  vi.mocked(trackEvent).mockClear()
 })
 
 const diffs = [
@@ -39,6 +42,27 @@ function renderDialog(onClose = vi.fn()) {
 }
 
 describe('SyncConflictDialog', () => {
+  it('reports the conflict once each time it opens', () => {
+    const { rerender } = render(
+      <SyncConflictDialog isOpen={false} sessionId="set-1" diffs={diffs} onClose={vi.fn()} />,
+    )
+    expect(trackEvent).not.toHaveBeenCalled()
+
+    rerender(<SyncConflictDialog isOpen sessionId="set-1" diffs={diffs} onClose={vi.fn()} />)
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent).toHaveBeenCalledWith('account_conflict_shown', {})
+
+    rerender(<SyncConflictDialog isOpen sessionId="set-1" diffs={[diffs[0]]} onClose={vi.fn()} />)
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <SyncConflictDialog isOpen={false} sessionId="set-1" diffs={diffs} onClose={vi.fn()} />,
+    )
+    rerender(<SyncConflictDialog isOpen sessionId="set-1" diffs={diffs} onClose={vi.fn()} />)
+    expect(trackEvent).toHaveBeenCalledTimes(2)
+    expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toContain('set-1')
+  })
+
   it('shows a left-right comparison with green local and red cloud cards', () => {
     renderDialog()
     expect(screen.getByRole('heading', { name: 'Choose which version to keep' })).toBeTruthy()

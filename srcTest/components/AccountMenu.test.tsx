@@ -3,8 +3,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AccountMenu from '../../src/components/AccountMenu'
+import { trackEvent } from '../../src/lib/analytics'
 import { setSyncStatus } from '../../src/lib/syncStatus'
 import type { AccountUser } from '../../src/lib/auth'
+
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
 const mocks = vi.hoisted(() => ({
   onUser: vi.fn(),
@@ -95,6 +98,22 @@ describe('AccountMenu', () => {
 
     expect(await screen.findByText('Check your email for a sign-in link.')).toBeTruthy()
     expect(mocks.sendEmailLink).toHaveBeenCalledWith('phil@example.com')
+    expect(trackEvent).toHaveBeenCalledWith('account_sign_in_started', { method: 'email_link' })
+    expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toContain('phil@example.com')
+  })
+
+  it('reports a Google sign-in without sending the email', async () => {
+    mocks.signInWithGoogle.mockResolvedValue({ status: 'done' })
+    render(<AccountMenu />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+
+    await waitFor(() =>
+      expect(trackEvent).toHaveBeenCalledWith('account_signed_in', { method: 'google' }),
+    )
+    expect(trackEvent).toHaveBeenCalledWith('account_sign_in_started', { method: 'google' })
+    expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toMatch(/phil@example.com|u1/)
   })
 
   it('shows plain words for a failed sign in', async () => {

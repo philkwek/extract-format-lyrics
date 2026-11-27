@@ -27,7 +27,7 @@ These browser identifiers are public configuration. Never substitute a service a
 1. Open [Firebase integrations](https://console.firebase.google.com/project/extract-format-lyrics/settings/integrations), then open the linked Google Analytics property. Confirm the web stream uses `G-RG5JNFFQVW`.
 2. In **Admin → Data streams → web stream**, turn **Enhanced Measurement off entirely**. The app sends page views manually and excludes raw URLs. Setting `send_page_view: false` in code alone does not disable history-based Enhanced Measurement. Keep other tags and connected destinations from sending duplicate or unsanitized events.
 3. Leave Google Signals and advertising links/personalization off. Check the property's data retention and access settings against your needs.
-4. Under **Admin → Custom definitions**, add event-scoped dimensions for `entry_page`, `outcome`, `method`, and `operation`. Add event-scoped custom metrics for `result_count`, `imported_count`, `song_count`, and `duration_ms`, using Standard units (milliseconds for `duration_ms`).
+4. Under **Admin → Custom definitions**, add event-scoped dimensions for `entry_page`, `outcome`, `method`, and `operation`. Add event-scoped custom metrics for `result_count`, `imported_count`, `song_count`, `duration_ms`, and `set_count`, using Standard units (milliseconds for `duration_ms`).
 5. Under the repository's **Settings → Secrets and variables → Actions → Variables**, set the variables below. Set `VITE_ANALYTICS_ENABLED=true` only after the console checks are complete.
 
 | Variable | Value |
@@ -55,6 +55,10 @@ For local configuration, copy `.env.example` to `.env.local`; keep tracking disa
 | `live_share_followed` | Live share link opened: `outcome=opened|reused|expired|missing|stopped|error` |
 | `shared_set_imported` | Shared-set import completed or failed: `outcome=success|error`, `imported_count` |
 | `lyrics_published` | Publish/update completed or failed: `operation=create|update`, `outcome=success|error`, `song_count` |
+| `account_sign_in_started` | Sign-in started: `method=google|email_link` |
+| `account_signed_in` | Sign-in completed: `method=google|email_link`; not sent when a page reload finds an existing session |
+| `account_sync_enabled` | **Add to account** completed: `set_count` (sets added) |
+| `account_conflict_shown` | Conflict dialog opened for a set; no extra fields |
 
 Search and pasted-link imports work from both the home and search pages. Uploads work from the home page and an existing set. Cached imports count like freshly fetched imports. Failed items in a pasted batch do not count as imported songs; a mixed result is `partial`. Validating empty/invalid-only input is not an import attempt. Chart extraction is not a successful import until the user confirms and the songs are saved.
 

@@ -2,6 +2,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import LinkLocalSetsDialog from '../../src/components/LinkLocalSetsDialog'
+import { trackEvent } from '../../src/lib/analytics'
+
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
 const sync = vi.hoisted(() => {
   class AccountOfflineError extends Error {}
@@ -77,6 +80,7 @@ afterEach(() => {
   cleanup()
   sync.linkLocalSets.mockReset()
   sync.removeUnlinkedSets.mockReset()
+  vi.mocked(trackEvent).mockClear()
   sync.reset()
 })
 
@@ -141,6 +145,8 @@ describe('LinkLocalSetsDialog', () => {
 
     await waitFor(() => expect(sync.linkLocalSets).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(trackEvent).toHaveBeenCalledWith('account_sync_enabled', { set_count: 3 })
+    expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toMatch(/set-a|Demo Song A|Sunday/)
   })
 
   it('stays open and says how many sets stay local when the account is full', async () => {

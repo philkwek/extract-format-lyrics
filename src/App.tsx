@@ -13,7 +13,6 @@ import PrivacyPage from './pages/PrivacyPage'
 import SignInPage from './pages/SignInPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { trackPage, setTrackingEnabled } from './lib/analytics'
-import { accountsEnabled } from './lib/accountFlag'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import AccountMenu from './components/AccountMenu'
@@ -96,7 +95,7 @@ export function AppShell() {
                   <span className="hidden sm:inline">Find a song</span>
                 </NavLink>
                 <ThemeToggle compact />
-                {accountsEnabled() && <AccountMenu />}
+                <AccountMenu />
               </nav>
             </div>
           </header>
@@ -120,7 +119,7 @@ export function AppShell() {
               <Route path="/" element={<HomePage />} />
               <Route path="/session/:sessionId" element={<SessionPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
-              {accountsEnabled() && <Route path="/sign-in" element={<SignInPage />} />}
+              <Route path="/sign-in" element={<SignInPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/s/:shortId" element={<ShareImportPage />} />
               <Route path="/live/:liveId" element={<LiveFollowPage />} />
@@ -159,7 +158,7 @@ export function AppShell() {
           </footer>
         )}
         <UpdateBanner open={updateAvailable} onReload={reload} onDismiss={dismiss} />
-        {accountsEnabled() && !isLyricsView && !isPresentView && <LinkLocalSetsDialog />}
+        {!isLyricsView && !isPresentView && <LinkLocalSetsDialog />}
       </div>
     </ChromeVisibilityContext.Provider>
   )

@@ -117,7 +117,6 @@ beforeEach(() => {
   localStorage.clear()
   resetStandin()
   standalone.value = false
-  vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
 })
 
 afterEach(() => vi.unstubAllEnvs())
