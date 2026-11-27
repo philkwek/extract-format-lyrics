@@ -405,7 +405,7 @@ html.dark body {
   border-color: var(--ui-border-strong);
   box-shadow: var(--ui-shadow-lg);
 }
-.dark .ui-status--info { color: #bfdbfe; }
+.dark .ui-status--info { color: var(--ui-accent-strong); background: color-mix(in srgb, var(--ui-accent) 10%, transparent); border-color: color-mix(in srgb, var(--ui-accent) 28%, transparent); }
 .dark .ui-status--success { color: #86efac; }
 .dark .ui-status--warning { color: #fde68a; }
 .dark .ui-status--error { color: #fecaca; }
