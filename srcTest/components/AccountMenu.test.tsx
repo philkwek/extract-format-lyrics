@@ -206,4 +206,37 @@ describe('AccountMenu', () => {
 
     expect(await screen.findByText("Couldn't delete your account. Try again.")).toBeTruthy()
   })
+
+  it('waits for redirect without retrying or showing an error when reauth redirects', async () => {
+    signedInAs('phil@example.com')
+    mocks.deleteAccount.mockResolvedValue('reauth')
+    mocks.reauthenticate.mockResolvedValue({ status: 'redirect' })
+    await openConfirm()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Delete account' })[0])
+
+    await waitFor(() => expect(mocks.reauthenticate).toHaveBeenCalledTimes(1))
+    expect(mocks.deleteAccount).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('disables Go back while delete is in flight', async () => {
+    signedInAs('phil@example.com')
+    let resolveDelete: (value: 'deleted') => void = () => {}
+    mocks.deleteAccount.mockImplementation(
+      () =>
+        new Promise<'deleted'>((resolve) => {
+          resolveDelete = resolve
+        }),
+    )
+    await openConfirm()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Delete account' })[0])
+
+    const goBack = screen.getByRole('button', { name: 'Go back' }) as HTMLButtonElement
+    expect(goBack.disabled).toBe(true)
+
+    resolveDelete('deleted')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
 })

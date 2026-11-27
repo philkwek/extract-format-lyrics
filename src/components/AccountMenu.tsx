@@ -95,7 +95,7 @@ export default function AccountMenu() {
           setDeleteError(again.message)
           return
         }
-        if (again.status === 'cancelled') return
+        if (again.status === 'cancelled' || again.status === 'redirect') return
         result = await deleteAccount()
       }
       if (result === 'deleted') {
@@ -111,6 +111,8 @@ export default function AccountMenu() {
   }
 
   if (user === undefined) return null
+
+  const confirming = Boolean(user) && step === 'confirm'
 
   return (
     <>
@@ -133,11 +135,11 @@ export default function AccountMenu() {
         <OverlayDialog
           isOpen={open}
           onClose={() => setOpen(false)}
-          title={step === 'confirm' ? 'Delete account' : user ? 'Account' : 'Sign in'}
+          title={confirming ? 'Delete account' : user ? 'Account' : 'Sign in'}
           description={user ? undefined : 'Sign in to keep your sets on every device.'}
           size="sm"
           footer={
-            step === 'confirm' ? undefined : (
+            confirming ? undefined : (
               <Button variant="ghost" onClick={() => setOpen(false)}>
                 Close
               </Button>
@@ -161,7 +163,12 @@ export default function AccountMenu() {
                   >
                     Delete account
                   </Button>
-                  <Button variant="ghost" className="w-full" onClick={() => setStep('menu')}>
+                  <Button
+                    variant="ghost"
+                    className="w-full"
+                    disabled={deleteBusy}
+                    onClick={() => setStep('menu')}
+                  >
                     Go back
                   </Button>
                 </div>

@@ -22,6 +22,7 @@ export type AuthResult = { ok: true } | { ok: false; message: string }
 
 export type ReauthResult =
   | { status: 'done' }
+  | { status: 'redirect' }
   | { status: 'link-sent' }
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
@@ -216,11 +217,26 @@ export async function reauthenticate(): Promise<ReauthResult> {
 
   const usesGoogle = current.providerData.some((provider) => provider.providerId === 'google.com')
   if (usesGoogle) {
+    const provider = new api.GoogleAuthProvider()
+    const startRedirect = async (): Promise<ReauthResult> => {
+      localStorage.setItem(REDIRECT_PENDING_MARKER, '1')
+      try {
+        await api.reauthenticateWithRedirect(current, provider)
+        return { status: 'redirect' }
+      } catch (error) {
+        localStorage.removeItem(REDIRECT_PENDING_MARKER)
+        return { status: 'error', message: plainAuthError(errorCode(error)) }
+      }
+    }
+
+    if (isStandalone()) return startRedirect()
+
     try {
-      await api.reauthenticateWithPopup(current, new api.GoogleAuthProvider())
+      await api.reauthenticateWithPopup(current, provider)
       return { status: 'done' }
     } catch (error) {
       const code = errorCode(error)
+      if (code === 'auth/popup-blocked') return startRedirect()
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
         return { status: 'cancelled' }
       }

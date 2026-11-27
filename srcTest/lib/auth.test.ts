@@ -4,7 +4,13 @@ import { del as idbDel, set as idbSet } from 'idb-keyval'
 
 const standin = vi.hoisted(() => ({
   authLoaded: false,
-  user: null as null | { uid: string; email: string | null; displayName: string | null },
+  user: null as null | {
+    uid: string
+    email: string | null
+    displayName: string | null
+    providerData?: Array<{ providerId: string }>
+    getIdToken?: (forceRefresh?: boolean) => Promise<string>
+  },
   popupError: null as null | { code: string },
   redirectResult: null as null | { user: unknown },
   emailLinkValid: true,
@@ -12,6 +18,8 @@ const standin = vi.hoisted(() => ({
   calls: {
     signInWithPopup: 0,
     signInWithRedirect: 0,
+    reauthenticateWithPopup: 0,
+    reauthenticateWithRedirect: 0,
     sendSignInLinkToEmail: 0,
     signInWithEmailLink: 0,
     signOut: 0,
@@ -39,7 +47,11 @@ vi.mock('firebase/auth', () => {
   const watchers = new Set<(user: unknown) => void>()
   return {
     GoogleAuthProvider,
-    getAuth: () => ({}),
+    getAuth: () => ({
+      get currentUser() {
+        return standin.user
+      },
+    }),
     connectAuthEmulator: vi.fn(),
     getRedirectResult: async () => standin.redirectResult,
     onAuthStateChanged: (_auth: unknown, callback: (user: unknown) => void) => {
@@ -60,6 +72,14 @@ vi.mock('firebase/auth', () => {
     },
     signInWithRedirect: async () => {
       standin.calls.signInWithRedirect += 1
+    },
+    reauthenticateWithPopup: async () => {
+      standin.calls.reauthenticateWithPopup += 1
+      if (standin.popupError) throw standin.popupError
+      return { user: standin.user }
+    },
+    reauthenticateWithRedirect: async () => {
+      standin.calls.reauthenticateWithRedirect += 1
     },
     sendSignInLinkToEmail: async (_auth: unknown, email: string, options: unknown) => {
       standin.calls.sendSignInLinkToEmail += 1
@@ -264,5 +284,102 @@ describe('signOut', () => {
     expect(localStorage.getItem('account_signed_in')).toBeNull()
     expect(idbSet).not.toHaveBeenCalled()
     expect(idbDel).not.toHaveBeenCalled()
+  })
+})
+
+describe('getIdToken', () => {
+  it('returns the token when signed in', async () => {
+    const getToken = vi.fn().mockResolvedValue('token-123')
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      getIdToken: getToken,
+    }
+    const auth = await authModule()
+
+    expect(await auth.getIdToken()).toBe('token-123')
+    expect(getToken).toHaveBeenCalledWith(true)
+  })
+
+  it('throws when signed out', async () => {
+    const auth = await authModule()
+
+    await expect(auth.getIdToken()).rejects.toThrow('Sign in to use your account.')
+  })
+})
+
+describe('reauthenticate', () => {
+  it('uses a Google popup when signed in with Google', async () => {
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      providerData: [{ providerId: 'google.com' }],
+    }
+    const auth = await authModule()
+
+    expect(await auth.reauthenticate()).toEqual({ status: 'done' })
+    expect(standin.calls.reauthenticateWithPopup).toBe(1)
+    expect(standin.calls.reauthenticateWithRedirect).toBe(0)
+  })
+
+  it('falls back to redirect and sets account_redirect_pending when the popup is blocked', async () => {
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      providerData: [{ providerId: 'google.com' }],
+    }
+    standin.popupError = { code: 'auth/popup-blocked' }
+    const auth = await authModule()
+
+    expect(await auth.reauthenticate()).toEqual({ status: 'redirect' })
+    expect(standin.calls.reauthenticateWithPopup).toBe(1)
+    expect(standin.calls.reauthenticateWithRedirect).toBe(1)
+    expect(localStorage.getItem('account_redirect_pending')).toBe('1')
+  })
+
+  it('goes straight to redirect in the installed app', async () => {
+    standalone.value = true
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      providerData: [{ providerId: 'google.com' }],
+    }
+    const auth = await authModule()
+
+    expect(await auth.reauthenticate()).toEqual({ status: 'redirect' })
+    expect(standin.calls.reauthenticateWithPopup).toBe(0)
+    expect(standin.calls.reauthenticateWithRedirect).toBe(1)
+    expect(localStorage.getItem('account_redirect_pending')).toBe('1')
+  })
+
+  it('reports a closed popup as cancelled', async () => {
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      providerData: [{ providerId: 'google.com' }],
+    }
+    standin.popupError = { code: 'auth/popup-closed-by-user' }
+    const auth = await authModule()
+
+    expect(await auth.reauthenticate()).toEqual({ status: 'cancelled' })
+  })
+
+  it('sends an email link and returns link-sent for an email-link user', async () => {
+    standin.user = {
+      uid: 'u1',
+      email: 'phil@example.com',
+      displayName: null,
+      providerData: [{ providerId: 'password' }],
+    }
+    const auth = await authModule()
+
+    expect(await auth.reauthenticate()).toEqual({ status: 'link-sent' })
+    expect(standin.calls.sendSignInLinkToEmail).toBe(1)
+    expect(localStorage.getItem('account_email_for_sign_in')).toBe('phil@example.com')
   })
 })
