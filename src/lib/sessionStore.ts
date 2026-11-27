@@ -81,6 +81,7 @@ export interface CreateSessionOptions {
   liveRev?: number
   importFailures?: ImportFailure[]
   linkSnapshot?: LinkSnapshotEntry[]
+  accountUid?: string
 }
 
 export function sessionPath(session: Pick<Session, 'id' | 'publicId'>): string {
@@ -255,6 +256,7 @@ export class SessionStore {
       ...(options.liveRev !== undefined ? { liveRev: options.liveRev } : {}),
       ...(importFailures ? { importFailures } : {}),
       ...(options.linkSnapshot ? { linkSnapshot: options.linkSnapshot } : {}),
+      ...(options.accountUid ? { accountUid: options.accountUid } : {}),
       createdAt: now,
       updatedAt: now,
       name:
@@ -273,9 +275,13 @@ export class SessionStore {
   }
 
   /** Makes a normal set from this one: same songs and edits, none of the live or link fields. */
-  async createSetCopy(session: Session): Promise<Session> {
+  async createSetCopy(session: Session, options?: { accountUid?: string }): Promise<Session> {
     const names = (await this.getAllSessions()).map((existing) => existing.name)
-    return this.createSession(structuredClone(session.songs), uniqueSetName(session.name, names))
+    return this.createSession(
+      structuredClone(session.songs),
+      uniqueSetName(session.name, names),
+      options,
+    )
   }
 
   async replaceSongsFromLink(

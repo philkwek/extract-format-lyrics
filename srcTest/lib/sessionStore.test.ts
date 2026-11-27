@@ -466,6 +466,20 @@ describe('SessionStore', () => {
       expect(copy.importFailures).toBeUndefined()
     })
 
+    it('sets accountUid before emitting created when createSetCopy receives it', async () => {
+      const { store } = makeStores()
+      const session = await store.createSession([{ url: 'https://x.test/a' }], 'Sunday')
+      const events: Array<{ accountUid?: string }> = []
+      store.subscribe((event) => {
+        if (event.type === 'created') events.push({ accountUid: event.session?.accountUid })
+      })
+
+      const copy = await store.createSetCopy(session, { accountUid: 'uid-1' })
+
+      expect(copy.accountUid).toBe('uid-1')
+      expect(events).toEqual([{ accountUid: 'uid-1' }])
+    })
+
     it('replaces songs, snapshot and failures from a link', async () => {
       const { store } = makeStores()
       const session = await store.createSession(

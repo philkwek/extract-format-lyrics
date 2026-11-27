@@ -83,7 +83,7 @@ export interface AccountSyncStore {
   applyRemote(session: Session): Promise<void>
   removeRemote(id: string): Promise<void>
   setAccountUid(id: string, uid: string | undefined): Promise<void>
-  createSetCopy(session: Session): Promise<Session>
+  createSetCopy(session: Session, options?: { accountUid?: string }): Promise<Session>
 }
 
 export interface AccountSongCache {
@@ -123,6 +123,7 @@ interface BaseRecord {
 interface ConflictRecord extends SetConflict {
   remote: SyncedSet
   remoteRev: number
+  localDeleted?: boolean
 }
 
 interface PendingRecord {
@@ -148,7 +149,13 @@ type TombstoneOutcome =
   | { kind: 'deleted' }
   | { kind: 'already' }
   | { kind: 'missing' }
-  | { kind: 'conflict'; remote: SyncedSet; remoteRev: number; clashes: string[] }
+  | {
+      kind: 'conflict'
+      remote: SyncedSet
+      remoteRev: number
+      remoteUpdatedAt: number
+      clashes: string[]
+    }
 
 export interface AccountSync {
   start(): () => void
@@ -292,6 +299,18 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     }
   }
 
+  /** Merges a newly dirty set into the shared outbox without dropping another tab's queue. */
+  async function addToOutbox(setId: string): Promise<void> {
+    const stored = await deps.kv.get<string[]>(OUTBOX_KEY)
+    if (Array.isArray(stored)) {
+      for (const id of stored) {
+        if (typeof id === 'string') outbox.add(id)
+      }
+    }
+    outbox.add(setId)
+    await saveOutbox()
+  }
+
   async function loadBase(setId: string): Promise<BaseRecord | null> {
     const stored = await deps.kv.get<BaseRecord>(baseKey(setId))
     return stored && typeof stored.rev === 'number' && stored.synced ? stored : null
@@ -316,7 +335,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
   function markDirty(setId: string): void {
     if (!user || conflicts.has(setId)) return
     outbox.add(setId)
-    void saveOutbox()
+    void track(addToOutbox(setId))
     clearTimer(setId)
     dirtyTimers.set(
       setId,
@@ -394,6 +413,11 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       return { kind: 'tombstone', outcome: await tombstoneLocked(setId, uid, base) }
     }
     if (session.accountUid !== uid || session.liveSourceId) return { kind: 'skip' }
+    const limit = checkSetLimits(session)
+    if (limit) {
+      console.warn(limit)
+      return { kind: 'skip' }
+    }
 
     const built = await buildLocal(session)
     if (!built.ok) {
@@ -453,7 +477,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     return outcome
   }
 
-  async function applyUploadOutcome(setId: string, outcome: UploadOutcome) {
+  async function applyUploadOutcome(setId: string, uid: string, outcome: UploadOutcome) {
     if (outcome.kind === 'written') {
       pendingRemote.delete(setId)
       if (!dirtyTimers.has(setId) && !rerun.has(setId)) outbox.delete(setId)
@@ -463,7 +487,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       return
     }
     if (outcome.kind === 'tombstone') {
-      await applyTombstoneOutcome(setId, outcome.outcome)
+      await applyTombstoneOutcome(setId, uid, outcome.outcome)
       return
     }
     if (outcome.kind === 'behind') {
@@ -499,34 +523,11 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       return
     }
 
-    const early = await deps.store.getSession(setId)
-    if (!early) {
-      const base = await loadBase(setId)
-      if (base) await tombstone(setId, currentUser.uid, base)
-      else {
-        outbox.delete(setId)
-        await saveOutbox()
-        await dropBase(setId)
-      }
-      return
-    }
-    if (early.accountUid !== currentUser.uid || early.liveSourceId) {
-      outbox.delete(setId)
-      await saveOutbox()
-      return
-    }
-    const limit = checkSetLimits(early)
-    if (limit) {
-      console.warn(limit)
-      outbox.delete(setId)
-      await saveOutbox()
-      return
-    }
     const outcome = await deps.withLock(ACCOUNT_SYNC_LOCK, () =>
       uploadLocked(setId, currentUser.uid),
     )
     if (user?.uid !== currentUser.uid) return
-    await applyUploadOutcome(setId, outcome)
+    await applyUploadOutcome(setId, currentUser.uid, outcome)
   }
 
   async function tombstoneLocked(
@@ -545,7 +546,8 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
               kind: 'conflict',
               remote: parseSynced(current.data),
               remoteRev: current.rev,
-              clashes: ['This set changed on another device before it was deleted here.'],
+              remoteUpdatedAt: current.updatedAt,
+              clashes: ['This set was deleted on this device, but changed in the cloud.'],
             },
           }
         } catch {
@@ -566,12 +568,19 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     if (!currentUser || currentUser.uid !== uid) return
     const outcome = await deps.withLock(ACCOUNT_SYNC_LOCK, () => tombstoneLocked(setId, uid, base))
     if (user?.uid !== uid) return
-    await applyTombstoneOutcome(setId, outcome)
+    await applyTombstoneOutcome(setId, uid, outcome)
   }
 
-  async function applyTombstoneOutcome(setId: string, outcome: TombstoneOutcome): Promise<void> {
+  async function applyTombstoneOutcome(
+    setId: string,
+    uid: string,
+    outcome: TombstoneOutcome,
+  ): Promise<void> {
     if (outcome.kind === 'conflict') {
-      await recordConflict(setId, outcome.remote, outcome.remoteRev, outcome.clashes)
+      await fetchRemoteSongs(uid, outcome.remote)
+      if (user?.uid !== uid) return
+      await deps.store.applyRemote(toSession(outcome.remote, setId, uid, outcome.remoteUpdatedAt))
+      await recordConflict(setId, outcome.remote, outcome.remoteRev, outcome.clashes, true)
       outbox.delete(setId)
       await saveOutbox()
       return
@@ -591,8 +600,14 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     remote: SyncedSet,
     remoteRev: number,
     clashes: string[],
+    localDeleted = false,
   ): Promise<void> {
-    const record: ConflictRecord = { remote, remoteRev, clashes }
+    const record: ConflictRecord = {
+      remote,
+      remoteRev,
+      clashes,
+      ...(localDeleted ? { localDeleted: true } : {}),
+    }
     conflicts.set(setId, record)
     await deps.kv.set(conflictKey(setId), record)
     pendingRemote.delete(setId)
@@ -816,8 +831,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
   }
 
   async function handleDeleted(setId: string, uid: string): Promise<void> {
-    outbox.add(setId)
-    await saveOutbox()
+    await addToOutbox(setId)
     if (!deps.online()) {
       refreshStatus()
       return
@@ -999,7 +1013,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
         deletedElsewhere.delete(setId)
       } else {
         const session = await deps.store.getSession(setId)
-        if (!session) {
+        if (record.localDeleted || !session) {
           const base = await loadBase(setId)
           const data = base?.synced ?? record.remote
           await deps.firestore.transactSet(uid, setId, (current) => {
@@ -1061,8 +1075,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     const currentUser = user
     const session = await deps.store.getSession(setId)
     if (!currentUser || !session) throw new Error('This set is no longer on this device.')
-    const copy = await deps.store.createSetCopy(session)
-    await deps.store.setAccountUid(copy.id, currentUser.uid)
+    const copy = await deps.store.createSetCopy(session, { accountUid: currentUser.uid })
     await deps.store.removeRemote(setId)
     await dropBase(setId)
     await clearConflict(setId)

@@ -1171,7 +1171,7 @@ describe('account sync second fix round', () => {
     let reads = 0
     h.store.getSession = async (id: string) => {
       reads += 1
-      if (reads === 2) {
+      if (reads === 1) {
         await h.store.removeRemote(id)
         return null
       }
@@ -1230,5 +1230,82 @@ describe('account sync second fix round', () => {
     expect(await h.store.getSession(session.id)).not.toBeNull()
     expect(await h.kv.get(`syncBase:${session.id}`)).toBeUndefined()
     expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+  })
+
+  it('restores a set deleted offline when it clashes with a remote edit, and resolves both ways', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    h.fire.meta.set(USER, { setCount: 1, lastSetId: session.id })
+    h.fire.sets.set(session.id, remoteDoc(base, 1))
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    // Delete offline while another device edits the set.
+    h.setOnline(false)
+    await h.store.deleteSession(session.id)
+    await engine.idle()
+
+    const remote = structuredClone(base)
+    remote.name = 'Edited in cloud'
+    h.fire.sets.set(session.id, remoteDoc(remote, 2))
+
+    h.setOnline(true)
+    await engine.flush()
+    await engine.idle()
+
+    // Restored locally so Home/Session/reload see it, and conflict survives reload.
+    expect((await h.store.getSession(session.id))?.name).toBe('Edited in cloud')
+    expect(engine.getSyncState().conflicts.get(session.id)?.clashes).toEqual([
+      'This set was deleted on this device, but changed in the cloud.',
+    ])
+
+    h.stops.shift()?.()
+    h.engines.length = 0
+    const reloaded = h.startEngine()
+    await h.signIn()
+    expect(reloaded.getSyncState().conflicts.size).toBe(1)
+
+    // Keep this device tombstones the remote set and drops the restored local copy.
+    await reloaded.resolveConflict(session.id, 'keep-local')
+    await reloaded.idle()
+    expect(h.fire.sets.get(session.id)?.deletedAt).not.toBeNull()
+    expect(await h.store.getSession(session.id)).toBeNull()
+    expect(reloaded.getSyncState().conflicts.size).toBe(0)
+  })
+
+  it('skips an upload inside the lock when the set crosses limits while waiting', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    // Grow past 30 songs after markDirty, simulating a late change before uploadLocked runs.
+    const oversized = (await h.store.getSession(session.id))!
+    oversized.songs = Array.from({ length: 31 }, (_, i) => item(`s${i}`))
+    await h.store.updateSession(oversized)
+    await advance(engine)
+
+    expect(h.fire.writes).toEqual([])
+  })
+
+  it('preserves another tab outbox entry when markDirty queues a set', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await h.kv.set('syncOutbox', ['other-tab-set'])
+    await h.store.renameSession(session.id, 'Renamed')
+    await engine.idle()
+
+    const outbox = await h.kv.get<string[]>('syncOutbox')
+    expect(outbox).toContain('other-tab-set')
+    expect(outbox).toContain(session.id)
   })
 })
