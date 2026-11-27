@@ -79,9 +79,6 @@ export function AppShell() {
                   <span className="block text-sm leading-none font-bold tracking-[-0.02em]">
                     Sets &amp; Sheets
                   </span>
-                  <span className="text-ui-text-muted mt-1 hidden text-[10px] leading-none font-medium sm:block">
-                    Developed by Phil
-                  </span>
                 </span>
               </NavLink>
               <nav className="flex items-center gap-1.5" aria-label="Primary navigation">
