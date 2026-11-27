@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { startSetLinkSync, flushSetLinkSync } from './lib/setLinkSync'
 import { startLiveShareSync, flushLiveShareSync } from './lib/liveShareSync'
 import { startLyricsSync, flushLyricsSync } from './lib/lyricsSync'
+import { startAccountSync, flushAccountSync } from './lib/accountSync'
 import { installStore } from './lib/installPrompt'
 import { prefetchPads } from './lib/prefetchPads'
 import { resetServiceWorker, serviceWorkerResetRequested } from './lib/serviceWorker'
@@ -12,6 +13,7 @@ import { resetServiceWorker, serviceWorkerResetRequested } from './lib/serviceWo
 startSetLinkSync()
 startLiveShareSync()
 startLyricsSync()
+startAccountSync()
 
 // Listen before React renders: the browser can fire this as soon as the page is installable.
 installStore.start()
@@ -20,6 +22,7 @@ window.addEventListener('online', () => {
   void flushSetLinkSync()
   void flushLiveShareSync()
   void flushLyricsSync()
+  void flushAccountSync()
 })
 
 const reset = serviceWorkerResetRequested(window.location.search)

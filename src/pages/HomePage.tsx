@@ -1,7 +1,17 @@
 import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { FileText, Link2, ListMusic, Pencil, Radio, Search, Share2, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  AlertTriangle,
+  FileText,
+  Link2,
+  ListMusic,
+  Pencil,
+  Radio,
+  Search,
+  Share2,
+  Trash2,
+} from 'lucide-react'
 import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
@@ -39,6 +49,7 @@ import { songCount } from '../lib/plural'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 import { useSongTray } from '../lib/useSongTray'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useSyncState } from '../lib/useSyncState'
 import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
 
 export default function HomePage() {
@@ -72,6 +83,7 @@ export default function HomePage() {
   const searchGenerationRef = useRef(0)
 
   const [sessions, setSessions] = useState<Session[]>([])
+  const syncState = useSyncState()
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
   const [currentTime] = useState(() => Date.now())
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
@@ -100,6 +112,7 @@ export default function HomePage() {
   const visibleSessions = pendingSetRemoval
     ? sessions.filter((session) => session.id !== pendingSetRemoval.id)
     : sessions
+  const conflictSessions = visibleSessions.filter((session) => syncState.conflicts.has(session.id))
 
   const undoNote = useMemo<ChangeNote | null>(
     () =>
@@ -385,6 +398,28 @@ export default function HomePage() {
             </Button>
           )}
         </div>
+
+        {conflictSessions.length > 0 && (
+          <StatusBanner tone="warning" className="mb-4" icon={<AlertTriangle size={16} />}>
+            <p>
+              {conflictSessions.length === 1
+                ? '1 set needs your choice.'
+                : `${conflictSessions.length} sets need your choice.`}
+            </p>
+            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {conflictSessions.map((session) => (
+                <li key={session.id}>
+                  <Link
+                    to={sessionPath(session)}
+                    className="text-ui-accent-strong inline-flex min-h-8 items-center font-semibold underline underline-offset-2"
+                  >
+                    {session.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </StatusBanner>
+        )}
 
         {deleteError && (
           <StatusBanner

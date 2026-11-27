@@ -16,6 +16,7 @@ import {
   Pencil,
   Plus,
   Radio,
+  RefreshCw,
   Share2,
   SlidersHorizontal,
   WandSparkles,
@@ -65,7 +66,10 @@ import HostChangeToast, { type HostNote } from '../components/share/HostChangeTo
 import ChangeToast, { type ChangeNote } from '../components/share/ChangeToast'
 import ArrangeDrawer from '../components/ArrangeDrawer'
 import EditSetModal from '../components/EditSetModal'
+import SyncConflictDialog from '../components/SyncConflictDialog'
 import { useThemeMode } from '../lib/useThemeMode'
+import { applyPendingRemote, dismissDeleted, keepDeletedCopy, setOpenSet } from '../lib/accountSync'
+import { useSyncState } from '../lib/useSyncState'
 
 import { getChordPos, setChordPos } from '../lib/chordNudge'
 import {
@@ -205,6 +209,14 @@ export default function SessionPage() {
   const [removalError, setRemovalError] = useState<Removal | null>(null)
 
   const [session, setSession] = useState<Session | null>(null)
+  const syncState = useSyncState()
+  const syncSetId = session?.id
+  const syncDeleted = syncSetId ? syncState.deletedElsewhere.has(syncSetId) : false
+  const syncConflict = syncSetId ? syncState.conflicts.has(syncSetId) : false
+  const syncPending = syncSetId ? syncState.pendingRemote.has(syncSetId) : false
+  const [syncAction, setSyncAction] = useState<'update' | 'keep' | 'back' | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [conflictOpen, setConflictOpen] = useState(false)
   const setName = session?.name?.trim()
   useSeo({
     title: setName ? `Session · ${setName}` : 'Session · Sets & Sheets',
@@ -445,6 +457,12 @@ export default function SessionPage() {
     // location.state is only read to carry it across the one-time address replace.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, loadSessionSongs, navigate])
+
+  useEffect(() => {
+    if (!session?.id) return
+    setOpenSet(session.id)
+    return () => setOpenSet(null)
+  }, [session?.id])
 
   const shownSongs = useMemo(() => {
     const songs = session?.songs ?? []
@@ -1477,6 +1495,45 @@ export default function SessionPage() {
     )
   }
 
+  const runSyncAction = async (action: 'update' | 'keep' | 'back', run: () => Promise<void>) => {
+    setSyncError(null)
+    setSyncAction(action)
+    try {
+      await run()
+    } catch {
+      setSyncError("Couldn't update the set. Try again.")
+    } finally {
+      setSyncAction(null)
+    }
+  }
+
+  // Sync writes the account version to the store; show it now instead of on the next load.
+  const reloadFromStore = async () => {
+    const stored = await sessionStore.getSession(session.id)
+    if (!stored) return
+    adoptSession(stored)
+    void loadSessionSongs(stored)
+  }
+
+  const handleUpdateSet = () =>
+    runSyncAction('update', async () => {
+      await applyPendingRemote(session.id)
+      await reloadFromStore()
+    })
+
+  const handleKeepCopy = () =>
+    runSyncAction('keep', async () => {
+      const newId = await keepDeletedCopy(session.id)
+      const copy = await sessionStore.getSession(newId)
+      if (copy) navigate(sessionPath(copy))
+    })
+
+  const handleGoBack = () =>
+    runSyncAction('back', async () => {
+      await dismissDeleted(session.id)
+      navigate('/')
+    })
+
   const handleStartRename = () => {
     if (!session) return
     setEditedName(session.name)
@@ -1733,6 +1790,77 @@ export default function SessionPage() {
             : fromSetLink.kind === 'updated'
               ? 'Your copy now matches the shared set. It won\u2019t update when the sender makes changes.'
               : `Saved to your sets as \u201c${fromSetLink.name}\u201d. It won\u2019t update when the sender makes changes. Chart edits and uploaded sheets aren\u2019t included.`}
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && syncError && (
+        <StatusBanner tone="error" icon={<AlertTriangle size={16} />}>
+          {syncError}
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && syncDeleted && (
+        <StatusBanner
+          tone="warning"
+          icon={<AlertTriangle size={16} />}
+          title="This set was deleted on another device."
+          actions={
+            <>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={syncAction === 'keep'}
+                onClick={() => void handleKeepCopy()}
+              >
+                Keep a copy
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={syncAction === 'back'}
+                onClick={() => void handleGoBack()}
+              >
+                Go back
+              </Button>
+            </>
+          }
+        >
+          <p>Keep a copy saves it as a new set. Go back removes it from this device.</p>
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && !syncDeleted && syncConflict && (
+        <StatusBanner
+          tone="warning"
+          icon={<AlertTriangle size={16} />}
+          title="This set changed on this device and on another device."
+          actions={
+            <Button size="sm" variant="primary" onClick={() => setConflictOpen(true)}>
+              Review
+            </Button>
+          }
+        >
+          <p>Choose which version to keep.</p>
+        </StatusBanner>
+      )}
+
+      {!isFullScreen && !syncDeleted && !syncConflict && syncPending && (
+        <StatusBanner
+          tone="info"
+          icon={<RefreshCw size={16} />}
+          title="This set was changed on another device."
+          actions={
+            <Button
+              size="sm"
+              variant="primary"
+              loading={syncAction === 'update'}
+              onClick={() => void handleUpdateSet()}
+            >
+              Update set
+            </Button>
+          }
+        >
+          <p>The latest version is ready to load.</p>
         </StatusBanner>
       )}
 
@@ -2392,6 +2520,16 @@ export default function SessionPage() {
           <p>You can restore it to the original chord sheet at any time.</p>
         </div>
       </OverlayDialog>
+
+      <SyncConflictDialog
+        isOpen={conflictOpen && syncConflict}
+        sessionId={session.id}
+        clashes={syncState.conflicts.get(session.id)?.clashes ?? []}
+        onClose={() => {
+          setConflictOpen(false)
+          void reloadFromStore()
+        }}
+      />
 
       {/* Presentation Modal */}
       {isPresentationModalOpen && session && !isFullScreen && (

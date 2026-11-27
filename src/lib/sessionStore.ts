@@ -40,10 +40,14 @@ export interface SessionSongItem {
 export interface Session {
   id: string
   createdAt: number
+  /** When the synced content last changed, in client ms. Display only. */
+  updatedAt?: number
   name: string
   songs: SessionSongItem[]
   /** Unguessable ID used in the shareable URL. Derived from a secret kept in the identity store. */
   publicId?: string
+  /** Account this set belongs to on this device. Never synced. */
+  accountUid?: string
   /** Set link this session was imported from, so re-opening the link finds the existing copy. */
   importedFromLinkId?: string
   /** Live share this set came from, so re-opening the live link finds the existing copy. */
@@ -64,6 +68,8 @@ export interface SessionChangeEvent {
   type: 'created' | 'updated' | 'deleted'
   sessionId: string
   session?: Session
+  /** Set when the change came from sync, so it is not uploaded again. */
+  origin?: 'remote'
 }
 
 export type SessionChangeListener = (event: SessionChangeEvent) => void
@@ -128,6 +134,15 @@ export function numberedSetName(name: string, existingNames: string[]): string {
   let n = 2
   while (existingNames.includes(`${name} #${n}`)) n += 1
   return `${name} #${n}`
+}
+
+/** True when the fields that sync across devices changed; device-only fields never count. */
+function syncedContentChanged(before: Session, after: Session): boolean {
+  return (
+    before.name !== after.name ||
+    before.createdAt !== after.createdAt ||
+    JSON.stringify(before.songs) !== JSON.stringify(after.songs)
+  )
 }
 
 export class SessionStore {
@@ -241,6 +256,7 @@ export class SessionStore {
       ...(importFailures ? { importFailures } : {}),
       ...(options.linkSnapshot ? { linkSnapshot: options.linkSnapshot } : {}),
       createdAt: now,
+      updatedAt: now,
       name:
         name ||
         numberedSetName(
@@ -300,10 +316,16 @@ export class SessionStore {
       session.liveSourceId ??= existing.liveSourceId
       session.liveEnded ??= existing.liveEnded
       session.linkSnapshot ??= existing.linkSnapshot
+      session.accountUid ??= existing.accountUid
       // A save from an older copy of the set must not roll the host revision back.
       if ((session.liveRev ?? 0) < (existing.liveRev ?? 0)) {
         session.liveRev = existing.liveRev
         session.lastHostHash = existing.lastHostHash
+      }
+      if (syncedContentChanged(existing, session)) {
+        session.updatedAt = Date.now()
+      } else {
+        session.updatedAt ??= existing.updatedAt
       }
       list[index] = session
       await this.store.set(SESSIONS_STORAGE_KEY, list)
@@ -311,13 +333,62 @@ export class SessionStore {
     }
   }
 
+  /** Inserts or replaces a set pulled from the account, without re-stamping its updatedAt. */
+  async applyRemote(session: Session): Promise<void> {
+    const list = await this.getAllSessions()
+    const index = list.findIndex((s) => s.id === session.id)
+    const existing = index >= 0 ? list[index] : undefined
+    // Device-only fields stay as they are on this device; the synced ones come from the account.
+    const next: Session = {
+      ...existing,
+      id: session.id,
+      createdAt: session.createdAt,
+      name: session.name,
+      songs: session.songs,
+      updatedAt: session.updatedAt,
+      accountUid: session.accountUid,
+    }
+    if (!next.publicId) {
+      const identity = await getOrCreateSetLinkIdentity(next.id, this.identities())
+      next.publicId = identity.publicId
+    }
+    if (index >= 0) list[index] = next
+    else list.unshift(next)
+    await this.store.set(SESSIONS_STORAGE_KEY, list)
+    this.emit({
+      type: existing ? 'updated' : 'created',
+      sessionId: next.id,
+      session: next,
+      origin: 'remote',
+    })
+  }
+
   async deleteSession(id: string): Promise<void> {
+    await this.removeSession(id)
+  }
+
+  /** Like deleteSession, but for a set removed on another device. */
+  async removeRemote(id: string): Promise<void> {
+    await this.removeSession(id, 'remote')
+  }
+
+  private async removeSession(id: string, origin?: 'remote'): Promise<void> {
     const list = await this.getAllSessions()
     const filtered = list.filter((s) => s.id !== id)
     await this.store.set(SESSIONS_STORAGE_KEY, filtered)
     if (filtered.length !== list.length) {
-      this.emit({ type: 'deleted', sessionId: id })
+      this.emit({ type: 'deleted', sessionId: id, origin })
     }
+  }
+
+  /** Links a set to an account on this device, or unlinks it when uid is undefined. */
+  async setAccountUid(id: string, uid: string | undefined): Promise<void> {
+    const list = await this.getAllSessions()
+    const session = list.find((s) => s.id === id)
+    if (!session) return
+    if (uid === undefined) delete session.accountUid
+    else session.accountUid = uid
+    await this.store.set(SESSIONS_STORAGE_KEY, list)
   }
 
   async addSongsToSession(

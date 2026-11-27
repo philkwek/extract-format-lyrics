@@ -517,6 +517,279 @@ describe('SessionStore', () => {
       expect(await store.replaceSongsFromLink('missing', [], [], [])).toBeNull()
     })
   })
+
+  describe('sync support', () => {
+    function makeStores() {
+      let data: unknown = null
+      const ids = new Map<string, unknown>()
+      const clone = <T>(value: T): T => structuredClone(value)
+      const backing = {
+        get: vi.fn(async () => clone(data)),
+        set: vi.fn(async (_: unknown, v: unknown) => {
+          data = clone(v)
+        }),
+        del: vi.fn(async () => {
+          data = null
+        }),
+      }
+      const identityStore: SetLinkIdentityStore = {
+        get: async <T>(k: string) => ids.get(k) as T | undefined,
+        set: async (k, v) => void ids.set(k, v),
+        del: async (k) => void ids.delete(k),
+      }
+      return {
+        store: new SessionStore(backing as unknown as SessionStorageStore, identityStore),
+        ids,
+        seed: (v: unknown) => {
+          data = clone(v)
+        },
+      }
+    }
+
+    it('stamps updatedAt when synced content changes', async () => {
+      const { store } = makeStores()
+      const now = vi.spyOn(Date, 'now')
+      try {
+        now.mockReturnValue(1_000)
+        const session = await store.createSession(
+          [{ url: 'https://x.test/first', title: 'First made-up song' }],
+          'Sunday',
+        )
+        expect(session.updatedAt).toBe(1_000)
+
+        now.mockReturnValue(2_000)
+        await store.renameSession(session.id, 'Sunday evening')
+        expect((await store.getSession(session.id))?.updatedAt).toBe(2_000)
+
+        now.mockReturnValue(3_000)
+        const latest = await store.getSession(session.id)
+        await store.updateSession({ ...latest!, name: 'Sunday late' })
+        expect((await store.getSession(session.id))?.updatedAt).toBe(3_000)
+
+        now.mockReturnValue(4_000)
+        await store.addSongsToSession(session.id, [
+          { url: 'https://x.test/second', title: 'Second made-up song' },
+        ])
+        expect((await store.getSession(session.id))?.updatedAt).toBe(4_000)
+
+        now.mockReturnValue(5_000)
+        await store.replaceSongsFromLink(
+          session.id,
+          [{ url: 'https://x.test/third', title: 'Third made-up song' }],
+          [],
+          [],
+        )
+        expect((await store.getSession(session.id))?.updatedAt).toBe(5_000)
+
+        now.mockReturnValue(6_000)
+        await store.addSongsToSession(session.id, [
+          { url: 'https://x.test/fourth', title: 'Fourth made-up song' },
+        ])
+        expect((await store.getSession(session.id))?.updatedAt).toBe(6_000)
+
+        now.mockReturnValue(7_000)
+        await store.reorderSongsInSession(session.id, 0, 1)
+        expect((await store.getSession(session.id))?.updatedAt).toBe(7_000)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('does not stamp updatedAt for device-only changes or migration', async () => {
+      const { store, seed } = makeStores()
+      seed([
+        {
+          id: 'legacy',
+          createdAt: 1,
+          name: 'Old made-up set',
+          publicId: 'p',
+          songs: [{ url: 'https://x.test/legacy' }],
+        },
+      ])
+      const events = vi.fn()
+      store.subscribe(events)
+      const now = vi.spyOn(Date, 'now')
+      try {
+        now.mockReturnValue(9_000)
+        const [migrated] = await store.getAllSessions()
+        expect(migrated.updatedAt).toBeUndefined()
+        expect(events).not.toHaveBeenCalled()
+
+        const created = await store.createSession([], 'Local', {
+          liveSourceId: 'live-1',
+          liveRev: 1,
+          importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+        })
+        expect(created.updatedAt).toBe(9_000)
+
+        now.mockReturnValue(10_000)
+        await store.dismissImportFailures(created.id)
+        expect((await store.getSession(created.id))?.updatedAt).toBe(9_000)
+
+        const latest = await store.getSession(created.id)
+        await store.updateSession({
+          ...latest!,
+          liveRev: 2,
+          lastHostHash: 'hash',
+          liveEnded: 'stopped',
+          linkSnapshot: [{ entryId: 'e1' }],
+        })
+        expect((await store.getSession(created.id))?.updatedAt).toBe(9_000)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('keeps accountUid on update and sets it silently', async () => {
+      const { store } = makeStores()
+      const events: SessionChangeEvent[] = []
+      const now = vi.spyOn(Date, 'now')
+      try {
+        now.mockReturnValue(1_000)
+        const session = await store.createSession([], 'Sunday')
+        store.subscribe((e) => events.push(e))
+
+        now.mockReturnValue(2_000)
+        await store.setAccountUid(session.id, 'uid-1')
+        const stored = await store.getSession(session.id)
+        expect(stored?.accountUid).toBe('uid-1')
+        expect(stored?.updatedAt).toBe(1_000)
+        expect(events).toHaveLength(0)
+
+        now.mockReturnValue(3_000)
+        await store.updateSession({ ...stored!, name: 'Sunday evening' })
+        expect((await store.getSession(session.id))?.accountUid).toBe('uid-1')
+
+        now.mockReturnValue(4_000)
+        await store.setAccountUid(session.id, undefined)
+        const cleared = await store.getSession(session.id)
+        expect(cleared?.accountUid).toBeUndefined()
+        expect(cleared?.updatedAt).toBe(3_000)
+        expect(events.map((e) => e.type)).toEqual(['updated'])
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('applies a new remote set with its own publicId and a remote created event', async () => {
+      const { store, ids } = makeStores()
+      const events: SessionChangeEvent[] = []
+      store.subscribe((e) => events.push(e))
+      const now = vi.spyOn(Date, 'now')
+      try {
+        now.mockReturnValue(50_000)
+        await store.applyRemote({
+          id: 'remote-1',
+          createdAt: 500,
+          name: 'Remote Sunday',
+          songs: [{ url: 'https://x.test/remote-song', title: 'Remote made-up song' }],
+          updatedAt: 900,
+          accountUid: 'uid-1',
+        })
+
+        const stored = await store.getSession('remote-1')
+        expect(stored?.publicId).toMatch(/^[A-Za-z0-9_-]{22}$/)
+        expect(stored?.name).toBe('Remote Sunday')
+        expect(stored?.createdAt).toBe(500)
+        expect(stored?.songs[0].entryId).toBeTruthy()
+        expect(stored?.updatedAt).toBe(900)
+        expect(stored?.accountUid).toBe('uid-1')
+        expect(ids.has('remote-1')).toBe(true)
+        expect(events).toEqual([
+          {
+            type: 'created',
+            sessionId: 'remote-1',
+            session: expect.objectContaining({ id: 'remote-1' }),
+            origin: 'remote',
+          },
+        ])
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('replaces synced fields but keeps device-only fields on an existing set', async () => {
+      const { store, seed } = makeStores()
+      seed([
+        {
+          id: 'set-1',
+          createdAt: 100,
+          name: 'Local name',
+          songs: [{ entryId: 'e1', url: 'https://x.test/a', title: 'Old made-up song' }],
+          publicId: 'local-public',
+          importedFromLinkId: 'link-1',
+          linkSnapshot: [{ entryId: 'e1', targetKey: 'G' }],
+          liveSourceId: 'live-1',
+          lastHostHash: 'hash-1',
+          liveRev: 4,
+          liveEnded: 'stopped',
+          importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+          updatedAt: 200,
+          accountUid: 'uid-old',
+        },
+      ])
+      const events: SessionChangeEvent[] = []
+      store.subscribe((e) => events.push(e))
+      const now = vi.spyOn(Date, 'now')
+      try {
+        now.mockReturnValue(99_000)
+        await store.applyRemote({
+          id: 'set-1',
+          createdAt: 100,
+          name: 'Account name',
+          songs: [{ entryId: 'e2', url: 'https://x.test/b', title: 'New made-up song' }],
+          updatedAt: 5_000,
+          accountUid: 'uid-new',
+        })
+
+        const stored = await store.getSession('set-1')
+        expect(stored).toMatchObject({
+          name: 'Account name',
+          createdAt: 100,
+          updatedAt: 5_000,
+          accountUid: 'uid-new',
+          publicId: 'local-public',
+          importedFromLinkId: 'link-1',
+          linkSnapshot: [{ entryId: 'e1', targetKey: 'G' }],
+          liveSourceId: 'live-1',
+          lastHostHash: 'hash-1',
+          liveRev: 4,
+          liveEnded: 'stopped',
+          importFailures: [{ url: 'https://x.test/bad', reason: 'Import failed' }],
+        })
+        expect(stored?.songs).toEqual([
+          { entryId: 'e2', url: 'https://x.test/b', title: 'New made-up song' },
+        ])
+        expect(await store.getAllSessions()).toHaveLength(1)
+        expect(events).toHaveLength(1)
+        expect(events[0]).toMatchObject({ type: 'updated', sessionId: 'set-1', origin: 'remote' })
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('removes remote sets with a remote deleted event and leaves local events plain', async () => {
+      const { store } = makeStores()
+      const events: SessionChangeEvent[] = []
+      store.subscribe((e) => events.push(e))
+
+      const local = await store.createSession([], 'Local')
+      await store.renameSession(local.id, 'Local renamed')
+      await store.applyRemote({ id: 'remote', createdAt: 1, name: 'Remote', songs: [] })
+      await store.removeRemote('remote')
+      await store.removeRemote('missing')
+      await store.deleteSession(local.id)
+
+      expect(events.map((e) => `${e.type}:${e.origin ?? 'local'}`)).toEqual([
+        'created:local',
+        'updated:local',
+        'created:remote',
+        'deleted:remote',
+        'deleted:local',
+      ])
+      expect(await store.getSession('remote')).toBeNull()
+    })
+  })
 })
 
 describe('uniqueSetName', () => {
