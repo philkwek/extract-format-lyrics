@@ -103,6 +103,8 @@ export interface SyncChannelDeps<P> {
   identity: SetLinkSyncIdentity
   /** Sessions that return false are never published on this channel. */
   shouldSync?: (session: Session) => boolean | Promise<boolean>
+  /** When true, remote-origin creates/updates are ignored (deletes still clear local identity). */
+  ignoreRemote?: boolean
   buildPayload: (
     session: Session,
   ) => MaybePromise<{ payload: P | null; skippedUploads?: number; reason?: 'empty' | 'too_many' }>
@@ -355,6 +357,7 @@ export function createSyncChannel<P>(deps: SyncChannelDeps<P>): SetLinkSync {
       void deps.identity.remove(sessionId).catch(() => {})
       return
     }
+    if (deps.ignoreRemote && event.origin === 'remote') return
     if (!event.session) return
     const st = stateFor(sessionId)
     st.latest = event.session
@@ -430,6 +433,7 @@ export function createSetLinkSync(deps: SetLinkSyncDeps): SetLinkSync {
   return createSyncChannel<SetLinkPayload>({
     ...deps,
     name: 'set-link',
+    ignoreRemote: true,
     shouldSync: (session) => !session.liveSourceId,
     expectedPublicId: (s) => s.publicId,
     buildPayload: buildSetLinkPayload,

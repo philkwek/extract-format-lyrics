@@ -10,10 +10,13 @@ import LyricsViewerPage from './pages/LyricsViewerPage'
 import { useThemeMode } from './lib/useThemeMode'
 
 import PrivacyPage from './pages/PrivacyPage'
+import SignInPage from './pages/SignInPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { trackPage, setTrackingEnabled } from './lib/analytics'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
+import AccountMenu from './components/AccountMenu'
+import LinkLocalSetsDialog from './components/LinkLocalSetsDialog'
 import ThemeToggle from './components/ThemeToggle'
 import UpdateBanner from './components/UpdateBanner'
 import OfflineNotice from './components/OfflineNotice'
@@ -91,7 +94,8 @@ export function AppShell() {
                   <Search size={15} />
                   <span className="hidden sm:inline">Find a song</span>
                 </NavLink>
-                <ThemeToggle />
+                <ThemeToggle compact />
+                <AccountMenu />
               </nav>
             </div>
           </header>
@@ -115,6 +119,7 @@ export function AppShell() {
               <Route path="/" element={<HomePage />} />
               <Route path="/session/:sessionId" element={<SessionPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/sign-in" element={<SignInPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/s/:shortId" element={<ShareImportPage />} />
               <Route path="/live/:liveId" element={<LiveFollowPage />} />
@@ -153,6 +158,7 @@ export function AppShell() {
           </footer>
         )}
         <UpdateBanner open={updateAvailable} onReload={reload} onDismiss={dismiss} />
+        {!isLyricsView && !isPresentView && <LinkLocalSetsDialog />}
       </div>
     </ChromeVisibilityContext.Provider>
   )

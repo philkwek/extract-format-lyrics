@@ -6,6 +6,8 @@ import { Button } from './ui'
 interface ThemeToggleProps {
   variant?: 'secondary' | 'ghost'
   size?: number
+  /** Icon only below tablet width (the navbar). */
+  compact?: boolean
 }
 
 const MODE_NAME: Record<ThemeMode, string> = {
@@ -30,7 +32,11 @@ function getLabel(mode: ThemeMode): string {
   return `${MODE_LABEL[mode]}. Switch to ${MODE_NAME[nextThemeMode(mode)]} mode`
 }
 
-export default function ThemeToggle({ variant = 'secondary', size = 16 }: ThemeToggleProps) {
+export default function ThemeToggle({
+  variant = 'secondary',
+  size = 16,
+  compact = false,
+}: ThemeToggleProps) {
   const { mode, cycleMode } = useThemeMode()
 
   return (
@@ -49,8 +55,14 @@ export default function ThemeToggle({ variant = 'secondary', size = 16 }: ThemeT
         )
       }
     >
-      <span className="sm:hidden">{MODE_LABEL_SHORT[mode]}</span>
-      <span className="hidden sm:inline">{MODE_LABEL[mode]}</span>
+      {compact ? (
+        <span className="hidden md:inline">{MODE_LABEL[mode]}</span>
+      ) : (
+        <>
+          <span className="sm:hidden">{MODE_LABEL_SHORT[mode]}</span>
+          <span className="hidden sm:inline">{MODE_LABEL[mode]}</span>
+        </>
+      )}
     </Button>
   )
 }

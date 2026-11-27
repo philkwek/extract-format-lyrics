@@ -52,6 +52,13 @@ describe('ThemeToggle', () => {
     expect(screen.getByRole('button', { name: 'Match device. Switch to light mode' })).toBeTruthy()
   })
 
+  it('drops the short phone label when compact', () => {
+    render(<ThemeToggle compact />)
+
+    expect(screen.queryByText('Device')).toBeNull()
+    expect(screen.getByText('Match device').className).toContain('hidden md:inline')
+  })
+
   it('shows the current mode as button text', async () => {
     const user = userEvent.setup()
     render(<ThemeToggle />)

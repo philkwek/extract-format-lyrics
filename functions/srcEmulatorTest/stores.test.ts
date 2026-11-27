@@ -10,6 +10,7 @@ import {
   SetLinkThrottledError,
 } from '../src/setLinkStore.js'
 import { LiveSetError, LiveSetStore, hashLiveSongContent } from '../src/liveSetStore.js'
+import { AccountStore, ORPHAN_SONG_MIN_AGE_MS, PURGE_RETENTION_MS } from '../src/accountStore.js'
 import { FirestoreChartCacheStore } from '../src/chartCache.js'
 import { FirestoreSimplificationCacheStore } from '../src/chartSimplification.js'
 import { FirestoreSearchCacheStore } from '../src/search/searchCache.js'
@@ -262,5 +263,144 @@ describe('caches on Firestore', () => {
     expect(await cache.get('q')).toBeNull()
     await cache.set('q', entry)
     expect(await cache.get('q')).toMatchObject({ partial: false })
+  })
+})
+
+describe('AccountStore on Firestore', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000
+  const daysAgo = (days: number) => new Date(T0.getTime() - days * DAY_MS)
+
+  function setData(name: string, hashes: string[] = []): string {
+    return JSON.stringify({
+      name,
+      createdAt: T0.getTime(),
+      songs: hashes.map((contentHash, index) => ({
+        entryId: `e${index}`,
+        url: `https://tabs.example.com/${name}-${index}`,
+        title: `Demo ${name}`,
+        contentHash,
+      })),
+    })
+  }
+
+  async function seedSet(
+    uid: string,
+    setId: string,
+    over: Record<string, unknown> = {},
+    hashes: string[] = [],
+  ): Promise<void> {
+    await db.doc(`users/${uid}/sets/${setId}`).set({
+      v: 1,
+      rev: 2,
+      data: setData(setId, hashes),
+      songCount: hashes.length,
+      updatedAt: T0.getTime(),
+      serverUpdatedAt: Timestamp.fromDate(T0),
+      ...over,
+    })
+  }
+
+  async function seedSong(uid: string, contentHash: string, createdAt: Date): Promise<void> {
+    await db.doc(`users/${uid}/songs/${contentHash}`).set({
+      v: 1,
+      data: JSON.stringify({ id: contentHash, title: 'Demo Song A' }),
+      createdAt: Timestamp.fromDate(createdAt),
+    })
+  }
+
+  it('purges a 31-day tombstone, keeps a 29-day one and a live set, and leaves setCount alone', async () => {
+    const uid = 'purge-user'
+    await db.doc(`users/${uid}`).set({ setCount: 2 })
+    await seedSet(uid, 'old', { deletedAt: Timestamp.fromDate(daysAgo(31)) })
+    await seedSet(uid, 'recent', { deletedAt: Timestamp.fromDate(daysAgo(29)) })
+    await seedSet(uid, 'live')
+
+    const store = new AccountStore(db, now)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 1, songsDeleted: 0 })
+
+    expect((await db.doc(`users/${uid}/sets/old`).get()).exists).toBe(false)
+    expect((await db.doc(`users/${uid}/sets/recent`).get()).exists).toBe(true)
+    expect((await db.doc(`users/${uid}/sets/live`).get()).exists).toBe(true)
+    expect((await db.doc(`users/${uid}`).get()).data()?.setCount).toBe(2)
+    expect(PURGE_RETENTION_MS).toBe(30 * DAY_MS)
+  })
+
+  it('removes an old unreferenced song but keeps referenced ones and a young orphan', async () => {
+    const uid = 'song-user'
+    await seedSet(uid, 'live', {}, ['ref-live'])
+    await seedSet(uid, 'tomb', { deletedAt: Timestamp.fromDate(daysAgo(2)) }, ['ref-tomb'])
+    await seedSong(uid, 'ref-live', daysAgo(2))
+    await seedSong(uid, 'ref-tomb', daysAgo(2))
+    await seedSong(uid, 'orphan-old', daysAgo(2))
+    await seedSong(uid, 'orphan-young', daysAgo(0.5))
+
+    const store = new AccountStore(db, now)
+    expect(await store.collectOrphanSongs(uid)).toBe(1)
+
+    expect((await db.doc(`users/${uid}/songs/ref-live`).get()).exists).toBe(true)
+    expect((await db.doc(`users/${uid}/songs/ref-tomb`).get()).exists).toBe(true)
+    expect((await db.doc(`users/${uid}/songs/orphan-old`).get()).exists).toBe(false)
+    expect((await db.doc(`users/${uid}/songs/orphan-young`).get()).exists).toBe(true)
+    expect(ORPHAN_SONG_MIN_AGE_MS).toBe(DAY_MS)
+  })
+
+  it('saves lastRunAt and sweeps only the users whose sets changed', async () => {
+    await db.doc('system/accountPurge').set({ lastRunAt: Timestamp.fromDate(daysAgo(1)) })
+
+    // Changed since the last run: swept.
+    await seedSet('changed-user', 'changed', { serverUpdatedAt: Timestamp.fromDate(daysAgo(0.5)) })
+    await seedSong('changed-user', 'changed-orphan', daysAgo(2))
+    // Unchanged since the last run: left alone.
+    await seedSet('quiet-user', 'quiet', { serverUpdatedAt: Timestamp.fromDate(daysAgo(2)) })
+    await seedSong('quiet-user', 'quiet-orphan', daysAgo(2))
+    // Purged, so swept even though its sets are old.
+    await seedSet('purged-user', 'gone', {
+      deletedAt: Timestamp.fromDate(daysAgo(31)),
+      serverUpdatedAt: Timestamp.fromDate(daysAgo(40)),
+    })
+    await seedSong('purged-user', 'purged-orphan', daysAgo(2))
+
+    const store = new AccountStore(db, now)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 1, songsDeleted: 2 })
+
+    expect((await db.doc('users/changed-user/songs/changed-orphan').get()).exists).toBe(false)
+    expect((await db.doc('users/quiet-user/songs/quiet-orphan').get()).exists).toBe(true)
+    expect((await db.doc('users/purged-user/songs/purged-orphan').get()).exists).toBe(false)
+
+    const state = await db.doc('system/accountPurge').get()
+    expect((state.data()?.lastRunAt as Timestamp).toMillis()).toBe(T0.getTime())
+  })
+
+  it('deletes a song orphaned within 24h on the next day purge without further edits', async () => {
+    await db.doc('system/accountPurge').set({ lastRunAt: Timestamp.fromDate(daysAgo(1)) })
+    const uid = 'newly-orphaned-user'
+    await seedSong(uid, 'fresh-orphan', daysAgo(0.5))
+    await seedSet(uid, 'set-1', { serverUpdatedAt: Timestamp.fromDate(daysAgo(0.25)) }, [])
+
+    const store = new AccountStore(db, now)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 0, songsDeleted: 0 })
+    expect((await db.doc(`users/${uid}/songs/fresh-orphan`).get()).exists).toBe(true)
+
+    advance(DAY_MS)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 0, songsDeleted: 1 })
+    expect((await db.doc(`users/${uid}/songs/fresh-orphan`).get()).exists).toBe(false)
+  })
+
+  it('deleteAccountData removes the meta, sets and songs of one user only', async () => {
+    for (const uid of ['deleted-user', 'kept-user']) {
+      await db.doc(`users/${uid}`).set({ setCount: 1 })
+      await seedSet(uid, 'set-1', {}, ['song-1'])
+      await seedSong(uid, 'song-1', daysAgo(2))
+    }
+
+    await new AccountStore(db, now).deleteAccountData('deleted-user')
+
+    expect((await db.doc('users/deleted-user').get()).exists).toBe(false)
+    expect((await db.doc('users/deleted-user/sets/set-1').get()).exists).toBe(false)
+    expect((await db.doc('users/deleted-user/songs/song-1').get()).exists).toBe(false)
+
+    expect((await db.doc('users/kept-user').get()).exists).toBe(true)
+    expect((await db.doc('users/kept-user/sets/set-1').get()).exists).toBe(true)
+    expect((await db.doc('users/kept-user/songs/song-1').get()).exists).toBe(true)
   })
 })

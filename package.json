@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "npm run build --prefix functions && firebase emulators:start --only functions,firestore --project demo-chords --import .firebase/emulator-data --export-on-exit",
+    "dev:backend": "npm run build --prefix functions && firebase emulators:start --only functions,firestore,auth --project demo-chords --import .firebase/emulator-data --export-on-exit",
     "dev:all": "concurrently -n \"functions,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "build:functions": "npm run build --prefix functions",

@@ -402,4 +402,71 @@ describe('SongCache', () => {
     expect(retrieved?.simplifiedSource).toBe('official')
     expect(fakeStore.set).not.toHaveBeenCalled()
   })
+
+  it('notifies subscribers after a save and stops after unsubscribe', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    const listener = vi.fn()
+    const off = cache.subscribe(listener)
+    const saved: Song = {
+      ...sampleSong,
+      sourceUrl: 'https://pnwchords.com/amazing-grace?utm_source=email#verse-1',
+    }
+
+    await cache.saveSong(saved)
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith(normalizeSongUrl(saved.sourceUrl), saved)
+
+    off()
+    await cache.saveSong({ ...saved, title: 'Another made-up song' })
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits both the final URL and the normalized requested alias URL when redirected', async () => {
+    const memory = new Map<string, unknown>()
+    const fakeStore = {
+      get: vi.fn(
+        async <T>(key: string): Promise<T | undefined> => memory.get(key) as T | undefined,
+      ),
+      set: vi.fn(async (key: string, val: unknown): Promise<void> => {
+        memory.set(key, val)
+      }),
+      del: vi.fn(async (key: string): Promise<void> => {
+        memory.delete(key)
+      }),
+      entries: vi.fn(
+        async <T>(): Promise<[IDBValidKey, T][]> =>
+          Array.from(memory.entries()) as [IDBValidKey, T][],
+      ),
+    }
+    const cache = new SongCache(fakeStore as unknown as StorageStore)
+    const events: string[] = []
+    cache.subscribe((url) => events.push(url))
+
+    const saved: Song = {
+      ...sampleSong,
+      sourceUrl: 'https://pnwchords.com/final-song-url',
+    }
+    await cache.saveSong(saved, 'https://pnwchords.com/requested-alias-url?utm_source=email')
+
+    expect(events).toEqual([
+      normalizeSongUrl(saved.sourceUrl),
+      normalizeSongUrl('https://pnwchords.com/requested-alias-url?utm_source=email'),
+    ])
+  })
 })
