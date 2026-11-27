@@ -1259,7 +1259,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     const uid = onlineUid()
     return deps.withLock(ACCOUNT_SYNC_LOCK, async () => {
       if (user?.uid !== uid || !deps.online()) throw new AccountOfflineError()
-      return deps.firestore.transactSet<'restored' | 'full' | 'gone'>(
+      const outcome = await deps.firestore.transactSet<'restored' | 'full' | 'gone'>(
         uid,
         setId,
         (current, setCount) => {
@@ -1282,6 +1282,10 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
           }
         },
       )
+      if (outcome === 'restored' && user?.uid === uid && !(await deps.store.getSession(setId))) {
+        await clearSetState(setId)
+      }
+      return outcome
     })
   }
 
@@ -1481,17 +1485,22 @@ export function createFirestoreAdapter(): AccountFirestore {
     async listDeletedSets(uid, since) {
       const fs = await loadFirestore()
       const sets = fs.collection(fs.db as never, 'users', uid, 'sets')
-      const snapshot = await fs.getDocs(
-        fs.query(
-          sets,
-          fs.where('deletedAt', '>=', fs.Timestamp.fromMillis(since)),
-          fs.orderBy('deletedAt', 'desc'),
-        ),
-      )
-      return snapshot.docs.map((doc) => ({
-        setId: doc.id,
-        snapshot: snapshotFromData(doc.data() as Record<string, unknown>),
-      }))
+      try {
+        const snapshot = await fs.getDocsFromServer(
+          fs.query(
+            sets,
+            fs.where('deletedAt', '>=', fs.Timestamp.fromMillis(since)),
+            fs.orderBy('deletedAt', 'desc'),
+          ),
+        )
+        return snapshot.docs.map((doc) => ({
+          setId: doc.id,
+          snapshot: snapshotFromData(doc.data() as Record<string, unknown>),
+        }))
+      } catch (error) {
+        if (errorCode(error) === 'unavailable') throw new AccountOfflineError()
+        throw error
+      }
     },
   }
 }

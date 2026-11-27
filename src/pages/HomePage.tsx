@@ -91,6 +91,11 @@ export default function HomePage() {
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [deletingSession, setDeletingSession] = useState<Session | null>(null)
   const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [prevSignedIn, setPrevSignedIn] = useState(syncState.signedIn)
+  if (prevSignedIn !== syncState.signedIn) {
+    setPrevSignedIn(syncState.signedIn)
+    if (!syncState.signedIn && showRecentlyDeleted) setShowRecentlyDeleted(false)
+  }
   useEffect(() => {
     const refresh = () => {
       void sessionStore.getAllSessions().then(setSessions)
@@ -688,7 +693,7 @@ export default function HomePage() {
       </OverlayDialog>
 
       <RecentlyDeletedDialog
-        isOpen={showRecentlyDeleted}
+        isOpen={showRecentlyDeleted && syncState.signedIn}
         onClose={() => setShowRecentlyDeleted(false)}
       />
 

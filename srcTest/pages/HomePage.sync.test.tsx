@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import HomePage from '../../src/pages/HomePage'
 import * as sessionStoreModule from '../../src/lib/sessionStore'
@@ -248,6 +248,36 @@ describe('HomePage Recently deleted', () => {
 
     expect(await screen.findByRole('heading', { name: 'Recently deleted' })).toBeTruthy()
     expect(await screen.findByText('No deleted sets.')).toBeTruthy()
+  })
+
+  it('closes Recently deleted on sign-out and keeps it closed on re-sign-in', async () => {
+    sync.setSignedIn(true)
+    mockSessions([])
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Show deleted sets' }))
+    expect(await screen.findByRole('heading', { name: 'Recently deleted' })).toBeTruthy()
+
+    sync.setSignedIn(false)
+    rerender(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Recently deleted' })).toBeNull())
+
+    sync.setSignedIn(true)
+    rerender(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('heading', { name: 'Recently deleted' })).toBeNull()
   })
 
   it('keeps the set and writes nothing when the 5-second undo is used', async () => {

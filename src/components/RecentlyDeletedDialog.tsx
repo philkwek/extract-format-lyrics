@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   AccountOfflineError,
@@ -18,8 +18,13 @@ interface Notice {
   text: string
 }
 
+function startOfLocalDay(ms: number): number {
+  const date = new Date(ms)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
 function deletedWhen(deletedAt: number, now: number): string {
-  const days = Math.floor((now - deletedAt) / DAY_MS)
+  const days = Math.round((startOfLocalDay(now) - startOfLocalDay(deletedAt)) / DAY_MS)
   if (days <= 0) return 'Today'
   if (days === 1) return 'Yesterday'
   return `${days} days ago`
@@ -55,6 +60,19 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
   const [busyId, setBusyId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [prevOpen, setPrevOpen] = useState(isOpen)
+  const isOpenRef = useRef(isOpen)
+  const loadIdRef = useRef(0)
+
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen)
+    if (isOpen) {
+      setRows([])
+      setError(null)
+      setNotice(null)
+      setLoading(true)
+    }
+  }
 
   const show = useCallback((result: Loaded) => {
     setNow(result.now)
@@ -64,7 +82,16 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
   }, [])
 
   useEffect(() => {
-    if (isOpen) void fetchDeleted().then(show)
+    isOpenRef.current = isOpen
+    if (!isOpen) return
+    let cancelled = false
+    const id = ++loadIdRef.current
+    void fetchDeleted().then((result) => {
+      if (!cancelled && id === loadIdRef.current) show(result)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [isOpen, show])
 
   function close() {
@@ -76,8 +103,10 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
     setBusyId(row.setId)
     setNotice(null)
     setError(null)
+    const openLoadId = loadIdRef.current
     try {
       const outcome = await restoreDeletedSet(row.setId)
+      if (!isOpenRef.current || openLoadId !== loadIdRef.current) return
       if (outcome === 'restored') {
         setRows((current) => current.filter((item) => item.setId !== row.setId))
         setNotice({ tone: 'success', text: `Restored “${row.name}”.` })
@@ -88,9 +117,12 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
         })
       } else {
         setNotice({ tone: 'info', text: 'This set is no longer in Recently deleted.' })
-        show(await fetchDeleted())
+        const id = ++loadIdRef.current
+        const refreshed = await fetchDeleted()
+        if (isOpenRef.current && id === loadIdRef.current) show(refreshed)
       }
     } catch (err) {
+      if (!isOpenRef.current || openLoadId !== loadIdRef.current) return
       if (err instanceof AccountOfflineError) {
         setError('offline')
       } else {
@@ -125,6 +157,7 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
           {notice.text}
         </StatusBanner>
       )}
+      {loading && <p className="text-ui-text-muted text-sm">Loading deleted sets…</p>}
       {!loading && !error && rows.length === 0 && (
         <p className="text-ui-text-muted text-sm">No deleted sets.</p>
       )}
@@ -133,9 +166,9 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
           {rows.map((row) => (
             <li
               key={row.setId}
-              className="border-ui-border flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+              className="border-ui-border flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-ui-text truncate text-sm font-semibold">{row.name}</p>
                 <p className="text-ui-text-muted mt-0.5 text-xs">
                   {songCount(row.songCount)} · {deletedWhen(row.deletedAt, now)}
@@ -144,6 +177,7 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
               <Button
                 variant="secondary"
                 size="sm"
+                className="shrink-0"
                 loading={busyId === row.setId}
                 disabled={busyId !== null}
                 onClick={() => void restore(row)}

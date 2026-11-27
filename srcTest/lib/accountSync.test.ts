@@ -1792,6 +1792,28 @@ describe('recently deleted', () => {
     expect(h.fire.sets.get('set-a')).toMatchObject({ rev: 2, deletedAt: 500 })
   })
 
+  it('clears a stale queued local delete when restoring a set', async () => {
+    const h = createHarness()
+    const synced = emptySet('Demo Song A')
+    h.fire.sets.set('set-a', remoteDoc(synced, 2, { deletedAt: 500 }))
+    h.fire.meta.set(USER, { setCount: 0, lastSetId: 'set-a' })
+    await h.kv.set('syncBase:set-a', { rev: 1, synced })
+    await h.kv.set('syncOutbox', ['set-a'])
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await expect(engine.restoreDeletedSet('set-a')).resolves.toBe('restored')
+    await vi.advanceTimersByTimeAsync(1)
+    await engine.idle()
+    await engine.flush()
+
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+    expect(engine.getSyncState().conflicts.size).toBe(0)
+    expect((await h.store.getSession('set-a'))?.name).toBe('Demo Song A')
+    expect(h.fire.sets.get('set-a')?.deletedAt).toBeNull()
+  })
+
   it('publishes whether a user is signed in', async () => {
     const h = createHarness()
     const engine = h.startEngine()

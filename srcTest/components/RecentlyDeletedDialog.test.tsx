@@ -123,4 +123,119 @@ describe('RecentlyDeletedDialog', () => {
 
     expect(await screen.findByText("Couldn't load deleted sets. Try again.")).toBeTruthy()
   })
+
+  it('shows loading text while fetching and resets stale state when reopened', async () => {
+    let resolveSecond!: (value: typeof rows) => void
+    engine.listRecentlyDeleted
+      .mockRejectedValueOnce(new engine.AccountOfflineError())
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve
+          }),
+      )
+
+    const { rerender } = render(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+    expect(screen.getByText('Loading deleted sets…')).toBeTruthy()
+    expect(await screen.findByText('Recently deleted needs a connection.')).toBeTruthy()
+
+    rerender(<RecentlyDeletedDialog isOpen={false} onClose={vi.fn()} />)
+    rerender(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+
+    expect(screen.getByText('Loading deleted sets…')).toBeTruthy()
+    expect(screen.queryByText('Recently deleted needs a connection.')).toBeNull()
+    expect(screen.queryByText('No deleted sets.')).toBeNull()
+
+    resolveSecond([rows[0]])
+    expect(await screen.findByText('Demo Song C')).toBeTruthy()
+  })
+
+  it('ignores a slow earlier fetch after closing and reopening', async () => {
+    let resolveFirst!: (value: typeof rows) => void
+    engine.listRecentlyDeleted
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve
+          }),
+      )
+      .mockResolvedValueOnce([rows[1]])
+
+    const { rerender } = render(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+    rerender(<RecentlyDeletedDialog isOpen={false} onClose={vi.fn()} />)
+    rerender(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+
+    expect(await screen.findByText('Demo Song B')).toBeTruthy()
+
+    resolveFirst([rows[0]])
+    await Promise.resolve()
+    expect(screen.queryByText('Demo Song C')).toBeNull()
+    expect(screen.getByText('Demo Song B')).toBeTruthy()
+  })
+
+  it('drops a restore notice if the dialog closes before restore finishes', async () => {
+    let resolveRestore!: (value: 'restored') => void
+    engine.listRecentlyDeleted.mockResolvedValue(rows)
+    engine.restoreDeletedSet.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRestore = resolve
+        }),
+    )
+
+    const { rerender } = render(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+    await screen.findAllByRole('listitem')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0])
+
+    rerender(<RecentlyDeletedDialog isOpen={false} onClose={vi.fn()} />)
+    resolveRestore('restored')
+    await Promise.resolve()
+
+    rerender(<RecentlyDeletedDialog isOpen onClose={vi.fn()} />)
+    await screen.findAllByRole('listitem')
+    expect(screen.queryByText('Restored “Demo Song C”.')).toBeNull()
+  })
+
+  it('shows offline and generic errors when restore fails', async () => {
+    engine.listRecentlyDeleted.mockResolvedValue(rows)
+    engine.restoreDeletedSet
+      .mockRejectedValueOnce(new engine.AccountOfflineError())
+      .mockRejectedValueOnce(new Error('boom'))
+    renderDialog()
+
+    await screen.findAllByRole('listitem')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0])
+    expect(await screen.findByText('Recently deleted needs a connection.')).toBeTruthy()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0])
+    expect(await screen.findByText("Couldn't restore this set. Try again.")).toBeTruthy()
+  })
+
+  it('uses calendar days for Today and Yesterday', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const morning = new Date(2026, 10, 27, 9, 0, 0).getTime()
+      const lastNight = new Date(2026, 10, 26, 23, 0, 0).getTime()
+      vi.setSystemTime(morning)
+      engine.listRecentlyDeleted.mockResolvedValue([
+        { setId: 'set-y', name: 'Demo Last Night', songCount: 1, deletedAt: lastNight },
+      ])
+
+      renderDialog()
+      const item = await screen.findByRole('listitem')
+      expect(item.textContent).toContain('Yesterday')
+      expect(item.textContent).not.toContain('Today')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the Restore button on one row with truncated text', async () => {
+    engine.listRecentlyDeleted.mockResolvedValue([rows[0]])
+    renderDialog()
+
+    const item = await screen.findByRole('listitem')
+    expect(item.className).not.toContain('flex-wrap')
+    expect(item.firstElementChild?.className).toContain('flex-1')
+  })
 })
