@@ -12,6 +12,7 @@ import {
   type AccountUser,
 } from '../lib/auth'
 import { deleteAccount } from '../lib/accountSync'
+import { trackEvent } from '../lib/analytics'
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '../lib/syncStatus'
 
 const STATUS_LABELS: Record<SyncStatus, string> = {
@@ -46,6 +47,7 @@ export default function AccountMenu() {
   }
 
   async function handleGoogle() {
+    trackEvent('account_sign_in_started', { method: 'google' })
     setBusy('google')
     setError(null)
     const result = await signInWithGoogle()
@@ -53,12 +55,14 @@ export default function AccountMenu() {
     if (result.status === 'error') {
       setError(result.message)
     } else if (result.status !== 'cancelled') {
+      if (result.status === 'done') trackEvent('account_signed_in', { method: 'google' })
       setOpen(false)
     }
   }
 
   async function handleEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    trackEvent('account_sign_in_started', { method: 'email_link' })
     setBusy('email')
     setError(null)
     const result = await sendEmailLink(email)

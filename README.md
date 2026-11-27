@@ -5,7 +5,7 @@
 
 **Chords, lyrics and your setlist, in one place.** Sets & Sheets is a browser-based chord sheet and setlist app for worship teams, cell groups and anyone leading from a guitar. Paste a song, change the key, arrange it the way you play it, and share what your group needs to follow along.
 
-**[Open Sets & Sheets →](https://setsandsheets.com)** — no account needed.
+**[Open Sets & Sheets →](https://setsandsheets.com)** — no account needed; sign in to sync your sets.
 
 ![A song in Sets & Sheets with chords above the lyrics and controls for changing key, sharing and playing a pad](docs/readme/setlist-overview.png)
 
@@ -79,7 +79,9 @@ While a set is open, the screen stays on so it doesn't dim mid-song. This works 
 ## Before you rely on it
 
 - **Supported chord sites:** Ultimate Guitar, PNW Chords, Essential Worship, Worship Chords (`.com` and `.net`) and Worship Together. Other sites aren't supported for link imports, and a supported site may occasionally block one.
-- **Saved in this browser:** Sets aren't synced across devices. Use **Share → Send a copy** to move a set, and don't clear browser data if you need to update an existing lyrics link.
+- **Saved in this browser:** Sets stay in this browser unless you sign in. Signing in syncs your sets and their songs across devices. It doesn't sync display preferences, cached search results or live shares. Don't clear browser data if you need to update an existing lyrics link.
+- **Recently deleted:** when you're signed in, a deleted set stays in **Recently deleted** for 30 days, then it is removed.
+- **Signing in on iPhone and iPad:** the sign-in email link opens in Safari, not the installed app. Sign in from Safari, or separately in the installed app.
 - **Internet access:** Search, new imports, publishing links and fetching shared updates need a connection. Saved sets and songs open offline, and edits sync when you're back online. Install the app from the home page to keep the pads offline too; browser tabs download pads only as you play them.
 - **Installing:** Chrome, Edge and Android offer a one-tap install. On iPhone and iPad, use Share → **Add to Home Screen**; macOS Safari uses File → **Add to Dock**.
 - **Live sharing ends** if the host clears browser storage or switches device. Start a new live share.

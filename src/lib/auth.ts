@@ -1,4 +1,3 @@
-import { accountsEnabled } from './accountFlag'
 import { firebaseConfig, parseEmulatorHost } from './firestoreClient'
 import { isStandalone } from './standalone'
 
@@ -251,11 +250,6 @@ export async function reauthenticate(): Promise<ReauthResult> {
 }
 
 export function onUser(callback: (user: AccountUser | null) => void): () => void {
-  if (!accountsEnabled()) {
-    callback(null)
-    return () => {}
-  }
-
   let cancelled = false
   let unsubscribe: (() => void) | undefined
 

@@ -15,7 +15,6 @@ const syncStateMock = vi.hoisted(() => ({
     conflicts: new Map<string, { diffs: Array<{ label: string; local: string; remote: string }> }>(),
   },
 }))
-const authModule = vi.hoisted(() => ({ loaded: false }))
 
 vi.mock('../src/lib/useSyncState', () => ({
   useSyncState: () => syncStateMock.value,
@@ -27,7 +26,6 @@ vi.mock('firebase/app', () => ({
 }))
 
 vi.mock('firebase/auth', () => {
-  authModule.loaded = true
   return {
     GoogleAuthProvider: class {},
     getAuth: () => ({}),
@@ -185,20 +183,7 @@ describe('App navigation visibility', () => {
 })
 
 describe('Account entry', () => {
-  it('shows no sign in button and never loads firebase auth when accounts are off', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <AppShell />
-      </MemoryRouter>,
-    )
-
-    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
-    expect(authModule.loaded).toBe(false)
-  })
-
-  it('shows the sign in button and dialog when accounts are on', async () => {
-    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
-
+  it('shows the sign in button and dialog', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <AppShell />
@@ -212,18 +197,7 @@ describe('Account entry', () => {
     expect(screen.getByLabelText('Email address')).toBeTruthy()
   })
 
-  it('adds the sign in route only when accounts are on', () => {
-    const off = render(
-      <MemoryRouter initialEntries={['/sign-in']}>
-        <AppShell />
-      </MemoryRouter>,
-    )
-    expect(screen.queryByText('Sign In Page Content')).toBeNull()
-    expect(screen.getByText('Page not found')).toBeTruthy()
-    off.unmount()
-
-    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
-
+  it('opens the sign in route', () => {
     render(
       <MemoryRouter initialEntries={['/sign-in']}>
         <AppShell />
@@ -233,7 +207,6 @@ describe('Account entry', () => {
   })
 
   it('keeps the dismissed link-local-sets prompt closed when toggling full screen', async () => {
-    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
     syncStateMock.value = {
       signedIn: true,
       unlinkedSets: [{ id: 's1', name: 'Demo Set' }],

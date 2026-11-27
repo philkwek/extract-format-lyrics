@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { resolveConflict } from '../lib/accountSync'
+import { trackEvent } from '../lib/analytics'
 import type { ClashDiff } from '../lib/setMerge'
 import OverlayDialog from './ui/OverlayDialog'
 import { Button, StatusBanner } from './ui'
@@ -20,6 +21,10 @@ export default function SyncConflictDialog({
 }: SyncConflictDialogProps) {
   const [choice, setChoice] = useState<'keep-local' | 'use-remote' | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen) trackEvent('account_conflict_shown', {})
+  }, [isOpen])
 
   async function choose(next: 'keep-local' | 'use-remote') {
     setChoice(next)

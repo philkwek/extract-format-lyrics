@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SignInPage from '../../src/pages/SignInPage'
+import { trackEvent } from '../../src/lib/analytics'
 
 const mocks = vi.hoisted(() => ({
   completeEmailLink: vi.fn(),
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/lib/auth', () => ({
   completeEmailLink: mocks.completeEmailLink,
 }))
+
+vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
 beforeEach(() => {
   mocks.completeEmailLink.mockReset()
@@ -41,6 +44,8 @@ describe('SignInPage', () => {
 
     expect(await screen.findByText('Home page')).toBeTruthy()
     expect(mocks.completeEmailLink).toHaveBeenCalledWith(window.location.href)
+    expect(trackEvent).toHaveBeenCalledWith('account_signed_in', { method: 'email_link' })
+    expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toMatch(/phil@example.com|u1/)
   })
 
   it('asks for the email when this device has none saved', async () => {

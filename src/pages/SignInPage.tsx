@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, StatusBanner, Surface } from '../components/ui'
 import { completeEmailLink, type EmailLinkResult } from '../lib/auth'
+import { trackEvent } from '../lib/analytics'
 import { useSeo } from '../lib/useSeo'
 
 export default function SignInPage() {
@@ -17,6 +18,7 @@ export default function SignInPage() {
   const applyResult = useCallback(
     (result: EmailLinkResult) => {
       if (result.status === 'signed-in') {
+        trackEvent('account_signed_in', { method: 'email_link' })
         navigate('/', { replace: true })
         return
       }

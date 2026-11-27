@@ -6,7 +6,6 @@ import { AccountReauthError, deleteAccountApi } from './api'
 import type { AccountUser } from './auth'
 import { getIdToken, onUser, signOut as signOutAuth } from './auth'
 import { ACCOUNT_MAX_SETS, checkSetLimits } from './accountLimits'
-import { accountsEnabled } from './accountFlag'
 import { loadFirestore } from './firestoreClient'
 import { hashLiveSongContent } from './liveShareSync'
 import { withNamedLock } from './lyricsPublishIdentity'
@@ -1717,10 +1716,9 @@ function createDefaultSync(): AccountSync {
 let defaultSync: AccountSync | undefined
 let stopDefault: (() => void) | undefined
 
-/** Starts account sync if the flag is on. Idempotent; call once at app startup. */
+/** Starts account sync. Idempotent; call once at app startup. */
 export function startAccountSync(): () => void {
   if (stopDefault) return stopDefault
-  if (!accountsEnabled()) return () => {}
   defaultSync ??= createDefaultSync()
   const stop = defaultSync.start()
   stopDefault = () => {

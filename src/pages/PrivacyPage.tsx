@@ -61,8 +61,8 @@ export default function PrivacyPage() {
         clearing site data resets it.
       </p>
       <p>
-        Your song library and setlists are stored in your browser. Sharing a set or publishing
-        lyrics also stores that shared content on our server for the link to work.
+        Your song library and setlists are stored in your browser unless you sign in. Sharing a set
+        or publishing lyrics also stores that shared content on our server for the link to work.
       </p>
       <p>
         To make a set&rsquo;s address work on other devices, the set name, song titles and artists,
@@ -76,6 +76,13 @@ export default function PrivacyPage() {
         is removed 7 days after the last change, and turning <strong>Share live</strong> off ends it
         sooner. When you follow a live share, your browser connects to Google Firestore to receive
         updates.
+      </p>
+      <p>
+        An account is optional. If you sign in, we store your email address, your sets and their
+        songs, and the date you deleted a set. Deleted sets stay in{' '}
+        <strong>Recently deleted</strong> for 30 days and are then removed.{' '}
+        <strong>Delete account</strong> removes your account and everything in it. Sets on your
+        device stay there.
       </p>
       <a className="underline" href="https://policies.google.com/privacy">
         Google’s privacy policy
