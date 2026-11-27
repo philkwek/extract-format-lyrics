@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resumeLiveSetApi, putLyricsCurrentApi, searchApiStream } from '../../src/lib/api'
+import {
+  AccountReauthError,
+  deleteAccountApi,
+  putLyricsCurrentApi,
+  resumeLiveSetApi,
+  searchApiStream,
+} from '../../src/lib/api'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -142,5 +148,47 @@ describe('resumeLiveSetApi', () => {
     )
 
     await expect(resumeLiveSetApi('abc', 'secret')).rejects.toThrow('Not yours')
+  })
+})
+
+describe('deleteAccountApi', () => {
+  it('sends DELETE /api/account with the bearer token and resolves on 204', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(deleteAccountApi('id-token')).resolves.toBeUndefined()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/account', {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer id-token' },
+    })
+  })
+
+  it('throws AccountReauthError on 401 REAUTH', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { error: { code: 'REAUTH', message: 'Sign in again to delete your account.' } },
+          { status: 401 },
+        ),
+      ),
+    )
+
+    await expect(deleteAccountApi('id-token')).rejects.toBeInstanceOf(AccountReauthError)
+  })
+
+  it('throws Error on other non-OK responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { error: { code: 'ACCOUNT_DELETE_FAILED', message: 'Server error' } },
+          { status: 500 },
+        ),
+      ),
+    )
+
+    await expect(deleteAccountApi('id-token')).rejects.toThrow('Server error')
   })
 })

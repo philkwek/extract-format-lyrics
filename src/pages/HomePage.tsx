@@ -1,7 +1,18 @@
 import { trackEvent, trackSearchTiming, trackSongImport } from '../lib/analytics'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { FileText, Link2, ListMusic, Pencil, Radio, Search, Share2, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  AlertTriangle,
+  ArchiveRestore,
+  FileText,
+  Link2,
+  ListMusic,
+  Pencil,
+  Radio,
+  Search,
+  Share2,
+  Trash2,
+} from 'lucide-react'
 import { splitUrls } from '../../functions/src/urls'
 import { songCache } from '../lib/songCache'
 import { searchApiStream, type SearchCandidate, type SearchSourceStatus } from '../lib/api'
@@ -24,6 +35,7 @@ import {
   type RecentSharedLyrics,
 } from '../lib/recentLyricsStore'
 import ShareModal from '../components/ShareModal'
+import RecentlyDeletedDialog from '../components/RecentlyDeletedDialog'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
@@ -39,6 +51,7 @@ import { songCount } from '../lib/plural'
 import { UNDO_WINDOW_MS, usePendingRemoval } from '../lib/usePendingRemoval'
 import { useSongTray } from '../lib/useSongTray'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useSyncState } from '../lib/useSyncState'
 import { OFFLINE_MESSAGE } from '../lib/offlineCopy'
 
 export default function HomePage() {
@@ -72,13 +85,24 @@ export default function HomePage() {
   const searchGenerationRef = useRef(0)
 
   const [sessions, setSessions] = useState<Session[]>([])
+  const syncState = useSyncState()
   const [recentLyrics, setRecentLyrics] = useState<RecentSharedLyrics[]>([])
   const [currentTime] = useState(() => Date.now())
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [deletingSession, setDeletingSession] = useState<Session | null>(null)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [prevSignedIn, setPrevSignedIn] = useState(syncState.signedIn)
+  if (prevSignedIn !== syncState.signedIn) {
+    setPrevSignedIn(syncState.signedIn)
+    if (!syncState.signedIn && showRecentlyDeleted) setShowRecentlyDeleted(false)
+  }
   useEffect(() => {
-    sessionStore.getAllSessions().then(setSessions)
-    getRecentSharedLyrics().then(setRecentLyrics)
+    const refresh = () => {
+      void sessionStore.getAllSessions().then(setSessions)
+    }
+    refresh()
+    void getRecentSharedLyrics().then(setRecentLyrics)
+    return sessionStore.subscribe(refresh)
   }, [])
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])
@@ -100,6 +124,9 @@ export default function HomePage() {
   const visibleSessions = pendingSetRemoval
     ? sessions.filter((session) => session.id !== pendingSetRemoval.id)
     : sessions
+  const conflictSessions = visibleSessions.filter(
+    (session) => syncState.conflicts.has(session.id) || syncState.deletedElsewhere.has(session.id),
+  )
 
   const undoNote = useMemo<ChangeNote | null>(
     () =>
@@ -374,17 +401,53 @@ export default function HomePage() {
               Sessions are saved locally within your browser.
             </p>
           </div>
-          {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<Trash2 size={14} />}
-              onClick={handleClearLibrary}
-            >
-              Clear library
-            </Button>
+          {(syncState.signedIn || visibleSessions.length > 0 || recentLyrics.length > 0) && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {syncState.signedIn && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<ArchiveRestore size={14} />}
+                  onClick={() => setShowRecentlyDeleted(true)}
+                >
+                  Show deleted sets
+                </Button>
+              )}
+              {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  onClick={handleClearLibrary}
+                >
+                  Clear library
+                </Button>
+              )}
+            </div>
           )}
         </div>
+
+        {conflictSessions.length > 0 && (
+          <StatusBanner tone="warning" className="mb-4" icon={<AlertTriangle size={16} />}>
+            <p>
+              {conflictSessions.length === 1
+                ? '1 set needs your choice.'
+                : `${conflictSessions.length} sets need your choice.`}
+            </p>
+            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {conflictSessions.map((session) => (
+                <li key={session.id}>
+                  <Link
+                    to={sessionPath(session)}
+                    className="text-ui-accent-strong inline-flex min-h-8 items-center font-semibold underline underline-offset-2"
+                  >
+                    {session.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </StatusBanner>
+        )}
 
         {deleteError && (
           <StatusBanner
@@ -628,6 +691,11 @@ export default function HomePage() {
             : `"${deletingSession?.name}" will be deleted. You can undo for 5 seconds.`}
         </p>
       </OverlayDialog>
+
+      <RecentlyDeletedDialog
+        isOpen={showRecentlyDeleted && syncState.signedIn}
+        onClose={() => setShowRecentlyDeleted(false)}
+      />
 
       <ChangeToast
         note={tray.undoNote ?? undoNote}

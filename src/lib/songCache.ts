@@ -49,9 +49,27 @@ export class SongCache {
   private readonly store: StorageStore
   // Stored song URLs that simplifySections changed nothing in, for this page load.
   private readonly nothingToSimplify = new Set<string>()
+  private readonly listeners = new Set<(url: string, song: Song) => void>()
 
   constructor(store: StorageStore = defaultStore) {
     this.store = store
+  }
+
+  subscribe(listener: (url: string, song: Song) => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  private emit(url: string, song: Song): void {
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(url, song)
+      } catch (error) {
+        console.error('Song cache listener failed', error)
+      }
+    }
   }
 
   async getSong(url: string): Promise<Song | null> {
@@ -119,13 +137,18 @@ export class SongCache {
     // Clear any temporary failed marker
     await this.store.del(`${FAILED_PREFIX}${finalUrl}`)
 
+    let aliasUrl: string | undefined
     if (requestedUrl) {
       const originalUrl = normalizeSongUrl(requestedUrl)
       if (originalUrl !== finalUrl) {
         await this.store.set(`${ALIAS_PREFIX}${originalUrl}`, finalUrl)
         await this.store.del(`${FAILED_PREFIX}${originalUrl}`)
+        aliasUrl = originalUrl
       }
     }
+
+    this.emit(finalUrl, song)
+    if (aliasUrl) this.emit(aliasUrl, song)
   }
 
   async getAlias(url: string): Promise<string | null> {

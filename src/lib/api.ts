@@ -442,3 +442,31 @@ export async function getLiveSetApi(id: string): Promise<GetLiveSetResult> {
   }
   return (await res.json()) as GetLiveSetResult
 }
+
+/** The sign-in is too old; the person must sign in again before deleting the account. */
+export class AccountReauthError extends Error {
+  constructor(message = 'Sign in again to delete your account.') {
+    super(message)
+    this.name = 'AccountReauthError'
+  }
+}
+
+export async function deleteAccountApi(idToken: string): Promise<void> {
+  const res = await fetch('/api/account', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  })
+  if (!res.ok) {
+    let code: string | undefined
+    let message = `Delete account request failed (${res.status})`
+    try {
+      const data = await res.json()
+      code = data?.error?.code
+      message = data?.error?.message || message
+    } catch {
+      // Preserve the HTTP fallback.
+    }
+    if (code === 'REAUTH') throw new AccountReauthError(message)
+    throw new Error(message)
+  }
+}

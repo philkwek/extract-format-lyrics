@@ -34,6 +34,10 @@ interface Events {
   presenter_opened: { mode: 'auto' | 'manual' }
   presenter_mode_switched: { mode: 'auto' | 'manual' }
   presenter_output_opened: Record<string, never>
+  account_sign_in_started: { method: 'google' | 'email_link' }
+  account_signed_in: { method: 'google' | 'email_link' }
+  account_sync_enabled: { set_count: number }
+  account_conflict_shown: Record<string, never>
 }
 
 const preferenceKey = 'usage-tracking-disabled'
@@ -201,7 +205,7 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
       'missing',
       'stopped',
     ],
-    method: ['search', 'pasted_link', 'upload'],
+    method: ['search', 'pasted_link', 'upload', 'google', 'email_link'],
     mode: ['auto', 'manual'],
     operation: ['create', 'update'],
     trigger: ['create', 'update', 'refresh'],
@@ -220,6 +224,10 @@ export function trackEvent<K extends keyof Events>(name: K, params: Events[K]): 
     presenter_opened: ['mode'],
     presenter_mode_switched: ['mode'],
     presenter_output_opened: [],
+    account_sign_in_started: ['method'],
+    account_signed_in: ['method'],
+    account_sync_enabled: ['set_count'],
+    account_conflict_shown: [],
   }
   if (!Object.hasOwn(fields, name)) return
   for (const key of fields[name]) {

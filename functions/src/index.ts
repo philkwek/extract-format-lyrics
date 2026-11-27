@@ -1,6 +1,9 @@
 import type { Request, Response } from 'express'
+import { getAuth } from 'firebase-admin/auth'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { onRequest } from 'firebase-functions/v2/https'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { accountStore } from './accountStore.js'
 import { handleCors, sendJsonError } from './limits.js'
 import { checkUrl, validateUrls, MAX_URLS_PER_REQUEST } from './urls.js'
 import { scrapeUrls, type ScrapeResult } from './scrapePool.js'
@@ -793,8 +796,72 @@ export const api = onRequest(async (req, res) => {
     return
   }
 
+  // Account deletion: DELETE /api/account
+  if (req.path === '/api/account' || req.path === '/account') {
+    if (req.method !== 'DELETE') {
+      sendJsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Only DELETE is allowed for /api/account')
+      return
+    }
+
+    if (rejectIfLimited(req, res)) return
+
+    const token = secretFromRequest(req)
+    if (!token) {
+      sendJsonError(res, 401, 'UNAUTHENTICATED', 'Sign in to delete your account')
+      return
+    }
+
+    let uid: string
+    let authTime: number
+    try {
+      const decoded = await getAuth().verifyIdToken(token, true)
+      uid = decoded.uid
+      authTime = decoded.auth_time
+    } catch {
+      sendJsonError(res, 401, 'UNAUTHENTICATED', 'Sign in to delete your account')
+      return
+    }
+
+    if (Date.now() - authTime * 1000 > 5 * 60 * 1000) {
+      sendJsonError(res, 401, 'REAUTH', 'Sign in again to delete your account')
+      return
+    }
+
+    try {
+      await accountStore.deleteAccountData(uid)
+    } catch (err) {
+      sendJsonError(
+        res,
+        500,
+        'ACCOUNT_DELETE_FAILED',
+        (err as Error).message || 'Failed to delete the account data',
+      )
+      return
+    }
+
+    try {
+      await getAuth().deleteUser(uid)
+    } catch (err) {
+      sendJsonError(
+        res,
+        500,
+        'ACCOUNT_DELETE_FAILED',
+        (err as Error).message || 'Failed to delete the sign-in record',
+      )
+      return
+    }
+
+    res.status(204).end()
+    return
+  }
+
   // 404 for unrouted paths
   sendJsonError(res, 404, 'NOT_FOUND', `Cannot ${req.method} ${req.path}`)
+})
+
+export const purgeDeletedSets = onSchedule('every 24 hours', async () => {
+  const counts = await accountStore.purgeDeletedSets()
+  console.info('[account-purge]', counts)
 })
 
 // Uploads can hold a request for minutes; keep them off the main API's instances.

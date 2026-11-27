@@ -562,4 +562,28 @@ describe('createSyncChannel', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(publish).not.toHaveBeenCalled()
   })
+
+  it('ignores remote-origin creates and updates in set-link sync, while still removing identity on remote delete', async () => {
+    const { api, identities, emit, sync } = setup()
+    const stop = sync.start()
+
+    emit({ type: 'created', sessionId: 's1', session: makeSession(), origin: 'remote' })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(api).not.toHaveBeenCalled()
+
+    emit({
+      type: 'updated',
+      sessionId: 's1',
+      session: makeSession({ name: 'Remote edit' }),
+      origin: 'remote',
+    })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(api).not.toHaveBeenCalled()
+    expect(identities.has('s1')).toBe(true)
+
+    emit({ type: 'deleted', sessionId: 's1', origin: 'remote' })
+    await Promise.resolve()
+    expect(identities.has('s1')).toBe(false)
+    stop()
+  })
 })

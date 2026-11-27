@@ -1,12 +1,24 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '../src/App'
 
 const mockState = vi.hoisted(() => ({ throwOnSession: false }))
-const authModule = vi.hoisted(() => ({ loaded: false }))
+const syncStateMock = vi.hoisted(() => ({
+  value: {
+    signedIn: false,
+    unlinkedSets: [] as Array<{ id: string; name: string }>,
+    pendingRemote: new Set<string>(),
+    deletedElsewhere: new Set<string>(),
+    conflicts: new Map<string, { diffs: Array<{ label: string; local: string; remote: string }> }>(),
+  },
+}))
+
+vi.mock('../src/lib/useSyncState', () => ({
+  useSyncState: () => syncStateMock.value,
+}))
 
 vi.mock('firebase/app', () => ({
   getApps: () => [{}],
@@ -14,7 +26,6 @@ vi.mock('firebase/app', () => ({
 }))
 
 vi.mock('firebase/auth', () => {
-  authModule.loaded = true
   return {
     GoogleAuthProvider: class {},
     getAuth: () => ({}),
@@ -52,6 +63,13 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
   mockState.throwOnSession = false
+  syncStateMock.value = {
+    signedIn: false,
+    unlinkedSets: [],
+    pendingRemote: new Set(),
+    deletedElsewhere: new Set(),
+    conflicts: new Map(),
+  }
   localStorage.clear()
 })
 
@@ -165,20 +183,7 @@ describe('App navigation visibility', () => {
 })
 
 describe('Account entry', () => {
-  it('shows no sign in button and never loads firebase auth when accounts are off', () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <AppShell />
-      </MemoryRouter>,
-    )
-
-    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
-    expect(authModule.loaded).toBe(false)
-  })
-
-  it('shows the sign in button and dialog when accounts are on', async () => {
-    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
-
+  it('shows the sign in button and dialog', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <AppShell />
@@ -192,23 +197,37 @@ describe('Account entry', () => {
     expect(screen.getByLabelText('Email address')).toBeTruthy()
   })
 
-  it('adds the sign in route only when accounts are on', () => {
-    const off = render(
-      <MemoryRouter initialEntries={['/sign-in']}>
-        <AppShell />
-      </MemoryRouter>,
-    )
-    expect(screen.queryByText('Sign In Page Content')).toBeNull()
-    expect(screen.getByText('Page not found')).toBeTruthy()
-    off.unmount()
-
-    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
-
+  it('opens the sign in route', () => {
     render(
       <MemoryRouter initialEntries={['/sign-in']}>
         <AppShell />
       </MemoryRouter>,
     )
     expect(screen.getByText('Sign In Page Content')).toBeTruthy()
+  })
+
+  it('keeps the dismissed link-local-sets prompt closed when toggling full screen', async () => {
+    syncStateMock.value = {
+      signedIn: true,
+      unlinkedSets: [{ id: 's1', name: 'Demo Set' }],
+      pendingRemote: new Set(),
+      deletedElsewhere: new Set(),
+      conflicts: new Map(),
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/session/test-id']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide chrome' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show chrome' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
