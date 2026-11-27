@@ -295,10 +295,25 @@ describe('SessionPage account sync banners', () => {
     expect(sync.dismissDeleted).toHaveBeenCalledWith('session-1')
   })
 
+  it('disables both deleted-banner buttons while one action runs', async () => {
+    sync.set({ ...sync.get(), deletedElsewhere: new Set(['session-1']) })
+    sync.keepDeletedCopy.mockReturnValue(new Promise(() => {}))
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep a copy' }))
+
+    const keepBtn = await screen.findByRole('button', { name: 'Keep a copy', busy: true })
+    const backBtn = screen.getByRole('button', { name: 'Go back' })
+    expect((keepBtn as HTMLButtonElement).disabled).toBe(true)
+    expect((backBtn as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('opens the conflict dialog from Review', async () => {
     sync.set({
       ...sync.get(),
-      conflicts: new Map([['session-1', { clashes: ['Both devices changed the key of Song A.'] }]]),
+      conflicts: new Map([
+        ['session-1', { clashes: ['Demo Song A key: G on this device vs A in the cloud.'] }],
+      ]),
     })
     renderPage()
 
@@ -310,7 +325,7 @@ describe('SessionPage account sync banners', () => {
     expect(
       await screen.findByRole('heading', { name: 'Choose which version to keep' }),
     ).toBeTruthy()
-    expect(screen.getByText('Both devices changed the key of Song A.')).toBeTruthy()
+    expect(screen.getByText('Demo Song A key: G on this device vs A in the cloud.')).toBeTruthy()
   })
 
   it('shows the deleted banner first when more than one state applies', async () => {

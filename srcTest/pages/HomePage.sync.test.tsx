@@ -142,4 +142,30 @@ describe('HomePage account sync banner', () => {
     expect(screen.queryByText(/needs your choice/)).toBeNull()
     expect(screen.queryByText(/need your choice/)).toBeNull()
   })
+
+  it('refreshes the set list when the session store emits a remote change', async () => {
+    const getAll = vi
+      .spyOn(sessionStoreModule.sessionStore, 'getAllSessions')
+      .mockResolvedValue([{ ...base, id: 'set-a', name: 'Sunday Set' }] as never)
+    let listener: (() => void) | undefined
+    vi.spyOn(sessionStoreModule.sessionStore, 'subscribe').mockImplementation((cb) => {
+      listener = () => cb({ type: 'created', sessionId: 'set-b' })
+      return () => {}
+    })
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('link', { name: /Sunday Set/ })).toBeTruthy()
+    getAll.mockResolvedValue([
+      { ...base, id: 'set-a', name: 'Sunday Set' },
+      { ...base, id: 'set-b', name: 'Evening Set' },
+    ] as never)
+    listener?.()
+
+    expect(await screen.findByRole('link', { name: /Evening Set/ })).toBeTruthy()
+  })
 })

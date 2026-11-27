@@ -89,8 +89,12 @@ export default function HomePage() {
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [deletingSession, setDeletingSession] = useState<Session | null>(null)
   useEffect(() => {
-    sessionStore.getAllSessions().then(setSessions)
-    getRecentSharedLyrics().then(setRecentLyrics)
+    const refresh = () => {
+      void sessionStore.getAllSessions().then(setSessions)
+    }
+    refresh()
+    void getRecentSharedLyrics().then(setRecentLyrics)
+    return sessionStore.subscribe(refresh)
   }, [])
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])

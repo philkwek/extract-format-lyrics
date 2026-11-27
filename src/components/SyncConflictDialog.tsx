@@ -33,6 +33,8 @@ export default function SyncConflictDialog({
     }
   }
 
+  const uniqueClashes = [...new Set(clashes)]
+
   return createPortal(
     <OverlayDialog
       isOpen={isOpen}
@@ -47,10 +49,10 @@ export default function SyncConflictDialog({
       <p className="text-ui-text text-sm">
         This set changed in two places. Pick one version; the other is replaced.
       </p>
-      {clashes.length > 0 && (
+      {uniqueClashes.length > 0 && (
         <ul className="text-ui-text-muted mt-3 list-disc space-y-1 pl-5 text-sm">
-          {clashes.map((clash) => (
-            <li key={clash}>{clash}</li>
+          {uniqueClashes.map((clash, index) => (
+            <li key={`${clash}-${index}`}>{clash}</li>
           ))}
         </ul>
       )}
@@ -59,22 +61,22 @@ export default function SyncConflictDialog({
           {error}
         </StatusBanner>
       )}
-      <div className="mt-4 space-y-2">
-        <Button
-          variant="primary"
-          className="w-full"
-          loading={choice === 'use-remote'}
-          onClick={() => void choose('use-remote')}
-        >
-          Use account version
-        </Button>
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
-          className="w-full"
+          disabled={choice !== null}
           loading={choice === 'keep-local'}
           onClick={() => void choose('keep-local')}
         >
           Keep this device
+        </Button>
+        <Button
+          variant="primary"
+          disabled={choice !== null}
+          loading={choice === 'use-remote'}
+          onClick={() => void choose('use-remote')}
+        >
+          Use cloud version
         </Button>
       </div>
     </OverlayDialog>,

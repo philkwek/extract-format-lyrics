@@ -1507,10 +1507,13 @@ export default function SessionPage() {
     }
   }
 
-  // Sync writes the account version to the store; show it now instead of on the next load.
+  // Sync writes the cloud version to the store; show it now, or go home if it was deleted.
   const reloadFromStore = async () => {
     const stored = await sessionStore.getSession(session.id)
-    if (!stored) return
+    if (!stored) {
+      navigate('/')
+      return
+    }
     adoptSession(stored)
     void loadSessionSongs(stored)
   }
@@ -1809,6 +1812,7 @@ export default function SessionPage() {
               <Button
                 size="sm"
                 variant="primary"
+                disabled={syncAction !== null}
                 loading={syncAction === 'keep'}
                 onClick={() => void handleKeepCopy()}
               >
@@ -1817,6 +1821,7 @@ export default function SessionPage() {
               <Button
                 size="sm"
                 variant="secondary"
+                disabled={syncAction !== null}
                 loading={syncAction === 'back'}
                 onClick={() => void handleGoBack()}
               >
