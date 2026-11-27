@@ -52,7 +52,11 @@ export class AccountStore {
     const stateSnap = await stateRef.get()
     const lastRunAt = timestampMs(stateSnap.data()?.lastRunAt)
 
-    const expired = await this.db.collectionGroup(SETS).where('deletedAt', '<', cutoff).get()
+    const expired = await this.db
+      .collectionGroup(SETS)
+      .where('deletedAt', '<', cutoff)
+      .select()
+      .get()
     const expiredDocs = expired.docs.filter((doc) => isUserSetPath(doc.ref.path))
 
     let setsDeleted = 0
@@ -69,7 +73,8 @@ export class AccountStore {
     if (lastRunAt !== null) {
       const changed = await this.db
         .collectionGroup(SETS)
-        .where('serverUpdatedAt', '>', Timestamp.fromMillis(lastRunAt))
+        .where('serverUpdatedAt', '>', Timestamp.fromMillis(lastRunAt - ORPHAN_SONG_MIN_AGE_MS))
+        .select()
         .get()
       for (const doc of changed.docs) {
         if (isUserSetPath(doc.ref.path)) touched.add(userIdFromSetPath(doc.ref.path))
@@ -90,7 +95,7 @@ export class AccountStore {
    * than a day. An unreadable set stops the cleanup for that user.
    */
   async collectOrphanSongs(uid: string): Promise<number> {
-    const sets = await this.db.collection(`${USERS}/${uid}/${SETS}`).get()
+    const sets = await this.db.collection(`${USERS}/${uid}/${SETS}`).select('data').get()
     const referenced = new Set<string>()
 
     for (const doc of sets.docs) {
@@ -111,7 +116,7 @@ export class AccountStore {
     }
 
     const cutoff = this.now().getTime() - ORPHAN_SONG_MIN_AGE_MS
-    const songs = await this.db.collection(`${USERS}/${uid}/${SONGS}`).get()
+    const songs = await this.db.collection(`${USERS}/${uid}/${SONGS}`).select('createdAt').get()
     const orphans = songs.docs.filter((doc) => {
       if (referenced.has(doc.id)) return false
       const createdAt = timestampMs(doc.data().createdAt)

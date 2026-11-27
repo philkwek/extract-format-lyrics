@@ -371,6 +371,21 @@ describe('AccountStore on Firestore', () => {
     expect((state.data()?.lastRunAt as Timestamp).toMillis()).toBe(T0.getTime())
   })
 
+  it('deletes a song orphaned within 24h on the next day purge without further edits', async () => {
+    await db.doc('system/accountPurge').set({ lastRunAt: Timestamp.fromDate(daysAgo(1)) })
+    const uid = 'newly-orphaned-user'
+    await seedSong(uid, 'fresh-orphan', daysAgo(0.5))
+    await seedSet(uid, 'set-1', { serverUpdatedAt: Timestamp.fromDate(daysAgo(0.25)) }, [])
+
+    const store = new AccountStore(db, now)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 0, songsDeleted: 0 })
+    expect((await db.doc(`users/${uid}/songs/fresh-orphan`).get()).exists).toBe(true)
+
+    advance(DAY_MS)
+    expect(await store.purgeDeletedSets()).toEqual({ setsDeleted: 0, songsDeleted: 1 })
+    expect((await db.doc(`users/${uid}/songs/fresh-orphan`).get()).exists).toBe(false)
+  })
+
   it('deleteAccountData removes the meta, sets and songs of one user only', async () => {
     for (const uid of ['deleted-user', 'kept-user']) {
       await db.doc(`users/${uid}`).set({ setCount: 1 })
