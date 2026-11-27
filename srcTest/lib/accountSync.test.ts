@@ -123,6 +123,10 @@ class FakeFirestore implements AccountFirestore {
     if (!this.songs.has(contentHash)) this.songs.set(contentHash, structuredClone(value))
   }
 
+  async getSetCount(uid: string) {
+    return this.meta.get(uid)?.setCount ?? 0
+  }
+
   async transactSet<T>(
     uid: string,
     setId: string,
@@ -1824,5 +1828,274 @@ describe('recently deleted', () => {
 
     h.stops[0]()
     expect(engine.getSyncState().signedIn).toBe(false)
+  })
+})
+
+describe('first sign-in link prompt', () => {
+  it('lists sets with no account or another account, but not live or linked sets', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const noAccount = await seedSession(h.store, [item('a')], 'Demo Song A', {
+      accountUid: undefined,
+    })
+    const otherAccount = await seedSession(h.store, [item('a')], 'Demo Band', {
+      accountUid: OTHER_USER,
+    })
+    const live = await seedSession(h.store, [item('a')], 'Demo Live', {
+      accountUid: undefined,
+      liveSourceId: 'live-1',
+    })
+    const linked = await seedSession(h.store, [item('a')], 'Demo Linked', { accountUid: USER })
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const ids = engine.getSyncState().unlinkedSets.map((set) => set.id)
+    expect(ids).toContain(noAccount.id)
+    expect(ids).toContain(otherAccount.id)
+    expect(ids).not.toContain(live.id)
+    expect(ids).not.toContain(linked.id)
+
+    const createdWhileSignedIn = await h.store.createSession([item('a')], 'Sunday demo set')
+    await engine.idle()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).not.toContain(
+      createdWhileSignedIn.id,
+    )
+    expect((await h.store.getSession(createdWhileSignedIn.id))?.accountUid).toBe(USER)
+  })
+
+  it('adds every listed set to an empty account', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    const second = await seedSession(h.store, [item('b')], 'Demo Song B', {
+      accountUid: undefined,
+    })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const result = await engine.linkLocalSets()
+
+    expect(result).toEqual({ added: 2, keptLocal: 0 })
+    expect(engine.getSyncState().unlinkedSets).toEqual([])
+    expect((await h.store.getSession(first.id))?.accountUid).toBe(USER)
+    expect((await h.store.getSession(second.id))?.accountUid).toBe(USER)
+
+    await advance(engine)
+
+    expect(h.fire.sets.get(first.id)?.rev).toBe(1)
+    expect(h.fire.sets.get(second.id)?.rev).toBe(1)
+    expect(h.fire.meta.get(USER)?.setCount).toBe(2)
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+  })
+
+  it('asks for a matching id whose content differs instead of overwriting either side', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store, [item('a')], 'Demo Song A', {
+      accountUid: undefined,
+    })
+    const local = await syncedFrom(session, h.cache)
+    const remote = { ...local, name: 'Demo Song A from the account' }
+    h.fire.sets.set(session.id, remoteDoc(remote, 1))
+    h.fire.meta.set(USER, { setCount: 1, lastSetId: session.id })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await engine.linkLocalSets()
+    await advance(engine)
+
+    expect(engine.getSyncState().conflicts.size).toBe(1)
+    expect(h.fire.sets.get(session.id)?.rev).toBe(1)
+    expect(h.fire.writes).toEqual([])
+    expect((await h.store.getSession(session.id))?.name).toBe('Demo Song A')
+  })
+
+  it('keeps sets over the account cap local and skips them next sign-in', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    await seedSession(h.store, [item('b')], 'Demo Song B', { accountUid: undefined })
+    h.fire.meta.set(USER, { setCount: 99, lastSetId: 'other-set' })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const result = await engine.linkLocalSets()
+
+    expect(result).toEqual({ added: 1, keptLocal: 1 })
+    const stored = await h.store.getAllSessions()
+    const kept = stored.filter((session) => session.accountUid !== USER)
+    expect(stored.filter((session) => session.accountUid === USER)).toHaveLength(1)
+    expect(kept).toHaveLength(1)
+    expect(await h.kv.get<string[]>(`syncLinkSkipped:${USER}`)).toEqual([kept[0].id])
+
+    await advance(engine)
+    expect(h.fire.meta.get(USER)?.setCount).toBe(100)
+
+    h.stops.shift()?.()
+    h.engines.length = 0
+    const reloaded = h.startEngine()
+    await h.signIn()
+    expect(reloaded.getSyncState().unlinkedSets).toEqual([])
+  })
+
+  it('removes unlinked sets from this device without tombstoning them', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', {
+      accountUid: undefined,
+    })
+    const second = await seedSession(h.store, [item('a')], 'Demo Band', {
+      accountUid: OTHER_USER,
+    })
+    await h.kv.set(`syncBase:${first.id}`, {
+      rev: 1,
+      synced: { name: first.name, createdAt: first.createdAt, songs: [] },
+    })
+    await h.kv.set(`syncConflict:${first.id}`, {
+      remote: { name: first.name, createdAt: first.createdAt, songs: [] },
+      remoteRev: 1,
+      diffs: [],
+    })
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await engine.removeUnlinkedSets()
+
+    expect(await h.store.getSession(first.id)).toBeNull()
+    expect(await h.store.getSession(second.id)).toBeNull()
+    expect(await h.kv.get(`syncBase:${first.id}`)).toBeUndefined()
+    expect(await h.kv.get(`syncConflict:${first.id}`)).toBeUndefined()
+    expect(h.fire.writes).toEqual([])
+    expect(h.fire.sets.size).toBe(0)
+    expect(engine.getSyncState().unlinkedSets).toEqual([])
+  })
+
+  it('throws offline and changes nothing', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store, [item('a')], 'Demo Song A', {
+      accountUid: undefined,
+    })
+    const engine = h.startEngine()
+    await h.signIn()
+    h.setOnline(false)
+
+    await expect(engine.linkLocalSets()).rejects.toBeInstanceOf(AccountOfflineError)
+
+    expect((await h.store.getSession(session.id))?.accountUid).toBeUndefined()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toEqual([session.id])
+    expect(h.fire.writes).toEqual([])
+  })
+
+  it('drops a set from the prompt when it is deleted', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store, [item('a')], 'Demo Song A', {
+      accountUid: undefined,
+    })
+    const engine = h.startEngine()
+    await h.signIn()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toEqual([session.id])
+
+    await h.store.deleteSession(session.id)
+    await engine.idle()
+
+    expect(engine.getSyncState().unlinkedSets).toEqual([])
+  })
+
+  it('stops linking without tagging or wiping sets if the user switches accounts mid-flight', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    const second = await seedSession(h.store, [item('b')], 'Demo Song B', {
+      accountUid: undefined,
+    })
+    h.fire.meta.set(USER, { setCount: 99, lastSetId: 'other-set' })
+
+    const origTransact = h.fire.transactSet.bind(h.fire)
+    let release!: () => void
+    let markEntered!: () => void
+    const entered = new Promise<void>((resolve) => {
+      markEntered = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let switched = false
+    h.fire.transactSet = async (uid, setId, decide) => {
+      if (!switched) {
+        switched = true
+        markEntered()
+        await gate
+      }
+      return origTransact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const linking = engine.linkLocalSets()
+    await entered
+    await h.signIn(OTHER_USER)
+    release()
+
+    await expect(linking).rejects.toBeInstanceOf(AccountOfflineError)
+    expect((await h.store.getSession(first.id))?.accountUid).toBeUndefined()
+    expect((await h.store.getSession(second.id))?.accountUid).toBeUndefined()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toContain(first.id)
+  })
+
+  it('keeps only unlinked sets in the prompt when linking fails mid-way', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    const first = await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    const second = await seedSession(h.store, [item('b')], 'Demo Song B', {
+      accountUid: undefined,
+    })
+    h.fire.meta.set(USER, { setCount: 99, lastSetId: 'other-set' })
+
+    const origTransact = h.fire.transactSet.bind(h.fire)
+    h.fire.transactSet = async (uid, setId, decide) => {
+      if (setId === first.id) throw new Error('network drop')
+      return origTransact(uid, setId, decide)
+    }
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await expect(engine.linkLocalSets()).rejects.toThrow('network drop')
+
+    expect((await h.store.getSession(second.id))?.accountUid).toBe(USER)
+    expect((await h.store.getSession(first.id))?.accountUid).toBeUndefined()
+    expect(engine.getSyncState().unlinkedSets.map((set) => set.id)).toEqual([first.id])
+
+    await engine.removeUnlinkedSets()
+    expect(await h.store.getSession(second.id)).not.toBeNull()
+    expect(await h.store.getSession(first.id)).toBeNull()
+  })
+
+  it('skips per-set existence checks when all local sets fit below the cap', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    await seedSession(h.store, [item('b')], 'Demo Song B', { accountUid: undefined })
+    const transactSpy = vi.spyOn(h.fire, 'transactSet')
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const result = await engine.linkLocalSets()
+
+    expect(result).toEqual({ added: 2, keptLocal: 0 })
+    expect(transactSpy).not.toHaveBeenCalled()
+
+    await advance(engine)
+    expect(h.fire.meta.get(USER)?.setCount).toBe(2)
   })
 })

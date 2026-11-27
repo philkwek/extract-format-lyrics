@@ -17,6 +17,7 @@ import { accountsEnabled } from './lib/accountFlag'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import AccountMenu from './components/AccountMenu'
+import LinkLocalSetsDialog from './components/LinkLocalSetsDialog'
 import ThemeToggle from './components/ThemeToggle'
 import UpdateBanner from './components/UpdateBanner'
 import OfflineNotice from './components/OfflineNotice'
@@ -158,6 +159,7 @@ export function AppShell() {
           </footer>
         )}
         <UpdateBanner open={updateAvailable} onReload={reload} onDismiss={dismiss} />
+        {accountsEnabled() && !isLyricsView && !isPresentView && <LinkLocalSetsDialog />}
       </div>
     </ChromeVisibilityContext.Provider>
   )

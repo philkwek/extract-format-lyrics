@@ -30,6 +30,8 @@ export interface SetConflict {
 export interface SyncState {
   /** True while a user is signed in. */
   signedIn: boolean
+  /** Local sets not linked to the signed-in account, offered by the first sign-in prompt. */
+  unlinkedSets: ReadonlyArray<{ id: string; name: string }>
   /** Open sets with a newer account version waiting behind **Update set**. */
   pendingRemote: ReadonlySet<string>
   /** Sets deleted on another device while this device had them (open or with unsynced edits). */
@@ -40,6 +42,7 @@ export interface SyncState {
 
 const EMPTY: SyncState = {
   signedIn: false,
+  unlinkedSets: [],
   pendingRemote: new Set(),
   deletedElsewhere: new Set(),
   conflicts: new Map(),
@@ -69,6 +72,7 @@ const ACCOUNT_SYNC_LOCK = 'account-sync'
 const OUTBOX_KEY = 'syncOutbox'
 const BASE_PREFIX = 'syncBase:'
 const CONFLICT_PREFIX = 'syncConflict:'
+const LINK_SKIPPED_PREFIX = 'syncLinkSkipped:'
 
 export interface RemoteSetSnapshot {
   rev: number
@@ -89,6 +93,7 @@ export interface SetWriteDecision<T> {
 export interface AccountFirestore {
   getSong(uid: string, contentHash: string): Promise<Song | null>
   ensureSong(uid: string, contentHash: string, song: Song): Promise<void>
+  getSetCount(uid: string): Promise<number>
   transactSet<T>(
     uid: string,
     setId: string,
@@ -198,6 +203,8 @@ export interface AccountSync {
   dismissDeleted(setId: string): Promise<void>
   listRecentlyDeleted(): Promise<DeletedSet[]>
   restoreDeletedSet(setId: string): Promise<'restored' | 'full' | 'gone'>
+  linkLocalSets(): Promise<{ added: number; keptLocal: number }>
+  removeUnlinkedSets(): Promise<void>
 }
 
 function baseKey(setId: string): string {
@@ -206,6 +213,10 @@ function baseKey(setId: string): string {
 
 function conflictKey(setId: string): string {
   return `${CONFLICT_PREFIX}${setId}`
+}
+
+function linkSkippedKey(uid: string): string {
+  return `${LINK_SKIPPED_PREFIX}${uid}`
 }
 
 function parseSynced(data: string): SyncedSet {
@@ -273,6 +284,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
   const pendingRemote = new Map<string, PendingRecord>()
   const deletedElsewhere = new Set<string>()
   const outbox = new Set<string>()
+  let unlinkedSets: Array<{ id: string; name: string }> = []
   const dirtyTimers = new Map<string, unknown>()
   const retryTimers = new Map<string, unknown>()
   const retryCounts = new Map<string, number>()
@@ -296,6 +308,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
   function publishState(): void {
     state = {
       signedIn: user !== null,
+      unlinkedSets: [...unlinkedSets],
       pendingRemote: new Set(pendingRemote.keys()),
       deletedElsewhere: new Set(deletedElsewhere),
       conflicts: new Map(
@@ -898,6 +911,10 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     const currentUser = user
     if (!currentUser || event.origin === 'remote') return
     if (event.type === 'deleted') {
+      if (unlinkedSets.some((set) => set.id === event.sessionId)) {
+        unlinkedSets = unlinkedSets.filter((set) => set.id !== event.sessionId)
+        publishState()
+      }
       clearTimer(event.sessionId)
       void track(
         handleDeleted(event.sessionId).catch((error) => {
@@ -986,6 +1003,18 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     await saveOutbox()
     if (userToken !== token) return
 
+    const skipped = await deps.kv.get<string[]>(linkSkippedKey(uid))
+    if (userToken !== token) return
+    const skippedIds = new Set(
+      Array.isArray(skipped) ? skipped.filter((id) => typeof id === 'string') : [],
+    )
+    unlinkedSets = sessions
+      .filter(
+        (session) =>
+          !session.liveSourceId && session.accountUid !== uid && !skippedIds.has(session.id),
+      )
+      .map((session) => ({ id: session.id, name: session.name }))
+
     stopStore = deps.store.subscribe(handleEvent)
     stopSongs = deps.songCache.subscribe(handleSongSaved)
     stopSnapshot = deps.firestore.subscribeSets(uid, (setId, snapshot) => {
@@ -1021,6 +1050,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     pendingRemote.clear()
     deletedElsewhere.clear()
     outbox.clear()
+    unlinkedSets = []
     publishState()
     refreshStatus()
   }
@@ -1289,6 +1319,76 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     })
   }
 
+  async function setExists(uid: string, setId: string): Promise<boolean> {
+    return deps.firestore.transactSet(uid, setId, (current) => ({
+      write: null,
+      outcome: current !== null && current.deletedAt == null,
+    }))
+  }
+
+  async function linkLocalSetsNow(): Promise<{ added: number; keptLocal: number }> {
+    const uid = onlineUid()
+    const targets = [...unlinkedSets]
+    if (targets.length === 0) return { added: 0, keptLocal: 0 }
+
+    let liveCount = await deps.firestore.getSetCount(uid)
+    if (user?.uid !== uid) throw new AccountOfflineError()
+    const stored = await deps.kv.get<string[]>(linkSkippedKey(uid))
+    const skipped = new Set(
+      Array.isArray(stored) ? stored.filter((id) => typeof id === 'string') : [],
+    )
+    let added = 0
+    let keptLocal = 0
+
+    try {
+      for (let index = 0; index < targets.length; index += 1) {
+        const target = targets[index]
+        const remaining = targets.length - index
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        const session = await deps.store.getSession(target.id)
+        if (!session || session.liveSourceId || session.accountUid === uid) {
+          if (user?.uid === uid) {
+            unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
+          }
+          continue
+        }
+        const exists =
+          liveCount + remaining > ACCOUNT_MAX_SETS ? await setExists(uid, target.id) : false
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        if (!exists && liveCount >= ACCOUNT_MAX_SETS) {
+          skipped.add(target.id)
+          keptLocal += 1
+          unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
+          continue
+        }
+        await deps.kv.del(baseKey(target.id))
+        await deps.kv.del(conflictKey(target.id))
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        await deps.store.setAccountUid(target.id, uid)
+        if (user?.uid !== uid) throw new AccountOfflineError()
+        markDirty(target.id)
+        if (!exists) liveCount += 1
+        added += 1
+        unlinkedSets = unlinkedSets.filter((set) => set.id !== target.id)
+      }
+    } finally {
+      if (keptLocal > 0) await deps.kv.set(linkSkippedKey(uid), [...skipped])
+      if (user?.uid === uid) publishState()
+    }
+    return { added, keptLocal }
+  }
+
+  async function removeUnlinkedSetsNow(): Promise<void> {
+    const targets = [...unlinkedSets]
+    for (const target of targets) {
+      await deps.store.removeRemote(target.id)
+      await deps.kv.del(baseKey(target.id))
+      await deps.kv.del(conflictKey(target.id))
+    }
+    unlinkedSets = []
+    publishState()
+  }
+
   async function flush(): Promise<void> {
     for (const setId of [...dirtyTimers.keys()]) clearTimer(setId)
     for (const setId of [...retryTimers.keys()]) clearRetry(setId)
@@ -1339,6 +1439,8 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     dismissDeleted: dismissDeletedNow,
     listRecentlyDeleted: listRecentlyDeletedNow,
     restoreDeletedSet: restoreDeletedSetNow,
+    linkLocalSets: linkLocalSetsNow,
+    removeUnlinkedSets: removeUnlinkedSetsNow,
   }
 }
 
@@ -1400,6 +1502,13 @@ export function createFirestoreAdapter(): AccountFirestore {
         if (errorCode(error) === 'permission-denied' && (await fs.getDoc(ref)).exists()) return
         throw error
       }
+    },
+
+    async getSetCount(uid) {
+      const fs = await loadFirestore()
+      const snap = await fs.getDoc(fs.doc(fs.db as never, 'users', uid))
+      if (!snap.exists()) return 0
+      return Number((snap.data() as { setCount?: unknown }).setCount ?? 0)
     },
 
     async transactSet<T>(
@@ -1591,4 +1700,15 @@ export async function listRecentlyDeleted(): Promise<DeletedSet[]> {
 export async function restoreDeletedSet(setId: string): Promise<'restored' | 'full' | 'gone'> {
   if (!defaultSync) throw new AccountOfflineError()
   return defaultSync.restoreDeletedSet(setId)
+}
+
+/** Links the local sets offered by the first sign-in prompt to the signed-in account. */
+export async function linkLocalSets(): Promise<{ added: number; keptLocal: number }> {
+  if (!defaultSync) throw new AccountOfflineError()
+  return defaultSync.linkLocalSets()
+}
+
+/** Removes the local sets offered by the first sign-in prompt from this device. */
+export async function removeUnlinkedSets(): Promise<void> {
+  await defaultSync?.removeUnlinkedSets()
 }
