@@ -90,9 +90,9 @@ export function DisplaySegments({
         />,
       )}
       {row(
-        'Theme',
+        'Background theme',
         <SegmentedControl
-          label="Theme"
+          label="Background theme"
           value={display.theme}
           onChange={(theme) => onPatchDisplay({ theme })}
           options={[

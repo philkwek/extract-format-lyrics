@@ -10,6 +10,7 @@ import { applyPresenterEdits, isSectionEdited, usePresenterEdits } from '../../l
 import { usePresenterDisplay, type PresenterDisplay } from '../../lib/presenterSettings'
 import type { PresenterFeedState } from '../../lib/usePresenterFeed'
 import type { SharedLyricsSection } from '../../types/song'
+import ThemeToggle from '../ThemeToggle'
 import { Button, StatusBanner } from '../ui'
 import OverlayDialog from '../ui/OverlayDialog'
 import PresenterDisplayPanel from './PresenterDisplayPanel'
@@ -246,9 +247,12 @@ export default function PresenterConsole({ id, feed, onSwitchToAuto }: Presenter
         <p className="text-base font-bold">
           {effectiveLyrics?.name ? `Presenter Controls · ${effectiveLyrics.name}` : 'Presenter'}
         </p>
-        <Button variant="secondary" onClick={switchToAuto}>
-          Switch to auto follow host
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={switchToAuto}>
+            Switch to auto follow host
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
       {banner && (

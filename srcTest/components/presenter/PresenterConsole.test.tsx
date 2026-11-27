@@ -195,6 +195,15 @@ describe('PresenterConsole', () => {
     expect(onSwitchToAuto).toHaveBeenCalledTimes(1)
   })
 
+  it('changes the console theme without touching the background theme', () => {
+    renderConsole()
+    const before = lastState()
+
+    fireEvent.click(screen.getByRole('button', { name: /^(Light|Dark) mode|Match device/ }))
+
+    expect(lastState()).toEqual(before)
+  })
+
   it('shows a blank section first that sends no section to the output', () => {
     renderConsole()
 
