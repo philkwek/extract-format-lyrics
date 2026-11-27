@@ -17,6 +17,7 @@ import { accountsEnabled } from './lib/accountFlag'
 
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import AccountMenu from './components/AccountMenu'
+import LinkLocalSetsDialog from './components/LinkLocalSetsDialog'
 import ThemeToggle from './components/ThemeToggle'
 import UpdateBanner from './components/UpdateBanner'
 import OfflineNotice from './components/OfflineNotice'
@@ -96,6 +97,7 @@ export function AppShell() {
                 </NavLink>
                 <ThemeToggle compact />
                 {accountsEnabled() && <AccountMenu />}
+                {accountsEnabled() && <LinkLocalSetsDialog />}
               </nav>
             </div>
           </header>
