@@ -178,8 +178,8 @@ describe('LinkLocalSetsDialog', () => {
     sync.setSets(sets)
     renderDialog()
 
-    const closeButtons = screen.getAllByRole('button', { name: 'Close' })
-    fireEvent.click(closeButtons[closeButtons.length - 1])
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(sync.linkLocalSets).not.toHaveBeenCalled()

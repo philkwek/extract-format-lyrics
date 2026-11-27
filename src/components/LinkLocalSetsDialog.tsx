@@ -78,11 +78,6 @@ export default function LinkLocalSetsDialog() {
       title="Save sets to your account?"
       description="You currently have local sets, save them to your account?"
       size="sm"
-      footer={
-        <Button variant="ghost" onClick={close}>
-          Close
-        </Button>
-      }
     >
       {confirming ? (
         <>
