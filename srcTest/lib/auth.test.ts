@@ -214,6 +214,16 @@ describe('signInWithGoogle', () => {
 
     expect(await auth.signInWithGoogle()).toEqual({ status: 'cancelled' })
   })
+
+  it('opens the popup synchronously in the click turn once auth is loaded', async () => {
+    const auth = await authModule()
+    await auth.loadAuth()
+
+    const pending = auth.signInWithGoogle()
+
+    expect(standin.calls.signInWithPopup).toBe(1)
+    expect(await pending).toEqual({ status: 'done' })
+  })
 })
 
 describe('email links', () => {

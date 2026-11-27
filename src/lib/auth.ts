@@ -90,14 +90,21 @@ async function createAuth() {
 }
 
 let authReady: ReturnType<typeof createAuth> | undefined
+let authLoaded: Awaited<ReturnType<typeof createAuth>> | undefined
 // onUser watchers that started before auth was loaded; they attach once anything loads it.
 const waitingForAuth = new Set<() => void>()
 
 export function loadAuth() {
-  authReady ??= createAuth().catch((error) => {
-    authReady = undefined
-    throw error
-  })
+  authReady ??= createAuth()
+    .then((loaded) => {
+      authLoaded = loaded
+      return loaded
+    })
+    .catch((error) => {
+      authReady = undefined
+      authLoaded = undefined
+      throw error
+    })
   const waiting = [...waitingForAuth]
   waitingForAuth.clear()
   for (const start of waiting) start()
@@ -105,11 +112,13 @@ export function loadAuth() {
 }
 
 export async function signInWithGoogle(): Promise<SignInResult> {
-  let loaded: Awaited<ReturnType<typeof createAuth>>
-  try {
-    loaded = await loadAuth()
-  } catch {
-    return { status: 'error', message: plainAuthError(undefined) }
+  let loaded = authLoaded
+  if (!loaded) {
+    try {
+      loaded = await loadAuth()
+    } catch {
+      return { status: 'error', message: plainAuthError(undefined) }
+    }
   }
   const { auth, api } = loaded
   const provider = new api.GoogleAuthProvider()
@@ -204,11 +213,13 @@ export async function getIdToken(): Promise<string> {
 
 /** Signs the person in again, with a Google popup or a fresh email link. */
 export async function reauthenticate(): Promise<ReauthResult> {
-  let loaded: Awaited<ReturnType<typeof createAuth>>
-  try {
-    loaded = await loadAuth()
-  } catch {
-    return { status: 'error', message: plainAuthError(undefined) }
+  let loaded = authLoaded
+  if (!loaded) {
+    try {
+      loaded = await loadAuth()
+    } catch {
+      return { status: 'error', message: plainAuthError(undefined) }
+    }
   }
   const { auth, api } = loaded
   const current = auth.currentUser

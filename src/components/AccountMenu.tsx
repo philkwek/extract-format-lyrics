@@ -4,6 +4,7 @@ import { CircleUserRound } from 'lucide-react'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import {
+  loadAuth,
   onUser,
   reauthenticate,
   sendEmailLink,
@@ -44,6 +45,7 @@ export default function AccountMenu() {
     setStep('menu')
     setDeleteError(null)
     setOpen(true)
+    if (!user) void loadAuth().catch(() => {})
   }
 
   async function handleGoogle() {

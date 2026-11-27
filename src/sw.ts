@@ -27,13 +27,18 @@ const DAY = 60 * 60 * 24
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 
-// Every route renders the one shell; API calls never do.
+// Every route renders the one shell; API calls and Firebase Hosting auth handlers never do.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/api\//] }),
+  new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+    denylist: [/^\/api\//, /^\/__\//],
+  }),
 )
 
-// A stale search or live set is worse than an error.
-registerRoute(({ url }) => url.pathname.startsWith('/api/'), new NetworkOnly())
+// A stale search, live set, or auth redirect is worse than an error.
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/api/') || url.pathname.startsWith('/__/'),
+  new NetworkOnly(),
+)
 
 registerRoute(
   ({ url }) => url.pathname.startsWith('/pads/'),

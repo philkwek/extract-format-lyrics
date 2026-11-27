@@ -10,6 +10,7 @@ import type { AccountUser } from '../../src/lib/auth'
 vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
 
 const mocks = vi.hoisted(() => ({
+  loadAuth: vi.fn(),
   onUser: vi.fn(),
   signInWithGoogle: vi.fn(),
   sendEmailLink: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../../src/lib/auth', () => ({
+  loadAuth: mocks.loadAuth,
   onUser: mocks.onUser,
   signInWithGoogle: mocks.signInWithGoogle,
   sendEmailLink: mocks.sendEmailLink,
@@ -49,6 +51,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.loadAuth.mockResolvedValue(undefined)
   mocks.onUser.mockImplementation((callback: (user: AccountUser | null) => void) => {
     callback(null)
     return () => {}
@@ -102,6 +105,14 @@ describe('AccountMenu', () => {
     expect(JSON.stringify(vi.mocked(trackEvent).mock.calls)).not.toContain('phil@example.com')
   })
 
+  it('preloads auth when opening the sign-in menu while signed out', async () => {
+    render(<AccountMenu />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(mocks.loadAuth).toHaveBeenCalledTimes(1)
+  })
+
   it('reports a Google sign-in without sending the email', async () => {
     mocks.signInWithGoogle.mockResolvedValue({ status: 'done' })
     render(<AccountMenu />)
@@ -146,6 +157,7 @@ describe('AccountMenu', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(mocks.signOut).toHaveBeenCalledTimes(1)
+    expect(mocks.loadAuth).not.toHaveBeenCalled()
   })
 
   it('asks for confirmation before deleting the account', async () => {
