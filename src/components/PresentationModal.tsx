@@ -91,10 +91,11 @@ export default function PresentationModal({
             <Button
               variant="primary"
               className="mt-3 w-full"
+              icon={<AppWindow size={16} />}
               onClick={handleOpenPresenter}
               disabled={isSaving || !initialized}
             >
-              Open in a new window
+              Open presenter window
             </Button>
           </div>
 

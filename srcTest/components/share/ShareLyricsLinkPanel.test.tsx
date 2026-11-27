@@ -249,7 +249,7 @@ describe('ShareLyricsLinkPanel', () => {
     expect(
       screen.queryByRole('heading', { name: 'Start presentation mode for lyrics' }),
     ).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Open in a new window' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open presenter window' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
   })
 })

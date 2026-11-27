@@ -92,7 +92,7 @@ describe('PresentationModal', () => {
         'Drag the new window into your 2nd display. It automatically presents the lyrics of your currently selected song.',
       ),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open in a new window' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open presenter window' })).toBeTruthy()
     expect(screen.getByText('Present from a different laptop')).toBeTruthy()
     expect(screen.getByText('Copy the link and open it on your 2nd device.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
@@ -141,7 +141,7 @@ describe('PresentationModal', () => {
     render(<PresentationModal session={session} songsData={songsData} isOpen onClose={vi.fn()} />)
 
     const button = screen.getByRole('button', {
-      name: 'Open in a new window',
+      name: 'Open presenter window',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
@@ -166,7 +166,7 @@ describe('PresentationModal', () => {
     render(<PresentationModal session={session} songsData={songsData} isOpen onClose={vi.fn()} />)
 
     const button = screen.getByRole('button', {
-      name: 'Open in a new window',
+      name: 'Open presenter window',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
