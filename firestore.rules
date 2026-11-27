@@ -19,5 +19,112 @@ service cloud.firestore {
     match /sharedLyrics/{id} {
       allow get: if resource.data.expiresAt > request.time;
     }
+
+    // Account storage: only the signed-in owner can touch their own documents.
+    match /users/{uid} {
+      function owner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function meta() {
+        return /databases/$(database)/documents/users/$(uid);
+      }
+
+      function setDoc(setId) {
+        return /databases/$(database)/documents/users/$(uid)/sets/$(setId);
+      }
+
+      function countBefore() {
+        return exists(meta()) ? get(meta()).data.setCount : 0;
+      }
+
+      function countAfter() {
+        return existsAfter(meta()) ? getAfter(meta()).data.setCount : 0;
+      }
+
+      function lastSetIdAfter() {
+        return existsAfter(meta()) ? getAfter(meta()).data.lastSetId : '';
+      }
+
+      function isLive(data) {
+        return !('deletedAt' in data) || data.deletedAt == null;
+      }
+
+      function wasLive(setId) {
+        return exists(setDoc(setId)) && isLive(get(setDoc(setId)).data);
+      }
+
+      function willBeLive(setId) {
+        return existsAfter(setDoc(setId)) && isLive(getAfter(setDoc(setId)).data);
+      }
+
+      // A create, tombstone or restore must move setCount by one in the same batch.
+      function liveCountMoved(setId) {
+        return (
+          (!wasLive(setId) && willBeLive(setId) && countAfter() == countBefore() + 1)
+          || (wasLive(setId) && !willBeLive(setId) && countAfter() == countBefore() - 1)
+        ) && lastSetIdAfter() == setId;
+      }
+
+      function validSet() {
+        return request.resource.data.keys().hasOnly([
+            'v', 'rev', 'data', 'songCount', 'updatedAt', 'serverUpdatedAt', 'deletedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'v', 'rev', 'data', 'songCount', 'updatedAt', 'serverUpdatedAt'
+          ])
+          && request.resource.data.v == 1
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 500000
+          && request.resource.data.songCount is int
+          && request.resource.data.songCount >= 0
+          && request.resource.data.songCount <= 30
+          && request.resource.data.updatedAt is number
+          && request.resource.data.serverUpdatedAt == request.time
+          && (!('deletedAt' in request.resource.data)
+            || request.resource.data.deletedAt == null
+            || request.resource.data.deletedAt is timestamp);
+      }
+
+      // Meta: the live set count and the set the client last changed.
+      allow get: if owner();
+      allow create, update: if owner()
+        && request.resource.data.keys().hasOnly(['setCount', 'lastSetId'])
+        && request.resource.data.keys().hasAll(['setCount', 'lastSetId'])
+        && request.resource.data.setCount is int
+        && request.resource.data.setCount >= 0
+        && request.resource.data.setCount <= 100
+        && request.resource.data.lastSetId is string
+        && liveCountMoved(request.resource.data.lastSetId);
+      allow delete: if false;
+
+      match /sets/{setId} {
+        allow get, list: if owner();
+        allow delete: if false;
+        allow create: if owner()
+          && validSet()
+          && request.resource.data.rev == 1
+          && isLive(request.resource.data)
+          && liveCountMoved(setId);
+        allow update: if owner()
+          && validSet()
+          && request.resource.data.rev == resource.data.rev + 1
+          && (
+            (isLive(resource.data) && isLive(request.resource.data))
+            || liveCountMoved(setId)
+          );
+      }
+
+      match /songs/{contentHash} {
+        allow get: if owner();
+        allow create: if owner()
+          && request.resource.data.keys().hasOnly(['v', 'data', 'createdAt'])
+          && request.resource.data.keys().hasAll(['v', 'data', 'createdAt'])
+          && request.resource.data.v == 1
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 200000;
+        allow delete: if owner();
+      }
+    }
   }
 }
