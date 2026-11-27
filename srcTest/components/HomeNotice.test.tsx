@@ -104,6 +104,7 @@ describe('HomeNotice', () => {
     render(<HomeNotice install={store} />)
 
     expect(screen.getByText('You’re currently offline')).toBeTruthy()
+    expect(screen.getByText('Changes you make won’t sync until you’re back online.')).toBeTruthy()
     expect(screen.queryByText(INSTALL_TITLE)).toBeNull()
   })
 

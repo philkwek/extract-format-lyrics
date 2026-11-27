@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, CircleUserRound } from 'lucide-react'
+import { CircleUserRound } from 'lucide-react'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import {
@@ -14,14 +14,6 @@ import {
 } from '../lib/auth'
 import { deleteAccount } from '../lib/accountSync'
 import { trackEvent } from '../lib/analytics'
-import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '../lib/syncStatus'
-
-const STATUS_LABELS: Record<SyncStatus, string> = {
-  synced: 'Synced',
-  syncing: 'Syncing',
-  offline: 'Offline - will sync later',
-  'needs-choice': 'Needs your choice',
-}
 
 export default function AccountMenu() {
   const [user, setUser] = useState<AccountUser | null | undefined>(undefined)
@@ -30,14 +22,12 @@ export default function AccountMenu() {
   const [linkSent, setLinkSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'google' | 'email' | 'sign-out' | null>(null)
-  const [status, setStatus] = useState<SyncStatus>(getSyncStatus)
   const [step, setStep] = useState<'menu' | 'confirm'>('menu')
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const emailId = useId()
 
   useEffect(() => onUser(setUser), [])
-  useEffect(() => subscribeSyncStatus(setStatus), [])
 
   function openMenu() {
     setError(null)
@@ -181,41 +171,26 @@ export default function AccountMenu() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                  <div className="min-w-0">
-                    <p className="text-ui-text-muted text-xs font-medium">Signed in as</p>
-                    <p className="text-ui-text mt-0.5 text-sm font-semibold break-all">
-                      {user.email ?? 'Your account'}
-                    </p>
-                  </div>
-                  <p
-                    role="status"
-                    className="text-ui-text-muted flex items-center gap-1.5 pt-0.5 text-sm font-semibold"
-                  >
-                    {status === 'synced' && <Check size={15} aria-hidden="true" />}
-                    {STATUS_LABELS[status]}
-                  </p>
+                <div className="border-ui-border bg-ui-surface-muted flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm">
+                  <span className="text-ui-text-muted">Email</span>
+                  <span className="text-ui-text min-w-0 truncate font-semibold">
+                    {user.email ?? 'Your account'}
+                  </span>
                 </div>
                 {error && <StatusBanner tone="error">{error}</StatusBanner>}
-                <div className="flex justify-end">
-                  <Button variant="secondary" onClick={handleSignOut} loading={busy === 'sign-out'}>
-                    Sign out
-                  </Button>
-                </div>
-                <div className="border-ui-border flex items-center justify-between gap-3 border-t pt-4">
-                  <p className="text-ui-text-muted text-sm">
-                    Removes your synced sets and songs for good.
-                  </p>
+                <div className="flex flex-wrap justify-center gap-2.5">
                   <Button
                     variant="danger"
-                    size="sm"
-                    className="shrink-0"
+                    className="border-red-300! dark:border-red-400/40!"
                     onClick={() => {
                       setDeleteError(null)
                       setStep('confirm')
                     }}
                   >
                     Delete account
+                  </Button>
+                  <Button variant="secondary" onClick={handleSignOut} loading={busy === 'sign-out'}>
+                    Sign out
                   </Button>
                 </div>
               </div>

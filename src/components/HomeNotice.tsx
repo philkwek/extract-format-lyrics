@@ -17,7 +17,13 @@ export default function HomeNotice({
   const install = useInstallNotice(store)
   const [stepsOpen, setStepsOpen] = useState(false)
 
-  if (!online) return <OfflineNotice online={online} />
+  if (!online) {
+    return (
+      <OfflineNotice online={online}>
+        Changes you make won’t sync until you’re back online.
+      </OfflineNotice>
+    )
+  }
   if (!install.visible) return null
 
   return (

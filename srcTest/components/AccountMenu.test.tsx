@@ -4,7 +4,6 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AccountMenu from '../../src/components/AccountMenu'
 import { trackEvent } from '../../src/lib/analytics'
-import { setSyncStatus } from '../../src/lib/syncStatus'
 import type { AccountUser } from '../../src/lib/auth'
 
 vi.mock('../../src/lib/analytics', () => ({ trackEvent: vi.fn() }))
@@ -63,7 +62,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  setSyncStatus('synced')
 })
 
 function signedInAs(email: string) {
@@ -91,9 +89,7 @@ describe('AccountMenu', () => {
     expect(screen.getByRole('dialog').className).toContain('ui-dialog--sm')
     const googleButton = screen.getByRole('button', { name: 'Continue with Google' })
     const emailButton = screen.getByRole('button', { name: 'Send sign-in link' })
-    expect(emailButton.compareDocumentPosition(googleButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    )
+    expect(emailButton.compareDocumentPosition(googleButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(screen.getByLabelText('Email address')).toBeTruthy()
 
     await userEvent.type(screen.getByLabelText('Email address'), 'phil@example.com')
@@ -141,16 +137,15 @@ describe('AccountMenu', () => {
     expect(alert.textContent).toContain("That email address doesn't look right.")
   })
 
-  it('shows the email, sync status and sign out when signed in', async () => {
+  it('shows the email and sign out when signed in', async () => {
     signedInAs('phil@example.com')
-    setSyncStatus('offline')
     render(<AccountMenu />)
 
     await userEvent.click(
       await screen.findByRole('button', { name: 'Account, signed in as phil@example.com' }),
     )
 
-    expect(screen.getByText('Offline - will sync later')).toBeTruthy()
+    expect(screen.getByText('Email')).toBeTruthy()
     expect(
       (screen.getByRole('button', { name: 'Delete account' }) as HTMLButtonElement).disabled,
     ).toBe(false)
@@ -181,7 +176,7 @@ describe('AccountMenu', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Go back' }))
 
     expect(mocks.deleteAccount).not.toHaveBeenCalled()
-    expect(screen.getByText('Signed in as')).toBeTruthy()
+    expect(screen.getByText('Email')).toBeTruthy()
     expect(screen.queryByText(/Delete your account\?/)).toBeNull()
   })
 
