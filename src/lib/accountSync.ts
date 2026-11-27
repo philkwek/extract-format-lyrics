@@ -1,9 +1,10 @@
 // Uploads local sets, pulls merged changes from the account, and reports what needs a choice.
 
-import { get, set, del } from 'idb-keyval'
+import { get, set, del, keys } from 'idb-keyval'
 import type { Song } from '../types/song'
+import { AccountReauthError, deleteAccountApi } from './api'
 import type { AccountUser } from './auth'
-import { onUser } from './auth'
+import { getIdToken, onUser, signOut as signOutAuth } from './auth'
 import { ACCOUNT_MAX_SETS, checkSetLimits } from './accountLimits'
 import { accountsEnabled } from './accountFlag'
 import { loadFirestore } from './firestoreClient'
@@ -129,6 +130,7 @@ export interface AccountKv {
   get<T>(key: string): Promise<T | undefined>
   set(key: string, value: unknown): Promise<void>
   del(key: string): Promise<void>
+  keys(): Promise<string[]>
 }
 
 export interface AccountSyncDeps {
@@ -146,6 +148,9 @@ export interface AccountSyncDeps {
   hashSong: (song: Song) => Promise<string>
   now: () => number
   setStatus: (status: SyncStatus) => void
+  getIdToken: () => Promise<string>
+  deleteAccount: (idToken: string) => Promise<void>
+  signOut: () => Promise<unknown>
 }
 
 interface BaseRecord {
@@ -205,6 +210,7 @@ export interface AccountSync {
   restoreDeletedSet(setId: string): Promise<'restored' | 'full' | 'gone'>
   linkLocalSets(): Promise<{ added: number; keptLocal: number }>
   removeUnlinkedSets(): Promise<void>
+  deleteAccount(): Promise<'deleted' | 'reauth'>
 }
 
 function baseKey(setId: string): string {
@@ -593,7 +599,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       return
     }
     if (outcome.kind === 'deleted' || outcome.kind === 'gone') {
-      await handleGone(setId, await loadBase(setId))
+      await handleGone(setId, await loadBase(setId), outcome.kind === 'deleted')
       return
     }
     if (outcome.kind === 'skip') {
@@ -753,8 +759,20 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     }
   }
 
-  async function handleGone(setId: string, base: BaseRecord | null): Promise<void> {
+  async function handleGone(
+    setId: string,
+    base: BaseRecord | null,
+    hasTombstone: boolean,
+  ): Promise<void> {
     const session = await deps.store.getSession(setId)
+    if (!hasTombstone) {
+      // The account was deleted elsewhere or its tombstone was purged: keep the local set.
+      if (session && session.accountUid === user?.uid) {
+        await deps.store.setAccountUid(setId, undefined)
+      }
+      await clearSetState(setId)
+      return
+    }
     let keepDeletedElsewhere = false
     if (session && sameSessionAsBase(session, base) && !outbox.has(setId) && openSetId !== setId) {
       await deps.store.removeRemote(setId)
@@ -852,7 +870,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       if (session && (session.accountUid !== uid || session.liveSourceId)) return
 
       if (!snapshot) {
-        await handleGone(setId, base)
+        await handleGone(setId, base, false)
         return
       }
       if (base && snapshot.rev <= base.rev) return
@@ -866,7 +884,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
       }
 
       if (snapshot.deletedAt != null) {
-        await handleGone(setId, base)
+        await handleGone(setId, base, true)
         return
       }
 
@@ -1198,7 +1216,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
               }
             })
             if (written?.kind === 'deleted') {
-              await handleGone(setId, base)
+              await handleGone(setId, base, true)
               return { kind: 'done' }
             }
             if (written?.kind === 'behind') {
@@ -1389,6 +1407,65 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     publishState()
   }
 
+  async function clearAccountSyncStorage(uid: string): Promise<void> {
+    const storedKeys = await deps.kv.keys()
+    await Promise.all(
+      storedKeys
+        .filter(
+          (key) =>
+            key.startsWith(BASE_PREFIX) || key.startsWith(CONFLICT_PREFIX) || key === OUTBOX_KEY,
+        )
+        .map((key) => deps.kv.del(key)),
+    )
+    await deps.kv.del(linkSkippedKey(uid))
+  }
+
+  async function deleteAccountNow(): Promise<'deleted' | 'reauth'> {
+    const currentUser = user
+    if (!currentUser) throw new Error('Sign in to delete your account.')
+    const uid = currentUser.uid
+
+    const result = await deps.withLock(ACCOUNT_SYNC_LOCK, async () => {
+      // Stop first, so the cloud deletes cannot come back through the listener.
+      stopForUser()
+      try {
+        const idToken = await deps.getIdToken()
+        await deps.deleteAccount(idToken)
+      } catch (error) {
+        if (error instanceof AccountReauthError) return { kind: 'reauth' as const }
+        return { kind: 'failed' as const, error }
+      }
+
+      const sessions = await deps.store.getAllSessions()
+      for (const session of sessions) {
+        if (session.accountUid !== uid) continue
+        await deps.store.setAccountUid(session.id, undefined)
+      }
+      await clearAccountSyncStorage(uid)
+      return { kind: 'deleted' as const }
+    })
+
+    if (result.kind === 'deleted') {
+      userToken += 1
+      user = null
+      resetState()
+      await deps.signOut()
+      return 'deleted'
+    }
+
+    if (user?.uid === uid) {
+      userToken += 1
+      const token = userToken
+      void track(
+        startForUser(currentUser, token).catch((error) => {
+          console.warn('[account-sync] could not resume syncing after a failed delete', error)
+        }),
+      )
+    }
+    if (result.kind === 'reauth') return 'reauth'
+    throw result.error
+  }
+
   async function flush(): Promise<void> {
     for (const setId of [...dirtyTimers.keys()]) clearTimer(setId)
     for (const setId of [...retryTimers.keys()]) clearRetry(setId)
@@ -1441,6 +1518,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     restoreDeletedSet: restoreDeletedSetNow,
     linkLocalSets: linkLocalSetsNow,
     removeUnlinkedSets: removeUnlinkedSetsNow,
+    deleteAccount: deleteAccountNow,
   }
 }
 
@@ -1619,7 +1697,7 @@ function createDefaultSync(): AccountSync {
     store: sessionStore,
     songCache,
     firestore: createFirestoreAdapter(),
-    kv: { get, set, del },
+    kv: { get, set, del, keys },
     timers: {
       setTimeout: (fn, ms) => setTimeout(fn, ms),
       clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -1630,6 +1708,9 @@ function createDefaultSync(): AccountSync {
     hashSong: (song) => hashLiveSongContent({ song }),
     now: () => Date.now(),
     setStatus: setSyncStatus,
+    getIdToken,
+    deleteAccount: deleteAccountApi,
+    signOut: signOutAuth,
   })
 }
 
@@ -1711,4 +1792,10 @@ export async function linkLocalSets(): Promise<{ added: number; keptLocal: numbe
 /** Removes the local sets offered by the first sign-in prompt from this device. */
 export async function removeUnlinkedSets(): Promise<void> {
   await defaultSync?.removeUnlinkedSets()
+}
+
+/** Deletes the account in the cloud, keeping the local sets on this device. */
+export async function deleteAccount(): Promise<'deleted' | 'reauth'> {
+  if (!defaultSync) throw new Error('Sign in to delete your account.')
+  return defaultSync.deleteAccount()
 }

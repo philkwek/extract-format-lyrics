@@ -3,7 +3,15 @@ import { createPortal } from 'react-dom'
 import { CircleUserRound } from 'lucide-react'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
-import { onUser, sendEmailLink, signInWithGoogle, signOut, type AccountUser } from '../lib/auth'
+import {
+  onUser,
+  reauthenticate,
+  sendEmailLink,
+  signInWithGoogle,
+  signOut,
+  type AccountUser,
+} from '../lib/auth'
+import { deleteAccount } from '../lib/accountSync'
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '../lib/syncStatus'
 
 const STATUS_LABELS: Record<SyncStatus, string> = {
@@ -21,6 +29,9 @@ export default function AccountMenu() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'google' | 'email' | 'sign-out' | null>(null)
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus)
+  const [step, setStep] = useState<'menu' | 'confirm'>('menu')
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const emailId = useId()
 
   useEffect(() => onUser(setUser), [])
@@ -29,6 +40,8 @@ export default function AccountMenu() {
   function openMenu() {
     setError(null)
     setLinkSent(false)
+    setStep('menu')
+    setDeleteError(null)
     setOpen(true)
   }
 
@@ -63,6 +76,40 @@ export default function AccountMenu() {
     else setError(result.message)
   }
 
+  async function handleDelete() {
+    setDeleteError(null)
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setDeleteError('Deleting your account needs a connection.')
+      return
+    }
+    setDeleteBusy(true)
+    try {
+      let result = await deleteAccount()
+      if (result === 'reauth') {
+        const again = await reauthenticate()
+        if (again.status === 'link-sent') {
+          setDeleteError('We emailed you a sign-in link. Open it, then press Delete account again.')
+          return
+        }
+        if (again.status === 'error') {
+          setDeleteError(again.message)
+          return
+        }
+        if (again.status === 'cancelled') return
+        result = await deleteAccount()
+      }
+      if (result === 'deleted') {
+        setOpen(false)
+        return
+      }
+      setDeleteError("Couldn't delete your account. Try again.")
+    } catch {
+      setDeleteError("Couldn't delete your account. Try again.")
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
   if (user === undefined) return null
 
   return (
@@ -86,47 +133,76 @@ export default function AccountMenu() {
         <OverlayDialog
           isOpen={open}
           onClose={() => setOpen(false)}
-          title={user ? 'Account' : 'Sign in'}
+          title={step === 'confirm' ? 'Delete account' : user ? 'Account' : 'Sign in'}
           description={user ? undefined : 'Sign in to keep your sets on every device.'}
           size="sm"
           footer={
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Close
-            </Button>
+            step === 'confirm' ? undefined : (
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                Close
+              </Button>
+            )
           }
         >
           {user ? (
-            <div className="space-y-4">
-              <div className="min-w-0">
-                <p className="text-ui-text-muted text-xs font-medium">Signed in as</p>
-                <p className="text-ui-text mt-0.5 text-sm font-semibold break-all">
-                  {user.email ?? 'Your account'}
+            step === 'confirm' ? (
+              <div className="space-y-4">
+                <p className="text-ui-text text-sm">
+                  Delete your account? Your sets, songs and Recently deleted in your account are
+                  removed for good. Sets on this device stay here.
                 </p>
+                {deleteError && <StatusBanner tone="error">{deleteError}</StatusBanner>}
+                <div className="space-y-2">
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    loading={deleteBusy}
+                    onClick={handleDelete}
+                  >
+                    Delete account
+                  </Button>
+                  <Button variant="ghost" className="w-full" onClick={() => setStep('menu')}>
+                    Go back
+                  </Button>
+                </div>
               </div>
-              <div className="border-ui-border rounded-xl border p-3">
-                <p className="text-ui-text-muted text-xs font-medium">Sync status</p>
-                <p role="status" className="text-ui-text mt-0.5 text-sm font-semibold">
-                  {STATUS_LABELS[status]}
-                </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="min-w-0">
+                  <p className="text-ui-text-muted text-xs font-medium">Signed in as</p>
+                  <p className="text-ui-text mt-0.5 text-sm font-semibold break-all">
+                    {user.email ?? 'Your account'}
+                  </p>
+                </div>
+                <div className="border-ui-border rounded-xl border p-3">
+                  <p className="text-ui-text-muted text-xs font-medium">Sync status</p>
+                  <p role="status" className="text-ui-text mt-0.5 text-sm font-semibold">
+                    {STATUS_LABELS[status]}
+                  </p>
+                </div>
+                {error && <StatusBanner tone="error">{error}</StatusBanner>}
+                <div className="space-y-2">
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={handleSignOut}
+                    loading={busy === 'sign-out'}
+                  >
+                    Sign out
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    onClick={() => {
+                      setDeleteError(null)
+                      setStep('confirm')
+                    }}
+                  >
+                    Delete account
+                  </Button>
+                </div>
               </div>
-              {error && <StatusBanner tone="error">{error}</StatusBanner>}
-              <div className="space-y-2">
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={handleSignOut}
-                  loading={busy === 'sign-out'}
-                >
-                  Sign out
-                </Button>
-                <Button variant="ghost" className="w-full" disabled>
-                  Delete account
-                </Button>
-                <p className="text-ui-text-muted text-center text-xs">
-                  Delete account isn't available yet.
-                </p>
-              </div>
-            </div>
+            )
           ) : (
             <div className="space-y-4">
               <form className="space-y-2" onSubmit={handleEmail}>

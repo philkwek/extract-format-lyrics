@@ -15,6 +15,7 @@ import type { Song } from '../../src/types/song'
 import type { SyncedEntry, SyncedSet } from '../../src/lib/setMerge'
 import type { SyncStatus } from '../../src/lib/syncStatus'
 import type { AccountUser } from '../../src/lib/auth'
+import { AccountReauthError } from '../../src/lib/api'
 
 const USER = 'uid-a'
 const OTHER_USER = 'uid-b'
@@ -44,6 +45,7 @@ interface MemoryKv {
   get<T>(key: string): Promise<T | undefined>
   set(key: string, value: unknown): Promise<void>
   del(key: string): Promise<void>
+  keys(): Promise<string[]>
 }
 
 function memoryKv(): MemoryKv {
@@ -57,6 +59,7 @@ function memoryKv(): MemoryKv {
     del: async (key) => {
       data.delete(key)
     },
+    keys: async () => [...data.keys()],
   }
 }
 
@@ -186,6 +189,19 @@ class FakeFirestore implements AccountFirestore {
     this.sets.set(setId, snapshot)
     for (const listener of [...this.listeners]) listener(setId, structuredClone(snapshot))
   }
+
+  removeRemote(setId: string) {
+    this.sets.delete(setId)
+    for (const listener of [...this.listeners]) listener(setId, null)
+  }
+
+  removeAllRemote() {
+    for (const setId of [...this.sets.keys()]) this.removeRemote(setId)
+  }
+
+  get listenerCount() {
+    return this.listeners.size
+  }
 }
 
 function remoteDoc(synced: SyncedSet, rev: number, over: Partial<RemoteSetSnapshot> = {}) {
@@ -266,6 +282,11 @@ function createHarness(fire: FakeFirestore = new FakeFirestore()): Harness {
     hashSong,
     now: () => 1_000,
     setStatus: (status) => statuses.push(status),
+    getIdToken: async () => 'id-token',
+    deleteAccount: vi.fn(async () => {}),
+    signOut: async () => {
+      for (const callback of [...userCallbacks]) callback(null)
+    },
   }
 
   const harness: Harness = {
@@ -2097,5 +2118,90 @@ describe('first sign-in link prompt', () => {
 
     await advance(engine)
     expect(h.fire.meta.get(USER)?.setCount).toBe(2)
+  })
+})
+
+describe('delete account', () => {
+  it('keeps local sets, unlinks them and clears the sync keys without listener writes', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    await h.kv.set('syncOutbox', [session.id])
+    await h.kv.set(`syncConflict:${session.id}`, {
+      remote: base,
+      remoteRev: 1,
+      diffs: [],
+    })
+    await h.kv.set(`syncLinkSkipped:${USER}`, [session.id])
+    let listenersDuringDelete = -1
+    vi.mocked(h.deps.deleteAccount).mockImplementation(async () => {
+      listenersDuringDelete = h.fire.listenerCount
+      h.fire.removeAllRemote()
+    })
+
+    expect(await engine.deleteAccount()).toBe('deleted')
+    await engine.idle()
+
+    expect(listenersDuringDelete).toBe(0)
+
+    const kept = await h.store.getSession(session.id)
+    expect(kept?.name).toBe('Sunday set')
+    expect(kept?.accountUid).toBeUndefined()
+    expect(await h.kv.get(`syncBase:${session.id}`)).toBeUndefined()
+    expect(await h.kv.get(`syncConflict:${session.id}`)).toBeUndefined()
+    expect(await h.kv.get('syncOutbox')).toBeUndefined()
+    expect(await h.kv.get(`syncLinkSkipped:${USER}`)).toBeUndefined()
+    expect(h.fire.listenerCount).toBe(0)
+    expect(h.fire.writes).toEqual([])
+    expect(h.fire.transactions).toBe(0)
+    expect(engine.getSyncState().signedIn).toBe(false)
+  })
+
+  it('returns reauth and keeps syncing for the same user', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+    vi.mocked(h.deps.deleteAccount).mockRejectedValue(new AccountReauthError())
+
+    expect(await engine.deleteAccount()).toBe('reauth')
+    await engine.idle()
+
+    expect((await h.store.getSession(session.id))?.accountUid).toBe(USER)
+    expect(h.fire.listenerCount).toBe(1)
+
+    h.fire.pushRemote(session.id, remoteDoc({ ...base, name: 'Sunday set updated' }, 2))
+    await engine.idle()
+
+    expect((await h.store.getSession(session.id))?.name).toBe('Sunday set updated')
+    expect(await h.kv.get(`syncBase:${session.id}`)).toMatchObject({ rev: 2 })
+  })
+
+  it('keeps a local set when its cloud doc vanishes without a tombstone', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    const session = await seedSession(h.store)
+    const base = await syncedFrom(session, h.cache)
+    await seedBase(h, session, base)
+    const engine = h.startEngine()
+    await h.signIn()
+
+    h.fire.removeRemote(session.id)
+    await engine.idle()
+
+    const kept = await h.store.getSession(session.id)
+    expect(kept?.name).toBe('Sunday set')
+    expect(kept?.accountUid).toBeUndefined()
+    expect(await h.kv.get(`syncBase:${session.id}`)).toBeUndefined()
+    expect(await h.kv.get<string[]>('syncOutbox')).toEqual([])
+    expect(engine.getSyncState().deletedElsewhere.size).toBe(0)
   })
 })

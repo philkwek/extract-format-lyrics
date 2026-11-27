@@ -20,6 +20,12 @@ export type SignInResult =
 
 export type AuthResult = { ok: true } | { ok: false; message: string }
 
+export type ReauthResult =
+  | { status: 'done' }
+  | { status: 'link-sent' }
+  | { status: 'cancelled' }
+  | { status: 'error'; message: string }
+
 export type EmailLinkResult =
   | { status: 'signed-in' }
   | { status: 'email-needed' }
@@ -187,6 +193,45 @@ export async function signOut(): Promise<AuthResult> {
     localStorage.removeItem(SIGNED_IN_MARKER)
     localStorage.removeItem(REDIRECT_PENDING_MARKER)
   }
+}
+
+/** The signed-in user's token. Throws when nobody is signed in. */
+export async function getIdToken(): Promise<string> {
+  const { auth } = await loadAuth()
+  if (!auth.currentUser) throw new Error('Sign in to use your account.')
+  return auth.currentUser.getIdToken(true)
+}
+
+/** Signs the person in again, with a Google popup or a fresh email link. */
+export async function reauthenticate(): Promise<ReauthResult> {
+  let loaded: Awaited<ReturnType<typeof createAuth>>
+  try {
+    loaded = await loadAuth()
+  } catch {
+    return { status: 'error', message: plainAuthError(undefined) }
+  }
+  const { auth, api } = loaded
+  const current = auth.currentUser
+  if (!current) return { status: 'error', message: plainAuthError(undefined) }
+
+  const usesGoogle = current.providerData.some((provider) => provider.providerId === 'google.com')
+  if (usesGoogle) {
+    try {
+      await api.reauthenticateWithPopup(current, new api.GoogleAuthProvider())
+      return { status: 'done' }
+    } catch (error) {
+      const code = errorCode(error)
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return { status: 'cancelled' }
+      }
+      return { status: 'error', message: plainAuthError(code) }
+    }
+  }
+
+  if (!current.email) return { status: 'error', message: plainAuthError(undefined) }
+  const sent = await sendEmailLink(current.email)
+  if (!sent.ok) return { status: 'error', message: sent.message }
+  return { status: 'link-sent' }
 }
 
 export function onUser(callback: (user: AccountUser | null) => void): () => void {
