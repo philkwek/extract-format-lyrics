@@ -400,9 +400,9 @@ html.dark body {
 .ui-status--warning { color: #92400e; background: rgba(245, 158, 11, 0.09); border-color: rgba(245, 158, 11, 0.24); }
 .ui-status--error { color: #b42323; background: rgba(220, 38, 38, 0.08); border-color: rgba(220, 38, 38, 0.22); }
 
-/* A banner that floats over the page is a mostly solid, blurred surface, so lyrics stay unread behind it. */
+/* A banner that floats over the page is a blurred surface with a faint accent tint, so lyrics stay unread behind it. */
 .ui-status--floating {
-  background: color-mix(in srgb, var(--ui-surface-raised) 82%, transparent);
+  background: color-mix(in srgb, color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface-raised)) 84%, transparent);
   backdrop-filter: blur(20px) saturate(160%);
   border-color: var(--ui-border-strong);
   box-shadow: var(--ui-shadow-lg);
@@ -414,7 +414,7 @@ html.dark body {
 /* The floating banner's text is normal body text, not a tinted tone, so dark mode stays white. */
 .dark .ui-status--floating {
   color: var(--ui-text);
-  background: color-mix(in srgb, var(--ui-surface-raised) 82%, transparent);
+  background: color-mix(in srgb, color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface-raised)) 84%, transparent);
   border-color: var(--ui-border-strong);
 }
 
