@@ -66,7 +66,11 @@ describe('AccountMenu', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(screen.getByRole('dialog').className).toContain('ui-dialog--sm')
-    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeTruthy()
+    const googleButton = screen.getByRole('button', { name: 'Continue with Google' })
+    const emailButton = screen.getByRole('button', { name: 'Send sign-in link' })
+    expect(emailButton.compareDocumentPosition(googleButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
     expect(screen.getByLabelText('Email address')).toBeTruthy()
 
     await userEvent.type(screen.getByLabelText('Email address'), 'phil@example.com')
