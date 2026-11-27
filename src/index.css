@@ -389,6 +389,7 @@ html.dark body {
   padding: 0.75rem 0.85rem;
   font-size: 0.78rem;
   line-height: 1.45;
+  backdrop-filter: blur(12px) saturate(140%);
 }
 
 .ui-status__message { display: flex; flex: 1 1 15rem; min-width: 0; align-items: center; gap: 0.65rem; }
@@ -399,9 +400,10 @@ html.dark body {
 .ui-status--warning { color: #92400e; background: rgba(245, 158, 11, 0.09); border-color: rgba(245, 158, 11, 0.24); }
 .ui-status--error { color: #b42323; background: rgba(220, 38, 38, 0.08); border-color: rgba(220, 38, 38, 0.22); }
 
-/* A banner that floats over the page keeps a solid surface, so lyrics stay unread behind it. */
+/* A banner that floats over the page is a mostly solid, blurred surface, so lyrics stay unread behind it. */
 .ui-status--floating {
-  background: var(--ui-surface-raised);
+  background: color-mix(in srgb, var(--ui-surface-raised) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
   border-color: var(--ui-border-strong);
   box-shadow: var(--ui-shadow-lg);
 }
@@ -412,6 +414,8 @@ html.dark body {
 /* The floating banner's text is normal body text, not a tinted tone, so dark mode stays white. */
 .dark .ui-status--floating {
   color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-surface-raised) 82%, transparent);
+  border-color: var(--ui-border-strong);
 }
 
 .ui-diff-local {
@@ -551,6 +555,8 @@ html.dark body {
 @media (prefers-reduced-transparency: reduce) {
   .ui-overlay { backdrop-filter: none; background: rgba(15, 18, 18, 0.72); }
   .ui-popover { backdrop-filter: none; background: var(--ui-surface-raised); }
+  .ui-status { backdrop-filter: none; }
+  .ui-status--floating, .dark .ui-status--floating { background: var(--ui-surface-raised); }
 }
 
 @media (prefers-contrast: more) {
