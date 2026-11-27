@@ -87,8 +87,12 @@ describe('PresentationModal', () => {
     ).toBeTruthy()
     expect(screen.getByText('Just like a PowerPoint presentation.')).toBeTruthy()
     expect(screen.getByText('Present on this device')).toBeTruthy()
-    expect(screen.getByText('Drag the new window into your 2nd display.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open in a new tab' })).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Drag the new window into your 2nd display. It automatically presents the lyrics of your currently selected song.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open in a new window' })).toBeTruthy()
     expect(screen.getByText('Present from a different laptop')).toBeTruthy()
     expect(screen.getByText('Copy the link and open it on your 2nd device.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
@@ -137,12 +141,16 @@ describe('PresentationModal', () => {
     render(<PresentationModal session={session} songsData={songsData} isOpen onClose={vi.fn()} />)
 
     const button = screen.getByRole('button', {
-      name: 'Open in a new tab',
+      name: 'Open in a new window',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
 
-    expect(windowOpen).toHaveBeenCalledWith('https://example.test/present/pub-id-123', '_blank')
+    expect(windowOpen).toHaveBeenCalledWith(
+      'https://example.test/present/pub-id-123',
+      '_blank',
+      'popup,width=1280,height=720',
+    )
   })
 
   it('opens the presenter window after publishing without a link', async () => {
@@ -158,13 +166,13 @@ describe('PresentationModal', () => {
     render(<PresentationModal session={session} songsData={songsData} isOpen onClose={vi.fn()} />)
 
     const button = screen.getByRole('button', {
-      name: 'Open in a new tab',
+      name: 'Open in a new window',
     }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
 
     await waitFor(() => expect(opened.location.href).toBe('https://example.test/present/pub-new'))
-    expect(windowOpen).toHaveBeenNthCalledWith(1, '', '_blank')
+    expect(windowOpen).toHaveBeenNthCalledWith(1, '', '_blank', 'popup,width=1280,height=720')
     expect(opened.close).not.toHaveBeenCalled()
   })
 

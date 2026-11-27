@@ -378,7 +378,7 @@ describe('SessionPage full screen mode', () => {
     ).toBeTruthy()
     expect(screen.getByText('Just like a PowerPoint presentation.')).toBeTruthy()
     expect(screen.getByText('Present on this device')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open in a new tab' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open in a new window' })).toBeTruthy()
     expect(screen.getByText('Present from a different laptop')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
   })

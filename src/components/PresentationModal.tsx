@@ -47,12 +47,13 @@ export default function PresentationModal({
 
   const handleOpenPresenter = async () => {
     setError(null)
+    const features = 'popup,width=1280,height=720'
     if (isPublished && publicationId) {
-      window.open(presenterUrl(publicationId), '_blank')
+      window.open(presenterUrl(publicationId), '_blank', features)
       return
     }
     // Opened before publishing so the click still counts as a user gesture.
-    const win = window.open('', '_blank')
+    const win = window.open('', '_blank', features)
     const result = await publish('Failed to publish lyrics')
     if (!result) {
       win?.close()
@@ -60,7 +61,7 @@ export default function PresentationModal({
     }
     const url = presenterUrl(result.id)
     if (win) win.location.href = url
-    else window.open(url, '_blank')
+    else window.open(url, '_blank', features)
   }
 
   return (
@@ -85,7 +86,7 @@ export default function PresentationModal({
             />
             <p className="text-ui-text text-sm font-bold">Present on this device</p>
             <p className="text-ui-text-muted mt-1 flex-1 text-xs leading-5">
-              Drag the new window into your 2nd display.
+              Drag the new window into your 2nd display. It automatically presents the lyrics of your currently selected song.
             </p>
             <Button
               variant="primary"
@@ -93,7 +94,7 @@ export default function PresentationModal({
               onClick={handleOpenPresenter}
               disabled={isSaving || !initialized}
             >
-              Open in a new tab
+              Open in a new window
             </Button>
           </div>
 
