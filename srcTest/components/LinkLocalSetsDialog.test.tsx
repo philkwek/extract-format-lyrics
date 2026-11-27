@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import LinkLocalSetsDialog from '../../src/components/LinkLocalSetsDialog'
 
 const sync = vi.hoisted(() => {
@@ -33,6 +33,9 @@ const sync = vi.hoisted(() => {
     },
     setSets: (unlinkedSets: Array<{ id: string; name: string }>) => {
       publish({ ...state, unlinkedSets })
+    },
+    setSignedIn: (signedIn: boolean) => {
+      publish({ ...state, signedIn })
     },
     reset: () => {
       state = {
@@ -184,5 +187,25 @@ describe('LinkLocalSetsDialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(sync.linkLocalSets).not.toHaveBeenCalled()
     expect(sync.removeUnlinkedSets).not.toHaveBeenCalled()
+  })
+
+  it('opens again after signing out and signing back in', async () => {
+    sync.setSets(sets)
+    renderDialog()
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    act(() => {
+      sync.setSignedIn(false)
+      sync.setSets([])
+    })
+    act(() => {
+      sync.setSignedIn(true)
+      sync.setSets(sets)
+    })
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })

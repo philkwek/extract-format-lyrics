@@ -1,12 +1,25 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '../src/App'
 
 const mockState = vi.hoisted(() => ({ throwOnSession: false }))
+const syncStateMock = vi.hoisted(() => ({
+  value: {
+    signedIn: false,
+    unlinkedSets: [] as Array<{ id: string; name: string }>,
+    pendingRemote: new Set<string>(),
+    deletedElsewhere: new Set<string>(),
+    conflicts: new Map<string, { diffs: Array<{ label: string; local: string; remote: string }> }>(),
+  },
+}))
 const authModule = vi.hoisted(() => ({ loaded: false }))
+
+vi.mock('../src/lib/useSyncState', () => ({
+  useSyncState: () => syncStateMock.value,
+}))
 
 vi.mock('firebase/app', () => ({
   getApps: () => [{}],
@@ -52,6 +65,13 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
   mockState.throwOnSession = false
+  syncStateMock.value = {
+    signedIn: false,
+    unlinkedSets: [],
+    pendingRemote: new Set(),
+    deletedElsewhere: new Set(),
+    conflicts: new Map(),
+  }
   localStorage.clear()
 })
 
@@ -210,5 +230,31 @@ describe('Account entry', () => {
       </MemoryRouter>,
     )
     expect(screen.getByText('Sign In Page Content')).toBeTruthy()
+  })
+
+  it('keeps the dismissed link-local-sets prompt closed when toggling full screen', async () => {
+    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
+    syncStateMock.value = {
+      signedIn: true,
+      unlinkedSets: [{ id: 's1', name: 'Demo Set' }],
+      pendingRemote: new Set(),
+      deletedElsewhere: new Set(),
+      conflicts: new Map(),
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/session/test-id']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide chrome' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show chrome' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

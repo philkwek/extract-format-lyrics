@@ -97,7 +97,6 @@ export function AppShell() {
                 </NavLink>
                 <ThemeToggle compact />
                 {accountsEnabled() && <AccountMenu />}
-                {accountsEnabled() && <LinkLocalSetsDialog />}
               </nav>
             </div>
           </header>
@@ -160,6 +159,7 @@ export function AppShell() {
           </footer>
         )}
         <UpdateBanner open={updateAvailable} onReload={reload} onDismiss={dismiss} />
+        {accountsEnabled() && !isLyricsView && !isPresentView && <LinkLocalSetsDialog />}
       </div>
     </ChromeVisibilityContext.Provider>
   )

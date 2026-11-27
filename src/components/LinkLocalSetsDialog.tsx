@@ -18,6 +18,17 @@ export default function LinkLocalSetsDialog() {
   const [busy, setBusy] = useState<'add' | 'remove' | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [keptLocal, setKeptLocal] = useState<number | null>(null)
+  const [prevSignedIn, setPrevSignedIn] = useState(syncState.signedIn)
+
+  if (prevSignedIn !== syncState.signedIn) {
+    setPrevSignedIn(syncState.signedIn)
+    if (!syncState.signedIn) {
+      setDismissed(false)
+      setConfirming(false)
+      setNotice(null)
+      setKeptLocal(null)
+    }
+  }
 
   const sets = syncState.unlinkedSets
   const isOpen = syncState.signedIn && !dismissed && (sets.length > 0 || keptLocal !== null)
