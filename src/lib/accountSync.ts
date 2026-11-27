@@ -1341,7 +1341,9 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     let keptLocal = 0
 
     try {
-      for (const target of targets) {
+      for (let index = 0; index < targets.length; index += 1) {
+        const target = targets[index]
+        const remaining = targets.length - index
         if (user?.uid !== uid) throw new AccountOfflineError()
         const session = await deps.store.getSession(target.id)
         if (!session || session.liveSourceId || session.accountUid === uid) {
@@ -1350,7 +1352,8 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
           }
           continue
         }
-        const exists = await setExists(uid, target.id)
+        const exists =
+          liveCount + remaining > ACCOUNT_MAX_SETS ? await setExists(uid, target.id) : false
         if (user?.uid !== uid) throw new AccountOfflineError()
         if (!exists && liveCount >= ACCOUNT_MAX_SETS) {
           skipped.add(target.id)

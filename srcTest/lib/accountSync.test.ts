@@ -2078,4 +2078,24 @@ describe('first sign-in link prompt', () => {
     expect(await h.store.getSession(second.id)).not.toBeNull()
     expect(await h.store.getSession(first.id)).toBeNull()
   })
+
+  it('skips per-set existence checks when all local sets fit below the cap', async () => {
+    const h = createHarness()
+    h.cache.songs.set(song('a').sourceUrl, song('a'))
+    h.cache.songs.set(song('b').sourceUrl, song('b'))
+    await seedSession(h.store, [item('a')], 'Demo Song A', { accountUid: undefined })
+    await seedSession(h.store, [item('b')], 'Demo Song B', { accountUid: undefined })
+    const transactSpy = vi.spyOn(h.fire, 'transactSet')
+
+    const engine = h.startEngine()
+    await h.signIn()
+
+    const result = await engine.linkLocalSets()
+
+    expect(result).toEqual({ added: 2, keptLocal: 0 })
+    expect(transactSpy).not.toHaveBeenCalled()
+
+    await advance(engine)
+    expect(h.fire.meta.get(USER)?.setCount).toBe(2)
+  })
 })
