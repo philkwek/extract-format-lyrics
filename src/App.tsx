@@ -94,7 +94,7 @@ export function AppShell() {
                   <Search size={15} />
                   <span className="hidden sm:inline">Find a song</span>
                 </NavLink>
-                <ThemeToggle />
+                <ThemeToggle compact />
                 {accountsEnabled() && <AccountMenu />}
               </nav>
             </div>

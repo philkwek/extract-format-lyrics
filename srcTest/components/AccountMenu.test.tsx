@@ -94,7 +94,9 @@ describe('AccountMenu', () => {
     setSyncStatus('offline')
     render(<AccountMenu />)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'phil@example.com' }))
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Account, signed in as phil@example.com' }),
+    )
 
     expect(screen.getByText('Offline - will sync later')).toBeTruthy()
     expect(

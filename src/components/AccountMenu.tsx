@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { CircleUserRound } from 'lucide-react'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import { onUser, sendEmailLink, signInWithGoogle, signOut, type AccountUser } from '../lib/auth'
@@ -66,15 +67,21 @@ export default function AccountMenu() {
 
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={openMenu}>
-        {user ? (
-          <span className="block max-w-[5.5rem] truncate sm:max-w-[14rem]">
-            {user.email ?? 'Account'}
-          </span>
-        ) : (
-          'Sign in'
-        )}
-      </Button>
+      {user ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={`Account, signed in as ${user.email ?? 'you'}`}
+          icon={<CircleUserRound size={15} className="md:hidden" />}
+          onClick={openMenu}
+        >
+          <span className="hidden max-w-[14rem] truncate md:block">{user.email ?? 'Account'}</span>
+        </Button>
+      ) : (
+        <Button variant="secondary" size="sm" onClick={openMenu}>
+          Sign in
+        </Button>
+      )}
       {createPortal(
         <OverlayDialog
           isOpen={open}
