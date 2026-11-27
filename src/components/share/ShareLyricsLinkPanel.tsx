@@ -45,6 +45,8 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
     }
   }
 
+  const hasLink = Boolean(isPublished && shareUrl)
+
   return (
     <>
       <section className="space-y-3">
@@ -56,30 +58,31 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
         </div>
 
         <div className="space-y-2">
-          {isPublished && shareUrl ? (
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Link2
-                  size={15}
-                  className="text-ui-text-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                  aria-hidden="true"
-                />
-                <input
-                  type="text"
-                  readOnly
-                  aria-label="Lyrics link"
-                  value={shareUrl.replace(/^https?:\/\//, '')}
-                  className="ui-field truncate py-2 pr-3 pl-9 font-mono text-xs select-all"
-                />
-              </div>
-              <IconButton
-                variant="secondary"
-                label="Preview"
-                onClick={handleOpenPreview}
-                disabled={isSaving}
-              >
-                <Eye size={16} />
-              </IconButton>
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Link2
+                size={15}
+                className="text-ui-text-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                aria-hidden="true"
+              />
+              <input
+                type="text"
+                readOnly
+                aria-label="Lyrics link"
+                value={hasLink && shareUrl ? shareUrl.replace(/^https?:\/\//, '') : ''}
+                placeholder="Click Create link to get your link"
+                className={`ui-field truncate py-2 pr-3 pl-9 font-mono text-xs ${hasLink ? 'select-all' : ''}`}
+              />
+            </div>
+            <IconButton
+              variant="secondary"
+              label="Preview"
+              onClick={handleOpenPreview}
+              disabled={isSaving}
+            >
+              <Eye size={16} />
+            </IconButton>
+            {hasLink ? (
               <Button
                 variant="primary"
                 className="shrink-0"
@@ -89,19 +92,18 @@ export default function ShareLyricsLinkPanel({ session, songsData }: ShareLyrics
               >
                 {copied ? 'Copied' : 'Copy'}
               </Button>
-            </div>
-          ) : (
-            <div>
+            ) : (
               <Button
                 variant="primary"
+                className="shrink-0"
                 onClick={() => publish('Failed to publish lyrics')}
                 loading={isSaving}
                 disabled={!initialized}
               >
                 Create link
               </Button>
-            </div>
-          )}
+            )}
+          </div>
 
           <p className="text-ui-text-muted text-xs leading-5">
             {isPublished && expiresAt

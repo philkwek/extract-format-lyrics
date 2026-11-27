@@ -101,18 +101,21 @@ describe('ShareLyricsLinkPanel', () => {
     expect(mocks.ensureLyricsFresh).toHaveBeenCalledTimes(1)
   })
 
-  it('shows Create link and no shared actions when there is no publication', async () => {
+  it('shows Create link, placeholder input and Preview when there is no publication', async () => {
     mocks.getLyricsPublicationIdentity.mockResolvedValue(null)
 
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     await findReadyCreateLink()
+    const input = screen.getByRole('textbox', { name: 'Lyrics link' }) as HTMLInputElement
+    expect(input.value).toBe('')
+    expect(input.placeholder).toBe('Click Create link to get your link')
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
     expect(
       screen.getByText('Link automatically updates when you add or remove songs.'),
     ).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
   })
 
   it('creates a link and shows Copy, Preview and the expiry date', async () => {
@@ -188,8 +191,10 @@ describe('ShareLyricsLinkPanel', () => {
     render(<ShareLyricsLinkPanel session={session} songsData={songsData} />)
 
     await findReadyCreateLink()
+    const input = screen.getByRole('textbox', { name: 'Lyrics link' }) as HTMLInputElement
+    expect(input.value).toBe('')
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull()
     expect(screen.queryByRole('switch')).toBeNull()
   })
 
