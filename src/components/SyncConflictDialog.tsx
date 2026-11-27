@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { resolveConflict } from '../lib/accountSync'
+import type { ClashDiff } from '../lib/setMerge'
 import OverlayDialog from './ui/OverlayDialog'
 import { Button, StatusBanner } from './ui'
 
@@ -8,6 +9,7 @@ export interface SyncConflictDialogProps {
   isOpen: boolean
   sessionId: string
   clashes: string[]
+  diffs?: ClashDiff[]
   onClose: () => void
 }
 
@@ -15,6 +17,7 @@ export default function SyncConflictDialog({
   isOpen,
   sessionId,
   clashes,
+  diffs,
   onClose,
 }: SyncConflictDialogProps) {
   const [choice, setChoice] = useState<'keep-local' | 'use-remote' | null>(null)
@@ -34,6 +37,13 @@ export default function SyncConflictDialog({
   }
 
   const uniqueClashes = [...new Set(clashes)]
+  const seenDiffs = new Set<string>()
+  const uniqueDiffs = (diffs ?? []).filter((diff) => {
+    const key = `${diff.label}|${diff.local}|${diff.remote}`
+    if (seenDiffs.has(key)) return false
+    seenDiffs.add(key)
+    return true
+  })
 
   return createPortal(
     <OverlayDialog
@@ -49,12 +59,36 @@ export default function SyncConflictDialog({
       <p className="text-ui-text text-sm">
         This set changed in two places. Pick one version; the other is replaced.
       </p>
-      {uniqueClashes.length > 0 && (
-        <ul className="text-ui-text-muted mt-3 list-disc space-y-1 pl-5 text-sm">
-          {uniqueClashes.map((clash, index) => (
-            <li key={`${clash}-${index}`}>{clash}</li>
+      {uniqueDiffs.length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {uniqueDiffs.map((diff) => (
+            <div key={`${diff.label}|${diff.local}|${diff.remote}`}>
+              <h3 className="text-ui-text mb-1.5 text-sm font-semibold">{diff.label}</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="ui-diff-local rounded-xl px-3 py-2">
+                  <p className="text-[11px] font-medium opacity-75">This device</p>
+                  <p className="mt-0.5 text-sm font-semibold break-words whitespace-pre-line">
+                    {diff.local}
+                  </p>
+                </div>
+                <div className="ui-diff-remote rounded-xl px-3 py-2">
+                  <p className="text-[11px] font-medium opacity-75">Cloud version</p>
+                  <p className="mt-0.5 text-sm font-semibold break-words whitespace-pre-line">
+                    {diff.remote}
+                  </p>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
+      ) : (
+        uniqueClashes.length > 0 && (
+          <ul className="text-ui-text-muted mt-3 list-disc space-y-1 pl-5 text-sm">
+            {uniqueClashes.map((clash, index) => (
+              <li key={`${clash}-${index}`}>{clash}</li>
+            ))}
+          </ul>
+        )
       )}
       {error && (
         <StatusBanner tone="error" className="mt-3">
@@ -64,6 +98,7 @@ export default function SyncConflictDialog({
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
+          className="ui-button--diff-local"
           disabled={choice !== null}
           loading={choice === 'keep-local'}
           onClick={() => void choose('keep-local')}
@@ -71,7 +106,8 @@ export default function SyncConflictDialog({
           Keep this device
         </Button>
         <Button
-          variant="primary"
+          variant="secondary"
+          className="ui-button--diff-remote"
           disabled={choice !== null}
           loading={choice === 'use-remote'}
           onClick={() => void choose('use-remote')}

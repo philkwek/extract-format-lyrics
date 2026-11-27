@@ -33,18 +33,49 @@ const clashes = [
   'Both this device and the cloud changed the song order.',
 ]
 
-function renderDialog(onClose = vi.fn()) {
-  render(<SyncConflictDialog isOpen sessionId="set-1" clashes={clashes} onClose={onClose} />)
+const diffs = [
+  { label: 'Demo Song A · Chosen key', local: 'G', remote: 'A' },
+  { label: 'Song order', local: 'Reordered', remote: 'Reordered' },
+]
+
+function renderDialog(onClose = vi.fn(), withDiffs = true) {
+  render(
+    <SyncConflictDialog
+      isOpen
+      sessionId="set-1"
+      clashes={clashes}
+      diffs={withDiffs ? diffs : undefined}
+      onClose={onClose}
+    />,
+  )
   return onClose
 }
 
 describe('SyncConflictDialog', () => {
-  it('lists what clashed', () => {
+  it('shows a left-right comparison with green local and red cloud cards', () => {
     renderDialog()
     expect(screen.getByRole('heading', { name: 'Choose which version to keep' })).toBeTruthy()
     expect(
       screen.getByText('This set changed in two places. Pick one version; the other is replaced.'),
     ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Demo Song A · Chosen key' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Song order' })).toBeTruthy()
+    const localCard = screen.getByText('G').closest('div')!
+    const remoteCard = screen.getByText('A').closest('div')!
+    expect(localCard.className).toContain('ui-diff-local')
+    expect(localCard.textContent).toContain('This device')
+    expect(remoteCard.className).toContain('ui-diff-remote')
+    expect(remoteCard.textContent).toContain('Cloud version')
+    expect(screen.getByRole('button', { name: 'Keep this device' }).className).toContain(
+      'ui-button--diff-local',
+    )
+    expect(screen.getByRole('button', { name: 'Use cloud version' }).className).toContain(
+      'ui-button--diff-remote',
+    )
+  })
+
+  it('falls back to clash lines when diffs are omitted', () => {
+    renderDialog(vi.fn(), false)
     for (const clash of clashes) expect(screen.getByText(clash)).toBeTruthy()
   })
 
@@ -80,16 +111,17 @@ describe('SyncConflictDialog', () => {
     expect((cloudBtn as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('deduplicates repeated clash lines', () => {
+  it('deduplicates repeated diffs and clash lines', () => {
     render(
       <SyncConflictDialog
         isOpen
         sessionId="set-1"
         clashes={[clashes[0], clashes[0]]}
+        diffs={[diffs[0], diffs[0]]}
         onClose={vi.fn()}
       />,
     )
-    expect(screen.getAllByText(clashes[0])).toHaveLength(1)
+    expect(screen.getAllByText('Demo Song A · Chosen key')).toHaveLength(1)
   })
 
   it('says in plain words when the choice fails and keeps the dialog open', async () => {

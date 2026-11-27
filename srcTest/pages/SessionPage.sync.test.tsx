@@ -312,7 +312,13 @@ describe('SessionPage account sync banners', () => {
     sync.set({
       ...sync.get(),
       conflicts: new Map([
-        ['session-1', { clashes: ['Demo Song A key: G on this device vs A in the cloud.'] }],
+        [
+          'session-1',
+          {
+            clashes: ['Demo Song A key: G on this device vs A in the cloud.'],
+            diffs: [{ label: 'Demo Song A · Chosen key', local: 'G', remote: 'A' }],
+          },
+        ],
       ]),
     })
     renderPage()
@@ -325,7 +331,9 @@ describe('SessionPage account sync banners', () => {
     expect(
       await screen.findByRole('heading', { name: 'Choose which version to keep' }),
     ).toBeTruthy()
-    expect(screen.getByText('Demo Song A key: G on this device vs A in the cloud.')).toBeTruthy()
+    expect(screen.getByText('Demo Song A · Chosen key')).toBeTruthy()
+    expect(screen.getByText('This device')).toBeTruthy()
+    expect(screen.getByText('Cloud version')).toBeTruthy()
   })
 
   it('shows the deleted banner first when more than one state applies', async () => {
