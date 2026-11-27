@@ -1,16 +1,58 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '../src/App'
 
 const mockState = vi.hoisted(() => ({ throwOnSession: false }))
+const authModule = vi.hoisted(() => ({ loaded: false }))
+
+vi.mock('firebase/app', () => ({
+  getApps: () => [{}],
+  initializeApp: () => ({}),
+}))
+
+vi.mock('firebase/auth', () => {
+  authModule.loaded = true
+  return {
+    GoogleAuthProvider: class {},
+    getAuth: () => ({}),
+    connectAuthEmulator: vi.fn(),
+    getRedirectResult: async () => null,
+    onAuthStateChanged: () => () => {},
+    signInWithPopup: vi.fn(),
+    signInWithRedirect: vi.fn(),
+    sendSignInLinkToEmail: vi.fn(),
+    isSignInWithEmailLink: () => false,
+    signInWithEmailLink: vi.fn(),
+    signOut: vi.fn(),
+  }
+})
+
+beforeAll(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   mockState.throwOnSession = false
+  localStorage.clear()
 })
 
 vi.mock('../src/pages/HomePage', () => ({
@@ -44,6 +86,9 @@ vi.mock('../src/pages/ShareImportPage', () => ({
 }))
 vi.mock('../src/pages/LyricsViewerPage', () => ({
   default: () => <div>Lyrics Viewer Page Content</div>,
+}))
+vi.mock('../src/pages/SignInPage', () => ({
+  default: () => <div>Sign In Page Content</div>,
 }))
 
 describe('App navigation visibility', () => {
@@ -116,5 +161,54 @@ describe('App navigation visibility', () => {
 
     expect(screen.getByText('Search Page Content')).toBeTruthy()
     expect(screen.queryByText('This page could not be displayed')).toBeNull()
+  })
+})
+
+describe('Account entry', () => {
+  it('shows no sign in button and never loads firebase auth when accounts are off', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
+    expect(authModule.loaded).toBe(false)
+  })
+
+  it('shows the sign in button and dialog when accounts are on', async () => {
+    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Send sign-in link' })).toBeTruthy()
+    expect(screen.getByLabelText('Email address')).toBeTruthy()
+  })
+
+  it('adds the sign in route only when accounts are on', () => {
+    const off = render(
+      <MemoryRouter initialEntries={['/sign-in']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByText('Sign In Page Content')).toBeNull()
+    expect(screen.getByText('Page not found')).toBeTruthy()
+    off.unmount()
+
+    vi.stubEnv('VITE_ACCOUNTS_ENABLED', 'true')
+
+    render(
+      <MemoryRouter initialEntries={['/sign-in']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Sign In Page Content')).toBeTruthy()
   })
 })
