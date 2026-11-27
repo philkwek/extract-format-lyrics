@@ -65,6 +65,7 @@ describe('AccountMenu', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
+    expect(screen.getByRole('dialog').className).toContain('ui-dialog--sm')
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeTruthy()
     expect(screen.getByLabelText('Email address')).toBeTruthy()
 

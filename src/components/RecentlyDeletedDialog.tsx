@@ -139,6 +139,7 @@ export default function RecentlyDeletedDialog({ isOpen, onClose }: RecentlyDelet
       onClose={close}
       title="Recently deleted"
       description="Deleted sets stay here for 30 days."
+      size="sm"
       footer={
         <Button variant="ghost" onClick={close}>
           Close

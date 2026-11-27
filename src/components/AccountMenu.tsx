@@ -88,6 +88,7 @@ export default function AccountMenu() {
           onClose={() => setOpen(false)}
           title={user ? 'Account' : 'Sign in'}
           description={user ? undefined : 'Sign in to keep your sets on every device.'}
+          size="sm"
           footer={
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Close

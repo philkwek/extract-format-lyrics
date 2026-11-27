@@ -53,6 +53,7 @@ describe('RecentlyDeletedDialog', () => {
     engine.listRecentlyDeleted.mockResolvedValue(rows)
     renderDialog()
 
+    expect(screen.getByRole('dialog').className).toContain('ui-dialog--sm')
     expect(screen.getByRole('heading', { name: 'Recently deleted' })).toBeTruthy()
     expect(screen.getByText('Deleted sets stay here for 30 days.')).toBeTruthy()
 
