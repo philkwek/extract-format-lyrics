@@ -9,26 +9,36 @@ export interface SyncedSet {
 }
 
 export type Clash =
-  | { kind: 'name' }
+  | { kind: 'name'; local: string; remote: string }
   | {
       kind: 'field'
       entryId: string
       title: string
-      field: 'targetKey' | 'padKeyMode' | 'customPadKey' | 'simplified' | 'song'
+      field: 'targetKey' | 'pad' | 'simplified' | 'song'
+      local?: string
+      remote?: string
     }
-  | { kind: 'sections'; entryId: string; title: string; simplified: boolean }
-  | { kind: 'removed-edited'; entryId: string; title: string }
+  | {
+      kind: 'sections'
+      entryId: string
+      title: string
+      simplified: boolean
+      localSummary?: string
+      remoteSummary?: string
+    }
+  | { kind: 'removed-edited'; entryId: string; title: string; removedOn: 'local' | 'remote' }
   | { kind: 'order' }
 
 export type MergeResult =
   | { ok: true; merged: SyncedSet }
   | { ok: false; clashes: Clash[]; local: SyncedSet; remote: SyncedSet }
 
-type SimpleField = 'targetKey' | 'padKeyMode' | 'customPadKey' | 'simplified'
+type SimpleField = 'targetKey' | 'simplified'
+type PadUnit = [SyncedEntry['padKeyMode'], SyncedEntry['customPadKey']]
 type SongUnit = [string | undefined, string | undefined, string | undefined, string | undefined]
 type SectionsUnit = [SyncedEntry['customSections'], SyncedEntry['customFlow']]
 
-const SIMPLE_FIELDS: SimpleField[] = ['targetKey', 'padKeyMode', 'customPadKey', 'simplified']
+const SIMPLE_FIELDS: SimpleField[] = ['targetKey', 'simplified']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -55,6 +65,10 @@ export function sameSyncedSet(a: SyncedSet, b: SyncedSet): boolean {
   return deepEqual(a, b)
 }
 
+function padUnit(entry: SyncedEntry | undefined): PadUnit {
+  return [entry?.padKeyMode, entry?.customPadKey]
+}
+
 function songUnit(entry: SyncedEntry | undefined): SongUnit {
   return [entry?.url, entry?.title, entry?.artist, entry?.contentHash]
 }
@@ -63,6 +77,31 @@ function sectionsUnit(entry: SyncedEntry | undefined, simplified: boolean): Sect
   return simplified
     ? [entry?.customSimplifiedSections, entry?.customSimplifiedFlow]
     : [entry?.customSections, entry?.customFlow]
+}
+
+function formatPad(entry: SyncedEntry): string {
+  return entry.padKeyMode === 'custom' ? (entry.customPadKey ?? 'custom') : 'match key'
+}
+
+function formatFieldValue(field: SimpleField, entry: SyncedEntry): string {
+  if (field === 'targetKey') return entry.targetKey ?? 'original'
+  return entry.simplified ? 'on' : 'off'
+}
+
+function changedSectionLabels(
+  baseSections: SyncedEntry['customSections'],
+  sideSections: SyncedEntry['customSections'],
+): string | undefined {
+  if (!baseSections || !sideSections) return undefined
+  const labels: string[] = []
+  const max = Math.max(baseSections.length, sideSections.length)
+  for (let i = 0; i < max; i += 1) {
+    if (deepEqual(baseSections[i], sideSections[i])) continue
+    const label = sideSections[i]?.label ?? baseSections[i]?.label
+    if (label && !labels.includes(label)) labels.push(label)
+    if (labels.length === 3) break
+  }
+  return labels.length > 0 ? labels.join(', ') : undefined
 }
 
 function mergeValue<T>(
@@ -81,6 +120,7 @@ function mergeValue<T>(
 function sameEntry(a: SyncedEntry, b: SyncedEntry): boolean {
   return (
     SIMPLE_FIELDS.every((field) => Object.is(a[field], b[field])) &&
+    deepEqual(padUnit(a), padUnit(b)) &&
     deepEqual(songUnit(a), songUnit(b)) &&
     deepEqual(sectionsUnit(a, false), sectionsUnit(b, false)) &&
     deepEqual(sectionsUnit(a, true), sectionsUnit(b, true))
@@ -107,8 +147,34 @@ function mergeEntry(
   const fields = result as Record<SimpleField, unknown>
   for (const field of SIMPLE_FIELDS) {
     const merged = mergeValue<unknown>(base?.[field], local[field], remote[field])
-    if (merged.clash) clashes.push({ kind: 'field', entryId, title, field })
-    else if (merged.value !== undefined) fields[field] = merged.value
+    if (merged.clash) {
+      clashes.push({
+        kind: 'field',
+        entryId,
+        title,
+        field,
+        local: formatFieldValue(field, local),
+        remote: formatFieldValue(field, remote),
+      })
+    } else if (merged.value !== undefined) {
+      fields[field] = merged.value
+    }
+  }
+
+  const pad = mergeValue(padUnit(base), padUnit(local), padUnit(remote), deepEqual)
+  if (pad.clash) {
+    clashes.push({
+      kind: 'field',
+      entryId,
+      title,
+      field: 'pad',
+      local: formatPad(local),
+      remote: formatPad(remote),
+    })
+  } else if (pad.value) {
+    const [padKeyMode, customPadKey] = pad.value
+    if (padKeyMode !== undefined) result.padKeyMode = padKeyMode
+    if (customPadKey !== undefined) result.customPadKey = customPadKey
   }
 
   const song = mergeValue(songUnit(base), songUnit(local), songUnit(remote), deepEqual)
@@ -123,14 +189,22 @@ function mergeEntry(
   }
 
   for (const simplified of [false, true]) {
-    const merged = mergeValue(
-      sectionsUnit(base, simplified),
-      sectionsUnit(local, simplified),
-      sectionsUnit(remote, simplified),
-      deepEqual,
-    )
+    const baseUnit = sectionsUnit(base, simplified)
+    const localUnit = sectionsUnit(local, simplified)
+    const remoteUnit = sectionsUnit(remote, simplified)
+    const merged = mergeValue(baseUnit, localUnit, remoteUnit, deepEqual)
     if (merged.clash) {
-      clashes.push({ kind: 'sections', entryId, title, simplified })
+      const localSummary = changedSectionLabels(baseUnit[0], localUnit[0])
+      const remoteSummary = changedSectionLabels(baseUnit[0], remoteUnit[0])
+      clashes.push({
+        kind: 'sections',
+        entryId,
+        title,
+        simplified,
+        ...(localSummary && remoteSummary && localSummary !== remoteSummary
+          ? { localSummary, remoteSummary }
+          : {}),
+      })
     } else if (merged.value) {
       const [sections, flow] = merged.value
       if (sections !== undefined) {
@@ -230,7 +304,7 @@ export function mergeSet(base: SyncedSet | null, local: SyncedSet, remote: Synce
   const clashes: Clash[] = []
 
   const name = mergeValue(base?.name, local.name, remote.name)
-  if (name.clash) clashes.push({ kind: 'name' })
+  if (name.clash) clashes.push({ kind: 'name', local: local.name, remote: remote.name })
 
   const baseById = byId(base?.songs ?? [])
   const localById = byId(local.songs)
@@ -259,7 +333,12 @@ export function mergeSet(base: SyncedSet | null, local: SyncedSet, remote: Synce
     if (!localEntry || !remoteEntry) {
       const remaining = localEntry ?? remoteEntry
       if (remaining && !sameEntry(remaining, baseEntry)) {
-        clashes.push({ kind: 'removed-edited', entryId, title: titleOf(remaining) })
+        clashes.push({
+          kind: 'removed-edited',
+          entryId,
+          title: titleOf(remaining),
+          removedOn: !localEntry ? 'local' : 'remote',
+        })
       }
       continue
     }
@@ -300,22 +379,36 @@ export function mergeSet(base: SyncedSet | null, local: SyncedSet, remote: Synce
 }
 
 export function describeClash(clash: Clash): string {
-  if (clash.kind === 'name') return 'Both devices renamed this set.'
-  if (clash.kind === 'order') return 'Both devices changed the song order.'
+  if (clash.kind === 'name') {
+    return `Set name: "${clash.local}" on this device vs "${clash.remote}" in the cloud.`
+  }
+  if (clash.kind === 'order') return 'Both this device and the cloud changed the song order.'
   if (clash.kind === 'removed-edited') {
-    return `${clash.title} was removed on one device and changed on the other.`
+    return clash.removedOn === 'local'
+      ? `${clash.title} was removed on this device, but changed in the cloud.`
+      : `${clash.title} was changed on this device, but removed in the cloud.`
   }
   if (clash.kind === 'sections') {
-    return `Both devices edited the sections of ${clash.title}${
-      clash.simplified ? ' (simplified)' : ''
-    }.`
+    const suffix = clash.simplified ? ' (simplified)' : ''
+    if (clash.localSummary && clash.remoteSummary && clash.localSummary !== clash.remoteSummary) {
+      return `${clash.title} sections${suffix}: ${clash.localSummary} on this device vs ${clash.remoteSummary} in the cloud.`
+    }
+    return `Both this device and the cloud edited the sections of ${clash.title}${suffix}.`
   }
-  if (clash.field === 'targetKey') return `Both devices changed the key of ${clash.title}.`
-  if (clash.field === 'padKeyMode' || clash.field === 'customPadKey') {
-    return `Both devices changed the pad for ${clash.title}.`
+  if (clash.field === 'targetKey') {
+    return `${clash.title} key: ${clash.local ?? 'original'} on this device vs ${
+      clash.remote ?? 'original'
+    } in the cloud.`
+  }
+  if (clash.field === 'pad') {
+    return `${clash.title} pad: ${clash.local ?? 'match key'} on this device vs ${
+      clash.remote ?? 'match key'
+    } in the cloud.`
   }
   if (clash.field === 'simplified') {
-    return `Both devices changed simplified chords for ${clash.title}.`
+    return `${clash.title} simplified chords: ${clash.local ?? 'off'} on this device vs ${
+      clash.remote ?? 'off'
+    } in the cloud.`
   }
-  return `Both devices updated the chart for ${clash.title}.`
+  return `Both this device and the cloud updated the chart for ${clash.title}.`
 }
