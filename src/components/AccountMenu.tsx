@@ -88,6 +88,7 @@ export default function AccountMenu() {
           onClose={() => setOpen(false)}
           title={user ? 'Account' : 'Sign in'}
           description={user ? undefined : 'Sign in to keep your sets on every device.'}
+          size="sm"
           footer={
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Close
@@ -128,19 +129,6 @@ export default function AccountMenu() {
             </div>
           ) : (
             <div className="space-y-4">
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={handleGoogle}
-                loading={busy === 'google'}
-              >
-                Continue with Google
-              </Button>
-              <div className="flex items-center gap-3">
-                <span className="bg-ui-border h-px flex-1" />
-                <span className="text-ui-text-muted text-xs">or</span>
-                <span className="bg-ui-border h-px flex-1" />
-              </div>
               <form className="space-y-2" onSubmit={handleEmail}>
                 <label htmlFor={emailId} className="text-ui-text block text-sm font-medium">
                   Email address
@@ -164,6 +152,19 @@ export default function AccountMenu() {
                   Send sign-in link
                 </Button>
               </form>
+              <div className="flex items-center gap-3">
+                <span className="bg-ui-border h-px flex-1" />
+                <span className="text-ui-text-muted text-xs">or</span>
+                <span className="bg-ui-border h-px flex-1" />
+              </div>
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleGoogle}
+                loading={busy === 'google'}
+              >
+                Continue with Google
+              </Button>
               {linkSent && (
                 <StatusBanner tone="success">Check your email for a sign-in link.</StatusBanner>
               )}

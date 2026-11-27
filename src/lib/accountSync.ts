@@ -28,6 +28,8 @@ export interface SetConflict {
 }
 
 export interface SyncState {
+  /** True while a user is signed in. */
+  signedIn: boolean
   /** Open sets with a newer account version waiting behind **Update set**. */
   pendingRemote: ReadonlySet<string>
   /** Sets deleted on another device while this device had them (open or with unsynced edits). */
@@ -37,9 +39,28 @@ export interface SyncState {
 }
 
 const EMPTY: SyncState = {
+  signedIn: false,
   pendingRemote: new Set(),
   deletedElsewhere: new Set(),
   conflicts: new Map(),
+}
+
+/** Recently deleted is a cloud read, so it needs a connection. Used for the typed failure. */
+export class AccountOfflineError extends Error {
+  constructor() {
+    super('Recently deleted needs a connection.')
+    this.name = 'AccountOfflineError'
+  }
+}
+
+export const RECENTLY_DELETED_DAYS = 30
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export interface DeletedSet {
+  setId: string
+  name: string
+  songCount: number
+  deletedAt: number
 }
 
 export const ACCOUNT_SYNC_DEBOUNCE_MS = 1_500
@@ -77,6 +98,10 @@ export interface AccountFirestore {
     uid: string,
     onChange: (setId: string, snapshot: RemoteSetSnapshot | null) => void,
   ): () => void
+  listDeletedSets(
+    uid: string,
+    since: number,
+  ): Promise<Array<{ setId: string; snapshot: RemoteSetSnapshot }>>
 }
 
 export interface AccountSyncStore {
@@ -171,6 +196,8 @@ export interface AccountSync {
   resolveConflict(setId: string, choice: 'keep-local' | 'use-remote'): Promise<void>
   keepDeletedCopy(setId: string): Promise<string>
   dismissDeleted(setId: string): Promise<void>
+  listRecentlyDeleted(): Promise<DeletedSet[]>
+  restoreDeletedSet(setId: string): Promise<'restored' | 'full' | 'gone'>
 }
 
 function baseKey(setId: string): string {
@@ -268,6 +295,7 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
 
   function publishState(): void {
     state = {
+      signedIn: user !== null,
       pendingRemote: new Set(pendingRemote.keys()),
       deletedElsewhere: new Set(deletedElsewhere),
       conflicts: new Map(
@@ -1201,6 +1229,66 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     await clearSetState(setId)
   }
 
+  function onlineUid(): string {
+    if (!user || !deps.online()) throw new AccountOfflineError()
+    return user.uid
+  }
+
+  async function listRecentlyDeletedNow(): Promise<DeletedSet[]> {
+    const uid = onlineUid()
+    const cutoff = deps.now() - RECENTLY_DELETED_DAYS * DAY_MS
+    const rows = await deps.firestore.listDeletedSets(uid, cutoff)
+    const list: DeletedSet[] = []
+    for (const { setId, snapshot } of rows) {
+      if (snapshot.deletedAt == null || snapshot.deletedAt < cutoff) continue
+      try {
+        list.push({
+          setId,
+          name: parseSynced(snapshot.data).name,
+          songCount: snapshot.songCount,
+          deletedAt: snapshot.deletedAt,
+        })
+      } catch {
+        continue
+      }
+    }
+    return list.sort((a, b) => b.deletedAt - a.deletedAt)
+  }
+
+  async function restoreDeletedSetNow(setId: string): Promise<'restored' | 'full' | 'gone'> {
+    const uid = onlineUid()
+    return deps.withLock(ACCOUNT_SYNC_LOCK, async () => {
+      if (user?.uid !== uid || !deps.online()) throw new AccountOfflineError()
+      const outcome = await deps.firestore.transactSet<'restored' | 'full' | 'gone'>(
+        uid,
+        setId,
+        (current, setCount) => {
+          if (!current || current.deletedAt == null) return { write: null, outcome: 'gone' }
+          if (setCount >= ACCOUNT_MAX_SETS) return { write: null, outcome: 'full' }
+          try {
+            parseSynced(current.data)
+          } catch {
+            return { write: null, outcome: 'gone' }
+          }
+          return {
+            write: {
+              rev: current.rev + 1,
+              data: current.data,
+              songCount: current.songCount,
+              updatedAt: deps.now(),
+            },
+            countDelta: 1,
+            outcome: 'restored',
+          }
+        },
+      )
+      if (outcome === 'restored' && user?.uid === uid && !(await deps.store.getSession(setId))) {
+        await clearSetState(setId)
+      }
+      return outcome
+    })
+  }
+
   async function flush(): Promise<void> {
     for (const setId of [...dirtyTimers.keys()]) clearTimer(setId)
     for (const setId of [...retryTimers.keys()]) clearRetry(setId)
@@ -1249,6 +1337,8 @@ export function createAccountSync(deps: AccountSyncDeps): AccountSync {
     resolveConflict: resolveConflictNow,
     keepDeletedCopy: keepDeletedCopyNow,
     dismissDeleted: dismissDeletedNow,
+    listRecentlyDeleted: listRecentlyDeletedNow,
+    restoreDeletedSet: restoreDeletedSetNow,
   }
 }
 
@@ -1391,6 +1481,27 @@ export function createFirestoreAdapter(): AccountFirestore {
         unsubscribe = undefined
       }
     },
+
+    async listDeletedSets(uid, since) {
+      const fs = await loadFirestore()
+      const sets = fs.collection(fs.db as never, 'users', uid, 'sets')
+      try {
+        const snapshot = await fs.getDocsFromServer(
+          fs.query(
+            sets,
+            fs.where('deletedAt', '>=', fs.Timestamp.fromMillis(since)),
+            fs.orderBy('deletedAt', 'desc'),
+          ),
+        )
+        return snapshot.docs.map((doc) => ({
+          setId: doc.id,
+          snapshot: snapshotFromData(doc.data() as Record<string, unknown>),
+        }))
+      } catch (error) {
+        if (errorCode(error) === 'unavailable') throw new AccountOfflineError()
+        throw error
+      }
+    },
   }
 }
 
@@ -1468,4 +1579,16 @@ export async function keepDeletedCopy(setId: string): Promise<string> {
 /** **Go back** from a set deleted on another device: drop it from this device. */
 export async function dismissDeleted(setId: string): Promise<void> {
   await defaultSync?.dismissDeleted(setId)
+}
+
+/** Sets deleted within the last 30 days, newest first. Needs a connection and a signed-in user. */
+export async function listRecentlyDeleted(): Promise<DeletedSet[]> {
+  if (!defaultSync) throw new AccountOfflineError()
+  return defaultSync.listRecentlyDeleted()
+}
+
+/** Brings a Recently deleted set back into the account. */
+export async function restoreDeletedSet(setId: string): Promise<'restored' | 'full' | 'gone'> {
+  if (!defaultSync) throw new AccountOfflineError()
+  return defaultSync.restoreDeletedSet(setId)
 }

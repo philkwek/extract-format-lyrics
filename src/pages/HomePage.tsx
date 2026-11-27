@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  ArchiveRestore,
   FileText,
   Link2,
   ListMusic,
@@ -34,6 +35,7 @@ import {
   type RecentSharedLyrics,
 } from '../lib/recentLyricsStore'
 import ShareModal from '../components/ShareModal'
+import RecentlyDeletedDialog from '../components/RecentlyDeletedDialog'
 import ImportProgressList from '../components/import/ImportProgressList'
 import PasteUrlForm from '../components/import/PasteUrlForm'
 import SearchForm from '../components/import/SearchForm'
@@ -88,6 +90,12 @@ export default function HomePage() {
   const [currentTime] = useState(() => Date.now())
   const [sharingSession, setSharingSession] = useState<Session | null>(null)
   const [deletingSession, setDeletingSession] = useState<Session | null>(null)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
+  const [prevSignedIn, setPrevSignedIn] = useState(syncState.signedIn)
+  if (prevSignedIn !== syncState.signedIn) {
+    setPrevSignedIn(syncState.signedIn)
+    if (!syncState.signedIn && showRecentlyDeleted) setShowRecentlyDeleted(false)
+  }
   useEffect(() => {
     const refresh = () => {
       void sessionStore.getAllSessions().then(setSessions)
@@ -393,15 +401,29 @@ export default function HomePage() {
               Sessions are saved locally within your browser.
             </p>
           </div>
-          {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
-            <Button
-              variant="danger"
-              size="sm"
-              icon={<Trash2 size={14} />}
-              onClick={handleClearLibrary}
-            >
-              Clear library
-            </Button>
+          {(syncState.signedIn || visibleSessions.length > 0 || recentLyrics.length > 0) && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {syncState.signedIn && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<ArchiveRestore size={14} />}
+                  onClick={() => setShowRecentlyDeleted(true)}
+                >
+                  Show deleted sets
+                </Button>
+              )}
+              {(visibleSessions.length > 0 || recentLyrics.length > 0) && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  onClick={handleClearLibrary}
+                >
+                  Clear library
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -669,6 +691,11 @@ export default function HomePage() {
             : `"${deletingSession?.name}" will be deleted. You can undo for 5 seconds.`}
         </p>
       </OverlayDialog>
+
+      <RecentlyDeletedDialog
+        isOpen={showRecentlyDeleted && syncState.signedIn}
+        onClose={() => setShowRecentlyDeleted(false)}
+      />
 
       <ChangeToast
         note={tray.undoNote ?? undoNote}
