@@ -1,7 +1,12 @@
 export function firebaseConfig() {
-  const { VITE_FIREBASE_API_KEY: apiKey, VITE_FIREBASE_APP_ID: appId } = import.meta.env
+  const {
+    VITE_FIREBASE_API_KEY: apiKey,
+    VITE_FIREBASE_APP_ID: appId,
+    VITE_FIREBASE_AUTH_DOMAIN: authDomain,
+  } = import.meta.env
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
-  return apiKey && appId && projectId ? { apiKey, appId, projectId } : null
+  if (!apiKey || !appId || !projectId) return null
+  return authDomain ? { apiKey, appId, projectId, authDomain } : { apiKey, appId, projectId }
 }
 
 /** Splits a local `host:port` emulator address; anything else means "use the real project". */
