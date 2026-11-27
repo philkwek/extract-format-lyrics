@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleUserRound } from 'lucide-react'
+import { Check, CircleUserRound } from 'lucide-react'
 import { Button, StatusBanner } from './ui'
 import OverlayDialog from './ui/OverlayDialog'
 import {
@@ -181,31 +181,35 @@ export default function AccountMenu() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="min-w-0">
-                  <p className="text-ui-text-muted text-xs font-medium">Signed in as</p>
-                  <p className="text-ui-text mt-0.5 text-sm font-semibold break-all">
-                    {user.email ?? 'Your account'}
-                  </p>
-                </div>
-                <div className="border-ui-border rounded-xl border p-3">
-                  <p className="text-ui-text-muted text-xs font-medium">Sync status</p>
-                  <p role="status" className="text-ui-text mt-0.5 text-sm font-semibold">
+                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                  <div className="min-w-0">
+                    <p className="text-ui-text-muted text-xs font-medium">Signed in as</p>
+                    <p className="text-ui-text mt-0.5 text-sm font-semibold break-all">
+                      {user.email ?? 'Your account'}
+                    </p>
+                  </div>
+                  <p
+                    role="status"
+                    className="text-ui-text-muted flex items-center gap-1.5 pt-0.5 text-sm font-semibold"
+                  >
+                    {status === 'synced' && <Check size={15} aria-hidden="true" />}
                     {STATUS_LABELS[status]}
                   </p>
                 </div>
                 {error && <StatusBanner tone="error">{error}</StatusBanner>}
-                <div className="space-y-2">
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={handleSignOut}
-                    loading={busy === 'sign-out'}
-                  >
+                <div className="flex justify-end">
+                  <Button variant="secondary" onClick={handleSignOut} loading={busy === 'sign-out'}>
                     Sign out
                   </Button>
+                </div>
+                <div className="border-ui-border flex items-center justify-between gap-3 border-t pt-4">
+                  <p className="text-ui-text-muted text-sm">
+                    Removes your synced sets and songs for good.
+                  </p>
                   <Button
                     variant="danger"
-                    className="w-full"
+                    size="sm"
+                    className="shrink-0"
                     onClick={() => {
                       setDeleteError(null)
                       setStep('confirm')
