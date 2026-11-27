@@ -61,6 +61,15 @@ describe('SongSheet wrap width', () => {
   })
 })
 
+describe('SongSheet grid classes', () => {
+  it('keeps the adaptive column class apart from the other grid classes', () => {
+    const { container } = render(<SongSheet sections={sections} columns={3} />)
+    const grid = container.querySelector('.song-sheet-grid')
+    expect(grid?.classList.contains('items-start')).toBe(true)
+    expect(grid?.classList.contains('song-sheet-grid--adaptive')).toBe(true)
+  })
+})
+
 describe('SongSheet title block', () => {
   it('draws the block once, above the first section of column 1', () => {
     mockLayout('120px 120px 120px')

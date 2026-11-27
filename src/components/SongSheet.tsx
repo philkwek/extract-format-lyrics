@@ -644,7 +644,7 @@ export default function SongSheet({
 
       <div
         ref={gridRef}
-        className={`${gridClass}${hasAdaptiveColumns ? 'song-sheet-grid--adaptive' : ''}`}
+        className={`${gridClass}${hasAdaptiveColumns ? ' song-sheet-grid--adaptive' : ''}`}
         style={adaptiveGridStyle}
       >
         {visibleColumnPartitions.map((colItems, colIdx) => (
